@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.7.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.7.0';
-import {escapeHtml as e, downloadText} from '../shared/utils.js?v=0.7.0';
-import {KEY, TYPES, LANES, NOTE_FIELDS, TYPE_PROMPTS, initialState, active, selected, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js?v=0.7.0';
+import {mountShell} from '../shared/shell.js?v=0.8.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.8.0';
+import {escapeHtml as e, downloadText} from '../shared/utils.js?v=0.8.0';
+import {KEY, TYPES, LANES, NOTE_FIELDS, TYPE_PROMPTS, initialState, active, selected, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js?v=0.8.0';
 mountShell({active: 'constraints'});
 const root = document.querySelector('#app'), dialog = document.querySelector('#dialog');
 let history = createHistory(initialState()), timer, toastTimer, dragDestroy, paused = false, recovery = null, saveMessage = 'Saved on this device';

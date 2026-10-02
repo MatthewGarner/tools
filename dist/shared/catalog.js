@@ -163,11 +163,11 @@ export const experiments=[
     "id": "S02",
     "route": "mixer",
     "title": "Possibility mixer",
-    "question": "Explore unusual combinations, then give a promising one a job.",
-    "move": "Keep one ingredient, mix the rest, and develop what catches.",
+    "question": "Combine ingredients, map your concepts, and investigate spaces you have not explored.",
+    "move": "Keep a combination, then move it on the coverage map and review its fit.",
     "art": "mix",
-    "caption": "WHO × HOW × TWIST",
-    "limits": "Define dimensions, combine options, lock an ingredient and vary the rest. Combination counts say nothing about usefulness. Explain what someone would actually do with a promising combination.",
+    "caption": "COMBINE → MAP → DEVELOP",
+    "limits": "Generate and map the same concepts using any two dimensions. Placements are hypotheses about fit; captured ingredients and gap context stay intact. Counts show coverage, not usefulness. Copy earlier Territory work without changing its original.",
     "kind": "scaffold",
     "new": false
   },
@@ -244,7 +244,10 @@ export const experiments=[
     "caption": "NEEDS × MECHANISMS",
     "limits": "Editable axes locate your ideas and expose gaps and concentrations. Empty space might reflect an overlooked assumption or a good reason to stay out; a gap is not evidence of an opportunity.",
     "kind": "scaffold",
-    "new": true
+    "new": true,
+    "status": "merged",
+    "mergedInto": "mixer",
+    "archiveReason": "Territory now maps the same concepts that you generate and develop in Possibility mixer."
   },
   {
     "id": "S09",

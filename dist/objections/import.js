@@ -1,7 +1,7 @@
-import {text,parse,validateSession} from '../creative-kit/state.js?v=0.7.0';
-import {make,design,validate} from './state.js?v=0.7.0';
-import {validate as answersValidate} from '../answers/state.js?v=0.7.0';
-import {validate as disagreementValidate} from '../disagreement/state.js?v=0.7.0';
+import {text,parse,validateSession} from '../creative-kit/state.js?v=0.8.0';
+import {make,design,validate} from './state.js?v=0.8.0';
+import {validate as answersValidate} from '../answers/state.js?v=0.8.0';
+import {validate as disagreementValidate} from '../disagreement/state.js?v=0.8.0';
 const clone=x=>structuredClone(x);
 export const validators={answers:answersValidate,disagreement:disagreementValidate};
 export function migrate(kind,source){
