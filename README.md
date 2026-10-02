@@ -1,6 +1,6 @@
 # Thinking Lab
 
-Four standalone prototypes for Matthew: a team feedback model, a BESS optionality game, a reframing workbench and an editable possibility mixer. The source is separate from the existing tools repository.
+Nine standalone prototypes for Matthew: five models (commitment, BESS optionality, team boundaries, delayed feedback and reliability) and four thinking scaffolds (reframing, possibility mixing, constraints and analogies). The source is separate from the existing tools repository.
 
 Run `npm run serve` and open `http://127.0.0.1:4173/`. All deployable source is in `dist/`, with no build step or dependencies. Run `npm test` for mechanism and state tests. Each experiment has a short README explaining its assumptions.
 
@@ -8,4 +8,4 @@ The brainstorming tools store work locally and export Markdown/JSON. Browser sto
 
 The models are explanatory prototypes, not forecasts or operational decision systems. Their usefulness should be judged by whether the interaction surfaces an interesting question and whether changing an assumption changes the apparent lesson.
 
-Browser verification and delivery findings are recorded in `docs/DELIVERY.md` when complete.
+Browser verification and delivery findings are recorded in `docs/DELIVERY.md` for the first four and `docs/WAVE-2.md` for the five tactile additions.
