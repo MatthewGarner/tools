@@ -198,12 +198,12 @@ export const experiments=[
   {
     "id": "S05",
     "route": "interventions",
-    "title": "Intervention ladder",
-    "question": "Change a step, a handoff, a rule—or the goal that produces the system.",
-    "move": "Move an intervention to another level. Recheck its causal claim.",
-    "art": "ladder",
-    "caption": "STEP → RULE → GOAL",
-    "limits": "Write a causal hypothesis, attach alternatives to specific steps and intervention levels, and choose a small test. Higher levels are not automatically better. Moving a claim prompts review rather than proving a new causal link.",
+    "title": "Intervention workbench",
+    "question": "Which causal relationship would you change, and what would you expect to observe?",
+    "move": "Connect a cause to an effect, then compare two ways to change the relationship.",
+    "art": "causal",
+    "caption": "CLAIM → TEST → LEARN",
+    "limits": "Connect explicit causal hypotheses, state conditions and rival explanations, then compare interventions by predicted observations and bounded tests. Branches preserve their sources. Moving or reviewing a claim does not establish causation.",
     "kind": "scaffold",
     "new": true
   },

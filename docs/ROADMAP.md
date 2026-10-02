@@ -27,7 +27,7 @@ First review point: after retirement, the Predictions correction and the Reliabi
 
 Three Answers, Disagreement, Questions, Territory and Family Tree lose their standalone status only when their useful capabilities and existing work have a functioning home. Consolidation is not permission to delete them first.
 
-**Intervention Ladder (S05) is conditional:** give it one focused pass to make causal relationships central. If it remains mainly a classification exercise, absorb its useful prompts into Reframing. That decision would reduce the active collection to about 16.
+**Intervention Ladder (S05) is retained as Intervention workbench:** its focused pass now connects explicit causal relationships to expected observations, rival explanations and compared tests. The six intervention types remain optional prompts. Reframing explores interpretations; this workbench designs a test of a proposed relationship. The collection stays at 17.
 
 ## Reliability depth pass
 
@@ -51,8 +51,8 @@ Remaining items are planned unless marked otherwise. Priorities guide worthwhile
 | High · Published | Scenes (S09) | Independent person, information and timing variations retain ancestry, contextual fit reviews and a comparison leading to a chosen rehearsal. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#scenes-context-and-intervention-fit). |
 | Medium · Published | Knowledge (M07) | Several coaching periods, finite shared time, temporary absences and editable demand support matched resilience comparisons. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#knowledge-coaching-and-resilience). |
 | Medium · Published | Exceptions (M06) | Independent effort estimates and finite quarter budgets expose named core work displaced by exception obligations; impossible policies are marked infeasible. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#exceptions-capacity-and-displaced-work). |
-| Medium · Implemented | Adoption (M12) | Matched-degree networks, hub and custom connections, equal-size pilot placements and per-person comparisons expose who adopts and why. Verified 2 Oct; publication pending — [evidence](ROADMAP-DELIVERY.md#adoption-networks-and-pilot-placement). |
-| Conditional | Intervention Ladder (S05) | Build explicit causal hypotheses before deciding whether it earns a separate place. |
+| Medium · Published | Adoption (M12) | Matched-degree networks, hub and custom connections, equal-size pilot placements and per-person comparisons expose who adopts and why. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#adoption-networks-and-pilot-placement). |
+| Retain · Implemented | Intervention workbench (S05) | Explicit causal relationships, contextual reviews and branched interventions support comparing tests against rival explanations. Verified 2 Oct; publication pending — [evidence](ROADMAP-DELIVERY.md#interventions-causal-hypotheses-and-tests). |
 | Selective | Accuracy (M10) | Add a few different decision contexts while retaining the clear, narrow demonstration. |
 | Maintain | Delay (M05) | Preserve its simplicity; use it as the interaction benchmark. Add scenarios only when they reveal something new. |
 
@@ -74,7 +74,7 @@ Update an item to **In progress**, **Implemented**, **Published** or **Deferred*
 
 2 October: question inversion should not manufacture an opposite to an interrogative sentence. New branches retain their parent and ask the user to name the premise being challenged. The combined Reframing board connects questions to frames as opening or challenging them, with detail opened progressively. Question-to-frame and frame-to-frame creation retain source snapshots; this is the first concrete use of shared ancestry intent, without prematurely retiring Family Tree.
 
-Next: give Intervention Ladder its focused causal-hypothesis pass and decide whether it merits a separate place. Then make the selective Accuracy improvements and audit the delivered roadmap; keep Delay simple.
+Next: make the selective Accuracy improvements, inspect Delay without adding unnecessary scope, and audit the delivered roadmap.
 
 2 October: Matthew prioritised matching his personal website before further consolidation, and authorised extending that language where the tools need it. The website repo supplies Oswald/Newsreader, warm paper and purple, and charcoal/lime dark mode. Add shared semantic colours for model states, retain the useful working geometry, and make this the foundation for remaining roadmap work.
 
@@ -101,3 +101,5 @@ Next: give Intervention Ladder its focused causal-hypothesis pass and decide whe
 2 October: Exceptions needs independent effort estimates, not a silent conversion of value points into days. A finite quarter must fit before settlement; otherwise neither value nor core progress is earned. Core work progresses through a named queue, while its value remains unpriced. Both automatic rules exceed the default budget, so their comparison reports the first infeasible quarter rather than an impossible winning total. With enough spare capacity, upkeep displaces no available core work. Earlier saved accounting remains intact until an explicit capacity replay.
 
 2 October: Adoption needs to distinguish partner mix from partner count. The new mixed ring holds every person’s degree at five, yet the same three pilots produce a different cascade from the dense groups. Equal totals can also hide disjoint adopters, so compare identities at the same round. Hub/custom networks may change degree and the comparison exposes changed assumptions. Isolated people get no coordination utility; repeating cycles retain their phase instead of being presented as stable outcomes.
+
+2 October: Intervention workbench earns a separate place by moving from classification to causal test design. Explicit directed links retain conditions, timing, rival explanations and observations; changing step order changes layout only. Earlier arrows migrate as blank suggested hypotheses, not evidence. Branches and context-review snapshots retain prior reasoning, while changed relationships or tests request review. Keep six intervention types as optional prompts and distinguish choosing a test from validating its claim.

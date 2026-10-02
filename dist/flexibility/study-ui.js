@@ -1,6 +1,6 @@
-import {escapeHtml as esc} from '../shared/utils.js?v=0.18.0';
-import {POLICIES,hour} from './engine.js?v=0.18.0';
-import {diagnose,promiseLabel,informationName,preparationRule,matchedComparison} from './study.js?v=0.18.0';
+import {escapeHtml as esc} from '../shared/utils.js?v=0.19.0';
+import {POLICIES,hour} from './engine.js?v=0.19.0';
+import {diagnose,promiseLabel,informationName,preparationRule,matchedComparison} from './study.js?v=0.19.0';
 
 const dec=n=>Number(n.toFixed(2));
 const money=n=>`${n<0?'−':''}£${Math.abs(n).toLocaleString('en-GB',{maximumFractionDigits:0})}`;

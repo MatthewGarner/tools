@@ -1,4 +1,4 @@
-import {uid,captureConcept,validateWorkspace} from './model.js?v=0.18.0';
+import {uid,captureConcept,validateWorkspace} from './model.js?v=0.19.0';
 
 export const VERDICTS={open:'Unexamined',try:'Possibly overlooked',reason:'Empty for a reason'};
 export const axes=w=>[w.dimensions.find(d=>d.id===w.map.rowId),w.dimensions.find(d=>d.id===w.map.columnId)];

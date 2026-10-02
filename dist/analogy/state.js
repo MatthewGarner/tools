@@ -1,5 +1,5 @@
-import {JUDGEMENTS, REVIEW_TEXT, validateTransfers, applyTransfer, remapTransfers, transfersMarkdown} from './transfers.js?v=0.18.0';
-import {assertPortable} from '../shared/ancestry.js?v=0.18.0';
+import {JUDGEMENTS, REVIEW_TEXT, validateTransfers, applyTransfer, remapTransfers, transfersMarkdown} from './transfers.js?v=0.19.0';
+import {assertPortable} from '../shared/ancestry.js?v=0.19.0';
 export const KEY = 'thinking-lab:analogy:v1';
 export const FITS = JUDGEMENTS;
 export const PLAN_FIELDS = ['mechanism', 'adaptation', 'boundary', 'test', 'learn'];

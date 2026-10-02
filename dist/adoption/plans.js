@@ -1,4 +1,4 @@
-import {create,validate,edges,simulate,stateAt,COUNT} from './engine.js?v=0.18.0';
+import {create,validate,edges,simulate,stateAt,COUNT} from './engine.js?v=0.19.0';
 const clone=structuredClone;
 export const NETWORKS={groups:'Two dense groups',mixed:'Mixed ring · same degree',hub:'Hub and spokes',custom:'Your connections'};
 export const KEY='thinking-lab:adoption:v1';

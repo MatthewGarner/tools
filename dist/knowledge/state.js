@@ -1,4 +1,4 @@
-import {INITIAL_SKILLS,DEFAULT_TRAINING,DEFAULT_ABSENCE,SCENARIOS,workloadFor,simulate} from './engine.js?v=0.18.0';
+import {INITIAL_SKILLS,DEFAULT_TRAINING,DEFAULT_ABSENCE,SCENARIOS,workloadFor,simulate} from './engine.js?v=0.19.0';
 const clone=x=>structuredClone(x);
 export const KEY='thinking-lab:knowledge:v1';
 export const initial=()=>({version:2,skills:clone(INITIAL_SKILLS),sessions:[{...DEFAULT_TRAINING,id:'first'}],selected:'first',focus:[-1,-1,-1,-1],absences:[{...DEFAULT_ABSENCE,to:24,id:'away'}],scenario:'battery',workload:workloadFor(),week:12,baseline:null,decision:''});

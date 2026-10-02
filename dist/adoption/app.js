@@ -1,8 +1,8 @@
-import {mountShell} from '../shared/shell.js?v=0.18.0';
-import {escapeHtml as e,writeStore,downloadText} from '../shared/utils.js?v=0.18.0';
-import {lineChart} from '../model-kit/chart.js?v=0.18.0';
-import {create,simulate,assess,edges,OFFSETS,stateAt} from './engine.js?v=0.18.0';
-import {NETWORKS,KEY,switchNetwork,toggleLink,placement,differences,positions,validateBundle,initialBundle,portable,parse,markdown} from './plans.js?v=0.18.0';
+import {mountShell} from '../shared/shell.js?v=0.19.0';
+import {escapeHtml as e,writeStore,downloadText} from '../shared/utils.js?v=0.19.0';
+import {lineChart} from '../model-kit/chart.js?v=0.19.0';
+import {create,simulate,assess,edges,OFFSETS,stateAt} from './engine.js?v=0.19.0';
+import {NETWORKS,KEY,switchNetwork,toggleLink,placement,differences,positions,validateBundle,initialBundle,portable,parse,markdown} from './plans.js?v=0.19.0';
 mountShell({active:'adoption'});
 const app=document.querySelector('#app'),clone=structuredClone,f=x=>Number(x).toFixed(1),name=i=>String(i+1).padStart(2,'0');
 let b=initialBundle(),past=[],message='',pending=null,paused=false,recovery=null,suppressClick=false;

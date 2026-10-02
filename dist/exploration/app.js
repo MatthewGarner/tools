@@ -1,6 +1,6 @@
-import { mountShell } from '../shared/shell.js?v=0.18.0';
-import { downloadText, readStore, writeStore } from '../shared/utils.js?v=0.18.0';
-import { WEEKS, SCENARIOS, defaultPlan, normalizePlan, normalizeAssumptions, simulate } from './engine.js?v=0.18.0';
+import { mountShell } from '../shared/shell.js?v=0.19.0';
+import { downloadText, readStore, writeStore } from '../shared/utils.js?v=0.19.0';
+import { WEEKS, SCENARIOS, defaultPlan, normalizePlan, normalizeAssumptions, simulate } from './engine.js?v=0.19.0';
 mountShell({ active: 'exploration', label: 'M03', title: 'Exploration versus delivery' });
 const $ = selector => document.querySelector(selector);
 const KEY = 'thinking-lab:exploration:v1';
