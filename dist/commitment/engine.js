@@ -93,7 +93,7 @@ export function step(previous, scenario, rawPolicy, rawAssumptions = DEFAULT_ASS
   state.trust = clamp(state.trust + 0.028 * (1 - lateRatio) - 0.12 * lateRatio - 0.022 * returned, 0, 1);
   const hidden = state.hiddenDefects.reduce((sum, d) => sum + d.amount, 0);
   state.week = week;
-  state.history.push({ week, policy, demand, accepted, declined: demand - accepted, cumulativeDeclined: state.declined, capacity, reporting, recovery, overtime, repairEffort, repairs, deliveryEffort, idle: Math.max(0, available), shipped, cumulativeShipped: state.shipped, usable: state.shipped - state.knownDefects - hidden, defects, hidden, known: state.knownDefects, repairWork: (state.knownDefects + hidden) * assumptions.repairCost, returned, outstanding, overdue, shortcuts, effortPerPoint, defectRate, fatigue: state.fatigue, trust: state.trust, cumulativeAccepted: state.accepted });
+  state.history.push({ week, policy, demand, accepted, declined: demand - accepted, cumulativeDeclined: state.declined, capacity, reporting, recovery, overtime, repairEffort, repairs, deliveryEffort, idle: Math.max(0, available), shipped, cumulativeShipped: state.shipped, usable: state.shipped - state.knownDefects - hidden, defects, hidden, known: state.knownDefects, repairWork: (state.knownDefects + hidden) * assumptions.repairCost, returned, outstanding, overdue, shortcuts, effortPerPoint, defectRate, fatigue: state.fatigue, trust: state.trust, cumulativeAccepted: state.accepted, pressure, openAtStart, lateAtStart, fatigueBefore: previous.fatigue });
   return state;
 }
 

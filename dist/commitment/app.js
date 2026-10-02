@@ -1,11 +1,14 @@
-import { mountShell } from '../shared/shell.js?v=0.10.0';
-import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.10.0';
-import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js?v=0.10.0';
+import { mountShell } from '../shared/shell.js?v=0.11.0';
+import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.11.0';
+import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js?v=0.11.0';
+
+import {createStudy,validateStudy,compareTiming,timingMarkdown} from './timing.js?v=0.11.0';
+import {mountTiming} from './timing-ui.js?v=0.11.0';
 
 mountShell({ active: 'commitment', label: 'MODEL 01', title: 'The Commitment Spiral' });
 const $ = selector => document.querySelector(selector);
 const STORE_KEY = 'thinking-lab:commitment:v1';
-const initial = { version: 1, scenario: 'rush', week: 6, events: [], baseline: null, chart: 'work', assumptions: DEFAULT_ASSUMPTIONS };
+const initial = { timing: null, version: 1, scenario: 'rush', week: 6, events: [], baseline: null, chart: 'work', assumptions: DEFAULT_ASSUMPTIONS };
 const saved = readStore(STORE_KEY, initial);
 const validEvents = values => Array.isArray(values) ? values.filter(e => e && Number.isInteger(e.week) && e.week >= 1 && e.week <= HORIZON && e.policy).map(e => ({ week: e.week, policy: normalizePolicy(e.policy) })).sort((a, b) => a.week - b.week).slice(0, HORIZON) : [];
 let session = {
@@ -17,6 +20,8 @@ let session = {
   chart: ['work', 'output', 'capacity'].includes(saved?.chart) ? saved.chart : 'work',
   assumptions: normalizeAssumptions(saved?.assumptions),
 };
+try { session.timing=saved?.timing?validateStudy(saved.timing):createStudy(session.week,session.events); } catch { session.timing=createStudy(session.week,session.events); }
+let timingUI;
 let current;
 let forecast;
 let reference;
@@ -216,6 +221,8 @@ function render() {
   const focusedId = focused?.id;
   const focusedEvent = focused?.dataset?.removeEvent;
   renderTransport(); renderMetrics(); renderChart(); renderAllocation(); renderEvents(); renderComparison(); updateDraft(); renderAssumptions();
+  timingUI?.render();
+  $('#custom-course-summary').textContent=`Week ${session.week} · ${session.events.length} policy changes${session.baseline?' · baseline retained':''}`;
   // Comparison and event rows are rebuilt. Keep keyboard focus on the matching
   // control, or the nearest remaining event when its remove button disappears.
   if (focused && !focused.isConnected) {
@@ -262,6 +269,7 @@ function returnToFork() {
 function reset(startWeek = 0, scenarioId = session.scenario) {
   pause();
   session = { ...initial, scenario: scenarioId, week: startWeek, chart: session.chart, events: [], baseline: null, assumptions: session.assumptions };
+  session.timing=createStudy(session.week,session.events);
   $('#scenario').value = scenarioId;
   $('#scenario-description').textContent = scenario().description;
   compute(); setDraft(); render(); save();
@@ -307,13 +315,14 @@ function exportExperiment() {
   const lines = [
     '# Commitment Spiral experiment', '', `Scenario: ${scenario().name} (seed ${scenario().seed}). Saved at week ${session.week} of ${HORIZON}.`, '',
     '## Shared model assumptions', '', `Repair cost: ${number(session.assumptions.repairCost)} effort points per defective point (illustrative default: 1.7).`, `Maximum capacity loss from fatigue: ${pct(session.assumptions.fatigueCapacityLoss)} (default: 45%).`, `Late-work reporting: ${number(session.assumptions.lateReportingCost * 10, 2)} effort points per 10 overdue points (default: 0.65).`, '', 'These assumptions apply from week 1 to both courses. Changing them replays all history while preserving policies, demand and the selected week. Trust-related reporting remains active.', '',
-    '## Policies', '', `Initial policy: ${policyText(scenario().policy)}.`, ...session.events.map(event => `- Week ${event.week}: ${policyText(event.policy)}${event.week > session.week ? ' (scheduled)' : ''}.`), '',
-    '## State now', '', `${number(currentRow.usable)} usable points; ${number(currentRow.outstanding)} open promises; ${number(currentRow.repairWork)} repair effort outstanding; trust ${number(currentRow.trust * 100, 0)}/100.`, '',
-    `## ${session.week < HORIZON ? 'Projected' : 'Completed'} week 36`, '',
+    '## Custom course policies', '', `Initial policy: ${policyText(scenario().policy)}.`, ...session.events.map(event => `- Week ${event.week}: ${policyText(event.policy)}${event.week > session.week ? ' (scheduled)' : ''}.`), '',
+    '## Custom course now', '', `${number(currentRow.usable)} usable points; ${number(currentRow.outstanding)} open promises; ${number(currentRow.repairWork)} repair effort outstanding; trust ${number(currentRow.trust * 100, 0)}/100.`, '',
+    `## ${session.week < HORIZON ? 'Projected' : 'Completed'} week 36 · custom course`, '',
   ];
   if (reference) {
     lines.push(`Baseline forked in week ${session.baseline.week}. Both branches use the same demand.`, '', '| Outcome | Baseline | Experiment |', '| --- | ---: | ---: |', ...comparisonRows(final, reference.history.at(-1)).map(row => `| ${row.label} | ${number(row.base, row.digits ?? 1)} | ${number(row.value, row.digits ?? 1)} |`), '', 'Baseline policies:', `Initial: ${policyText(scenario().policy)}.`, ...session.baseline.events.map(event => `- Week ${event.week}: ${policyText(event.policy)}.`), '');
   } else lines.push(`${number(final.usable)} usable points; ${number(final.outstanding)} open promises; ${number(final.cumulativeDeclined)} points declined; trust ${number(final.trust * 100, 0)}/100.`, '');
+  lines.push(timingMarkdown(scenario(),session.timing,compareTiming(scenario(),session.timing,session.assumptions),session.assumptions));
   lines.push('## Model limits', '', 'Fictional, divisible work and illustrative coefficients; this is a mechanism experiment, not an empirical forecast. Nominal capacity is 12 effort points per week. Promises are due by the end of the following week. Defects return after two weeks. Fatigue can reduce capacity; overdue work and lost trust create reporting load, using the shared assumptions above. Usable output excludes outstanding defects, including hidden ones.', '', '## Weekly data', '', '| Week | Status | Demand | Promised | Open | Repair work | Usable output | Capacity | Trust |', '| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |', ...forecast.history.map(row => `| ${row.week} | ${row.week <= session.week ? 'simulated' : 'projected'} | ${number(row.demand)} | ${number(row.accepted)} | ${number(row.outstanding)} | ${number(row.repairWork)} | ${number(row.usable)} | ${number(row.capacity)} | ${number(row.trust * 100, 0)} |`));
   downloadText(`commitment-${session.scenario}-week-${session.week}.md`, lines.join('\n'), 'text/markdown;charset=utf-8');
   announce('Experiment exported as Markdown.');
@@ -322,6 +331,7 @@ function exportExperiment() {
 $('#policy-form').addEventListener('submit', event => { event.preventDefault(); try { applyPolicy(draftPolicy(), Number($('#apply-week').value)); } catch (error) { message(error.message, true); } });
 for (const key of ['commitment', 'quality', 'recovery']) $(`#${key}`).addEventListener('input', updateDraft);
 $('#apply-week').addEventListener('input', updateTiming);
+$('#custom-course').addEventListener('toggle',()=>{if($('#custom-course').open)renderChart();});
 $('#scenario').addEventListener('change', event => reset(6, event.target.value));
 $('#run').addEventListener('click', () => running ? pause() : run());
 $('#step').addEventListener('click', () => { pause(); advance(); announce(`Week ${session.week}. ${number(current.history.at(-1)?.outstanding || 0)} open promises.`); });
@@ -334,16 +344,17 @@ $('#reset-assumptions').addEventListener('click', () => applyAssumptions(DEFAULT
 document.querySelectorAll('[data-chart]').forEach(button => button.addEventListener('click', () => { session.chart = button.dataset.chart; renderChart(); save(); }));
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 let resizeFrame;
-window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(renderChart); });
+window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(()=>{renderChart();timingUI?.render();}); });
 $('#scenario').value = session.scenario;
 $('#scenario-description').textContent = scenario().description;
+timingUI=mountTiming($('#timing-study'),{get:()=>({scenario:session.scenario,study:session.timing,assumptions:session.assumptions}),onChange:study=>{pause();session.timing=study;save();},onScenario:id=>reset(6,id),onAnchor:()=>{pause();const {lever,value,metric}=session.timing;session.timing={...createStudy(session.week,session.events),lever,value,metric};save();}});
 compute(); setDraft(); setAssumptionsDraft(); render();
 
 // The browser can ignore this entirely. When supported, tools operate the real UI state.
 const modelContext = document.modelContext ?? navigator.modelContext;
 if (modelContext && typeof modelContext.registerTool === 'function') {
   const result = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
-  const readState = () => ({ scenario: session.scenario, week: session.week, running, policy: livePolicy(), assumptions: session.assumptions, scheduled: session.events, baselineWeek: session.baseline?.week ?? null, current: current.history.at(-1) || initialRow(), projectedWeek36: forecast.history.at(-1) });
+  const readState = () => ({ timingStudy:session.timing, scenario: session.scenario, week: session.week, running, policy: livePolicy(), assumptions: session.assumptions, scheduled: session.events, baselineWeek: session.baseline?.week ?? null, current: current.history.at(-1) || initialRow(), projectedWeek36: forecast.history.at(-1) });
   const unavailable = error => console.info('Optional browser model tools unavailable:', error?.message || String(error));
   const register = tool => {
     try { Promise.resolve(modelContext.registerTool(tool)).catch(unavailable); }
