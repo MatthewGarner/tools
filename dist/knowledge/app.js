@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.19.0';
-import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.19.0';
-import {PEOPLE,SKILLS,DEFAULT_TRAINING,workloadFor} from './engine.js?v=0.19.0';
-import {KEY,initial,validate,pin,replay,template,portable,parse,markdown} from './state.js?v=0.19.0';
+import {mountShell} from '../shared/shell.js?v=0.20.0';
+import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.20.0';
+import {PEOPLE,SKILLS,DEFAULT_TRAINING,workloadFor} from './engine.js?v=0.20.0';
+import {KEY,initial,validate,pin,replay,template,portable,parse,markdown} from './state.js?v=0.20.0';
 mountShell({active:'knowledge'});
 const $=s=>document.querySelector(s),clone=structuredClone,n=(v,d=1)=>Number(v).toFixed(d),uid=()=>crypto.randomUUID();
 let s=initial(),past=[],result,base,paused=false,recovery=null;

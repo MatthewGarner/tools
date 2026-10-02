@@ -1,4 +1,4 @@
-import {BASE_CAPACITY,HORIZON,normalizePolicy,policyAt,schedulePolicy,simulate} from './engine.js?v=0.19.0';
+import {BASE_CAPACITY,HORIZON,normalizePolicy,policyAt,schedulePolicy,simulate} from './engine.js?v=0.20.0';
 
 export const LEVERS=Object.freeze({
   commitment:{label:'Promise rate',min:40,max:100,step:5,value:70,description:'Accept this share of incoming demand. Declined work never becomes output.',chain:['accepted','pressure','shortcuts','repairEffort']},

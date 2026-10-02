@@ -1,4 +1,4 @@
-import { LENSES, FRAME_FIELDS, PLAN_FIELDS, activeSession, sessionTitle } from './state.js?v=0.19.0';
+import { LENSES, FRAME_FIELDS, PLAN_FIELDS, activeSession, sessionTitle } from './state.js?v=0.20.0';
 
 const result = value => ({content: [{type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value)}]});
 const failure = message => ({...result(message), isError: true});

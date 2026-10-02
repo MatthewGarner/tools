@@ -1,6 +1,6 @@
-import {start,e,field,select,uid} from '../workshop-kit/ui.js?v=0.19.0';
-import {model,LEVELS,STATUS,linkTitle,markdown} from './state.js?v=0.19.0';
-import {sourceDetails,familyMap} from '../shared/ancestry-ui.js?v=0.19.0';
+import {start,e,field,select,uid} from '../workshop-kit/ui.js?v=0.20.0';
+import {model,LEVELS,STATUS,linkTitle,markdown} from './state.js?v=0.20.0';
+import {sourceDetails,familyMap} from '../shared/ancestry-ui.js?v=0.20.0';
 const name=s=>s.name.trim()||'Unnamed step';
 const review=o=>o.review?'Context changed · review needed':o.checked?'Context reviewed · hypothesis unproven':'Not reviewed';
 const optionField=(o,k,label,help='')=>field('option-'+k,label,o[k],{type:'option',id:o.id,field:k},help);

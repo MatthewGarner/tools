@@ -52,9 +52,9 @@ Remaining items are planned unless marked otherwise. Priorities guide worthwhile
 | Medium · Published | Knowledge (M07) | Several coaching periods, finite shared time, temporary absences and editable demand support matched resilience comparisons. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#knowledge-coaching-and-resilience). |
 | Medium · Published | Exceptions (M06) | Independent effort estimates and finite quarter budgets expose named core work displaced by exception obligations; impossible policies are marked infeasible. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#exceptions-capacity-and-displaced-work). |
 | Medium · Published | Adoption (M12) | Matched-degree networks, hub and custom connections, equal-size pilot placements and per-person comparisons expose who adopts and why. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#adoption-networks-and-pilot-placement). |
-| Retain · Implemented | Intervention workbench (S05) | Explicit causal relationships, contextual reviews and branched interventions support comparing tests against rival explanations. Verified 2 Oct; publication pending — [evidence](ROADMAP-DELIVERY.md#interventions-causal-hypotheses-and-tests). |
-| Selective | Accuracy (M10) | Add a few different decision contexts while retaining the clear, narrow demonstration. |
-| Maintain | Delay (M05) | Preserve its simplicity; use it as the interaction benchmark. Add scenarios only when they reveal something new. |
+| Retain · Published | Intervention workbench (S05) | Explicit causal relationships, contextual reviews and branched interventions support comparing tests against rival explanations. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#interventions-causal-hypotheses-and-tests). |
+| Selective · Implemented | Accuracy (M10) | Three decision contexts vary trigger direction and error consequences while replaying the same allocations under matched assumptions. Verified 2 Oct; publication pending — [evidence](ROADMAP-DELIVERY.md#accuracy-decision-contexts). |
+| Maintain · Reviewed | Delay (M05) | Steering, delayed observation and matched feedback-rule comparison remain distinct and useful. No new scenario needed; browser and mechanism checks passed 2 Oct — [evidence](ROADMAP-DELIVERY.md#delay-maintenance-review). |
 
 ## Rules for each increment
 
@@ -74,7 +74,7 @@ Update an item to **In progress**, **Implemented**, **Published** or **Deferred*
 
 2 October: question inversion should not manufacture an opposite to an interrogative sentence. New branches retain their parent and ask the user to name the premise being challenged. The combined Reframing board connects questions to frames as opening or challenging them, with detail opened progressively. Question-to-frame and frame-to-frame creation retain source snapshots; this is the first concrete use of shared ancestry intent, without prematurely retiring Family Tree.
 
-Next: make the selective Accuracy improvements, inspect Delay without adding unnecessary scope, and audit the delivered roadmap.
+Next: publish the verified final increment, then Matthew reviews the suite. No further implementation is queued without new evidence or feedback.
 
 2 October: Matthew prioritised matching his personal website before further consolidation, and authorised extending that language where the tools need it. The website repo supplies Oswald/Newsreader, warm paper and purple, and charcoal/lime dark mode. Add shared semantic colours for model states, retain the useful working geometry, and make this the foundation for remaining roadmap work.
 
@@ -103,3 +103,9 @@ Next: make the selective Accuracy improvements, inspect Delay without adding unn
 2 October: Adoption needs to distinguish partner mix from partner count. The new mixed ring holds every person’s degree at five, yet the same three pilots produce a different cascade from the dense groups. Equal totals can also hide disjoint adopters, so compare identities at the same round. Hub/custom networks may change degree and the comparison exposes changed assumptions. Isolated people get no coordination utility; repeating cycles retain their phase instead of being presented as stable outcomes.
 
 2 October: Intervention workbench earns a separate place by moving from classification to causal test design. Explicit directed links retain conditions, timing, rival explanations and observations; changing step order changes layout only. Earlier arrows migrate as blank suggested hypotheses, not evidence. Branches and context-review snapshots retain prior reasoning, while changed relationships or tests request review. Keep six intervention types as optional prompts and distinguish choosing a test from validating its claim.
+
+2 October: Accuracy needs different decision consequences, not a larger forecasting simulator. Three contexts now include a low-side investigation trigger and opposite loss asymmetries. The same swap improves opportunity decisions but worsens capacity decisions at identical accuracy. Pinned allocations replay under the selected context; switching preserves positions and Undo restores custom assumptions. Delay’s direct steering and matched rule replay remain clear, so its mechanism and scope are retained.
+
+## Completion review
+
+All build-order and subsequent-improvement requirements have delivery evidence. The current catalogue has 17 active experiences (10 models, 7 scaffolds), 2 archived models and 5 consolidated scaffolds. All 24 original routes remain; the 26 pages retain the shared website theme and valid local assets/links. The full suite passes 246 tests. Each changed journey has desktop/phone and portable-work evidence in [Roadmap delivery](ROADMAP-DELIVERY.md). Final publication is pending; after that the next milestone is Matthew’s review, not another expansion pass.
