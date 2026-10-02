@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.4.0';
+import {mountShell} from '../shared/shell.js?v=0.5.0';
 import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js';
-import {LIMITS,example,validate,availability,liveState,ancestors,improvements,connect,disconnect,updateNode,addNode,addAlternative,addCommonDependency,removeNode,setOutput} from './engine.js?v=0.4.1';
-import {basisFor,createStudy,validateStudy,saveDesign,designRows,failureExplanation,recipe} from './study.js?v=0.4.1';
+import {LIMITS,example,validate,availability,liveState,ancestors,improvements,connect,disconnect,updateNode,addNode,addAlternative,addCommonDependency,removeNode,setOutput} from './engine.js?v=0.5.0';
+import {basisFor,createStudy,validateStudy,saveDesign,designRows,failureExplanation,recipe} from './study.js?v=0.5.0';
 import {registerTools} from './webmcp.js';
 mountShell({active:'reliability',label:'MODEL 11',title:'A system of almost reliable parts'});
 const STORAGE='thinking-lab:reliability:v1';const app=document.querySelector('#app');

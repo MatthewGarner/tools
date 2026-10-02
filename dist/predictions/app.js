@@ -1,8 +1,8 @@
-import{mountShell}from'../shared/shell.js?v=0.4.0';
+import{mountShell}from'../shared/shell.js?v=0.5.0';
 import{attachCardDrag}from'../shared/drag.js';
 import{readStore,writeStore,downloadText}from'../shared/utils.js';
 import{lineChart}from'../model-kit/chart.js';
-import{create,validate,simulate,compareSharing,upgradeSettings,threshold,COUNT}from'./engine.js?v=0.4.0';
+import{create,validate,simulate,compareSharing,upgradeSettings,threshold,COUNT}from'./engine.js?v=0.5.0';
 mountShell({active:'predictions'});
 const app=document.querySelector('#app'),KEY='thinking-lab:predictions:v2';
 const current=readStore(KEY,null),previous=readStore('thinking-lab:predictions:v1',null),saved=current||previous;

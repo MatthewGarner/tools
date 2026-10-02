@@ -1,8 +1,9 @@
+import{blankInquiry,exampleInquiry,normalizeInquiry,changeInquiry,remapInquiry}from'./inquiry.js?v=0.5.0';
 export const STORAGE_KEY = 'thinking-lab:reframe:v1';
 export const VERSION = 1;
 export const MAX_FRAMES = 5;
 export const MIN_FRAMES = 3;
-export const MAX_IMPORT_BYTES = 5000000;
+export const MAX_IMPORT_BYTES = 8000000;
 export const FRAME_FIELDS = ['statement', 'whoWhen', 'assumption', 'reveals', 'hides', 'intervention', 'test'];
 export const PLAN_FIELDS = ['statement', 'nextMove', 'assumption', 'test', 'learn'];
 
@@ -18,8 +19,9 @@ export const LENSES = {
 };
 
 const copy = value => structuredClone(value);
+const blankOrigin = () => null;
 const blankPlan = () => Object.fromEntries(PLAN_FIELDS.map(key => [key, '']));
-export const blankFrame = (lens, id) => ({ id, lens, ...Object.fromEntries(FRAME_FIELDS.map(key => [key, ''])) });
+export const blankFrame = (lens, id) => ({ id, lens, origin: blankOrigin(), ...Object.fromEntries(FRAME_FIELDS.map(key => [key, ''])) });
 const frame = (lens, id, values) => ({...blankFrame(lens, id), ...values});
 
 const EXAMPLES = {
@@ -46,9 +48,12 @@ const EXAMPLES = {
 export function createSession(example = 'blank', id = 'session-1', now = new Date().toISOString()) {
   if (example !== 'blank' && !Object.hasOwn(EXAMPLES, example)) throw new Error('Choose a known example or a blank problem.');
   const source = example === 'blank' ? null : EXAMPLES[example];
-  return { id, createdAt: now, updatedAt: now, problem: source?.problem || '', context: source?.context || '',
+  const session = { id, createdAt: now, updatedAt: now, problem: source?.problem || '', context: source?.context || '',
     frames: source ? source.frames.map(([lens, values], i) => frame(lens, `${id}-f${i + 1}`, values)) : ['decision', 'constraints', 'information'].map((lens, i) => blankFrame(lens, `${id}-f${i + 1}`)),
-    selected: [], plan: blankPlan(), view: 'frames' };
+    selected: [], plan: blankPlan(), view: 'questions', inquiry:blankInquiry(`${id}-questions`), sources:[] };
+  if(source)session.inquiry=exampleInquiry(`${id}-questions`,session.frames);
+  if(example==='bess'){session.inquiry.items=session.inquiry.items.slice(0,3).map((q,i)=>({...q,question:LENSES[session.frames[i].lens].question,unlocks:session.frames[i].intervention}));session.inquiry.selected=['q1'];}
+  return session;
 }
 export function initialState() { const session = createSession('forecasts'); return {version: VERSION, activeId: session.id, sessions: [session]}; }
 export function activeSession(state) { return state.sessions.find(session => session.id === state.activeId); }
@@ -58,6 +63,24 @@ export function transition(state, action, now = new Date().toISOString()) {
   const session = activeSession(next);
   if (!session) throw new Error('No active session.');
   switch (action.type) {
+    case 'inquiry':
+      session.inquiry=changeInquiry(session.inquiry,action.action,session.frames);break;
+    case 'branch-frame': {
+      if(session.frames.length>=MAX_FRAMES)throw Error('Keep at most five frames so they stay comparable.');
+      const parent=session.frames.find(f=>f.id===action.parent);
+      if(!parent||typeof action.id!=='string'||!action.id||session.frames.some(f=>f.id===action.id))throw Error('Choose an existing frame and a new branch.');
+      const {origin,...snapshot}=copy(parent);session.frames.push({...copy(parent),id:action.id,origin:{kind:'frame',sourceId:parent.id,snapshot}});
+      break;
+    }
+    case 'frame-from-question': {
+      if(session.frames.length>=MAX_FRAMES)throw Error('Five frames are already in play. Connect the question to an existing frame or remove one first.');
+      const q=session.inquiry.items.find(q=>q.id===action.questionId);if(!q)throw Error('Choose a question.');
+      if(typeof action.id!=='string'||!action.id||session.frames.some(f=>f.id===action.id))throw Error('Choose a new frame identifier.');
+      const lens={fact:'information',cause:'constraints',value:'value',design:'decision'}[q.type];
+      session.frames.push({...blankFrame(lens,action.id),statement:q.answer,intervention:q.ideas,origin:{kind:'question',sourceId:q.id,snapshot:copy(q)}});
+      session.inquiry=changeInquiry(session.inquiry,{type:'link',questionId:q.id,frameId:action.id,relation:'opens'},session.frames);
+      session.view='frames';break;
+    }
     case 'edit-problem':
       if (!['problem', 'context'].includes(action.field) || typeof action.value !== 'string') throw new Error('Unknown problem field.');
       session[action.field] = action.value; break;
@@ -74,7 +97,8 @@ export function transition(state, action, now = new Date().toISOString()) {
       if (session.frames.length <= MIN_FRAMES) throw new Error('Keep at least three frames in play.');
       if (!session.frames.some(item => item.id === action.id)) throw new Error('Frame not found.');
       session.frames = session.frames.filter(item => item.id !== action.id);
-      session.selected = session.selected.filter(id => id !== action.id); break;
+      session.selected = session.selected.filter(id => id !== action.id);
+      session.inquiry.links=session.inquiry.links.filter(l=>l.frameId!==action.id);break;
     case 'select-frame':
       if (!session.frames.some(item => item.id === action.id)) throw new Error('Frame not found.');
       session.selected = session.selected.includes(action.id) ? session.selected.filter(id => id !== action.id) : [...session.selected, action.id]; break;
@@ -89,7 +113,7 @@ export function transition(state, action, now = new Date().toISOString()) {
       session.view = 'plan'; break;
     }
     case 'view':
-      if (!['frames', 'compare', 'plan'].includes(action.value)) throw new Error('Unknown view.');
+      if (!['questions', 'frames', 'compare', 'plan'].includes(action.value)) throw new Error('Unknown view.');
       session.view = action.value; return next;
     case 'new-session': {
       if (next.sessions.length >= 100) throw new Error('This workspace holds 100 problems. Export your work before starting a new browser workspace.');
@@ -99,17 +123,28 @@ export function transition(state, action, now = new Date().toISOString()) {
     case 'switch-session':
       if (!next.sessions.some(item => item.id === action.id)) throw new Error('Session not found.');
       next.activeId = action.id; return next;
+    case 'import-questions': {
+      if(next.sessions.length>=100)throw Error('This workspace holds 100 problems. Export before adding another.');
+      if(next.sessions.some(s=>s.id===action.id))throw Error('Session already exists.');
+      const added=createSession('blank',action.id,now);added.problem=action.workspace.problem;added.inquiry=normalizeInquiry({...copy(action.workspace),links:[]},added.frames);
+      added.sources=[{kind:'questions',workspaceId:action.workspace.id,title:action.workspace.problem}];
+      next.sessions.push(normalizeSession(added));next.activeId=added.id;return next;
+    }
     case 'import-session': {
       if (next.sessions.length >= 100) throw new Error('This workspace holds 100 problems. Export your work before starting a new browser workspace.');
       const added = normalizeSession(action.session);
       if (next.sessions.some(item => item.id === action.id)) throw new Error('Session already exists.');
       const ids = new Map(added.frames.map((item, i) => [item.id, `${action.id}-f${i + 1}`]));
+      const qids=new Map(added.inquiry.items.map((q,i)=>[q.id,`${action.id}-q${i+1}`]));
+      added.inquiry=remapInquiry(added.inquiry,ids,action.id);
+      for(const f of added.frames)if(f.origin)f.origin.sourceId=(f.origin.kind==='frame'?ids:qids).get(f.origin.sourceId)||f.origin.sourceId;
       added.id = action.id; added.frames.forEach(item => { item.id = ids.get(item.id); });
       added.selected = added.selected.map(id => ids.get(id)); added.updatedAt = now;
       next.sessions.push(added); next.activeId = added.id; return next;
     }
     default: throw new Error('Unknown action.');
   }
+  session.inquiry=normalizeInquiry(session.inquiry,session.frames);
   session.updatedAt = now;
   return next;
 }
@@ -119,19 +154,29 @@ function textValue(value, label, required = false) {
   if (typeof value !== 'string' || value.length > 20000 || (required && !value.trim())) throw new Error(`${label} must be text${required ? ' and cannot be empty' : ''} (up to 20,000 characters).`);
   return value;
 }
+function normalizeOrigin(value){
+  if(value===undefined||value===null)return null;
+  if(!plainObject(value)||!['frame','question'].includes(value.kind)||!plainObject(value.snapshot))throw Error('Invalid branch source.');
+  const snapshot=copy(value.snapshot);for(const [key,v]of Object.entries(snapshot)){if(v!==null&&typeof v!=='string')throw Error('Invalid source snapshot.');if(typeof v==='string')textValue(v,key);}
+  return{kind:value.kind,sourceId:textValue(value.sourceId,'Branch source',true),snapshot};
+}
 export function normalizeSession(source) {
   if (!plainObject(source)) throw new Error('The file does not contain a session.');
   const id = textValue(source.id, 'Session id', true);
   if (!Array.isArray(source.frames) || source.frames.length < MIN_FRAMES || source.frames.length > MAX_FRAMES) throw new Error('A session needs three to five frames.');
   const frames = source.frames.map(item => {
     if (!plainObject(item) || !Object.hasOwn(LENSES, item.lens)) throw new Error('A frame has an unknown lens.');
-    return { id: textValue(item.id, 'Frame id', true), lens: item.lens, ...Object.fromEntries(FRAME_FIELDS.map(key => [key, textValue(item[key], key)])) };
+    return { id: textValue(item.id, 'Frame id', true), lens: item.lens, origin: normalizeOrigin(item.origin), ...Object.fromEntries(FRAME_FIELDS.map(key => [key, textValue(item[key], key)])) };
   });
   if (new Set(frames.map(item => item.id)).size !== frames.length) throw new Error('Frame ids must be unique.');
   const ids = new Set(frames.map(item => item.id));
   if (!Array.isArray(source.selected) || source.selected.some(value => typeof value !== 'string' || !ids.has(value)) || new Set(source.selected).size !== source.selected.length) throw new Error('The chosen frames do not match this session.');
   if (!plainObject(source.plan)) throw new Error('The session is missing its test plan.');
-  return { id, createdAt: textValue(source.createdAt, 'Created date'), updatedAt: textValue(source.updatedAt, 'Updated date'), problem: textValue(source.problem, 'Problem'), context: textValue(source.context, 'Context'), frames, selected: [...source.selected], plan: Object.fromEntries(PLAN_FIELDS.map(key => [key, textValue(source.plan[key], key)])), view: ['frames', 'compare', 'plan'].includes(source.view) ? source.view : 'frames' };
+  const inquiry=normalizeInquiry(source.inquiry,frames);
+  const sources=source.sources===undefined?[]:copy(source.sources);
+  if(!Array.isArray(sources)||sources.length>28)throw Error('Invalid source records.');
+  for(const origin of sources){if(!plainObject(origin)||origin.kind!=='questions')throw Error('Invalid source record.');textValue(origin.workspaceId,'Source workspace',true);textValue(origin.title,'Source title');}
+  return { inquiry,sources,id, createdAt: textValue(source.createdAt, 'Created date'), updatedAt: textValue(source.updatedAt, 'Updated date'), problem: textValue(source.problem, 'Problem'), context: textValue(source.context, 'Context'), frames, selected: [...source.selected], plan: Object.fromEntries(PLAN_FIELDS.map(key => [key, textValue(source.plan[key], key)])), view: ['questions', 'frames', 'compare', 'plan'].includes(source.view) ? source.view : 'frames' };
 }
 export function normalizeState(source) {
   if (!plainObject(source) || source.version !== VERSION || !Array.isArray(source.sessions) || !source.sessions.length || source.sessions.length > 100) throw new Error('This saved work has an unsupported format.');
@@ -141,7 +186,7 @@ export function normalizeState(source) {
 }
 export function serializeSession(session) { return JSON.stringify({kind: 'thinking-lab-reframe', version: VERSION, session: normalizeSession(session)}, null, 2); }
 export function parseSession(raw) {
-  if (typeof raw !== 'string' || raw.length > MAX_IMPORT_BYTES) throw new Error('Choose a Reframing JSON file smaller than 5 MB.');
+  if (typeof raw !== 'string' || raw.length > MAX_IMPORT_BYTES) throw new Error('Choose a Reframing JSON file smaller than 8 MB.');
   let data;
   try { data = JSON.parse(raw); } catch { throw new Error('This is not valid JSON. Choose a file exported from this workbench.'); }
   if (!plainObject(data) || data.kind !== 'thinking-lab-reframe' || data.version !== VERSION) throw new Error('Choose a JSON session exported from this workbench.');
@@ -155,8 +200,11 @@ export function markdown(session) {
   const field = (title, value) => `**${title}**\n\n${content(value)}\n`;
   const lines = ['# Reframing workbench', '', field('Starting problem', session.problem)];
   if (session.context.trim()) lines.push(field('Context', session.context));
+  if(session.sources?.length)lines.push('Imported from: '+session.sources.map(s=>`${s.kind} / ${s.title}`).join('; '),'');
+  if(session.inquiry?.items.length){lines.push('## Questions and connections','');for(const q of session.inquiry.items){lines.push(`### ${q.question||'Unwritten question'}`,`${q.type} · ${q.status}${session.inquiry.selected.includes(q.id)?' · selected':''}`,q.parent?`Branched from: ${session.inquiry.items.find(p=>p.id===q.parent)?.question||q.parent} (${q.relation})`:'Original question',field('Decision this could change',q.unlocks),field('Provisional answer',q.answer),field('Evidence',q.evidence),field('Possible approaches',q.ideas));for(const link of session.inquiry.links.filter(l=>l.questionId===q.id)){const f=session.frames.find(f=>f.id===link.frameId);lines.push(`${link.relation}: ${f?.statement||LENSES[f?.lens]?.name||link.frameId}`,'');}}}
   lines.push('## Alternative frames\n');
   for (const [index, item] of session.frames.entries()) {
+    if(item.origin)lines.push(`Source ${item.origin.kind}: ${item.origin.snapshot.question||item.origin.snapshot.statement||item.origin.sourceId}`,'');
     lines.push(`### ${index + 1}. ${LENSES[item.lens].name}${session.selected.includes(item.id) ? ' · chosen' : ''}\n`, field('Problem statement', item.statement), field('Who and when', item.whoWhen), field('Assumption', item.assumption), field('Reveals', item.reveals), field('Hides', item.hides), field('Different next move', item.intervention), field('Smallest test', item.test));
   }
   lines.push('## Working frame & test\n', field('Working frame', session.plan.statement), field('Next move', session.plan.nextMove), field('Assumption to test', session.plan.assumption), field('Smallest test', session.plan.test), field('What would change my mind', session.plan.learn), '---\nWritten using Thinking Lab. Frames are hypotheses, not findings.');

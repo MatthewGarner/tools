@@ -1,4 +1,4 @@
-import {mountShell} from '../shared/shell.js?v=0.4.0';
+import {mountShell} from '../shared/shell.js?v=0.5.0';
 import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js';
 import {MODEL,POLICIES,createRun,publicView,preview,projection,advance,policyDecision,commitments,envelope,result,serialize,restore,hour} from './engine.js';
 import {registerFlexibilityTools} from './webmcp.js';

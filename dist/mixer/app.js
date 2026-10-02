@@ -1,4 +1,4 @@
-import {mountShell} from '../shared/shell.js?v=0.4.0';
+import {mountShell} from '../shared/shell.js?v=0.5.0';
 import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js';
 import {PRESETS,uid,createWorkspace,ingredients,combinationCount,mixWorkspace,captureConcept,markdown,validateWorkspace} from './model.js';
 mountShell({active:'mixer'});

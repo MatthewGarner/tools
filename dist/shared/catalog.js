@@ -152,7 +152,7 @@ export const experiments=[
     "route": "reframe",
     "title": "Reframing workbench",
     "question": "Describe the same problem differently. Notice what you would do next.",
-    "move": "Put two frames side by side before choosing an intervention.",
+    "move": "Connect a question to the frame it opens or challenges.",
     "art": "map",
     "caption": "One situation / several frames",
     "limits": "Develop several descriptions of a situation, state what each hides, then choose an intervention to test. Example text can be replaced. No AI evaluates the problem or decides which frame is correct.",
@@ -269,6 +269,9 @@ export const experiments=[
   },
   {
     "id": "S11",
+    "status": "merged",
+    "mergedInto": "reframe",
+    "archiveReason": "Questions now connect directly to frames in the Reframing workbench.",
     "route": "questions",
     "title": "Questions before answers",
     "question": "Expand the questions that could open different approaches.",
