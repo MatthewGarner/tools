@@ -1,3 +1,5 @@
+import {validateAdaptations, applyAdaptation, remapAdaptations, adaptationsMarkdown} from './adaptations.js?v=0.13.0';
+import {assertPortable} from '../shared/ancestry.js?v=0.13.0';
 export const KEY = 'thinking-lab:constraints:v1';
 export const TYPES = {physical: 'Physical', contract: 'Contract', organisation: 'Organisation', habit: 'Habit'};
 export const LANES = {
@@ -16,7 +18,7 @@ const clone = value => structuredClone(value);
 export const blankNotes = () => ({...Object.fromEntries(NOTE_FIELDS.map(key => [key, ''])), restored: false});
 export const newCard = (id, text = '', type = 'habit') => ({id, text, type, basis: '', lane: 'current', lastLane: 'remove', notes: Object.fromEntries(Object.keys(LANES).map(lane => [lane, blankNotes()]))});
 export function createWorkspace(id = 'first', example = 'reviews') {
-  const workspace = {id, problem: '', cards: [], selectedId: null};
+  const workspace = {id, problem: '', cards: [], selectedId: null, ...validateAdaptations({})};
   if (example === 'blank') {
     workspace.cards = [newCard(`${id}-c1`)]; workspace.selectedId = workspace.cards[0].id; return workspace;
   }
@@ -41,6 +43,7 @@ export const selected = state => active(state).cards.find(card => card.id === ac
 export function apply(state, action) {
   const next = clone(state), workspace = active(next);
   const card = action.id ? workspace.cards.find(item => item.id === action.id) : null;
+  if (action.type.startsWith('adapt-')) {applyAdaptation(workspace, action); assertPortable(workspace,15999000); return next;}
   switch (action.type) {
     case 'problem': text(action.value); workspace.problem = action.value; break;
     case 'card':
@@ -73,11 +76,13 @@ export function apply(state, action) {
     case 'import': {
       if (next.workspaces.length >= 100 || next.workspaces.some(item => item.id === action.id)) throw new Error('Cannot add another workspace.');
       const imported = validateWorkspace(action.workspace), ids = new Map(imported.cards.map((item, index) => [item.id, `${action.id}-c${index + 1}`]));
+      remapAdaptations(imported, ids, action.id);
       imported.id = action.id; imported.cards.forEach(item => {item.id = ids.get(item.id);}); imported.selectedId = imported.selectedId ? ids.get(imported.selectedId) : null;
       next.workspaces.push(imported); next.activeId = imported.id; break;
     }
     default: throw new Error('Unknown action.');
   }
+  assertPortable(active(next),15999000);
   return next;
 }
 export function createHistory(state) { return {present: clone(state), past: [], group: null}; }
@@ -99,7 +104,7 @@ export function validateWorkspace(value) {
     return {id: text(card.id, true), text: text(card.text), type: card.type, basis: text(card.basis), lane: card.lane, lastLane: card.lastLane, notes};
   });
   if (new Set(cards.map(card => card.id)).size !== cards.length || (value.selectedId !== null && !cards.some(card => card.id === value.selectedId))) throw new Error('Constraint selection is inconsistent.');
-  return {id: text(value.id, true), problem: text(value.problem), cards, selectedId: value.selectedId};
+  return {id: text(value.id, true), problem: text(value.problem), cards, selectedId: value.selectedId, ...validateAdaptations(value)};
 }
 export function validateState(value) {
   if (!object(value) || value.version !== 1 || !Array.isArray(value.workspaces) || !value.workspaces.length || value.workspaces.length > 100) throw new Error('Unknown saved format.');
@@ -120,5 +125,6 @@ export function markdown(workspace) {
       for (const [key, label] of [['whatIf', 'What if'], ['possible', 'What becomes possible'], ['adaptation', 'Real-world adaptation'], ['test', 'Smallest test'], ['evidence', 'What would change my mind']]) parts.push(`**${label}**`, '', content(notes[key]), '');
     }
   }
+  if (workspace.adaptations?.length) parts.push(adaptationsMarkdown(workspace));
   return parts.join('\n');
 }

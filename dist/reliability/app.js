@@ -1,8 +1,8 @@
-import {mountShell} from '../shared/shell.js?v=0.12.0';
-import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.12.0';
-import {LIMITS,example,validate,availability,liveState,ancestors,improvements,connect,disconnect,updateNode,addNode,addAlternative,addCommonDependency,removeNode,setOutput} from './engine.js?v=0.12.0';
-import {basisFor,createStudy,validateStudy,saveDesign,designRows,failureExplanation,recipe} from './study.js?v=0.12.0';
-import {registerTools} from './webmcp.js?v=0.12.0';
+import {mountShell} from '../shared/shell.js?v=0.13.0';
+import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.13.0';
+import {LIMITS,example,validate,availability,liveState,ancestors,improvements,connect,disconnect,updateNode,addNode,addAlternative,addCommonDependency,removeNode,setOutput} from './engine.js?v=0.13.0';
+import {basisFor,createStudy,validateStudy,saveDesign,designRows,failureExplanation,recipe} from './study.js?v=0.13.0';
+import {registerTools} from './webmcp.js?v=0.13.0';
 mountShell({active:'reliability',label:'MODEL 11',title:'A system of almost reliable parts'});
 const STORAGE='thinking-lab:reliability:v1';const app=document.querySelector('#app');
 const clone=v=>structuredClone(v),pct=p=>`${(p*100).toFixed(2)}%`,pp=p=>`${p<0?'−':'+'}${(Math.abs(p)*100).toFixed(2)} pp`;

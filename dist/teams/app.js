@@ -1,11 +1,11 @@
-import { mountShell } from '../shared/shell.js?v=0.12.0';
-import { attachCardDrag } from '../shared/drag.js?v=0.12.0';
-import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.12.0';
-import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js?v=0.12.0';
+import { mountShell } from '../shared/shell.js?v=0.13.0';
+import { attachCardDrag } from '../shared/drag.js?v=0.13.0';
+import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.13.0';
+import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js?v=0.13.0';
 
-import {workloadFromPreset,validateWorkload} from './workload.js?v=0.12.0';
-import {workloadEditor} from './workload-ui.js?v=0.12.0';
-import {ARRANGEMENTS,extensions,activeWorkload,validateDesign,validatePortable,portable,workloadSummary} from './library.js?v=0.12.0';
+import {workloadFromPreset,validateWorkload} from './workload.js?v=0.13.0';
+import {workloadEditor} from './workload-ui.js?v=0.13.0';
+import {ARRANGEMENTS,extensions,activeWorkload,validateDesign,validatePortable,portable,workloadSummary} from './library.js?v=0.13.0';
 
 mountShell({ active: 'teams', label: 'MODEL 02', title: 'How teams fit the work' });
 const $ = selector => document.querySelector(selector);

@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.12.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.12.0';
-import {escapeHtml,downloadText} from '../shared/utils.js?v=0.12.0';
-import {createHistory,commit,undo} from './state.js?v=0.12.0';
+import {mountShell} from '../shared/shell.js?v=0.13.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.13.0';
+import {escapeHtml,downloadText} from '../shared/utils.js?v=0.13.0';
+import {createHistory,commit,undo} from './state.js?v=0.13.0';
 export const e=escapeHtml;
 export const uid=()=>crypto.randomUUID?.()||`w-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const short=(value,max=90)=>value.length>max?`${value.slice(0,max-1)}…`:value;

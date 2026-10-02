@@ -1,5 +1,5 @@
-import{mountShell}from'./shared/shell.js?v=0.12.0';
-import{experiments}from'./shared/catalog.js?v=0.12.0';
+import{mountShell}from'./shared/shell.js?v=0.13.0';
+import{experiments}from'./shared/catalog.js?v=0.13.0';
 mountShell();
 let filter=location.hash==='#archive'?'archive':'all';
 const search=document.querySelector('#search'),cards=[...document.querySelectorAll('.experiment')];
