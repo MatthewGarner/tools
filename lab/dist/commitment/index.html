@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A playable model of promises, pressure, shortcuts and future capacity. Fork a baseline and explore the same demand with different policies.">
+  <script src="../shared/appearance.js?v=0.20.0"></script><title>Commitment Spiral · Thinking Lab</title>
+  <link rel="stylesheet" href="../shared/base.css?v=0.20.0">
+  <link rel="stylesheet" href="./style.css?v=0.20.0">
+  <script type="module" src="./app.js?v=0.20.0"></script>
+<link rel="stylesheet" href="../shared/design.css?v=0.20.0"></head>
+<body>
+<main class="experiment">
+  <header class="experiment-header">
+    <div><p class="eyebrow">MODEL 01 <span> / </span> CAPACITY &amp; CONSEQUENCES</p><h1>The Commitment Spiral</h1><p class="intro">Explore how promises, shortcuts and recovery shape the weeks that follow.</p></div>
+    <button id="export" class="quiet-button export-button" type="button">Export experiment <span aria-hidden="true">↗</span></button>
+  </header>
+
+  <section id="timing-study" class="timing-study" aria-label="Compare intervention timing"></section>
+  <details class="custom-course" id="custom-course"><summary><span>Build a custom policy sequence</span><span id="custom-course-summary"></span></summary>
+  <div class="workbench">
+    <aside class="controls-panel" aria-label="Experiment controls">
+      <div class="scenario-control"><label class="section-label" for="scenario">01 / The situation</label><select id="scenario"><option value="rush">The launch rush</option><option value="squeeze">The steady squeeze</option><option value="runway">Room to breathe</option></select><p id="scenario-description" class="small muted"></p><div class="scenario-facts"><span>12 points / week</span><span>Same seeded demand</span></div></div>
+      <form id="policy-form">
+        <div class="control-heading"><h2 class="section-label">02 / Your next policy</h2><span id="policy-draft" class="tag">Draft</span></div>
+        <div class="range-control"><label for="commitment">Promise rate <output id="commitment-value" for="commitment">95%</output></label><input id="commitment" name="commitment" type="range" min="40" max="100" step="5" value="95"><p class="small muted">Share of incoming work accepted. The rest is declined.</p></div>
+        <div class="range-control"><label for="quality">Protect quality <output id="quality-value" for="quality">25%</output></label><input id="quality" name="quality" type="range" min="0" max="100" step="5" value="25"><p class="small muted">Fewer shortcuts now; fewer defects return later.</p></div>
+        <div class="range-control"><label for="recovery">Reserve recovery <output id="recovery-value" for="recovery">4%</output></label><input id="recovery" name="recovery" type="range" min="0" max="25" step="1" value="4"><p class="small muted">Protect time to recover and limit overtime.</p></div>
+        <div class="timing-control"><label for="apply-week">Start in week</label><input id="apply-week" type="number" min="7" max="36" value="7" required><span id="timing-hint" class="small muted">Next week</span></div>
+        <button id="apply-policy" class="primary-button full-width" type="submit">Apply policy</button>
+        <p id="form-message" class="form-message small" role="status" aria-live="polite"></p>
+      </form>
+      <div id="scheduled-events" class="scheduled-events"></div>
+      <div class="first-move"><span class="small-icon" aria-hidden="true">↳</span><p><strong>Try a fork.</strong> Keep this course as a baseline, lower the promise rate, then compare week 36. Replay the change later.</p></div>
+    </aside>
+
+    <section class="instrument" aria-label="Simulation">
+      <div class="transport"><div class="week-heading"><span class="live-dot" id="live-dot" aria-hidden="true"></span><h2>Week <span id="current-week">6</span><span class="week-total"> / 36</span></h2><span id="run-state" class="small muted">Paused</span></div><div class="transport-buttons"><button id="run" class="primary-button" type="button"><span id="run-icon" aria-hidden="true">▶</span> <span id="run-label">Run</span></button><button id="step" class="quiet-button" type="button">+1 week</button><button id="reset" class="icon-button" type="button" aria-label="Reset scenario to week 0" title="Reset to week 0">↺</button></div></div>
+      <div class="timeline-track" role="progressbar" aria-label="Weeks simulated" aria-valuemin="0" aria-valuemax="36" aria-valuenow="6" id="timeline"><div id="timeline-progress"></div><span class="surge-region" id="surge-region" title="Demand surge: weeks 9–16"></span></div>
+      <div class="metrics"><div class="metric"><span>Usable output</span><strong id="usable">—</strong><small>points delivered &amp; sound</small></div><div class="metric"><span>Open promises</span><strong id="outstanding">—</strong><small id="overdue-caption">points still to deliver</small></div><div class="metric"><span>Team capacity</span><strong id="capacity">—</strong><small>of 12 points, before overtime</small></div><div class="metric"><span>Trust</span><strong id="trust">—</strong><small>an illustrative index / 100</small></div></div>
+
+      <section class="chart-panel" aria-labelledby="chart-title"><div class="chart-header"><div><p class="section-label">THE WEEKS ADD UP</p><h2 id="chart-title">Work waiting</h2></div><div class="chart-tabs" role="group" aria-label="Chart measure"><button type="button" data-chart="work" aria-pressed="true">Work</button><button type="button" data-chart="output" aria-pressed="false">Output</button><button type="button" data-chart="capacity" aria-pressed="false">Capacity</button></div></div><div id="chart-legend" class="chart-legend"></div><div id="chart" class="chart" role="img" aria-label="Simulation chart"></div><div class="chart-caption"><span id="chart-description"></span><span>Dashed lines: continuation</span></div><details class="data-details"><summary>Read chart data</summary><div class="table-scroll"><table id="chart-data"></table></div></details></section>
+
+      <section class="capacity-panel" aria-labelledby="allocation-title"><div class="allocation-heading"><h3 id="allocation-title">This week’s capacity</h3><span id="allocation-total" class="small muted"></span></div><div id="allocation-bar" class="allocation-bar" role="img"></div><div id="allocation-legend" class="allocation-legend"></div><p id="week-insight" class="week-insight"></p></section>
+
+      <section class="comparison-panel" aria-labelledby="comparison-title"><div class="comparison-heading"><div><p class="section-label">SAME DEMAND. ANOTHER COURSE.</p><h2 id="comparison-title">What would change?</h2></div><button id="fork" class="outline-button" type="button">Fork a baseline <span aria-hidden="true">⑂</span></button></div><p id="comparison-intro" class="small muted">Freeze the current policy as a reference. Your next changes affect only your experiment.</p><div id="comparison-content"></div></section>
+    </section>
+  </div>
+
+  </details>
+
+  <details class="model-notes challenge-model"><summary><span>Challenge the model</span><span class="small muted" id="assumptions-summary">Three illustrative assumptions</span><span aria-hidden="true">+</span></summary>
+    <form id="assumptions-form" class="assumptions-form">
+      <p class="assumptions-explanation">What if these feedbacks are weaker—or stronger? Changes replay <strong>both courses from week 1</strong> using the same assumptions. Your policies, seed and current week are kept.</p>
+      <div class="assumptions-grid">
+        <div class="range-control"><label for="assumption-repair">Cost of a returned defect <output id="assumption-repair-value" for="assumption-repair">1.7 ×</output></label><input id="assumption-repair" type="range" min="0.5" max="4" step="0.1" value="1.7"><p>Effort to repair each defective point. Illustrative default: <strong>1.7 ×</strong>.</p></div>
+        <div class="range-control"><label for="assumption-fatigue">Fatigue’s capacity effect <output id="assumption-fatigue-value" for="assumption-fatigue">45%</output></label><input id="assumption-fatigue" type="range" min="0" max="75" step="5" value="45"><p>Capacity lost at maximum fatigue. At 0%, fatigue cannot reduce capacity. Default: <strong>45%</strong>.</p></div>
+        <div class="range-control"><label for="assumption-reporting">Late-work reporting <output id="assumption-reporting-value" for="assumption-reporting">0.65</output></label><input id="assumption-reporting" type="range" min="0" max="1.5" step="0.05" value="0.65"><p>Extra effort per 10 overdue points. Trust-related reporting remains. Default: <strong>0.65</strong>.</p></div>
+      </div>
+      <div class="assumptions-actions"><button class="primary-button" type="submit">Replay with these assumptions</button><button id="reset-assumptions" class="quiet-button" type="button">Restore illustrative defaults</button><span id="assumptions-status" class="small muted" role="status" aria-live="polite"></span></div>
+    </form>
+  </details>
+  <details class="model-notes"><summary><span>Inside the model</span><span class="small muted">Mechanism, assumptions &amp; limits</span><span aria-hidden="true">+</span></summary><div class="model-notes-body"><div><h3>The loop</h3><p>Accept work → delivery pressure → overtime and shortcuts → fatigue and delayed repairs → less room for the next promise.</p><p>Promises are due by the end of the following week. Returned defects are repaired first. Late promises reduce trust; lateness and lower trust add reporting work.</p><p>Declining work has a cost too: it never becomes output. Demand is external, so every fork sees exactly the same demand.</p></div><div><h3>The accounting</h3><p><code>Capacity = 12 × (1 − <span id="equation-fatigue">0.45</span> × fatigue)</code><br><code>Capacity + overtime = reporting + recovery + repairs + delivery effort + idle</code></p><p>Shortcuts reduce effort per delivered point but increase defects. Defects return two weeks later and cost <span id="equation-repair">1.7</span> effort points each to repair. “Usable output” subtracts all outstanding defects, including hidden ones.</p><p>Reporting costs 0.4 effort points, plus <span id="equation-reporting">0.65</span> per 10 overdue points and up to 1.4 for lost trust. Total reporting is capped at 40% of capacity.</p><p>Recovery protects 0–25% of capacity. At 25%, overtime is off. Spare capacity also helps fatigue fall.</p></div><div><h3>A model, not a forecast</h3><p>Units, coefficients and scenarios are invented. Work is divisible and alike. No staff changes, deadlines renegotiated, strategic benefits from accepting work, or revenue model.</p><p>The full equations are <a href="./engine.js?v=0.20.0">readable in the engine</a>. Results show what follows from these assumptions, not what will happen to a real team.</p><p>Your experiment is saved in this browser. Export creates a Markdown record of the policies, assumptions and outcomes.</p></div></div></details>
+  <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+</main>
+</body>
+</html>

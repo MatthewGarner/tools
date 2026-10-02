@@ -1,0 +1,3 @@
+# Local wins, collective losses · M08
+
+Move team cards between three action styles or use their selectors. Outcomes include explicit cross-team effects; each reward mixes own result with a weighted common result. Step simultaneous best responses, run to a stable state/cycle, pin actions and compare. Coupling and weights are challengeable; a complete payoff table is disclosed. Comparisons start from identical balanced actions. Fictional one-period scores, no bargaining, learning or prediction. Local save, Undo/reset and Markdown export. Existing engine tests cover best responses, coupling and policy comparisons.
