@@ -1,5 +1,7 @@
+import {JUDGEMENTS, REVIEW_TEXT, validateTransfers, applyTransfer, remapTransfers, transfersMarkdown} from './transfers.js?v=0.14.0';
+import {assertPortable} from '../shared/ancestry.js?v=0.14.0';
 export const KEY = 'thinking-lab:analogy:v1';
-export const FITS = {unchecked: 'Not checked', fits: 'Holds', partial: 'Partly holds', breaks: 'Breaks here'};
+export const FITS = JUDGEMENTS;
 export const PLAN_FIELDS = ['mechanism', 'adaptation', 'boundary', 'test', 'learn'];
 export const SOURCES = {
   library: {name:'Library reservations', summary:'Make scarce, reusable capacity available through a queue and a time-limited claim.', principle:'Separate a request from a promise. Make claims visible, allocate by an explicit rule, and release reserved capacity when the claim expires.', roles:[['Requester','Needs temporary access to a resource.'],['Resource pool','Holds scarce, reusable items.'],['Reservation queue','Makes competing claims visible and ordered.'],['Allocator','Applies the rule and holds capacity for a claimant.']], links:[[0,2,'Makes a visible claim'],[2,3,'Provides ordered claims'],[3,1,'Reserves before promising access'],[1,0,'Grants time-limited access'],[0,1,'Returns the resource for reuse']], target:'How could product teams get timely specialist reviews?', targets:[['Product team','Brings a question that needs specialist input.'],['Specialist review hours','The limited time available for reviews.'],['Review backlog','A visible list of questions ready for review.'],['Review coordinator','Balances claims and assigns available review slots.']]},
@@ -10,7 +12,7 @@ export const SOURCES = {
 };
 const clone = value => structuredClone(value);
 const blankPlan = () => Object.fromEntries(PLAN_FIELDS.map(key => [key, '']));
-const review = () => ({fit:'unchecked', note:'', stale:false});
+const review = () => ({fit:'unchecked', note:'', targetRelation:'', condition:'', failure:'', stale:false});
 export function createWorkspace(id = 'first', sourceKey = 'library', blank = false) {
   if (!Object.hasOwn(SOURCES, sourceKey)) throw new Error('Unknown source mechanism.');
   const source = SOURCES[sourceKey];
@@ -23,9 +25,9 @@ export function createWorkspace(id = 'first', sourceKey = 'library', blank = fal
   });
   const reasons = {library:['Both ask for access to something scarce.','Both set a limit on what can be promised.','Both make competing needs visible.'],triage:['Both arrive with an uncertain urgency.','Both assess evidence before routing attention.','Both make the criteria for priority explicit.'],rehearsal:['Both coordinate action under pressure.','Both make the expected sequence explicit.','Both represent a real situation at lower cost.'],succession:['Both establish before the later system is viable.','Both are changed by their participants.','Both enable some later activities and constrain others.']};
   const mappings = blank || sourceKey === 'custom' ? [] : roles.slice(0,3).map((role,index) => ({sourceId:role.id, targetId:targets[index].id, reason:reasons[sourceKey][index]}));
-  const workspace = {id, problem:blank ? '' : source.target, source:{name:source.name, principle:source.principle, roles, links}, targets, mappings, reviews:Object.fromEntries(links.map(link => [link.id, review()])), selectedLink:links.at(-1)?.id || null, plan:blankPlan()};
+  const workspace = {id, problem:blank ? '' : source.target, source:{name:source.name, principle:source.principle, roles, links}, targets, mappings, reviews:Object.fromEntries(links.map(link => [link.id, review()])), selectedLink:links.at(-1)?.id || null, plan:blankPlan(),...validateTransfers({})};
   if (!blank && sourceKey === 'library') {
-    workspace.reviews[links.at(-1).id] = {fit:'breaks', note:'A review hour is consumed, not returned. The reusable unit is the next available slot, not the hour already spent.', stale:false};
+    workspace.reviews[links.at(-1).id] = {...review(),fit:'breaks', note:'A review hour is consumed, not returned. The reusable unit is the next available slot, not the hour already spent.', stale:false};
     workspace.plan = {mechanism:source.principle, adaptation:'Reserve review slots only when a question is ready. Expire unused holds so another team can take them.', boundary:'Time is consumed rather than returned. We need replenishing capacity and a way to handle genuinely urgent work.', test:'Try a visible reservation queue for one specialist for a week. Track waiting time, unused holds, and urgent exceptions.', learn:'If preparation takes more effort than the waiting time saved, simplify or stop the trial.'};
   }
   return workspace;
@@ -37,10 +39,11 @@ export const roleName = (role, fallback = 'Unnamed role') => role?.label.trim() 
 function invalidate(workspace, sourceIds) {for (const link of workspace.source.links) if (sourceIds.includes(link.from) || sourceIds.includes(link.to)) {const old = workspace.reviews[link.id]; workspace.reviews[link.id] = {...old, fit:'unchecked', stale:old.stale || old.fit !== 'unchecked' || Boolean(old.note.trim())};}}
 export function apply(state, action) {
   const next = clone(state), work = active(next);
+  if(action.type.startsWith('option-')){applyTransfer(work,action);assertPortable(work,6999000);return next;}
   switch(action.type) {
-    case 'problem': text(action.value); work.problem = action.value; break;
+    case 'problem': text(action.value);if(work.problem!==action.value)invalidate(work,work.source.roles.map(r=>r.id)); work.problem = action.value; break;
     case 'source':
-      if (!['name','principle'].includes(action.field)) throw new Error('Unknown source field.'); text(action.value); work.source[action.field] = action.value; break;
+      if (!['name','principle'].includes(action.field)) throw new Error('Unknown source field.'); text(action.value);if(action.field==='principle'&&work.source.principle!==action.value)invalidate(work,work.source.roles.map(r=>r.id)); work.source[action.field] = action.value; break;
     case 'role': {
       const roles = action.side === 'source' ? work.source.roles : action.side === 'target' ? work.targets : null;
       const role = roles?.find(role => role.id === action.id); if (!role) throw new Error('Role not found.');
@@ -94,9 +97,9 @@ export function apply(state, action) {
       if (work.selectedLink === action.id) work.selectedLink = work.source.links[0]?.id || null; break;
     case 'select-link': if (!work.source.links.some(link => link.id === action.id)) throw new Error('Relationship not found.'); work.selectedLink = action.id; break;
     case 'review': {
-      const link = work.source.links.find(link => link.id === action.id); if (!link || !['fit','note'].includes(action.field)) throw new Error('Unknown relationship check.');
+      const link = work.source.links.find(link => link.id === action.id); if (!link || !['fit',...REVIEW_TEXT].includes(action.field)) throw new Error('Unknown relationship check.');
       if (action.field === 'fit') {if (!Object.hasOwn(FITS,action.value)) throw new Error('Unknown fit.'); if (action.value !== 'unchecked' && (!targetFor(work,link.from) || !targetFor(work,link.to))) throw new Error('Map both endpoint roles before judging this relationship.'); work.reviews[link.id].stale = false;}
-      else text(action.value); work.reviews[link.id][action.field] = action.value; break;
+      else {text(action.value);if(action.field==='targetRelation'&&work.reviews[link.id].targetRelation!==action.value){work.reviews[link.id].stale=work.reviews[link.id].stale||work.reviews[link.id].fit!=='unchecked'||Boolean(work.reviews[link.id].note.trim());work.reviews[link.id].fit='unchecked';}} work.reviews[link.id][action.field] = action.value; break;
     }
     case 'plan': if (!PLAN_FIELDS.includes(action.field)) throw new Error('Unknown plan field.'); text(action.value); work.plan[action.field] = action.value; break;
     case 'copy-mechanism': work.plan.mechanism = work.source.principle; break;
@@ -106,12 +109,13 @@ export function apply(state, action) {
     }
     case 'fork-source': {
       if (next.workspaces.length >= 100 || next.workspaces.some(item => item.id === action.id)) throw new Error('Cannot add another workspace.');
-      const added = createWorkspace(action.id,action.source,true); added.problem = work.problem; added.targets = work.targets.map((role,index) => ({...role,id:`${action.id}-t${index+1}`})); next.workspaces.push(added); next.activeId = added.id; break;
+      const added = createWorkspace(action.id,action.source,true); added.problem = work.problem; added.targets = work.targets.map((role,index) => ({...role,id:`${action.id}-t${index+1}`})); Object.assign(added,clone(validateTransfers(work))); next.workspaces.push(added); next.activeId = added.id; break;
     }
     case 'switch': if (!next.workspaces.some(item => item.id === action.id)) throw new Error('Workspace not found.'); next.activeId = action.id; break;
     case 'import': {
       if (next.workspaces.length >= 100 || next.workspaces.some(item => item.id === action.id)) throw new Error('Cannot add another workspace.');
       const imported = validateWorkspace(action.workspace), sourceIds = new Map(imported.source.roles.map((role,index) => [role.id,`${action.id}-s${index+1}`])), targetIds = new Map(imported.targets.map((role,index) => [role.id,`${action.id}-t${index+1}`])), linkIds = new Map(imported.source.links.map((link,index) => [link.id,`${action.id}-l${index+1}`]));
+      remapTransfers(imported,action.id);
       imported.id = action.id; imported.source.roles.forEach(role => role.id = sourceIds.get(role.id)); imported.targets.forEach(role => role.id = targetIds.get(role.id));
       imported.source.links.forEach(link => {link.id = linkIds.get(link.id); link.from = sourceIds.get(link.from); link.to = sourceIds.get(link.to);});
       imported.mappings.forEach(mapping => {mapping.sourceId = sourceIds.get(mapping.sourceId); mapping.targetId = targetIds.get(mapping.targetId);});
@@ -120,6 +124,7 @@ export function apply(state, action) {
     }
     default: throw new Error('Unknown action.');
   }
+  assertPortable(active(next),6999000);
   return next;
 }
 export function createHistory(state) {return {present:clone(state),past:[],group:null};}
@@ -139,8 +144,8 @@ export function validateWorkspace(value) {
   if (!Array.isArray(value.mappings)) throw new Error('Invalid mappings.');
   const mappings = value.mappings.map(mapping => {if (!object(mapping) || !sourceIds.has(mapping.sourceId) || !targetIds.has(mapping.targetId)) throw new Error('A mapping has a missing role.'); return {sourceId:mapping.sourceId,targetId:mapping.targetId,reason:text(mapping.reason)};});
   if (new Set(mappings.map(mapping => mapping.sourceId)).size !== mappings.length || new Set(mappings.map(mapping => mapping.targetId)).size !== mappings.length) throw new Error('Map each role at most once.');
-  const reviews = Object.fromEntries(links.map(link => {const item=value.reviews[link.id]; if (!object(item) || !Object.hasOwn(FITS,item.fit) || typeof item.stale !== 'boolean') throw new Error('Invalid relationship check.'); if (item.fit !== 'unchecked' && (!mappings.some(mapping => mapping.sourceId === link.from) || !mappings.some(mapping => mapping.sourceId === link.to))) throw new Error('A checked relationship must have both roles mapped.'); return [link.id,{fit:item.fit,note:text(item.note),stale:item.stale}];}));
-  return {id:text(value.id,true),problem:text(value.problem),source:{name:text(value.source.name),principle:text(value.source.principle),roles:sourceRoles,links},targets,mappings,reviews,selectedLink:value.selectedLink,plan:Object.fromEntries(PLAN_FIELDS.map(key => [key,text(value.plan[key])]))};
+  const reviews = Object.fromEntries(links.map(link => {const item=value.reviews[link.id]; if (!object(item) || !Object.hasOwn(FITS,item.fit) || typeof item.stale !== 'boolean') throw new Error('Invalid relationship check.'); if (item.fit !== 'unchecked' && (!mappings.some(mapping => mapping.sourceId === link.from) || !mappings.some(mapping => mapping.sourceId === link.to))) throw new Error('A checked relationship must have both roles mapped.'); return [link.id,{fit:item.fit,...Object.fromEntries(REVIEW_TEXT.map(k=>[k,text(item[k]??(k==='note'?undefined:''))])),stale:item.stale}];}));
+  return {id:text(value.id,true),problem:text(value.problem),source:{name:text(value.source.name),principle:text(value.source.principle),roles:sourceRoles,links},targets,mappings,reviews,selectedLink:value.selectedLink,plan:Object.fromEntries(PLAN_FIELDS.map(key => [key,text(value.plan[key])])),...validateTransfers(value)};
 }
 export function validateState(value) {if (!object(value) || value.version !== 1 || !Array.isArray(value.workspaces) || !value.workspaces.length || value.workspaces.length > 100) throw new Error('Unknown saved format.'); const workspaces=value.workspaces.map(validateWorkspace); if (new Set(workspaces.map(item => item.id)).size !== workspaces.length || !workspaces.some(item => item.id === value.activeId)) throw new Error('Invalid workspace list.'); return {version:1,activeId:value.activeId,workspaces};}
 export const serialize = workspace => JSON.stringify({kind:'thinking-lab-analogy',version:1,workspace:validateWorkspace(workspace)},null,2);
@@ -150,7 +155,8 @@ export function markdown(work) {
   for (const role of work.source.roles) {const mapping=work.mappings.find(item=>item.sourceId===role.id),target=targetFor(work,role.id); parts.push(`### ${roleName(role)} → ${target ? roleName(target) : 'Unmapped'}`,'',`Source function: ${content(role.job)}`,'',`Target function: ${target ? content(target.job) : '_Unmapped._'}`,'',`Why the match: ${mapping ? content(mapping.reason) : '_Not mapped._'}`,'');}
   const unmapped=work.targets.filter(role=>!work.mappings.some(mapping=>mapping.targetId===role.id)); if (unmapped.length) parts.push('### Unmapped target roles','',...unmapped.map(role=>`- ${roleName(role)}: ${content(role.job)}`),'');
   parts.push('## Relationship checks','');
-  for (const link of work.source.links) {const item=work.reviews[link.id]; parts.push(`### ${roleName(work.source.roles.find(role=>role.id===link.from))} → ${roleName(work.source.roles.find(role=>role.id===link.to))}`,'',content(link.label),'',`In the target: ${roleName(targetFor(work,link.from),'Unmapped')} → ${roleName(targetFor(work,link.to),'Unmapped')}`,'',`${FITS[item.fit]}${item.stale ? ' · mapping changed; recheck' : ''}`,'',content(item.note),'');}
+  for (const link of work.source.links) {const item=work.reviews[link.id]; parts.push(`### ${roleName(work.source.roles.find(role=>role.id===link.from))} → ${roleName(work.source.roles.find(role=>role.id===link.to))}`,'',content(link.label),'',`In the target: ${roleName(targetFor(work,link.from),'Unmapped')} → ${roleName(targetFor(work,link.to),'Unmapped')}`,'',`${FITS[item.fit]}${item.stale ? ' · mapping changed; recheck' : ''}`,'',content(item.note),'',`Target interaction: ${content(item.targetRelation)}`,'',`Required condition: ${content(item.condition)}`,'',`Failure point: ${content(item.failure)}`,'');}
   parts.push('## Adaptation & test',''); for (const [key,label] of [['mechanism','Mechanism to keep'],['adaptation','Adaptation'],['boundary','Where the analogy breaks'],['test','Smallest test'],['learn','What would change my mind']]) parts.push(`**${label}**`,'',content(work.plan[key]),'');
+  if(work.options?.length)parts.push(transfersMarkdown(work));
   return parts.join('\n');
 }

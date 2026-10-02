@@ -15,3 +15,5 @@ Mixer migration fixtures must be seeded from a page without a mounted creative-k
 Ancestry’s parked collection contains nested detail summaries. Browser journeys should target `.parked-collection > summary` when opening the collection; a descendant selector also selects each card’s reasoning details. Mixer’s shared collection toolbar must render in both generate and map views. Its dialog-to-concept path waits for the close event before focusing the editor, so the normal opener restoration cannot steal focus.
 
 A synthetic touch fling can cross more than one generation before scroll snapping settles. Check that it lands on a generation boundary, rather than requiring the immediately next column. After route navigation, wait for `.lab-archive-notice` before reading its text; the body can be available before the shared shell finishes mounting.
+
+For Analogy phone fixtures, wait for the mounted relationship editor before selecting an import file, then wait for the visible “Workshop imported” result. A fixed startup delay did not establish that the expected unmatched-role fixture was ready; inspecting the same export confirmed four target roles and no mappings.
