@@ -1,3 +1,5 @@
 # Idea family tree · S10
 
 A generation graph retains explicit fork/combination parents. Forks copy working content and snapshot parent wording; later parent edits do not silently rewrite children. Combination starts with both source snapshots and an empty mechanism to develop deliberately. Drag concepts to two comparison slots or use Compare, then combine; park/revive ancestors, delete leaves. Editing, local workspace history, Undo, Markdown/JSON import/export use creative-kit. Limits: 24 concepts, two parents, 100 workspaces. Lineage explains exploration, not the quality of an idea. Tests cover independence, ancestry integrity and portable round-trip.
+
+Shared capability from 2 October 2026. Alternatives copies local Family Tree workspaces and JSON exports, retaining every concept, both parent snapshots, ingredients, reasons, parked status, comparison choices and an unchanged original workspace. Mixer uses the same ancestry helpers for its own concepts. This earlier route and its original storage remain accessible.

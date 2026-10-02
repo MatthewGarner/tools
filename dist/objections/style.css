@@ -6,3 +6,5 @@
 .source-part{border-top:1px solid var(--line);padding-top:20px;margin-top:25px}.source-part h3{font-size:24px}
 
 .criteria-editor{padding:12px 16px;background:var(--surface);border:1px solid var(--line);margin:14px 0}.criteria-editor>summary{font-size:18px;line-height:1.45;overflow-wrap:anywhere;margin:0}.criteria-editor>.field{margin:18px 0 0}.import-source{padding:0;border:0;background:transparent;margin:0 0 20px}.import-source summary{font-size:15px;font-weight:400}
+
+.source-prose{font:18px/1.5 var(--serif);white-space:pre-wrap;overflow-wrap:anywhere}.combine-error{color:var(--danger)}

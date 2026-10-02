@@ -8,3 +8,5 @@
 @media(max-width:1000px){.inquiry-cards{grid-template-columns:1fr}.inquiry-board{grid-template-columns:minmax(0,1fr) minmax(260px,1fr)}}@media(max-width:700px){.inquiry-board,.inquiry-selects{grid-template-columns:1fr}.inquiry-frames{margin-top:12px}.section-top{flex-direction:column}.view-nav{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.view-nav button{width:100%;font-size:14px;flex-direction:row}.inquiry-card h3,.frame-target h3{font-size:20px}.workbench{padding-left:16px;padding-right:16px}.field-prompt,.field label,.button,.text-button{font-size:14px}}
 
 .problem-input{overflow-y:auto}.frame-card:has(>.frame-editor[open])>.frame-summary,.frame-card:has(>.frame-editor[open])>.frame-move-preview{display:none}
+
+.branch-context{padding:0 21px 18px}.branch-context .idea-ancestry h3{font-size:24px}.branch-context .field{margin-bottom:18px}

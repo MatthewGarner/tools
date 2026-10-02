@@ -1,4 +1,5 @@
-import{blankInquiry,exampleInquiry,normalizeInquiry,changeInquiry,remapInquiry}from'./inquiry.js?v=0.8.0';
+import {blankAncestry,derivedFrom,sourceSnapshot,ancestryMarkdown} from '../shared/ancestry.js?v=0.9.0';
+import{blankInquiry,exampleInquiry,normalizeInquiry,changeInquiry,remapInquiry}from'./inquiry.js?v=0.9.0';
 export const STORAGE_KEY = 'thinking-lab:reframe:v1';
 export const VERSION = 1;
 export const MAX_FRAMES = 5;
@@ -21,7 +22,7 @@ export const LENSES = {
 const copy = value => structuredClone(value);
 const blankOrigin = () => null;
 const blankPlan = () => Object.fromEntries(PLAN_FIELDS.map(key => [key, '']));
-export const blankFrame = (lens, id) => ({ id, lens, origin: blankOrigin(), ...Object.fromEntries(FRAME_FIELDS.map(key => [key, ''])) });
+export const blankFrame = (lens, id) => ({ id, lens, origin: blankOrigin(), branchReason: '', ...Object.fromEntries(FRAME_FIELDS.map(key => [key, ''])) });
 const frame = (lens, id, values) => ({...blankFrame(lens, id), ...values});
 
 const EXAMPLES = {
@@ -69,7 +70,7 @@ export function transition(state, action, now = new Date().toISOString()) {
       if(session.frames.length>=MAX_FRAMES)throw Error('Keep at most five frames so they stay comparable.');
       const parent=session.frames.find(f=>f.id===action.parent);
       if(!parent||typeof action.id!=='string'||!action.id||session.frames.some(f=>f.id===action.id))throw Error('Choose an existing frame and a new branch.');
-      const {origin,...snapshot}=copy(parent);session.frames.push({...copy(parent),id:action.id,origin:{kind:'frame',sourceId:parent.id,snapshot}});
+      const {origin,...snapshot}=copy(parent);session.frames.push({...copy(parent),id:action.id,branchReason:'',origin:{kind:'frame',sourceId:parent.id,snapshot}});
       break;
     }
     case 'frame-from-question': {
@@ -86,7 +87,7 @@ export function transition(state, action, now = new Date().toISOString()) {
       session[action.field] = action.value; break;
     case 'edit-frame': {
       const target = session.frames.find(item => item.id === action.id);
-      if (!target || !FRAME_FIELDS.includes(action.field) || typeof action.value !== 'string') throw new Error('Unknown frame field.');
+      if (!target || ![...FRAME_FIELDS,'branchReason'].includes(action.field) || typeof action.value !== 'string') throw new Error('Unknown frame field.');
       target[action.field] = action.value; break;
     }
     case 'add-frame':
@@ -166,7 +167,7 @@ export function normalizeSession(source) {
   if (!Array.isArray(source.frames) || source.frames.length < MIN_FRAMES || source.frames.length > MAX_FRAMES) throw new Error('A session needs three to five frames.');
   const frames = source.frames.map(item => {
     if (!plainObject(item) || !Object.hasOwn(LENSES, item.lens)) throw new Error('A frame has an unknown lens.');
-    return { id: textValue(item.id, 'Frame id', true), lens: item.lens, origin: normalizeOrigin(item.origin), ...Object.fromEntries(FRAME_FIELDS.map(key => [key, textValue(item[key], key)])) };
+    return { id: textValue(item.id, 'Frame id', true), lens: item.lens, origin: normalizeOrigin(item.origin), branchReason:textValue(item.branchReason??'','Reason for branching'), ...Object.fromEntries(FRAME_FIELDS.map(key => [key, textValue(item[key], key)])) };
   });
   if (new Set(frames.map(item => item.id)).size !== frames.length) throw new Error('Frame ids must be unique.');
   const ids = new Set(frames.map(item => item.id));
@@ -193,6 +194,7 @@ export function parseSession(raw) {
   return normalizeSession(data.session);
 }
 
+export function ancestryOfFrame(item){if(!item.origin)return blankAncestry();const s=item.origin.snapshot;return derivedFrom([sourceSnapshot(item.origin.sourceId,s.question||s.statement||item.origin.sourceId,Object.entries(s).filter(([k,v])=>typeof v==='string'&&k!=='id').map(([label,text])=>({label,text})))]);}
 export function frameProgress(item) { return FRAME_FIELDS.filter(key => item[key].trim()).length; }
 export function sessionTitle(session) { return session.problem.trim().replace(/\s+/g, ' ') || 'Untitled problem'; }
 export function markdown(session) {
@@ -204,7 +206,7 @@ export function markdown(session) {
   if(session.inquiry?.items.length){lines.push('## Questions and connections','');for(const q of session.inquiry.items){lines.push(`### ${q.question||'Unwritten question'}`,`${q.type} · ${q.status}${session.inquiry.selected.includes(q.id)?' · selected':''}`,q.parent?`Branched from: ${session.inquiry.items.find(p=>p.id===q.parent)?.question||q.parent} (${q.relation})`:'Original question',field('Decision this could change',q.unlocks),field('Provisional answer',q.answer),field('Evidence',q.evidence),field('Possible approaches',q.ideas));for(const link of session.inquiry.links.filter(l=>l.questionId===q.id)){const f=session.frames.find(f=>f.id===link.frameId);lines.push(`${link.relation}: ${f?.statement||LENSES[f?.lens]?.name||link.frameId}`,'');}}}
   lines.push('## Alternative frames\n');
   for (const [index, item] of session.frames.entries()) {
-    if(item.origin)lines.push(`Source ${item.origin.kind}: ${item.origin.snapshot.question||item.origin.snapshot.statement||item.origin.sourceId}`,'');
+    if(item.origin)lines.push(`Source ${item.origin.kind}: ${item.origin.snapshot.question||item.origin.snapshot.statement||item.origin.sourceId}`,field('Why branch this interpretation',item.branchReason||''),ancestryMarkdown(ancestryOfFrame(item)),'');
     lines.push(`### ${index + 1}. ${LENSES[item.lens].name}${session.selected.includes(item.id) ? ' · chosen' : ''}\n`, field('Problem statement', item.statement), field('Who and when', item.whoWhen), field('Assumption', item.assumption), field('Reveals', item.reveals), field('Hides', item.hides), field('Different next move', item.intervention), field('Smallest test', item.test));
   }
   lines.push('## Working frame & test\n', field('Working frame', session.plan.statement), field('Next move', session.plan.nextMove), field('Assumption to test', session.plan.assumption), field('Smallest test', session.plan.test), field('What would change my mind', session.plan.learn), '---\nWritten using Thinking Lab. Frames are hypotheses, not findings.');

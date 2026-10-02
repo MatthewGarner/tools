@@ -271,7 +271,10 @@ export const experiments=[
     "caption": "PARENT → BRANCH → COMBINATION",
     "limits": "Fork and combine concepts while keeping parent snapshots and reasons for change. Park ancestors without deleting their history. Lineage supports comparison; it does not score originality or promise.",
     "kind": "scaffold",
-    "new": true
+    "new": true,
+    "status": "merged",
+    "mergedInto": "objections",
+    "archiveReason": "Branching and ancestry now live inside the working tools. Copy Family Tree work into Alternatives to keep developing its branches."
   },
   {
     "id": "S11",

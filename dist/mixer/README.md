@@ -9,3 +9,5 @@ The original `thinking-lab:mixer:v1` store and JSON imports remain supported. Sc
 Mixing samples unlocked dimensions uniformly and tries to avoid recent combinations, falling back to a different valid combination if repeated randomness cannot find one. Limits: 2–8 dimensions, 1–12 options each, 100 concepts/workspaces. Imported files must be under 8 MB.
 
 Run `node --test dist/mixer/*.test.js`. Tests cover locks, snapshots, migration, partial classifications, stable notes, dimension changes, invalid transitions and portable round trips.
+
+Branch a developed concept or combine two into a deliberately blank mechanism and unplaced classification. Each keeps its full source reasoning, ingredient/map context and any earlier gap note, with explicit change and reason fields. The shared generation view opens any live ancestor for editing. Park/revive concepts without losing their place in the history; parents with descendants cannot be deleted. JSON and Markdown preserve the complete record. Snapshot size is checked before saving an unimportable workspace.

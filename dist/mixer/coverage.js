@@ -1,16 +1,16 @@
-import {escapeHtml as e} from '../shared/utils.js?v=0.8.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.8.0';
-import {validateSession} from '../creative-kit/state.js?v=0.8.0';
-import {validate as validateTerritory,markdown as territoryMarkdown} from '../territory/state.js?v=0.8.0';
-import {uid} from './model.js?v=0.8.0';
-import {VERDICTS,axes,cell,selectedCell,locationOf,gap,noteKey,labelCoordinates,usedOption,transition} from './map.js?v=0.8.0';
-import {fromTerritory} from './import.js?v=0.8.0';
+import {escapeHtml as e} from '../shared/utils.js?v=0.9.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.9.0';
+import {validateSession} from '../creative-kit/state.js?v=0.9.0';
+import {validate as validateTerritory,markdown as territoryMarkdown} from '../territory/state.js?v=0.9.0';
+import {uid} from './model.js?v=0.9.0';
+import {VERDICTS,axes,cell,selectedCell,locationOf,gap,noteKey,labelCoordinates,usedOption,transition} from './map.js?v=0.9.0';
+import {fromTerritory} from './import.js?v=0.9.0';
 
 const labels=items=>items.map(i=>`${i.dimension}: ${i.label}`).join(' · ');
 const name=(w,c)=>c.title||`Combination ${w.concepts.indexOf(c)+1}`;
 export const navigation=w=>`<nav class="view-nav" aria-label="Ways to explore"><button class="btn ${w.view==='generate'?'primary':''}" data-map-action="view" data-id="generate" aria-pressed="${w.view==='generate'}">Combine ingredients</button><button class="btn ${w.view==='map'?'primary':''}" data-map-action="view" data-id="map" aria-pressed="${w.view==='map'}">Map coverage</button><span>One collection · ${w.concepts.length} concepts</span><button class="btn quiet" data-map-action="earlier">Bring Territory work</button></nav>`;
 export const sourceRecord=w=>w.source?`<details class="source-record"><summary>Original Territory workspace · unchanged source</summary><p>The original is still saved in Territory. This copy keeps every source field in its JSON export.</p><pre>${e(territoryMarkdown(w.source.workspace))}</pre></details>`:'';
-function idea(w,c){return `<article class="map-idea" data-drag-id="${e(c.id)}"><div class="map-idea-top"><button class="idea-title" data-map-action="develop" data-id="${e(c.id)}">${e(name(w,c))}</button><button class="drag-handle" data-drag-handle data-map-action="move" data-id="${e(c.id)}" aria-label="Move ${e(name(w,c))}" title="Drag to another cell, or click to choose">⠿</button></div>${c.mechanism?`<p>${e(c.mechanism)}</p>`:''}${c.fitNeedsReview?'<small class="fit-warning">Review fit</small>':''}</article>`;}
+function idea(w,c){return `<article class="map-idea" data-drag-id="${e(c.id)}"><div class="map-idea-top"><button class="idea-title" data-map-action="develop" data-id="${e(c.id)}">${e(name(w,c))}</button><button class="drag-handle" data-drag-handle data-map-action="move" data-id="${e(c.id)}" aria-label="Move ${e(name(w,c))}" title="Drag to another cell, or click to choose">⠿</button></div>${c.mechanism?`<p>${e(c.mechanism)}</p>`:''}${c.ancestry.parked?'<small class="parked-label">Parked</small>':''}${c.fitNeedsReview?'<small class="fit-warning">Review fit</small>':''}</article>`;}
 export function mapView(w){
  const [r,c]=axes(w),key=selectedCell(w),g=gap(w),unplaced=w.concepts.filter(i=>locationOf(w,i)==='unplaced');
  const options=(selected,other)=>w.dimensions.map(d=>`<option value="${e(d.id)}" ${d.id===selected?'selected':''} ${d.id===other?'disabled':''}>${e(d.name)}</option>`).join('');
