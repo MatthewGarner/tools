@@ -1,6 +1,6 @@
-import {mountShell} from '../shared/shell.js?v=0.5.0';
-import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js';
-import {PRESETS,uid,createWorkspace,ingredients,combinationCount,mixWorkspace,captureConcept,markdown,validateWorkspace} from './model.js';
+import {mountShell} from '../shared/shell.js?v=0.6.0';
+import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.6.0';
+import {PRESETS,uid,createWorkspace,ingredients,combinationCount,mixWorkspace,captureConcept,markdown,validateWorkspace} from './model.js?v=0.6.0';
 mountShell({active:'mixer'});
 const KEY='thinking-lab:mixer:v1';
 let state,undo=[],promptIndex=0,toastTimer,recoveryRaw=null,savePaused=false,storageNotice='';

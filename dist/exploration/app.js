@@ -1,6 +1,6 @@
-import { mountShell } from '../shared/shell.js?v=0.5.0';
-import { downloadText, readStore, writeStore } from '../shared/utils.js';
-import { WEEKS, SCENARIOS, defaultPlan, normalizePlan, normalizeAssumptions, simulate } from './engine.js';
+import { mountShell } from '../shared/shell.js?v=0.6.0';
+import { downloadText, readStore, writeStore } from '../shared/utils.js?v=0.6.0';
+import { WEEKS, SCENARIOS, defaultPlan, normalizePlan, normalizeAssumptions, simulate } from './engine.js?v=0.6.0';
 mountShell({ active: 'exploration', label: 'M03', title: 'Exploration versus delivery' });
 const $ = selector => document.querySelector(selector);
 const KEY = 'thinking-lab:exploration:v1';
@@ -21,11 +21,11 @@ function chart() {
   const x = week => 34 + week / 20 * (width - 48), y = value => height - 28 - value / max * (height - 48);
   const path = rows => `M${x(0)},${y(0)} ` + rows.map(row => `L${x(row.week)},${y(row.value)}`).join(' ');
   let svg = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">`;
-  for (let value = 0; value <= max; value += 20) svg += `<path d="M34 ${y(value)} H${width - 14}" stroke="#edf1f6"/><text x="26" y="${y(value) + 4}" text-anchor="end">${value}</text>`;
+  for (let value = 0; value <= max; value += 20) svg += `<path d="M34 ${y(value)} H${width - 14}" stroke="var(--line)"/><text x="26" y="${y(value) + 4}" text-anchor="end">${value}</text>`;
   for (const week of [0, 5, 10, 15, 20]) svg += `<text x="${x(week)}" y="${height - 8}" text-anchor="middle">${week === 0 ? 'W0' : week}</text>`;
-  if (session.scenario === 'change') svg += `<path d="M${x(11)} 20 V${height - 28}" stroke="#d7b475" stroke-dasharray="3 4"/><text x="${x(11) + 5}" y="15">world changes</text>`;
-  if (baseline) svg += `<path d="${path(baseline.history)}" fill="none" stroke="#8f9aad" stroke-width="2" stroke-dasharray="4 4"/>`;
-  svg += `<path d="${path(result.history)}" fill="none" stroke="#2457e6" stroke-width="2.5"/><circle cx="${x(session.week)}" cy="${y(result.history[session.week - 1].value)}" r="4" fill="#2457e6" stroke="white" stroke-width="2"/></svg>`;
+  if (session.scenario === 'change') svg += `<path d="M${x(11)} 20 V${height - 28}" stroke="var(--warn)" stroke-dasharray="3 4"/><text x="${x(11) + 5}" y="15">world changes</text>`;
+  if (baseline) svg += `<path d="${path(baseline.history)}" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-dasharray="4 4"/>`;
+  svg += `<path d="${path(result.history)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/><circle cx="${x(session.week)}" cy="${y(result.history[session.week - 1].value)}" r="4" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/></svg>`;
   $('#chart').innerHTML = svg; $('#chart').setAttribute('aria-label', `Useful output rises to ${n(result.final.value)} by week 20.${baseline ? ` Pinned baseline: ${n(baseline.final.value)}.` : ''}`);
 }
 function render() {
@@ -37,7 +37,7 @@ function render() {
   $('#week-label').value = session.week;
   session.plan.forEach((value, index) => { $(`#bar-${index}`).style.setProperty('--research', `${value * 10}%`); $(`#effort-value-${index}`).value = value; $(`#column-${index}`).classList.toggle('current', index + 1 === session.week); });
   const row = result.history[session.week - 1];
-  $('#knowledge').innerHTML = [['need', 'What users need'], ['technical', 'What works technically']].map(([key, label]) => `<div class="knowledge-row"><div><span>${label}</span><span>Estimate ${n(row.belief[key], 2)}</span></div><div class="belief-track"><i class="world-marker" style="left:${row.world[key] * 100}%" title="World ${n(row.world[key], 2)}"></i><i class="belief-marker" style="left:${row.belief[key] * 100}%" title="Team estimate ${n(row.belief[key], 2)}"></i></div></div>`).join('') + '<p class="belief-key">Blue: team estimate · amber: hidden world · both on a 0–1 scale</p>';
+  $('#knowledge').innerHTML = [['need', 'What users need'], ['technical', 'What works technically']].map(([key, label]) => `<div class="knowledge-row"><div><span>${label}</span><span>Estimate ${n(row.belief[key], 2)}</span></div><div class="belief-track"><i class="world-marker" style="left:${row.world[key] * 100}%" title="World ${n(row.world[key], 2)}"></i><i class="belief-marker" style="left:${row.belief[key] * 100}%" title="Team estimate ${n(row.belief[key], 2)}"></i></div></div>`).join('') + '<p class="belief-key">Solid fill: team estimate · marker: hidden world · both on a 0–1 scale</p>';
   $('#evidence').innerHTML = `<h3>Evidence used in week ${session.week}</h3>${row.evidence.length ? row.evidence.map(item => `<p>${item.source === 'research' ? `Research now: need signal ${n(item.need, 2)}, given ${n(item.needWeight * 100, 0)}% weight. No technical signal.` : `Delivery from week ${item.from}: need ${n(item.need, 2)} (${n(item.needWeight * 100, 0)}% weight), technical ${n(item.technical, 2)} (${n(item.technicalWeight * 100, 0)}% weight).`}</p>`).join('') : '<p>No new observations. The team keeps its previous estimates.</p>'}<p>${row.build} points built, ${row.research} spent researching; ${row.pending} delivery observations still in transit.</p>`;
   chart();
 }

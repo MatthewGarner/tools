@@ -1,12 +1,12 @@
-import { mountShell } from '../shared/shell.js?v=0.5.0';
-import { attachCardDrag } from '../shared/drag.js';
-import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js';
-import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js';
+import { mountShell } from '../shared/shell.js?v=0.6.0';
+import { attachCardDrag } from '../shared/drag.js?v=0.6.0';
+import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.6.0';
+import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js?v=0.6.0';
 
 mountShell({ active: 'teams', label: 'MODEL 02', title: 'How teams fit the work' });
 const $ = selector => document.querySelector(selector);
 const KEY = 'thinking-lab:teams:v1';
-const palette = { a: { color: '#5077bf', wash: '#f1f5fc', line: '#d3dfef' }, b: { color: '#548f85', wash: '#f0f7f4', line: '#d0e3dc' }, c: { color: '#b28b4a', wash: '#faf6ee', line: '#e7ddca' } };
+const palette = { a: { color: 'var(--accent)', wash: 'var(--card)', line: 'var(--accent-soft)' }, b: { color: 'var(--muted)', wash: 'var(--card)', line: 'var(--surface)' }, c: { color: 'var(--warn)', wash: 'var(--card)', line: 'var(--warn-soft)' } };
 const capById = Object.fromEntries(CAPABILITIES.map(cap => [cap.id, cap]));
 const names = raw => Object.fromEntries(TEAM_IDS.map(id => [id, typeof raw?.[id] === 'string' && raw[id].trim() ? raw[id].trim().slice(0, 28) : TEAM_NAMES[id]]));
 function normalizeSession(raw = {}) {
@@ -135,7 +135,7 @@ function drawRouteOverlay() {
       path = `M${startX},${startY} C${middle},${startY} ${middle},${endY} ${endX},${endY}`;
     }
     const completed = job.completions.length >= index;
-    edges.push(`<path id="route-edge-${index}" d="${path}" fill="none" stroke="${route[index].crossing ? '#c8953c' : '#579b85'}" stroke-width="2" ${route[index].crossing ? 'stroke-dasharray="5 4"' : ''} opacity="${completed ? '.85' : '.4'}"/>`);
+    edges.push(`<path id="route-edge-${index}" d="${path}" fill="none" stroke="${route[index].crossing ? 'var(--warn)' : 'var(--muted)'}" stroke-width="2" ${route[index].crossing ? 'stroke-dasharray="5 4"' : ''} opacity="${completed ? '.85' : '.4'}"/>`);
   }
   overlay.innerHTML = edges.join('');
   if (job.completedAt === null && job.readyAt > session.day && job.arrival <= session.day && job.stageIndex > 0) {
@@ -145,7 +145,7 @@ function drawRouteOverlay() {
       const fraction = Math.max(0, Math.min(1, (session.day - transfer.start) / (transfer.end - transfer.start)));
       const point = path.getPointAtLength(path.getTotalLength() * fraction);
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dot.setAttribute('cx', point.x); dot.setAttribute('cy', point.y); dot.setAttribute('r', 5); dot.setAttribute('fill', '#c8953c'); dot.setAttribute('stroke', 'white'); dot.setAttribute('stroke-width', 2); overlay.append(dot);
+      dot.setAttribute('cx', point.x); dot.setAttribute('cy', point.y); dot.setAttribute('r', 5); dot.setAttribute('fill', 'var(--warn)'); dot.setAttribute('stroke', 'var(--card)'); dot.setAttribute('stroke-width', 2); overlay.append(dot);
     }
   }
 }
@@ -185,10 +185,10 @@ function renderChart() {
   const y = value => height - margin.bottom - value / max * (height - margin.top - margin.bottom);
   const path = rows => rows.map((row, index) => `${index ? 'L' : 'M'}${x(row.day).toFixed(2)},${y(row.completed).toFixed(2)}`).join(' ');
   let svg = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">`;
-  for (let value = 0; value <= max; value += 5) svg += `<line x1="${margin.left}" x2="${width - margin.right}" y1="${y(value)}" y2="${y(value)}" stroke="#edf1f6"/><text x="${margin.left - 9}" y="${y(value) + 4}" text-anchor="end">${value}</text>`;
+  for (let value = 0; value <= max; value += 5) svg += `<line x1="${margin.left}" x2="${width - margin.right}" y1="${y(value)}" y2="${y(value)}" stroke="var(--line)"/><text x="${margin.left - 9}" y="${y(value) + 4}" text-anchor="end">${value}</text>`;
   for (const day of [0, 5, 10, 15, 20, 25, 30]) svg += `<text x="${x(day)}" y="${height - 8}" text-anchor="middle">${day === 0 ? 'D0' : day}</text>`;
-  if (baseline) svg += `<path d="${path(baseline.history)}" fill="none" stroke="#8898ac" stroke-width="2" stroke-dasharray="4 4"/>`;
-  svg += `<path d="${path(result.history)}" fill="none" stroke="#2457e6" stroke-width="2.5"/><line x1="${x(session.day)}" x2="${x(session.day)}" y1="${margin.top}" y2="${height - margin.bottom}" stroke="#bac7da"/><circle cx="${x(session.day)}" cy="${y(frame().completed)}" r="4" fill="#2457e6" stroke="white" stroke-width="2"/></svg>`;
+  if (baseline) svg += `<path d="${path(baseline.history)}" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-dasharray="4 4"/>`;
+  svg += `<path d="${path(result.history)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/><line x1="${x(session.day)}" x2="${x(session.day)}" y1="${margin.top}" y2="${height - margin.bottom}" stroke="var(--accent-line)"/><circle cx="${x(session.day)}" cy="${y(frame().completed)}" r="4" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/></svg>`;
   container.innerHTML = svg;
   container.setAttribute('aria-label', `Completed work over 30 days. Current layout finishes ${result.final.completed} of ${result.workload.length}.${baseline ? ` Baseline finishes ${baseline.final.completed}.` : ''} Replay cursor is at day ${dayText(session.day)}, with ${frame().completed} complete.`);
 }

@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.5.0';
-import {attachCardDrag} from '../shared/drag.js';
-import {escapeHtml as e, downloadText} from '../shared/utils.js';
-import {KEY, SOURCES, FITS, initialState, active, targetFor, roleName, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js';
+import {mountShell} from '../shared/shell.js?v=0.6.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.6.0';
+import {escapeHtml as e, downloadText} from '../shared/utils.js?v=0.6.0';
+import {KEY, SOURCES, FITS, initialState, active, targetFor, roleName, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js?v=0.6.0';
 mountShell({active:'analogy'});
 const root=document.querySelector('#app'), dialog=document.querySelector('#dialog');
 let history=createHistory(initialState()), timer, toastTimer, dragDestroy, dialogOrigin=null, paused=false, recovery=null, saveMessage='Saved on this device';

@@ -1,6 +1,6 @@
-import { mountShell } from '../shared/shell.js?v=0.5.0';
-import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js';
-import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js';
+import { mountShell } from '../shared/shell.js?v=0.6.0';
+import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.6.0';
+import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js?v=0.6.0';
 
 mountShell({ active: 'commitment', label: 'MODEL 01', title: 'The Commitment Spiral' });
 const $ = selector => document.querySelector(selector);
@@ -90,9 +90,9 @@ function renderMetrics() {
 }
 
 const chartDefinitions = {
-  work: { title: 'Work waiting', unit: 'points', primary: 'outstanding', secondary: 'repairWork', primaryLabel: 'Open promises', secondaryLabel: 'Repair work, incl. hidden', secondaryColor: '#cb8b31', description: 'Promises are due at the end of the following week.' },
-  output: { title: 'Done isn’t always done', unit: 'cumulative points', primary: 'usable', secondary: 'cumulativeShipped', primaryLabel: 'Usable output', secondaryLabel: 'Reported delivery', secondaryColor: '#329887', description: 'The gap is delivered work with defects still outstanding.' },
-  capacity: { title: 'Capacity & overtime', unit: 'effort points / week', primary: 'capacity', secondary: 'overtime', primaryLabel: 'Team capacity', secondaryLabel: 'Overtime', secondaryColor: '#cb8b31', description: 'Fatigue reduces capacity. Overtime borrows from recovery.' },
+  work: { title: 'Work waiting', unit: 'points', primary: 'outstanding', secondary: 'repairWork', primaryLabel: 'Open promises', secondaryLabel: 'Repair work, incl. hidden', secondaryColor: 'var(--warn)', description: 'Promises are due at the end of the following week.' },
+  output: { title: 'Done isn’t always done', unit: 'cumulative points', primary: 'usable', secondary: 'cumulativeShipped', primaryLabel: 'Usable output', secondaryLabel: 'Reported delivery', secondaryColor: 'var(--good)', description: 'The gap is delivered work with defects still outstanding.' },
+  capacity: { title: 'Capacity & overtime', unit: 'effort points / week', primary: 'capacity', secondary: 'overtime', primaryLabel: 'Team capacity', secondaryLabel: 'Overtime', secondaryColor: 'var(--warn)', description: 'Fatigue reduces capacity. Overtime borrows from recovery.' },
 };
 function legend(label, color, baseline = false) { return `<span class="legend-item${baseline ? ' baseline' : ''}"><i style="--legend-color:${color}"></i>${escapeHtml(label)}</span>`; }
 function renderChart() {
@@ -116,27 +116,27 @@ function renderChart() {
   const y = value => margin.top + plotHeight * (1 - value / maximum);
   const path = (data, key) => data.map((row, i) => `${i ? 'L' : 'M'}${x(row.week).toFixed(2)},${y(row[key]).toFixed(2)}`).join(' ');
   const currentX = x(session.week);
-  let svg = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs><linearGradient id="work-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2457e6" stop-opacity=".09"/><stop offset="100%" stop-color="#2457e6" stop-opacity="0"/></linearGradient></defs>`;
-  svg += `<rect x="${currentX}" y="${margin.top}" width="${x(HORIZON) - currentX}" height="${plotHeight}" fill="#f7f9fc"/>`;
-  if (session.scenario === 'rush') svg += `<rect x="${x(8.5)}" y="${margin.top}" width="${x(16.5) - x(8.5)}" height="${plotHeight}" fill="#f7e9ca" opacity=".43"/><text x="${x(12.5)}" y="12" text-anchor="middle" style="fill:#aa894d;font-size:9px">demand surge</text>`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs><linearGradient id="work-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity=".09"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>`;
+  svg += `<rect x="${currentX}" y="${margin.top}" width="${x(HORIZON) - currentX}" height="${plotHeight}" fill="var(--card)"/>`;
+  if (session.scenario === 'rush') svg += `<rect x="${x(8.5)}" y="${margin.top}" width="${x(16.5) - x(8.5)}" height="${plotHeight}" fill="var(--warn-soft)" opacity=".43"/><text x="${x(12.5)}" y="12" text-anchor="middle" style="fill:var(--muted);font-size:9px">demand surge</text>`;
   for (let value = 0; value <= maximum + tickStep / 10; value += tickStep) svg += `<line class="grid-line" x1="${margin.left}" x2="${x(HORIZON)}" y1="${y(value)}" y2="${y(value)}"/><text x="${margin.left - 9}" y="${y(value) + 3}" text-anchor="end">${number(value, value < 1 && value > 0 ? 1 : 0)}</text>`;
   for (const week of [0, 6, 12, 18, 24, 30, 36]) svg += `<text x="${x(week)}" y="${height - 8}" text-anchor="middle">${week === 0 ? 'W0' : week}</text>`;
-  if (baseRows) svg += `<path d="${path(baseRows, definition.primary)}" fill="none" stroke="#8c98aa" stroke-width="1.7" stroke-dasharray="3 4"/>`;
+  if (baseRows) svg += `<path d="${path(baseRows, definition.primary)}" fill="none" stroke="var(--line-strong)" stroke-width="1.7" stroke-dasharray="3 4"/>`;
   const actual = rows.filter(r => r.week <= session.week);
   const future = rows.filter(r => r.week >= session.week);
   if (actual.length > 1) svg += `<path d="${path(actual, definition.primary)} L${currentX},${y(0)} L${x(0)},${y(0)}Z" fill="url(#work-fill)"/>`;
-  for (const [key, color, stroke] of [[definition.secondary, definition.secondaryColor, 1.8], [definition.primary, '#2457e6', 2.5]]) {
+  for (const [key, color, stroke] of [[definition.secondary, definition.secondaryColor, 1.8], [definition.primary, 'var(--accent)', 2.5]]) {
     svg += `<path d="${path(future, key)}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-dasharray="6 5" opacity=".65"/><path d="${path(actual, key)}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
-  svg += `<line x1="${currentX}" x2="${currentX}" y1="${margin.top}" y2="${y(0)}" stroke="#bdc9dc" stroke-width="1"/><circle cx="${currentX}" cy="${y(rows[session.week][definition.primary])}" r="4" fill="#2457e6" stroke="white" stroke-width="2"/>`;
-  for (const event of session.events) svg += `<path d="M${x(event.week) - 3},${y(0) + 2} l6,0 l-3,5 Z" fill="#12856b"><title>Policy starts in week ${event.week}</title></path>`;
+  svg += `<line x1="${currentX}" x2="${currentX}" y1="${margin.top}" y2="${y(0)}" stroke="var(--accent-line)" stroke-width="1"/><circle cx="${currentX}" cy="${y(rows[session.week][definition.primary])}" r="4" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/>`;
+  for (const event of session.events) svg += `<path d="M${x(event.week) - 3},${y(0) + 2} l6,0 l-3,5 Z" fill="var(--good)"><title>Policy starts in week ${event.week}</title></path>`;
   svg += '</svg>';
   container.innerHTML = svg;
   const currentRow = rows[session.week];
   const endRow = rows.at(-1);
   container.setAttribute('aria-label', `${definition.title}. Week ${session.week}: ${definition.primaryLabel} ${number(currentRow[definition.primary])}; ${definition.secondaryLabel} ${number(currentRow[definition.secondary])}. Projected week 36: ${definition.primaryLabel} ${number(endRow[definition.primary])}. ${baseRows ? `Baseline week 36: ${number(baseRows.at(-1)[definition.primary])}.` : ''} Full data available below.`);
   $('#chart-title').textContent = definition.title;
-  $('#chart-legend').innerHTML = legend(definition.primaryLabel, '#2457e6') + legend(definition.secondaryLabel, definition.secondaryColor) + (reference ? legend('Baseline', '#8c98aa', true) : '');
+  $('#chart-legend').innerHTML = legend(definition.primaryLabel, 'var(--accent)') + legend(definition.secondaryLabel, definition.secondaryColor) + (reference ? legend('Baseline', 'var(--muted)', true) : '');
   $('#chart-description').textContent = definition.description;
   document.querySelectorAll('[data-chart]').forEach(button => button.setAttribute('aria-pressed', button.dataset.chart === session.chart));
   $('#chart-data').innerHTML = `<caption class="sr-only">${escapeHtml(definition.title)} by week, in ${definition.unit}. Weeks after ${session.week} are projections.</caption><thead><tr><th scope="col">Week</th><th scope="col">${definition.primaryLabel}</th><th scope="col">${definition.secondaryLabel}</th>${reference ? '<th scope="col">Baseline</th>' : ''}</tr></thead><tbody>${rows.map(row => `<tr><th scope="row">${row.week}${row.week > session.week ? ' (projected)' : ''}</th><td>${number(row[definition.primary])}</td><td>${number(row[definition.secondary])}</td>${baseRows ? `<td>${number(baseRows[row.week][definition.primary])}</td>` : ''}</tr>`).join('')}</tbody>`;
@@ -153,11 +153,11 @@ function renderAllocation() {
     return;
   }
   const segments = [
-    { label: 'Delivery', value: row.deliveryEffort, color: '#2457e6' },
-    { label: 'Repairs', value: row.repairEffort, color: '#d5a255' },
-    { label: 'Reporting', value: row.reporting, color: '#8c9bb1' },
-    { label: 'Recovery', value: row.recovery, color: '#3a9e87' },
-    { label: 'Idle', value: row.idle, color: '#dce3ed' },
+    { label: 'Delivery', value: row.deliveryEffort, color: 'var(--accent)' },
+    { label: 'Repairs', value: row.repairEffort, color: 'var(--warn)' },
+    { label: 'Reporting', value: row.reporting, color: 'var(--muted)' },
+    { label: 'Recovery', value: row.recovery, color: 'var(--good)' },
+    { label: 'Idle', value: row.idle, color: 'var(--muted)' },
   ];
   const total = row.capacity + row.overtime;
   $('#allocation-total').textContent = `${number(row.capacity)} capacity + ${number(row.overtime)} overtime`;

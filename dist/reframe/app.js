@@ -1,9 +1,9 @@
-import { mountShell } from '../shared/shell.js?v=0.5.0';
-import { escapeHtml as esc, downloadText } from '../shared/utils.js';
-import { STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js?v=0.5.0';
-import {attachCardDrag} from '../shared/drag.js';
-import {TYPES,QUESTION_STORAGE,readQuestionWorkspaces,parseQuestions} from './inquiry.js?v=0.5.0';
-import { createWorkbenchTools, registerWorkbenchTools } from './tools.js';
+import { mountShell } from '../shared/shell.js?v=0.6.0';
+import { escapeHtml as esc, downloadText } from '../shared/utils.js?v=0.6.0';
+import { STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js?v=0.6.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.6.0';
+import {TYPES,QUESTION_STORAGE,readQuestionWorkspaces,parseQuestions} from './inquiry.js?v=0.6.0';
+import { createWorkbenchTools, registerWorkbenchTools } from './tools.js?v=0.6.0';
 
 mountShell({active: 'reframe', label: 'MODEL 03', title: 'Reframing workbench'});
 const root = document.querySelector('#workbench');
