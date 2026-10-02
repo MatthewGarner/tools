@@ -1,5 +1,5 @@
-import{mountShell}from'./shared/shell.js?v=0.6.0';
-import{experiments}from'./shared/catalog.js?v=0.6.0';
+import{mountShell}from'./shared/shell.js?v=0.7.0';
+import{experiments}from'./shared/catalog.js?v=0.7.0';
 mountShell();
 let filter=location.hash==='#archive'?'archive':'all';
 const search=document.querySelector('#search'),cards=[...document.querySelectorAll('.experiment')];
@@ -7,7 +7,7 @@ const active=experiments.filter(x=>!x.status||x.status==='active'),archived=expe
 for(const card of cards){
   const item=experiments.find(x=>x.id===card.dataset.id);card.dataset.status=item?.status||'active';
   if(item?.status&&item.status!=='active'){
-    card.querySelector('.type').textContent=`${item.id} · ${item.status==='merged'?'COMBINED INTO REFRAMING':'ARCHIVED PROTOTYPE'}`;
+    card.querySelector('.type').textContent=`${item.id} · ${item.status==='merged'?'COMBINED':'ARCHIVED PROTOTYPE'}`;
     card.querySelector('.try').textContent=item.archiveReason;
   }
 }

@@ -217,17 +217,20 @@ export const experiments=[
     "caption": "ANSWER A / B / WILDCARD",
     "limits": "Develop three distinct answers, retain their weaknesses, then compare against your criteria. Borrowing keeps a source snapshot; it does not automatically produce a coherent combination or evaluate quality.",
     "kind": "scaffold",
-    "new": true
+    "new": true,
+    "status": "merged",
+    "mergedInto": "objections",
+    "archiveReason": "Three Answers now shares alternatives, borrowed strengths and comparison criteria in the Alternatives workbench."
   },
   {
     "id": "S07",
     "route": "objections",
-    "title": "Objections into alternatives",
-    "question": "Keep what was promising. Use the concern to make a different design.",
-    "move": "Drop a concern onto another way to retain the benefit.",
+    "title": "Alternatives workbench",
+    "question": "Start with an idea, an objection or a disagreement. Compare different ways to make it work.",
+    "move": "Branch an approach, borrow a benefit, then compare the mechanisms.",
     "art": "fork",
-    "caption": "CONCERN → THREE ROUTES",
-    "limits": "Separate the objection from the underlying concern. Explore removing a need, changing delivery or limiting exposure while retaining the original benefit. You judge whether a design actually resolves the concern.",
+    "caption": "OPTIONS → COMPARE → TEST",
+    "limits": "Generate options, respond to concerns or reconcile proposals in one collection. Retain parent and borrowed-benefit snapshots; compare mechanisms, benefits, costs and assumptions against your own criteria. Connections record intentions, not proof that a benefit survives. Tests and evidence remain your judgement.",
     "kind": "scaffold",
     "new": true
   },
@@ -292,6 +295,9 @@ export const experiments=[
     "caption": "TWO BENEFITS / A NEW APPROACH",
     "limits": "Make each proposal’s benefit, context, costs and disconfirming evidence explicit. Explore contexts, sequences or a new mechanism. Marked benefits express an intention; a test must establish whether they are protected.",
     "kind": "scaffold",
-    "new": true
+    "new": true,
+    "status": "merged",
+    "mergedInto": "objections",
+    "archiveReason": "Disagreement now carries protected intentions into the shared Alternatives workbench."
   }
 ];

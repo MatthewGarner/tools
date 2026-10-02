@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.6.0';
-import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.6.0';
-import {MODEL,POLICIES,createRun,publicView,preview,projection,advance,policyDecision,commitments,envelope,result,serialize,restore,hour} from './engine.js?v=0.6.0';
-import {registerFlexibilityTools} from './webmcp.js?v=0.6.0';
+import {mountShell} from '../shared/shell.js?v=0.7.0';
+import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.7.0';
+import {MODEL,POLICIES,createRun,publicView,preview,projection,advance,policyDecision,commitments,envelope,result,serialize,restore,hour} from './engine.js?v=0.7.0';
+import {registerFlexibilityTools} from './webmcp.js?v=0.7.0';
 mountShell({active:'flexibility',label:'MODEL 04',title:'Where flexibility gets trapped'});
 const STORE='thinking-lab:flexibility:v1';
 const app=document.querySelector('#app');

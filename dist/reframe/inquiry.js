@@ -1,5 +1,5 @@
-import{make,validate,apply,question,FIELDS,TYPES}from'../questions/state.js?v=0.6.0';
-import{validateSession,parse}from'../creative-kit/state.js?v=0.6.0';
+import{make,validate,apply,question,FIELDS,TYPES}from'../questions/state.js?v=0.7.0';
+import{validateSession,parse}from'../creative-kit/state.js?v=0.7.0';
 export{TYPES,FIELDS};
 const copy=v=>structuredClone(v);
 export const QUESTION_STORAGE='thinking-lab:questions:v1';

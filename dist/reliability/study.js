@@ -1,4 +1,4 @@
-import{validate,availability,ancestors,updateNode,addAlternative,disconnect,addNode,connect}from'./engine.js?v=0.6.0';
+import{validate,availability,ancestors,updateNode,addAlternative,disconnect,addNode,connect}from'./engine.js?v=0.7.0';
 const copy=value=>structuredClone(value);
 export const basisFor=scenario=>scenario==='service'?'One requested checkout completes successfully.':'One requested battery response is delivered when needed.';
 export function createStudy(scenario='bess'){const basis=basisFor(scenario);return{version:1,basis,baselineBasis:basis,effortUnit:'person-days',name:'Current design',effort:0,assumptions:'',evidence:'',decision:'',variants:[]};}

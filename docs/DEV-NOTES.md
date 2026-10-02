@@ -7,3 +7,5 @@ The browser used for verification does not expose `document.modelContext`. WebMC
 Browser harness details: Reframing closes its export dialog on download. Commitment's export arrow is `aria-hidden`, so its accessible button name excludes the arrow; use the stable `#export` control in automation.
 
 Reframing navigation includes visible step numbers in each accessible button name; browser journeys can use its stable `.view-nav [data-view]` selectors (the same actions also appear in page footers) instead of an exact text-only button name.
+
+Creative-kit saves after a 220ms debounce and does not write the initial example on first render. Browser storage assertions must tolerate an absent key while waiting for the first edit/import to save; reading `.workspaces` from `JSON.parse(null)` fails in the harness before the app can finish saving.

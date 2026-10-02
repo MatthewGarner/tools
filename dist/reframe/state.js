@@ -1,4 +1,4 @@
-import{blankInquiry,exampleInquiry,normalizeInquiry,changeInquiry,remapInquiry}from'./inquiry.js?v=0.6.0';
+import{blankInquiry,exampleInquiry,normalizeInquiry,changeInquiry,remapInquiry}from'./inquiry.js?v=0.7.0';
 export const STORAGE_KEY = 'thinking-lab:reframe:v1';
 export const VERSION = 1;
 export const MAX_FRAMES = 5;
