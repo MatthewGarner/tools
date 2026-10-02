@@ -1,15 +1,15 @@
-/* CI packing uses run 37069814521 (2026-10-02), not local timing hints.
-   Before: test steps 381/249/209/233/191s (smoke/eip/mobile/motion/layout).
-   Move Chapter to layout, recent-work + chapter-interactions to mobile,
-   Gauge to smoke and design-bar to motion: estimated 259/249/254/249/252s.
-   Runner setup is additional. Measure the next CI run before claiming savings.
+/* CI packing uses measured Actions timings, not local duration hints.
+   Baseline 37069814521: test steps 381/249/209/233/191s.
+   First revision 37075747671: 247/241/236/260/240s; WebKit setup also
+   took 40s versus 21–29s elsewhere. Move its 19s design-bar to mobile and
+   7s case to layout to balance the complete job, including setup.
    Local runs use a work-stealing pool instead of these fixed shards. */
 export const SHARDS = [
   {name:'smoke', suites:['lab-migration.mjs','backup.mjs','suite.mjs','identity.mjs','smoke.mjs','gauge.mjs','timeline.mjs'], browsers:'chromium'},
   {name:'eip', suites:['check-eip.mjs'], browsers:'chromium'},
-  {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs'], browsers:'chromium'},
-  {name:'motion-webkit', suites:['motion.mjs','webkit.mjs','check.mjs','paths-budget.mjs','map.mjs','case.mjs','design-bar.mjs'], browsers:'chromium webkit'},
-  {name:'layout-gauge', suites:['chapter.mjs','energy-design-bar.mjs','workshop-design.mjs','layout.mjs','signal.mjs','intraday-export.mjs','frequency.mjs'], browsers:'chromium'},
+  {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs','design-bar.mjs'], browsers:'chromium'},
+  {name:'motion-webkit', suites:['motion.mjs','webkit.mjs','check.mjs','paths-budget.mjs','map.mjs'], browsers:'chromium webkit'},
+  {name:'layout-gauge', suites:['chapter.mjs','energy-design-bar.mjs','workshop-design.mjs','layout.mjs','signal.mjs','intraday-export.mjs','frequency.mjs','case.mjs'], browsers:'chromium'},
 ];
 
 export const ALL_SUITES = SHARDS.flatMap(s => s.suites);

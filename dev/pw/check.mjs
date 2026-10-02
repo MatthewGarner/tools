@@ -1,4 +1,6 @@
 import {chromium} from 'playwright';
+import {evidenceDirectory} from './session.mjs';
+const OUT = evidenceDirectory('check');
 import {trackErrors, report, tally, until, untilValue, openRoadmapSource} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
@@ -657,8 +659,8 @@ const focusDragDoc =
 }
 
 // screenshots for the visual record
-await page.screenshot({path: 'parity-light.png', fullPage: true});
-await page2.screenshot({path: 'parity-dark.png', fullPage: true});
+await page.screenshot({path: OUT + '/parity-light.png', fullPage: true});
+await page2.screenshot({path: OUT + '/parity-dark.png', fullPage: true});
 
 /* typing latency: a 150-item doc must re-render fast after a keystroke */
 {

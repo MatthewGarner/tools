@@ -3,9 +3,10 @@
 import {chromium, devices} from 'playwright';
 import {inflateRawSync} from 'node:zlib';
 import {report, tally} from './_harness.mjs';
-import {startServer} from './session.mjs';
+import {startServer, evidenceDirectory} from './session.mjs';
 import {NO_STORE} from '../../api/gauge/_response.js';
 
+const OUT = evidenceDirectory('gauge');
 let BASE;
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -171,8 +172,8 @@ try{
   check('participant: revealed result includes the same textual receipt',
     await B.page.locator('#presult [data-result-receipt]').count() === 1);
 
-  await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
-  await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
+  await pageF.screenshot({path: OUT + '/gauge-console-light.png', fullPage: true});
+  await B.page.screenshot({path: OUT + '/gauge-participant-dark.png', fullPage: true});
 
   /* Revealed room ranges become a review-needed Fermi draft, never an automatic
      estimate. D1 deprioritised handoff WORK; it did not ask for this coverage to
@@ -266,7 +267,7 @@ try{
   check('facilitator: round-2 button gone once round 2 is open',
     !(await pageF.locator('#cround2wrap').isVisible()));
 
-  await pageF.screenshot({path: 'gauge-console-delphi-light.png', fullPage: true});
+  await pageF.screenshot({path: OUT + '/gauge-console-delphi-light.png', fullPage: true});
 
   /* facilitator ends the session early: relay entry deleted, exports keep working */
   await pageF.locator('#cend').click();
@@ -302,8 +303,11 @@ try{
     await cf.waitForFunction(() => document.getElementById('joinlink').value.includes('#'),
       null, {timeout: 10000});
     const cJoin = await cf.locator('#joinlink').inputValue();
+    // The join link must use this run's owned relay, not a fixed development port.
+    const cJoinUrl = new URL(cJoin);
     check('chips: session composed and started',
-      await cf.locator('#console').isVisible() && /^http:\/\/localhost:8091\/gauge\/#.+/.test(cJoin));
+      await cf.locator('#console').isVisible() && cJoinUrl.origin === BASE &&
+      cJoinUrl.pathname === '/gauge/' && cJoinUrl.hash.length > 1);
 
     /* submit is blocked while the chips sum ≠ 100; a + stepper adds 5, clamped */
     {
@@ -347,7 +351,7 @@ try{
     check('chips: SHOW OF HANDS + first-choice on the overlay',
       /SHOW OF HANDS/.test(cOverlay) && /first choice/.test(cOverlay));
     check('chips: no NaN in overlay', !/NaN|undefined/.test(cOverlay));
-    await cf.screenshot({path: 'gauge-chips-reveal.png', fullPage: true});
+    await cf.screenshot({path: OUT + '/gauge-chips-reveal.png', fullPage: true});
     check('chips: no console errors',
       errCF.length === 0 && cA.errs.length === 0 && cB.errs.length === 0 && cC.errs.length === 0);
 
