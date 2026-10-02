@@ -15,7 +15,7 @@ export function registerFlexibilityTools(api,{documentRef=globalThis.document,na
   if(typeof context?.registerTool!=='function')return ()=>{};
   const lifecycle=new AbortController();
   const definitions=[{
-    name:'flexibility_read_state',title:'Read the visible battery day',description:'Read the same revealed prices, current offers, firm promises and feasible dispatch range shown in the operating-day experiment. Future prices are not included.',
+    name:'flexibility_read_state',title:'Read the visible battery day',description:'Read the same revealed prices, current offers, firm promises and feasible dispatch range shown in the operating-day experiment. Only the declared information condition is included: current prices alone, or the explicitly announced next-hour price. Later prices and offers are excluded.',
     inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},
     execute(input){keys(input,[]);return api.getState();}
   },{

@@ -2,7 +2,7 @@
 
 Updated 2 October 2026. This is the working plan for improving the suite, incorporating Matthew’s portfolio review and the subsequent cutting decisions. Update it as implementation and feedback change the plan; earlier delivery records describe what shipped at the time.
 
-Published starting point: 24 experiments. Current published release has 18 active experiences, two archived models and four earlier scaffolds. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. Implementation is underway; the table distinguishes work in progress from verified and published changes. Pause new experiments while improving the existing collection.
+Published starting point: 24 experiments. Current published release has 17 active experiences, two archived models and five earlier scaffolds. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. Implementation is underway; the table distinguishes work in progress from verified and published changes. Pause new experiments while improving the existing collection.
 
 ## Build order
 
@@ -15,7 +15,7 @@ Published starting point: 24 experiments. Current published release has 18 activ
 | D | Align the whole suite with Matthew’s personal website | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#personal-website-design-language) | All routes, canvases, charts and controls use the website’s fonts and palette, extended consistently for model states. Desktop and phone journeys remain usable. |
 | 5 | Bring Three Answers (S06) and Disagreement (S12) into an alternatives workspace based on Objections (S07) | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#alternatives-consolidation) | Generating options, responding to concerns and reconciling proposals are entry points into the same comparison of mechanisms, benefits, costs and assumptions. |
 | 6 | Combine Possibility Mixer (S02) and Territory (S08) | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#mixer-and-territory) | Generation and coverage mapping use the same collection of ideas; moving between them retains context. |
-| 7 | Make Family Tree (S10) a shared capability | Implemented — publication pending | Scaffolds retain branches, parent ideas, reasons for change and source snapshots without requiring a separate destination. |
+| 7 | Make Family Tree (S10) a shared capability | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#shared-idea-ancestry) | Scaffolds retain branches, parent ideas, reasons for change and source snapshots without requiring a separate destination. |
 
 First review point: after retirement, the Predictions correction and the Reliability depth pass. Matthew has authorised delivering the full roadmap autonomously. Invite feedback at this point while continuing independent work; revise the queue using his feedback and evidence from implementation. Introduce shared ancestry only as concrete consolidation work needs it; avoid building a general platform in advance.
 
@@ -39,11 +39,11 @@ Success: a ten-minute session helps Matthew prepare a real product discussion an
 
 ## Subsequent improvements
 
-All items are planned. Priorities determine selection after the first review, not a commitment to expand every tool.
+Remaining items are planned unless marked otherwise. Priorities guide worthwhile investment, not a commitment to expand every tool.
 
 | Priority | Experiment | Worthwhile next change |
 |---|---|---|
-| High | Flexibility (M04) | Explain which earlier promise closes each later option; compare commitment and information conditions. |
+| High · Implemented | Flexibility (M04) | Trace blocked choices to promises and their acceptance times; compare commitment policies × price notice on matched days. Verified 2 Oct; publication pending — [evidence](ROADMAP-DELIVERY.md#flexibility-promises-and-information). |
 | High | Commitment spiral (M01) | Reduce initial density; reveal the causal chain around a selected intervention and compare its timing. |
 | High | Teams (M02) | Make plausible workloads and team arrangements easier to construct and compare. |
 | High | Constraints (S03) | Strengthen the return from an imagined constraint change to a workable adaptation, retaining alternative adaptations and their source context. |
@@ -74,7 +74,7 @@ Update an item to **In progress**, **Implemented**, **Published** or **Deferred*
 
 2 October: question inversion should not manufacture an opposite to an interrogative sentence. New branches retain their parent and ask the user to name the premise being challenged. The combined Reframing board connects questions to frames as opening or challenging them, with detail opened progressively. Question-to-frame and frame-to-frame creation retain source snapshots; this is the first concrete use of shared ancestry intent, without prematurely retiring Family Tree.
 
-Next: improve Flexibility’s promise-to-option explanations and matched comparisons. Carry shared ancestry into Constraints, Analogy and Scenes during their focused depth passes; keep it attached to meaningful variations rather than adding a second generic idea board.
+Next: simplify Commitment’s entry and compare intervention timing around a visible causal chain. Carry shared ancestry into Constraints, Analogy and Scenes during their focused depth passes; keep it attached to meaningful variations rather than adding a second generic idea board.
 
 2 October: Matthew prioritised matching his personal website before further consolidation, and authorised extending that language where the tools need it. The website repo supplies Oswald/Newsreader, warm paper and purple, and charcoal/lime dark mode. Add shared semantic colours for model states, retain the useful working geometry, and make this the foundation for remaining roadmap work.
 
@@ -83,3 +83,5 @@ Next: improve Flexibility’s promise-to-option explanations and matched compari
 2 October: Mixer and Territory now use one collection, with generation and coverage as views. Any two dimensions can form a map; gap notes survive switching or transposing axes. Moving or renaming a classification requests a fit review while preserving written mechanisms and original ingredients. Gap-led candidates retain the note that prompted them. Legacy captures only gain placements from exact, unambiguous label matches. Territory copies retain partial placements and full-length writing; dimensions still holding concepts or notes cannot be deleted silently.
 
 2 October: Family Tree’s generation view, parking, branching and deliberate two-parent combinations now live in Alternatives and Mixer through shared snapshot and rendering helpers. Alternatives accepts all 24 concepts from an earlier tree, including original parent wording, reasons, ingredients, parked status and comparison selection; its collection limit is now 32. Reframing exposes an explicit reason for branching and the full source record. Branch snapshots are flat, so deep histories do not recursively inflate each new child. Oversized derived work is rejected before replacing saved work. The remaining scaffold passes will apply this capability to their own meaningful variations.
+
+2 October: Flexibility’s useful counterfactual is local feasibility at actual stock and time. Releasing a promise in the explorer must not pretend to rewind earlier energy use or refund revenue. The explorer identifies all smallest release sets and distinguishes joint constraints from physical impossibility. Perfect one-hour price notice is an explicit experimental condition, with an exposed preparation rule shared by both commitment policies; future offers stay hidden. Day 2 changes the open policy’s result, while day 14 changes neither policy. Keep these counterexamples instead of implying that extra information always changes a decision. Full historical branching is unnecessary for this increment; existing whole-day replays remain the way to change earlier actions.

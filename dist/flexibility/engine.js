@@ -1,5 +1,5 @@
 // A fictional operating day. All grid flows are MW for a one-hour slot.
-// Stored energy is MWh. Neither the policies nor publicView see future prices.
+// Stored energy is MWh. Policies only receive the declared public information.
 export const MODEL = Object.freeze({powerMW:4, capacityMWh:8, initialMWh:4, chargeEfficiency:.9, dischargeEfficiency:.9, slotHours:1, slots:6, startHour:12, wearPerMWh:2, terminalPerStoredMWh:45});
 export const POLICIES = Object.freeze({firm:{name:'Take firm revenue', description:'Accept every feasible offer. Charge at £45/MWh or below; export at £85/MWh or above; otherwise hold.'}, open:{name:'Wait for spot', description:'Decline every offer. Use exactly the same charge / export price rules.'}});
 const EPS=1e-7;
@@ -12,7 +12,8 @@ export function schedule(seed){
   const offer=(id,reveal,slot,kind,mw,rate)=>({id,reveal,slot,kind,mw,rate,fee:mw*rate, title:kind==='delivery'?'Energy delivery':'Upward reserve'});
   return {prices,offers:[offer('a',0,3,'delivery',2,95),offer('b',0,2,'reserve',1.5,38),offer('c',1,4,'delivery',2.5,100),offer('d',1,4,'reserve',1,45),offer('e',2,3,'reserve',2,55),offer('f',3,5,'delivery',2,80),offer('g',4,5,'reserve',2,40)]};
 }
-export function createRun(seed=14){if(!Number.isInteger(seed)||seed<1||seed>999999)throw Error('Day number must be between 1 and 999999.');return {version:1,seed,slot:0,energyMWh:MODEL.initialMWh,cash:0,contracts:[],history:[]};}
+export function conditions(input={priceNotice:0}){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>k!=='priceNotice')||![0,1].includes(input.priceNotice))throw Error('Price notice must be zero or one hour.');return {priceNotice:input.priceNotice};}
+export function createRun(seed=14,information){if(!Number.isInteger(seed)||seed<1||seed>999999)throw Error('Day number must be between 1 and 999999.');return {version:1,seed,conditions:conditions(information),slot:0,energyMWh:MODEL.initialMWh,cash:0,contracts:[],history:[]};}
 export function commitments(contracts,slot){return contracts.filter(c=>c.slot===slot).reduce((a,c)=>{a[c.kind==='delivery'?'deliveryMW':'reserveMW']+=c.mw;return a;},{deliveryMW:0,reserveMW:0});}
 // Minimum starting stock for each future slot. Reserve is available at the
 // start and held through the whole hour; scheduled delivery cannot be charged.
@@ -31,7 +32,8 @@ export function feasibleRange(snapshot,contracts=snapshot.contracts){
 }
 export function publicView(state){
   const day=schedule(state.seed);const done=state.slot>=MODEL.slots;
-  return {seed:state.seed,slot:state.slot,done,energyMWh:state.energyMWh,cash:state.cash,contracts:structuredClone(state.contracts),history:structuredClone(state.history),currentPrice:done?null:day.prices[state.slot],currentOffers:done?[]:structuredClone(day.offers.filter(o=>o.reveal===state.slot)),observedPrices:done?[...day.prices]:day.prices.slice(0,state.slot+1),model:MODEL};
+  const information=conditions(state.conditions);
+  return {seed:state.seed,slot:state.slot,done,conditions:information,announcedPrices:!done&&information.priceNotice&&state.slot+1<MODEL.slots?[{slot:state.slot+1,price:day.prices[state.slot+1]}]:[],energyMWh:state.energyMWh,cash:state.cash,contracts:structuredClone(state.contracts),history:structuredClone(state.history),currentPrice:done?null:day.prices[state.slot],currentOffers:done?[]:structuredClone(day.offers.filter(o=>o.reveal===state.slot)),observedPrices:done?[...day.prices]:day.prices.slice(0,state.slot+1),model:MODEL};
 }
 export function preview(view,acceptedIds=[]){
   if(new Set(acceptedIds).size!==acceptedIds.length)throw Error('An offer can only be accepted once.');
@@ -58,7 +60,13 @@ export function advance(state,{acceptedIds=[],dispatchMW=0}={}){
 export function policyDecision(view,policy='firm'){
   if(!POLICIES[policy])throw Error('Unknown policy.');if(view.done)throw Error('This day is complete.');const acceptedIds=[];
   if(policy==='firm')for(const o of view.currentOffers)if(preview(view,[...acceptedIds,o.id]).feasible)acceptedIds.push(o.id);
-  const {min,max}=preview(view,acceptedIds).range;const dispatchMW=view.currentPrice<=45?min:view.currentPrice>=85?max:clamp(0,min,max);
+  const {min,max}=preview(view,acceptedIds).range;
+  const next=view.announcedPrices?.find(p=>p.slot===view.slot+1)?.price;
+  const roundTrip=MODEL.chargeEfficiency*MODEL.dischargeEfficiency;
+  // A deliberately simple preparation rule, shared by both commitment policies.
+  // Perfect one-hour notice is an experimental condition, not a forecast.
+  const prepare=next>=85&&next*roundTrip-view.currentPrice-MODEL.wearPerMWh*(1+roundTrip)>0;
+  const dispatchMW=prepare||view.currentPrice<=45?min:view.currentPrice>=85?max:clamp(0,min,max);
   return {acceptedIds,dispatchMW};
 }
 export function envelope(view,contracts=view.contracts){
@@ -71,5 +79,5 @@ export function result(state){
   const day=schedule(state.seed);const delivered=state.contracts.filter(c=>c.kind==='delivery'&&c.slot<state.slot);
   return {cash:state.cash,energyMWh:state.energyMWh,stockAdjustment:(state.energyMWh-MODEL.initialMWh)*MODEL.terminalPerStoredMWh,value:state.cash+(state.energyMWh-MODEL.initialMWh)*MODEL.terminalPerStoredMWh,contractPriceDifference:delivered.reduce((s,c)=>s+c.fee-c.mw*day.prices[c.slot],0),reserveRevenue:state.history.reduce((s,h)=>s+h.reserveRevenue,0),deliveryRevenue:state.history.reduce((s,h)=>s+h.deliveryRevenue,0),wearCost:state.history.reduce((s,h)=>s+h.wearCost,0),accepted:state.contracts.length};
 }
-export function serialize(state){return {seed:state.seed,decisions:state.history.map(h=>({acceptedIds:h.acceptedIds,dispatchMW:h.dispatchMW}))};}
-export function restore(data){let state=createRun(data.seed);if(!Array.isArray(data.decisions)||data.decisions.length>MODEL.slots)throw Error('Invalid saved run.');for(const d of data.decisions)state=advance(state,d);return state;}
+export function serialize(state){return {seed:state.seed,conditions:conditions(state.conditions),decisions:state.history.map(h=>({acceptedIds:[...h.acceptedIds],dispatchMW:h.dispatchMW}))};}
+export function restore(data){let state=createRun(data.seed,data.conditions);if(!Array.isArray(data.decisions)||data.decisions.length>MODEL.slots)throw Error('Invalid saved run.');for(const d of data.decisions)state=advance(state,d);return state;}

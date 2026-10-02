@@ -8,3 +8,32 @@
 @media(min-width:901px){.live-state{position:sticky;top:18px}.decision-body>.hint{font-size:.76rem}.settle-row{display:grid;grid-template-columns:1fr 1.05fr;gap:17px;align-items:center;margin-top:11px;border-top:1px solid var(--line);padding-top:13px}.settle-row .action-result{margin:0;padding:0;border:0;gap:13px}.settle-row .advance{margin:0;padding:11px 12px;line-height:1.5;min-height:54px}}
 @media(min-width:621px) and (max-width:1000px){.offer-response{flex-direction:column;gap:5px}.intro{grid-template-columns:1fr}.intro h1{font-size:2.1rem}.lede{max-width:650px}.energy-chart text,.energy-chart .chart-y-label{font-size:17px}.chart-panel{padding:17px 15px 13px}.battery-head{display:flex}.battery-head strong{margin:0}.battery-caption{display:block}}
 @media(max-width:620px){.experiment{padding:23px 18px 40px}.intro{grid-template-columns:1fr;gap:12px;margin-bottom:19px}.intro h1{font-size:2.15rem;max-width:340px}.lede{font-size:.86rem;line-height:1.55}.workspace{grid-template-columns:1fr;gap:22px}.day-bar{padding:12px 0;margin-bottom:8px}.decision-body{padding:18px 16px}.hour-head{padding:14px 16px}.offer{padding:11px}.offer-response{flex-direction:column;align-items:flex-end;gap:6px}.offer .offer-pay{font-size:1rem}.offer .offer-detail{font-size:.71rem}.offer h3{font-size:.83rem}.dispatch-buttons .button{min-height:38px}.dispatch-readout{margin-top:12px}.constraint{font-size:.73rem}.advance{min-height:46px}.live-state{gap:20px}.chart-panel{padding:18px 14px 14px}.chart-heading h2{font-size:1.14rem}.chart-heading .hint{font-size:.77rem}.chart-heading .legend{font-size:.68rem;gap:11px}.energy-chart text,.energy-chart .chart-y-label{font-size:20px}.selection-impact{font-size:.75rem;min-height:0}.chart-foot{font-size:.68rem}.instrument{padding:0 4px}.battery-caption{font-size:.67rem}.power-row{margin:9px 0}.power-bars{height:21px}.instrument>.hint{font-size:.72rem}.battery-head{display:flex}.battery-head strong{margin:0}}
+
+/* Investigation is secondary to the live decision; semantic colours match the bench. */
+.information-bar{display:grid;grid-template-columns:minmax(230px,.8fr) 1.2fr;gap:22px;align-items:center;border-bottom:1px solid var(--line);padding:0 0 18px;margin:0 0 22px}
+.information-bar label{display:grid;gap:7px;font-size:16px}.information-bar select{width:100%;min-width:0;padding:9px;border:1px solid var(--line);border-radius:4px}
+.information-bar p{margin:0;font-size:18px;line-height:1.45;color:var(--muted)}.information-bar strong{color:var(--ink)}
+.offer .inspect-offer{grid-column:1/-1;justify-self:start;padding:5px 0;border:0;text-decoration:underline;text-underline-offset:3px;font-size:16px}
+.option-inspector{margin-top:18px;padding-top:14px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.option-inspector>summary{font-size:18px}.option-inspector .hint{font-size:18px;line-height:1.45;margin:14px 0}
+.option-inspector select{width:100%;max-width:100%;padding:9px;border:1px solid var(--line);border-radius:4px}
+.study-label{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;font-size:16px;margin:16px 0 7px}.study-label output{font-weight:650}
+#probe-output{width:100%;margin:7px 0;height:28px;accent-color:var(--accent)}
+.probe-verdict{border-left:3px solid var(--warn);padding:12px 14px;margin:20px 0;background:var(--surface);font-size:18px;line-height:1.4}
+.probe-verdict.possible{border-color:var(--good)}.probe-verdict p,.probe-verdict ul{font-size:18px;line-height:1.45;margin:8px 0 0;color:var(--ink)}.probe-verdict li{margin-bottom:5px}
+.probe-range{margin:17px 0}.probe-range>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:16px}.probe-range strong{text-align:right}
+.range-track{position:relative;height:18px;margin-top:9px;background:var(--surface);border:1px solid var(--line);border-radius:3px}
+.range-band{position:absolute;top:0;height:100%;background:var(--accent-soft);border:1px solid var(--accent)}.range-zero{position:absolute;left:50%;top:0;height:100%;border-left:1px dashed var(--muted)}
+.range-request{position:absolute;top:-5px;height:26px;border-left:3px solid var(--ink);transform:translateX(-1px)}
+.option-inspector .study-footnote{font-size:16px;line-height:1.4;margin:12px 0;color:var(--muted)}
+.promise-switches{min-width:0;border:0;padding:0;margin:20px 0 14px}.promise-switches legend{font-size:18px;margin-bottom:9px}.promise-switches label{display:flex;gap:11px;align-items:flex-start;font-size:18px;line-height:1.4;padding:9px 0;border-bottom:1px solid var(--line)}
+.promise-switches input{width:18px;height:18px;flex:none;margin-top:2px;accent-color:var(--accent)}
+.release-sets>p{font-size:18px;line-height:1.4;color:var(--ink)}.release-sets>div{display:flex;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:12px 0;font-size:16px;line-height:1.4}.release-sets span{flex:1}.release-sets button{flex:none;max-width:140px}
+.matched-study{margin-top:25px;padding-top:20px;border-top:1px solid var(--line)}.matched-study h3{font-size:25px}.matched-study p{font-size:18px;line-height:1.45;color:var(--muted)}
+.matched-study .compare-table{min-width:470px;font-size:16px}.matched-study .compare-table th{font-size:16px}.matched-study .compare-table th[scope=row]{font-weight:600;color:var(--ink);min-width:150px}.matched-study .compare-table small{display:block;font-size:15px;font-weight:400;color:var(--muted);margin-top:4px}
+.matched-study .button{font-size:16px;padding:7px 9px}.matched-study .compare-table-wrap{max-width:100%;padding-bottom:8px;margin-bottom:13px}
+.run-history,.policy-rules{margin-top:20px}.run-history summary,.policy-rules summary{font-size:18px}.policy-rules p{font-size:18px;line-height:1.45}
+.finish-panel{min-width:0}.ledger-item span{display:block;font-size:16px;line-height:1.5}.promise-line{font-size:16px;line-height:1.4}.baseline-note{font-size:17px;line-height:1.45}
+@media(max-width:620px){.information-bar{grid-template-columns:1fr;gap:11px}.information-bar p{font-size:17px}.probe-range>div:first-child{flex-wrap:wrap}.release-sets>div{align-items:flex-start;flex-direction:column}.release-sets button{max-width:none}.matched-study .compare-table-wrap{margin-right:0}.matched-study h3{font-size:24px}}
+
+.matched-study .table-pan-hint{font-size:16px;margin:10px 0 0}.matched-study .compare-table th[scope=row]{position:sticky;left:0;z-index:1;background:var(--card);box-shadow:1px 0 0 var(--line)}
