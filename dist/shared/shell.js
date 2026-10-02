@@ -1,4 +1,4 @@
-import{experiments}from'./catalog.js?v=0.17.0';
+import{experiments}from'./catalog.js?v=0.18.0';
 export function mountShell({active}={}) {
   if(document.querySelector('.lab-header')) return;
   const prefix = active ? '../' : './';
@@ -17,5 +17,5 @@ export function mountShell({active}={}) {
     header.after(notice);
   }
   const footer=document.createElement('footer');footer.className='lab-footer';footer.innerHTML=`<span>${activeItems.length} active experiments · <a href="${prefix}#archive">${archive.length} earlier prototypes</a></span><span><a href="${prefix}about.html">About &amp; model limits</a> · Your work stays in this browser.</span>`;document.body.append(footer);
-  if(!document.querySelector('link[rel="icon"]')) {const icon=document.createElement('link');icon.rel='icon';icon.href=prefix+'favicon.svg?v=0.17.0';document.head.append(icon);}
+  if(!document.querySelector('link[rel="icon"]')) {const icon=document.createElement('link');icon.rel='icon';icon.href=prefix+'favicon.svg?v=0.18.0';document.head.append(icon);}
 }

@@ -1,8 +1,8 @@
-import {blankAncestry,ancestry,sourceSnapshot,derivedFrom,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.17.0';
-import {validate as validateFamily,markdown as familyMarkdown} from '../family/state.js?v=0.17.0';
-import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.17.0';
-import {validate as validateAnswers,markdown as answersMarkdown} from '../answers/state.js?v=0.17.0';
-import {validate as validateDisagreement,markdown as disagreementMarkdown,SIDE_FIELDS} from '../disagreement/state.js?v=0.17.0';
+import {blankAncestry,ancestry,sourceSnapshot,derivedFrom,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.18.0';
+import {validate as validateFamily,markdown as familyMarkdown} from '../family/state.js?v=0.18.0';
+import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.18.0';
+import {validate as validateAnswers,markdown as answersMarkdown} from '../answers/state.js?v=0.18.0';
+import {validate as validateDisagreement,markdown as disagreementMarkdown,SIDE_FIELDS} from '../disagreement/state.js?v=0.18.0';
 export const ENTRIES={generate:'Generate options',concerns:'Respond to concerns',reconcile:'Reconcile proposals'};
 export const METHODS={first:'A first approach',refine:'Improve a part',different:'Change the mechanism',need:'Remove the need',delivery:'Change the delivery',exposure:'Limit the exposure',context:'Separate contexts',sequence:'Sequence the approaches',invent:'Invent a third mechanism'};
 export const ENTRY_METHODS={generate:['first','refine','different'],concerns:['need','delivery','exposure'],reconcile:['context','sequence','invent']};

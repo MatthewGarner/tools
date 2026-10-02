@@ -1,6 +1,6 @@
-import {uid,validateWorkspace} from './model.js?v=0.17.0';
-import {validate as validateTerritory} from '../territory/state.js?v=0.17.0';
-import {noteKey} from './map.js?v=0.17.0';
+import {uid,validateWorkspace} from './model.js?v=0.18.0';
+import {validate as validateTerritory} from '../territory/state.js?v=0.18.0';
+import {noteKey} from './map.js?v=0.18.0';
 
 export function fromTerritory(raw){
  const source=structuredClone(raw);if(typeof source?.id!=='string'||typeof source.problem!=='string'||source.problem.length>20000)throw Error('Invalid Territory workspace.');validateTerritory(source);

@@ -1,5 +1,5 @@
-import {validateAdaptations, applyAdaptation, remapAdaptations, adaptationsMarkdown} from './adaptations.js?v=0.17.0';
-import {assertPortable} from '../shared/ancestry.js?v=0.17.0';
+import {validateAdaptations, applyAdaptation, remapAdaptations, adaptationsMarkdown} from './adaptations.js?v=0.18.0';
+import {assertPortable} from '../shared/ancestry.js?v=0.18.0';
 export const KEY = 'thinking-lab:constraints:v1';
 export const TYPES = {physical: 'Physical', contract: 'Contract', organisation: 'Organisation', habit: 'Habit'};
 export const LANES = {

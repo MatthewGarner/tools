@@ -1,5 +1,5 @@
-import {escapeHtml as e} from './utils.js?v=0.17.0';
-import {ancestry,generations} from './ancestry.js?v=0.17.0';
+import {escapeHtml as e} from './utils.js?v=0.18.0';
+import {ancestry,generations} from './ancestry.js?v=0.18.0';
 export function sourceDetails(value){const a=ancestry(value);return a.parents.length?`<details class="idea-ancestry"><summary>From ${a.parents.map(p=>e(p.title||'Untitled idea')).join(' + ')}</summary><p>Source wording at creation. Later parent edits do not rewrite this branch.</p>${a.parents.map(p=>`<section><h3>${e(p.title||'Untitled idea')}</h3>${p.fields.filter(f=>f.text).map(f=>`<div class="ancestry-field"><span>${e(f.label)}</span><p>${e(f.text)}</p></div>`).join('')}</section>`).join('')}</details>`:'';}
 export function familyMap(items,{action='develop',attribute='data-action'}={}){
  const nodes=generations(items),levels=Math.max(0,...nodes.map(n=>n.generation))+1;

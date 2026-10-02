@@ -10,4 +10,4 @@ The models are explanatory prototypes, not operational forecasts. Judge them by 
 
 The current improvement plan and progress tracker is [the roadmap](docs/ROADMAP.md): retire two prototypes, consolidate overlapping scaffolds, correct Predictions and deepen Reliability first.
 
-Delivery records: `docs/DELIVERY.md` (first four), `docs/WAVE-2.md` (five tactile additions), and `docs/WAVE-3.md` (remaining fifteen). The current suite passes 224 tests.
+Delivery records: `docs/DELIVERY.md` (first four), `docs/WAVE-2.md` (five tactile additions), and `docs/WAVE-3.md` (remaining fifteen). The current suite passes 233 tests.
