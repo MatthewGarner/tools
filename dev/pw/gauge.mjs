@@ -3,11 +3,10 @@
 import {chromium, devices} from 'playwright';
 import {inflateRawSync} from 'node:zlib';
 import {report, tally} from './_harness.mjs';
-import {spawn} from 'node:child_process';
+import {startServer} from './session.mjs';
 import {NO_STORE} from '../../api/gauge/_response.js';
 
-const PORT = 8091;
-const BASE = 'http://localhost:' + PORT;
+let BASE;
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 const watchErrors = page => {
@@ -24,12 +23,8 @@ const watchErrors = page => {
 let server;
 let browser;
 try{
-  server = spawn('node', ['../../dev/gauge-dev.mjs', String(PORT)], {stdio: ['ignore', 'pipe', 'inherit']});
-  await new Promise((res, rej) => {
-    const to = setTimeout(() => rej(new Error('dev server timeout')), 5000);
-    server.stdout.on('data', d => { if(String(d).includes('listening')){ clearTimeout(to); res(); } });
-    server.on('exit', () => rej(new Error('dev server died')));
-  });
+  server = await startServer('dev/gauge-dev.mjs');
+  BASE = server.base;
   browser = await chromium.launch();
 
   const relayProbe = await fetch(BASE + '/api/gauge', {
@@ -378,7 +373,7 @@ try{
     try{ await browser.close(); }
     catch(error){ check('browser cleanup: ' + (error?.message || String(error)), false); }
   }
-  if(server && !server.killed) server.kill();
+  server?.stop();
 }
 console.log(results.join('\n'));
 report('gauge', {...tally(results), min: 46});   // ~90% of 52 measured 2026-08-16 (was 20 — 62% could vanish)

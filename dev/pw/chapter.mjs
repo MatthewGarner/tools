@@ -4,13 +4,13 @@
 import {chromium} from 'playwright';
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
-import {tmpdir} from 'node:os';
+import {evidenceDirectory} from './session.mjs';
 import {join} from 'node:path';
 import {encodeHash} from '../../assets/series.js';
 import {waitChapterSource} from './chapter-state.mjs';
 const base=process.env.BASE || 'http://localhost:8087';
 // CI runs on Linux; evidence must use the host's writable temporary directory.
-const out=process.env.CHAPTER_OUTPUT || join(tmpdir(),'chapter-evidence');
+const out=process.env.CHAPTER_OUTPUT || evidenceDirectory('chapter');
 mkdirSync(out,{recursive:true});
 const browser=await chromium.launch();
 const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});

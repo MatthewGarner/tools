@@ -3,32 +3,21 @@ import {openExamples} from './_harness.mjs';
    sweep (every tool must work offline WITHOUT having been visited — the
    installed-app path), an Android (Pixel 7) spot check, and the ENERGY origin
    (its own worker/manifest) served via serve.mjs's host-rewrite emulation.
-   Run from dev/pw: node pwa.mjs  (server on :8087; the energy origin defaults
-   to :8089 via the EPORT env knob — reused if already alive, e.g. another
-   suite's session server, else self-spawned). */
+   The root runner supplies explicit BASE/EBASE origins. Direct runs use BASE
+   for the tools origin and start an owned energy server unless EBASE is given. */
 import {chromium, devices} from 'playwright';
 import {report, tally, pickExample, until, openRoadmapSource} from './_harness.mjs';
-import {spawn} from 'node:child_process';
+import {startServer} from './session.mjs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
 
 const OPS_INFRA_BACKLOG = pickExample(RANK_EXAMPLES, 'Ops & infra backlog');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
-const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
-                                              // avoid a port another session already holds
-const EBASE = 'http://localhost:' + EPORT;
-/* reuse an energy origin that's already up (e.g. mobile.mjs's session server) — a
-   silent bind failure here used to hang the unsettled await with 0 PASS */
-let esrv = null;
-const alive = await fetch(EBASE + '/').then(r => r.ok).catch(() => false);
-if(!alive){
-  esrv = spawn('node', ['../serve.mjs', String(EPORT), '--origin=energy'], {stdio: 'pipe'});
-  await Promise.race([
-    new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); })),
-    new Promise((_, rej) => setTimeout(() => rej(new Error(':' + EPORT + ' failed to start — port taken?')), 8000)),
-  ]);
-}
+// Explicit runner origin, or a newly owned energy server. Never reuse a port
+// merely because something answers on it: it may serve another worktree.
+const esrv = process.env.EBASE ? null : await startServer('dev/serve.mjs', {args:['--origin=energy']});
+const EBASE = process.env.EBASE || esrv.base;
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -225,6 +214,6 @@ async function installAndWait(page){
 }
 
 console.log(results.join('\n'));
-esrv && esrv.kill();
+esrv?.stop();
 await browser.close();
 report('pwa', {...tally(results), min: 28});   // ~90% of 32 measured 2026-08-16 (signal-vs-noise, case, paths added)

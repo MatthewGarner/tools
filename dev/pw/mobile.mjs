@@ -4,9 +4,10 @@ import {openExamples} from './_harness.mjs';
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
 import {chromium, devices} from 'playwright';
 import {readFile} from 'node:fs/promises';
-import {report} from './_harness.mjs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {END_STATES, measureEndState, assertEndState, LEGIBLE_FLOOR} from './end-states.mjs';
+import {scopeFor} from './_scope.mjs';
+const scope = scopeFor('mobile.mjs');
 
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
@@ -27,12 +28,13 @@ const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bet
 const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;
-const ok = (c, m) => { if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
+const ok = (c, m) => { scope.checked(); if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
 
 for(const [name, url] of ALL){
+  if(!scope.wants(name)) continue;
   const page = await ctx.newPage();
   // a swallowed goto used to leave the page on about:blank and let the checks
   // below pass VACUOUSLY (docSW≤vw trivially true) — a dead server read green
@@ -119,6 +121,7 @@ for(const [name, url] of ALL){
 }
 
 for(const [name, url] of AUTOLOAD){
+  if(!scope.wants(name)) continue;
   const page = await ctx.newPage();
   const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
   if(!loaded){ ok(false, name + ': page loads'); await page.close(); continue; }
@@ -146,6 +149,7 @@ for(const [name, url] of AUTOLOAD){
     ['intraday', 'merit-order', 'alarm', 'flow'].includes(n))];
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'no-preference'});
   for(const [name, url] of PAINTED){
+    if(!scope.wants(name)) continue;
     const page = await mctx.newPage();
     const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
     if(!loaded){ ok(false, name + ': painted-charts page loads'); await page.close(); continue; }
@@ -174,7 +178,7 @@ for(const [name, url] of AUTOLOAD){
 // .stage SVG and the open rail's .cm-editor, both against the layout viewport.
 // Nothing else asserts the reclaim; a regression of the shared block (a
 // re-added gutter, side border or fat padding) fails here.
-{
+if(scope.wants("wardley")){
   const page = await ctx.newPage();
   const loaded = await page.goto(T + '/wardley/', {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
   if(!loaded){ ok(false, 'wardley: width-reclaim page loads'); }
@@ -203,7 +207,7 @@ for(const [name, url] of AUTOLOAD){
 // per-tool "16px prose / full-bleed card" blocks must give prose a >=15px
 // reading gutter AND land the histogram surface at >=90% of the viewport.
 // fermi is the sentinel (worst offender; its canvas is the hero surface).
-{
+if(scope.wants("fermi")){
   const page = await ctx.newPage();
   const loaded = await page.goto(T + '/fermi/', {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
   if(!loaded){ ok(false, 'fermi: width-reclaim page loads'); }
@@ -247,10 +251,12 @@ const PREMODULE = [
   ['alarm', T + '/alarm/'], ['flow', T + '/flow/'],
   ['intraday', E + '/intraday/'], ['premortem', T + '/premortem/'],
 ];
+scope.unscoped();
 for(const [n] of PREMODULE) ok(ALL_NAMES.has(n), `PREMODULE metadata "${n}" is a known tool`);
 {
   const tctx = await browser.newContext({viewport: {width: 700, height: 900}, reducedMotion: 'reduce'});
   for(const [name, url] of PREMODULE){
+    if(!scope.wants(name)) continue;
     const page = await tctx.newPage();
     const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
     if(!loaded){ ok(false, name + ': tablet-band page loads'); await page.close(); continue; }
@@ -307,10 +313,12 @@ const CONTAINERS = [
 
 // coverage guard: every name-keyed metadata entry must be a real (derived) tool —
 // a rename, typo, or removed tool fails loud here instead of silently skipping checks
+scope.unscoped();
 for(const n of AUTOLOAD_NAMES) ok(ALL_NAMES.has(n), `AUTOLOAD metadata "${n}" is a known tool`);
 for(const [n] of CONTAINERS) ok(ALL_NAMES.has(n), `CONTAINERS metadata "${n}" is a known tool`);
 
 for(const [name, url, selectors] of CONTAINERS){
+  if(!scope.wants(name)) continue;
   const page = await ctx.newPage();
   const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
   if(!loaded){ ok(false, name + ': page loads'); await page.close(); continue; }
@@ -335,7 +343,7 @@ for(const [name, url, selectors] of CONTAINERS){
 // the 900 viewBox to phone width — 10px labels displayed at ~4px — and NO suite caught
 // it, because getComputedStyle reports the AUTHORED px, not the scaled display. Measure
 // the DISPLAYED size = authored fontSize × (rendered width ÷ viewBox width). Fix 2026-07-17.
-{
+if(scope.wants("alarm")){
   const page = await ctx.newPage();
   await page.goto(T + '/alarm/', {waitUntil: 'networkidle'}).catch(() => {});
   await page.waitForTimeout(700);
@@ -355,7 +363,7 @@ for(const [name, url, selectors] of CONTAINERS){
 // bets Quadrant view (view 2): toggling to it on a phone must land the same
 // narrow relayout guarantee the board already gets above — no page-level
 // h-scroll, and the #preview container itself doesn't overflow sideways.
-{
+if(scope.wants("bets")){
   const page = await ctx.newPage();
   await page.goto(T + '/bets/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(600);
@@ -396,7 +404,7 @@ for(const [name, url, selectors] of CONTAINERS){
 // rank robustness shuffle on a phone: the header (with the desktop weight sliders) is
 // display:none below 640px, so the drag-weights mechanism relies on the #wstrip surface —
 // which must be visible, ≥44px, and actually re-rank the rows when dragged.
-{
+if(scope.wants("rank")){
   const page = await ctx.newPage();
   await page.goto(T + '/rank/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
@@ -459,7 +467,7 @@ for(const [name, url, selectors] of CONTAINERS){
 // [data-next] marker still rides the "Next up" milestone (kept for parity and for
 // wide-but-coarse contexts where panToToday still applies). Assert the narrow relayout
 // is what a phone gets, it fits sideways, and the next-up milestone is in view.
-{
+if(scope.wants("timeline")){
   const doc = 'title: Pan\ntoday: 2026-07-06\nApp: Kickoff 2026-07-10 [done]\nApp: Far launch 2027-08-01 .. 2027-11-01';
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t: doc}))), 'binary').toString('base64');
   const page = await ctx.newPage();
@@ -488,7 +496,7 @@ for(const [name, url, selectors] of CONTAINERS){
 // relayout, but Download SVG must still export the WIDE board — exports never set
 // ctx.width. The renderer half is unit-tested; this closes the app-wiring half (a
 // future width leak into svgString/ctx() would otherwise ship a phone-sized export).
-{
+if(scope.wants("timeline")){
   const ectx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce', acceptDownloads: true});
   const page = await ectx.newPage();
   await page.goto(T + '/timeline/', {waitUntil: 'networkidle'}).catch(()=>{});
@@ -509,6 +517,7 @@ for(const [name, url, selectors] of CONTAINERS){
 // runs the same on real Safari). Every check above only sees each tool's FIRST render;
 // this drives tools to their interaction-reached payoff and gates its legibility.
 for(const es of END_STATES){
+  if(!scope.wants((es.origin === 'E' ? 'energy/' : '') + es.name)) continue;
   const base = es.origin === 'E' ? E : T;
   const page = await ctx.newPage();
   const loaded = await page.goto(base + es.path, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
@@ -534,7 +543,7 @@ const nextStep = async page => {
 // fresh doc to a populated REGISTER on a phone and prove the dense table's own
 // horizontal scroll stays inside .registerwrap and never blows out the page body
 // (the wizard phase panels must reflow, not scroll — covered incidentally here).
-{
+if(scope.wants("premortem")){
   // fresh context: premortem is localStorage-backed, so a shared ctx would land
   // on its saved-list home instead of a new FRAME.
   const pctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
@@ -589,7 +598,7 @@ const nextStep = async page => {
 
 // pre-parade on a phone: success conditions use the same workshop mechanics but
 // must remain a distinct no-portfolio register; no score grid is allowed to leak.
-{
+if(scope.wants("premortem")){
   const pctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const page = await pctx.newPage();
   await page.goto(T + '/premortem/', {waitUntil: 'networkidle'}).catch(()=>{});
@@ -632,6 +641,7 @@ const WIDENED = [['roadmap', T + '/roadmap/', 'Reading app roadmap'],
                  ['bets', T + '/bets/', 'Lantern portfolio']];
 
 for(const [name, url, chip] of WIDENED){
+  if(!scope.wants(name)) continue;
   const page = await ctx.newPage();
   await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
@@ -656,7 +666,7 @@ for(const [name, url, chip] of WIDENED){
 
 // Tree menu-only edit contract: phone rows have no inline field anchors, so
 // Rename/Edit/Add must remain fully self-contained through the 44px card menu.
-{
+if(scope.wants("tree")){
   const doc = 'title: Bid decision\nRoot\n  Submit bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0';
   const hash = Buffer.from(JSON.stringify({t: doc})).toString('base64');
   const page = await ctx.newPage();
@@ -733,7 +743,7 @@ for(const [name, url, chip] of WIDENED){
 // fold) — proving B4's sticky bottom bar, not the old in-flow placement,
 // is what keeps the slider on screen: "below the tree" would otherwise land
 // the bar hundreds of px past the bottom of an 844px-tall phone viewport.
-{
+if(scope.wants("tree")){
   const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
   const doc = 'title: Six-way pick\n\nRoot decision\n' + letters.map(x =>
     `  Option ${x}: -10k\n    Chance ${x}\n      Win ${x} (p=0.4-0.6): 100k to 200k\n      Lose ${x} (p=rest): 0\n`
@@ -822,7 +832,7 @@ for(const [name, url, chip] of WIDENED){
 // narrow stack's vertical swipe-to-scroll) and its CSS touch-action:none must
 // not be applied here either. The "Move to…" card-menu row is the phone
 // replacement, and it must still relocate a card across horizons.
-{
+if(scope.wants("roadmap")){
   const page = await ctx.newPage();
   await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
@@ -886,7 +896,7 @@ for(const [name, url, chip] of WIDENED){
 // item's card menu is the phone home for both Resolve… and the What-if rows
 // (spec §4). Tap a bet item's card body and assert both are present and
 // every top-level row clears the 44px tap-target floor.
-{
+if(scope.wants("roadmap")){
   const page = await ctx.newPage();
   const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
     'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
@@ -931,7 +941,7 @@ for(const [name, url, chip] of WIDENED){
 // Roadmap Register remains Register on a phone. Its compact live table keeps
 // the horizon bands and editing semantics; Download SVG remains the fuller
 // presentation artifact for the selected view.
-{
+if(scope.wants("roadmap")){
   const doc = 'title: Lantern — Product Roadmap\nstyle: register\nhorizons: Now, Next, Later\n\n' +
     'NOW\nCore: Resume where you left off [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
     'NEXT\nCore: Reading reminders\n\nLATER\nCore: Book clubs';
@@ -975,7 +985,7 @@ for(const [name, url, chip] of WIDENED){
 }
 
 // Pixel 7 receives the same dedicated Board view with its selected composition.
-{
+if(scope.wants("roadmap")){
   const doc = 'title: Lantern — Product Roadmap\nstyle: board\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders\nLATER\nCore: Book clubs';
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t:doc}))), 'binary').toString('base64');
   const pctx = await browser.newContext({...devices['Pixel 7'], reducedMotion:'reduce'});
@@ -998,7 +1008,7 @@ for(const [name, url, chip] of WIDENED){
 
 // Roadmap Focus also preserves its phone-specific live lens, while Download SVG
 // exports the full presentation artifact for the selected view.
-{
+if(scope.wants("roadmap")){
   const doc = 'title: Lantern — Product Roadmap\nstyle: focus\nhorizons: Now, Next, Later\n\n' +
     'NOW\nCore: Resume where you left off [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
     'NEXT\nCore: Reading reminders\n\nLATER\nCore: Book clubs';
@@ -1037,7 +1047,7 @@ for(const [name, url, chip] of WIDENED){
 // Why / Causal Tree: phone is an explicit source-order outline, not a
 // shrunken desktop tree. Every row has a full breadcrumb and a finger-size
 // contextual route; no document-level horizontal scroll is allowed.
-{
+if(scope.wants("why")){
   const page = await ctx.newPage();
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
@@ -1080,7 +1090,7 @@ for(const [name, url, chip] of WIDENED){
 // outcome claims and nested assumptions are standalone cards, not invisible
 // bands. This deliberately covers source the parser retains even when it
 // departs from the normal outcome → opportunity → solution grammar.
-{
+if(scope.wants("why")){
   const malformedDoc = 'title: Deep malformed chain\noutcome: Grow retention\n  ? a direct outcome claim [testing]\n' +
     '  Readers lose their place between sessions\n    Notifications feel spammy\n      Users mute after first week\n' +
     '        Smart batching [testing]\n          ? a direct solution claim [testing]\n            ? a nested evidence claim [holds]';
@@ -1154,7 +1164,7 @@ for(const [name, url, chip] of WIDENED){
 // Why / Delivery Lens: a distinct phone readiness ledger retains source paths,
 // truthful per-kind menu routes, 44px menu planes and the no-write menu-open
 // guarantee. It must never collapse back to the Causal Tree or a temporal board.
-{
+if(scope.wants("why")){
   const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Readers lose their place between sessions\n' +
     '    Reading reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
     '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
@@ -1195,7 +1205,7 @@ for(const [name, url, chip] of WIDENED){
 // branch) still renders reachable and clickable within the viewport (the
 // .eip-pop max-height/overflow-y rule), and that the per-assumption
 // sub-popover's status/remove buttons are all finger-size (>= 44px).
-{
+if(scope.wants("why")){
   const page = await ctx.newPage();
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
@@ -1253,6 +1263,7 @@ for(const [name, url, chip] of WIDENED){
     : ['#chips .chip', '#savedrow .chip', '#zoomctl button', '#copypng',
       '.action-disclosure > summary'];
   for(const name of ['proxy', 'paths']){
+    if(!scope.wants(name)) continue;
     const page = await nctx.newPage();
     await page.goto(T + '/' + name + '/', {waitUntil:'networkidle'}).catch(()=>{});
     await page.waitForTimeout(650);
@@ -1282,6 +1293,7 @@ for(const [name, url, chip] of WIDENED){
   const sctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   for(const [name, marker] of [['roadmap', 'Your roadmap'], ['wardley', 'Your landscape'],
       ['why', 'Your outcome'], ['rank', 'Your first initiative']]){
+    if(!scope.wants(name)) continue;
     const page = await sctx.newPage();
     await page.goto(T + '/' + name + '/', {waitUntil: 'networkidle'}).catch(() => {});
     await page.waitForTimeout(650);
@@ -1310,4 +1322,4 @@ await browser.close();
 /* Two floors, whichever is higher. The per-tool expression keeps rising as tools are
    added; the absolute is ~90% of the 398 measured 2026-08-16. Alone, the expression was
    69 against 398 actual — 83% of this suite could have stopped running silently. */
-report('mobile', {pass, fail, min: Math.max(ALL.length * 3, 358)});
+scope.report('mobile', {pass, fail, min: Math.max(ALL.length * 3, 358)});

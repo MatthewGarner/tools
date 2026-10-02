@@ -1,113 +1,129 @@
-# Verify each PR revision once, plus main after merge and explicit manual runs.
-# Feature branches need an open PR (draft is fine) for automatic CI. Restricting
-# push to main avoids the separate branch-ref run duplicating the PR merge-ref run.
-# Suite membership lives in dev/pw/shards.mjs and is checked against the local gate.
+# PRs test the proposed merge, using one conservative selector shared with local
+# work. Main/manual runs retain complete coverage. Never skip this whole workflow.
 name: verify
-
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
-
-# Superseded revisions of the same PR or branch cancel their in-flight run.
 concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
 
 jobs:
-  node:
-    name: node gate + goldens
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      # Serial: perf.test.mjs is wall-clock, so it can't share cores with other
-      # files. The glob spans all three test roots — dev/, <tool>/tests/ AND
-      # energy/<tool>/tests/ (the last was silently missed by the old
-      # */tests/*.mjs pattern, leaving ~200 energy tests out of the gate).
-      # PERF_SCALE gives budgets headroom for slower CI silicon.
-      - name: Pure-module test gate
-        env:
-          PERF_SCALE: 3
-        run: npm run test:node
-      - name: Golden SVG regression (byte-identical + fully committed)
-        run: node dev/golden.mjs verify
-
-  # Expand the single-source shard partition into the matrix below. A tiny job
-  # (~15s) so the browser list never gets a second copy in this YAML — the only
-  # copy lives in dev/pw/shards.mjs, guarded by dev/ci-shards.test.mjs.
   shards:
-    name: shard matrix
+    name: test selection
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.gen.outputs.matrix }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: plan
+        env:
+          CI_PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: node dev/ci-plan.mjs
+
+  node:
+    name: node gate + goldens
+    needs: shards
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - id: gen
-        run: echo "matrix=$(node dev/pw/shards.mjs --json)" >> "$GITHUB_OUTPUT"
+      - name: Documentation checks
+        if: needs.shards.outputs.mode == 'docs'
+        run: node --test dev/docs.test.mjs dev/dsl-doc.test.mjs
+      - name: Pure-module test gate
+        if: needs.shards.outputs.mode != 'docs'
+        env:
+          PERF_SCALE: 3
+        # perf.test measures wall time, so correctness tests remain serial for now.
+        run: npm run test:node
+      - name: Golden SVG regression
+        if: needs.shards.outputs.mode != 'docs'
+        run: node dev/golden.mjs verify
 
   browser:
     name: ${{ matrix.shard.name }}
     needs: shards
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false          # runners are free — one red shard shouldn't hide the others' signal
+      fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.shards.outputs.matrix) }}
     steps:
+      - name: Explicit empty selection
+        if: matrix.shard.suites == ''
+        run: echo 'The selector requires no browser checks for these changes.'
       - uses: actions/checkout@v4
+        if: matrix.shard.suites != ''
       - uses: actions/setup-node@v4
+        if: matrix.shard.suites != ''
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: dev/pw/package-lock.json
       - name: Install harness deps
+        if: matrix.shard.suites != ''
         working-directory: dev/pw
         run: npm ci
-      # Cache the browser BINARIES (~/.cache/ms-playwright), keyed on the shard's
-      # browser SET + the pinned playwright version. The OS deps (apt libs) live
-      # outside that path and can't be cached, so they're (re)installed each run:
-      # `install --with-deps` on a miss (downloads + populates the cache),
-      # `install-deps` alone on a hit (deps only, browsers restored — no download).
-      # Only the motion+webkit shard installs webkit; the rest are chromium-only.
       - name: Cache Playwright browsers
+        if: matrix.shard.suites != ''
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ matrix.shard.cachekey }}-${{ hashFiles('dev/pw/package-lock.json') }}
       - name: Install Playwright browsers
+        if: matrix.shard.suites != ''
         working-directory: dev/pw
+        env:
+          BROWSERS: ${{ matrix.shard.browsers }}
+          CACHE_HIT: ${{ steps.pw-cache.outputs.cache-hit }}
         run: |
-          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-            npx playwright install-deps ${{ matrix.shard.browsers }}
+          if [ "$CACHE_HIT" = 'true' ]; then
+            npx playwright install-deps $BROWSERS
           else
-            npx playwright install --with-deps ${{ matrix.shard.browsers }}
+            npx playwright install --with-deps $BROWSERS
           fi
-      - name: Serve both origins and run this shard's suites
+      - name: Run selected browser journeys
+        id: journeys
+        if: matrix.shard.suites != ''
+        env:
+          SUITES: ${{ matrix.shard.suites }}
+          TOOLS: ${{ matrix.shard.tools }}
         run: |
-          node dev/serve.mjs 8087 &
-          node dev/serve.mjs 8089 --origin=energy &
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8087/ >/dev/null && curl -sf http://localhost:8089/ >/dev/null; then
-              echo "both origins up"; break
-            fi
-            sleep 1
-          done
-          curl -sf http://localhost:8087/ >/dev/null || { echo "tools origin never came up"; exit 1; }
-          curl -sf http://localhost:8089/ >/dev/null || { echo "energy origin never came up"; exit 1; }
-          cd dev/pw
-          for s in ${{ matrix.shard.suites }}; do
-            echo "::group::$s"
-            node "$s" || exit 1
-            echo "::endgroup::"
-          done
+          args=(--browser-only --jobs 1 --suites "$SUITES")
+          if [ -n "$TOOLS" ]; then args+=(--tools "$TOOLS"); fi
+          node dev/pw/run.mjs "${args[@]}"
+
+      - name: Preserve failed-run evidence
+        if: failure() && steps.journeys.outputs.evidence != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-${{ matrix.shard.name }}
+          path: ${{ steps.journeys.outputs.evidence }}
+          retention-days: 7
+
+  verified:
+    name: verified
+    if: always()
+    needs: [shards, node, browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every planned job to succeed
+        env:
+          SELECTION: ${{ needs.shards.result }}
+          NODE: ${{ needs.node.result }}
+          BROWSER: ${{ needs.browser.result }}
+        run: test "$SELECTION" = success && test "$NODE" = success && test "$BROWSER" = success

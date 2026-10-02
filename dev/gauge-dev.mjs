@@ -10,7 +10,12 @@ import {memoryKv} from '../api/gauge/_kv.js';
 import {NO_STORE} from '../api/gauge/_response.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PORT = Number(process.argv[2]) || 8090;
+const PORT = process.argv[2] === undefined ? 8090 : Number(process.argv[2]);
+if(!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) throw new Error('Invalid server port');
+if(process.argv.includes('--exit-with-parent')){
+  const parent = process.ppid;
+  setInterval(() => { if(process.ppid !== parent) process.exit(0); }, 2000).unref();
+}
 const kv = memoryKv();
 const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json'};
@@ -24,7 +29,7 @@ const routes = [
   {m: 'POST', re: /^\/api\/gauge\/([0-9a-f]+)\/round2$/, fn: (mm, body) => openRound2(kv, mm[1], body)},
 ];
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const route = routes.find(r => r.m === req.method && r.re.test(url.pathname));
   if(route){
@@ -53,4 +58,9 @@ createServer(async (req, res) => {
   }catch(e){
     res.writeHead(404); res.end('not found');
   }
-}).listen(PORT, () => console.log('gauge dev listening on ' + PORT));
+});
+server.listen(PORT, () => {
+  const port = server.address().port;
+  console.log('gauge dev listening on ' + port);
+  process.send?.({port});
+});

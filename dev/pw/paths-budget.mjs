@@ -1,3 +1,5 @@
+import {evidenceDirectory} from './session.mjs';
+const evidence = evidenceDirectory('paths-budget');
 import {openExportMenu} from './_harness.mjs';
 /* Browser-level Paths interaction budget. Unlike the pure render-compute
  * budget, these timings include a genuine UI edit/click, the 120ms debounce,
@@ -349,10 +351,10 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
   await context.close();
 }
 
-await runLegibilityCase('desktop', {viewport:{width:1440, height:1000}}, '/tmp/paths-quality-desktop.png');
-await runLegibilityCase('phone', devices['iPhone 13'], '/tmp/paths-quality-phone.png');
-await runLegibilityCase('dark desktop', {viewport:{width:1440, height:1000}, colorScheme:'dark'}, '/tmp/paths-quality-dark-desktop.png');
-await runLegibilityCase('dark phone', {...devices['iPhone 13'], colorScheme:'dark'}, '/tmp/paths-quality-dark-phone.png');
+await runLegibilityCase('desktop', {viewport:{width:1440, height:1000}}, evidence + '/desktop.png');
+await runLegibilityCase('phone', devices['iPhone 13'], evidence + '/phone.png');
+await runLegibilityCase('dark desktop', {viewport:{width:1440, height:1000}, colorScheme:'dark'}, evidence + '/dark-desktop.png');
+await runLegibilityCase('dark phone', {...devices['iPhone 13'], colorScheme:'dark'}, evidence + '/dark-phone.png');
 
 check('paths app interaction budget leaves no console or page errors', errors.length === 0);
 await page.close();

@@ -7,6 +7,8 @@
     "gate": "npm --prefix dev/pw run gate --",
     "gate:serial": "npm --prefix dev/pw run gate -- --jobs 1",
     "worktree": "node dev/worktree.mjs",
-    "sync": "node dev/generate-catalogue.mjs && node dev/sync-identity.mjs && node dev/gen-sw.mjs"
+    "sync": "node dev/generate-catalogue.mjs && node dev/sync-identity.mjs && node dev/gen-sw.mjs",
+    "test:changed": "node dev/pw/run.mjs --changed",
+    "test:browser": "node dev/pw/run.mjs --browser-only"
   }
 }

@@ -12,7 +12,8 @@ import {fileURLToPath} from 'node:url';
 import {toRepoPath, toToolsPath, energyRedirectSources, toolRedirectSources} from './origins.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PORT = Number(process.argv[2]) || 8087;
+const PORT = process.argv[2] === undefined ? 8087 : Number(process.argv[2]);
+if(!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) throw new Error('Invalid server port');
 const ORIGIN_ENERGY = process.argv.includes('--origin=energy');
 /* when launched by dev/pw/run.mjs: if the parent is SIGKILLed we reparent to pid
    1 (launchd/init) — poll for that and self-exit so no zombie server squats the
@@ -30,7 +31,7 @@ const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/java
 const ENERGY_REDIR = new Set(energyRedirectSources());   /* bare tool path → trailing-slash */
 const TOOL_REDIR = new Set(toolRedirectSources());       /* bare tool path → trailing-slash */
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const requestURL=new URL(req.url,'http://x');
   let p = normalize(requestURL.pathname).replace(/^(\.\.[/\\])+/, '');
   if(ORIGIN_ENERGY && ENERGY_REDIR.has(p)){   /* emulate vercel.json's no-slash redirect */
@@ -54,5 +55,9 @@ createServer(async (req, res) => {
     res.writeHead(404, {'Content-Type':'text/html',...HEADERS});
     res.end(await readFile(join(ROOT,'404.html')));
   }
-}).listen(PORT, () => console.log('serving ' + ROOT + ' on ' + PORT +
-  (ORIGIN_ENERGY ? ' as energy origin' : '') + ' with production headers'));
+});
+server.listen(PORT, () => {
+  const port = server.address().port;
+  console.log('serving ' + ROOT + ' on ' + port + (ORIGIN_ENERGY ? ' as energy origin' : '') + ' with production headers');
+  process.send?.({port});
+});
