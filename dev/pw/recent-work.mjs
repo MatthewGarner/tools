@@ -21,7 +21,9 @@ try{
   const first=await save(page,tool+' original'),state=await decodeHash(first.hash);assert.ok(state&&typeof state==='object',tool+' encoded state');
   if(tool==='gauge'){assert.equal(state.id,undefined);assert.equal(state.key,undefined);assert.equal(typeof state.t,'string');}
   // Leave the instrument first: hash-only navigation does not rerun its boot.
-  await page.goto(origin+'/');await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await page.locator('.recent-save').waitFor();
+  await page.getByRole('link',{name:'Recent work',exact:true}).click();
+  assert.equal(new URL(page.url()).origin,origin,'Recent work stays with its browser storage');
+  await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await page.locator('.recent-save').waitFor();
   const second=await save(page,tool+' reopened'),restored=await decodeHash(second.hash);
   // Premortem deliberately mints new identifiers and normalises optional fields.
   if(tool==='premortem'){assert.equal(restored.title,state.title);assert.equal(restored.entries.length,state.entries.length);assert.notEqual(restored.id,state.id);assert.ok(await page.locator('#importstrip').isVisible());}

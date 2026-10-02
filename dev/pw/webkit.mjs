@@ -51,7 +51,7 @@ for(const theme of ['light', 'dark']){
           bg: getComputedStyle(document.body).backgroundColor,
           // Shared shell typography must load even when artefacts choose their own font.
           serif: getComputedStyle(document.querySelector('h1') || document.body).fontFamily.includes('Oswald Variable'),
-          navigation: [...document.querySelectorAll('.mg-nav a')].map(a=>a.textContent).join('|') === 'Writing|Tools|Energy|Now',
+          navigation: [...document.querySelectorAll('.mg-nav a')].map(a=>a.textContent).join('|') === 'Writing|Tools Lab|Now',
           targets: [...document.querySelectorAll('.mg-nav a,.mg-appearance')].every(a=>{const r=a.getBoundingClientRect();return r.width>=44&&r.height>=44;})};
       },path);
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');

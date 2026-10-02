@@ -1,5 +1,5 @@
 /* Public catalogue metadata. Model state and storage never enter discovery URLs. */
-export const COLLECTIONS = { product: 'Product', energy: 'Energy', lab: 'Lab' };
+export const DOMAINS = { product: 'Product', energy: 'Energy', teams: 'Teams & organisations', systems: 'Systems', ideas: 'Ideas' };
 export const TYPES = { artefact: 'Artefact', calculator: 'Calculator', model: 'Model', workshop: 'Workshop', scaffold: 'Scaffold', binder: 'Binder' };
 export const MATURITIES = { established: 'Established', experimental: 'Experimental', archived: 'Archived' };
 
@@ -22,7 +22,7 @@ const product = [
   ['paths', 'Paths', 'Map the questions inside a plan, what their answers buy and what happens either way.', 'artefact', 'decision learning uncertainty options'],
   ['proxy', 'Proxy Hunt', 'Stress-test whether pressure on a metric can harm the outcomes it is meant to serve.', 'artefact', 'measurement incentives goodhart'],
   ['case', 'Case file', 'Bring tool links, a decision question and a verdict together in one case.', 'binder', 'evidence decision exhibits'],
-].map(([route, title, description, type, keywords]) => ({ id: `product:${route}`, route, title, description, type, keywords, collections: ['product'], maturity: 'established', status: 'active', source: 'product' }));
+].map(([route, title, description, type, keywords]) => ({ id: `product:${route}`, route, title, description, type, keywords, domains: ['alarm','flow','signal-vs-noise','why','wardley'].includes(route)?['product','systems']:['product'], maturity: 'established', status: 'active', source: 'product' }));
 
 const energy = [
   ['cycles', 'Cycle budget', 'Explore a battery’s warranty budget and the value of cycles across three horizons.', 'calculator', 'battery bess degradation storage warranty'],
@@ -30,7 +30,7 @@ const energy = [
   ['frequency', 'Frequency & inertia', 'Trip a generator and explore inertia, rate of change of frequency and battery response.', 'model', 'battery bess grid rocof response'],
   ['merit-order', 'Merit order', 'Stack generators by cost, move demand and see which plant sets the clearing price.', 'model', 'electricity market dispatch supply'],
   ['intraday', 'A day through the stack', 'Play a day through the merit order and see how storage changes its price shape.', 'model', 'battery bess electricity market storage dispatch'],
-].map(([route, title, description, type, keywords]) => ({ id: `energy:${route}`, route, title, description, type, keywords, collections: ['energy'], maturity: 'established', status: 'active', source: 'energy' }));
+].map(([route, title, description, type, keywords]) => ({ id: `energy:${route}`, route, title, description, type, keywords, domains: ['energy'], maturity: 'established', status: 'active', source: 'energy' }));
 
 // lab-catalogue:start
 const lab = [
@@ -41,8 +41,9 @@ const lab = [
     "description": "Can a team promise its way into losing the ability to deliver?",
     "type": "model",
     "keywords": "commitment Demand → pressure → rework",
-    "collections": [
-      "lab"
+    "domains": [
+      "teams",
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -55,8 +56,8 @@ const lab = [
     "description": "Move capabilities across team boundaries. Watch the work find a different route.",
     "type": "model",
     "keywords": "teams Capability → boundary → work",
-    "collections": [
-      "lab"
+    "domains": [
+      "teams"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -69,8 +70,9 @@ const lab = [
     "description": "Spend limited effort learning about the problem or building a response.",
     "type": "model",
     "keywords": "exploration LEARN / BUILD",
-    "collections": [
-      "lab"
+    "domains": [
+      "product",
+      "teams"
     ],
     "maturity": "archived",
     "status": "archived",
@@ -84,9 +86,9 @@ const lab = [
     "description": "Make battery commitments before you know what comes next.",
     "type": "model",
     "keywords": "flexibility Power · energy · promises battery bess decisions energy",
-    "collections": [
+    "domains": [
       "energy",
-      "lab"
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -99,8 +101,8 @@ const lab = [
     "description": "Keep a system steady while your instrument reports an earlier state.",
     "type": "model",
     "keywords": "delay Move now → see later",
-    "collections": [
-      "lab"
+    "domains": [
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -113,8 +115,9 @@ const lab = [
     "description": "Accept a useful exception. Follow what it asks of the system later.",
     "type": "model",
     "keywords": "exceptions TAILORED → STANDARD → RETIRED",
-    "collections": [
-      "lab"
+    "domains": [
+      "teams",
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -127,8 +130,8 @@ const lab = [
     "description": "Move a coaching period before or after a specialist becomes unavailable.",
     "type": "model",
     "keywords": "knowledge Coach now / capacity later",
-    "collections": [
-      "lab"
+    "domains": [
+      "teams"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -141,8 +144,9 @@ const lab = [
     "description": "Change one team’s action and watch who absorbs the consequences.",
     "type": "model",
     "keywords": "local OWN / SHARED / EFFECTS",
-    "collections": [
-      "lab"
+    "domains": [
+      "teams",
+      "systems"
     ],
     "maturity": "archived",
     "status": "archived",
@@ -156,8 +160,8 @@ const lab = [
     "description": "A shared forecast changes the behaviour that produces its target.",
     "type": "model",
     "keywords": "predictions FORECAST → RESPONSE → PRICE",
-    "collections": [
-      "lab"
+    "domains": [
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -170,9 +174,9 @@ const lab = [
     "description": "Keep the headline forecast accuracy. Change the decisions it produces.",
     "type": "model",
     "keywords": "accuracy SAME ERRORS / DIFFERENT LOSS battery bess decisions energy",
-    "collections": [
+    "domains": [
       "energy",
-      "lab"
+      "product"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -185,8 +189,8 @@ const lab = [
     "description": "Build a dependency map. Find what a backup really protects you from.",
     "type": "model",
     "keywords": "reliability Primary + backup → service",
-    "collections": [
-      "lab"
+    "domains": [
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -199,8 +203,9 @@ const lab = [
     "description": "A change may be useful only once enough other people use it.",
     "type": "model",
     "keywords": "adoption WHO SWITCHES FIRST?",
-    "collections": [
-      "lab"
+    "domains": [
+      "product",
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -213,8 +218,8 @@ const lab = [
     "description": "Describe the same problem differently. Notice what you would do next.",
     "type": "scaffold",
     "keywords": "reframe One situation / several frames",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -227,8 +232,8 @@ const lab = [
     "description": "Combine ingredients, map your concepts, and investigate spaces you have not explored.",
     "type": "scaffold",
     "keywords": "mixer COMBINE → MAP → DEVELOP",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -241,8 +246,8 @@ const lab = [
     "description": "Change a limit in your imagination. Bring the useful part back to reality.",
     "type": "scaffold",
     "keywords": "constraints REMOVE / REVERSE / EXAGGERATE",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -255,8 +260,8 @@ const lab = [
     "description": "Borrow a mechanism from somewhere else. Find where the comparison breaks.",
     "type": "scaffold",
     "keywords": "analogy Source ↔ situation",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -269,8 +274,9 @@ const lab = [
     "description": "Which causal relationship would you change, and what would you expect to observe?",
     "type": "scaffold",
     "keywords": "interventions CLAIM → TEST → LEARN",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas",
+      "systems"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -283,8 +289,8 @@ const lab = [
     "description": "Generate alternatives with different mechanisms before comparing them.",
     "type": "scaffold",
     "keywords": "answers ANSWER A / B / WILDCARD",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "archived",
     "status": "merged",
@@ -299,8 +305,8 @@ const lab = [
     "description": "Start with an idea, an objection or a disagreement. Compare different ways to make it work.",
     "type": "scaffold",
     "keywords": "objections OPTIONS → COMPARE → TEST",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -313,8 +319,8 @@ const lab = [
     "description": "Map ideas by needs and mechanisms. Investigate empty combinations.",
     "type": "scaffold",
     "keywords": "territory NEEDS × MECHANISMS",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "archived",
     "status": "merged",
@@ -329,8 +335,8 @@ const lab = [
     "description": "Invent for a person at a particular moment, with partial information.",
     "type": "scaffold",
     "keywords": "scenes BEFORE → MOMENT → AFTER",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "experimental",
     "status": "active",
@@ -343,8 +349,8 @@ const lab = [
     "description": "Keep alternatives connected without losing their differences.",
     "type": "scaffold",
     "keywords": "family PARENT → BRANCH → COMBINATION",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "archived",
     "status": "merged",
@@ -359,8 +365,8 @@ const lab = [
     "description": "Expand the questions that could open different approaches.",
     "type": "scaffold",
     "keywords": "questions FACT / CAUSE / VALUE / DESIGN",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "archived",
     "status": "merged",
@@ -375,8 +381,8 @@ const lab = [
     "description": "Protect the useful intentions inside two opposing proposals.",
     "type": "scaffold",
     "keywords": "disagreement TWO BENEFITS / A NEW APPROACH",
-    "collections": [
-      "lab"
+    "domains": [
+      "ideas"
     ],
     "maturity": "archived",
     "status": "merged",
@@ -388,7 +394,7 @@ const lab = [
 // lab-catalogue:end
 
 export const SUITE_CATALOG = [...product, ...energy, ...lab];
-export const DEFAULT_FILTERS = Object.freeze({ q: '', collection: '', type: '', maturity: '' });
+export const DEFAULT_FILTERS = Object.freeze({ q: '', domain: '', type: '', maturity: '' });
 
 export function normaliseText(value) {
   return String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase('en').replace(/[’‘]/g, "'");
@@ -397,7 +403,7 @@ export function normaliseText(value) {
 export function parseFilters(search = '') {
   const params = new URLSearchParams(search);
   const member = (name, choices) => Object.hasOwn(choices, params.get(name)) ? params.get(name) : '';
-  return { q: (params.get('q') ?? '').slice(0, 200), collection: member('collection', COLLECTIONS), type: member('type', TYPES), maturity: member('maturity', MATURITIES) };
+  return { q: (params.get('q') ?? '').slice(0, 200), domain: member('domain', DOMAINS), type: member('type', TYPES), maturity: member('maturity', MATURITIES) };
 }
 
 export function filtersToSearch(filters, search = '') {
@@ -415,10 +421,10 @@ export function filterCatalog(filters = DEFAULT_FILTERS, entries = SUITE_CATALOG
   const safe = parseFilters(new URLSearchParams(filters));
   const terms = normaliseText(safe.q).trim().split(/\s+/).filter(Boolean);
   return entries.filter(tool => {
-    if (safe.collection && !tool.collections.includes(safe.collection)) return false;
+    if (safe.domain && !tool.domains.includes(safe.domain)) return false;
     if (safe.type && tool.type !== safe.type) return false;
     if (safe.maturity ? tool.maturity !== safe.maturity : tool.maturity === 'archived') return false;
-    const text = normaliseText([tool.title, tool.description, tool.keywords, ...tool.collections.map(c => COLLECTIONS[c]), TYPES[tool.type]].join(' '));
+    const text = normaliseText([tool.title, tool.description, tool.keywords, ...tool.domains.map(c => DOMAINS[c]), TYPES[tool.type]].join(' '));
     return terms.every(term => text.includes(term));
   });
 }

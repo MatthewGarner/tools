@@ -132,9 +132,10 @@ root paths and storage origin. Lab is network-only; it is deliberately outside t
 Tools/Energy precaches. Catalogue discovery does not download its model engines.
 
 Common navigation is generated into HTML and works without JavaScript. A small
-controller keeps previews local and routes established domains to their canonical
-collections. The searchable catalogue is also static first; JavaScript progressively
-adds URL-backed filters. Collection tags, interaction type and maturity are distinct.
+controller keeps previews local and routes established domains to Tools Lab.
+The searchable catalogue is also static first; JavaScript progressively adds
+URL-backed filters. Subject domains, interaction type and maturity are distinct;
+source collection is provenance, not a navigation category.
 
 Backup reads only known saved-work keys on the current origin. It preserves raw
 values, validates the transport before writes, defaults to keeping conflicts and
@@ -143,6 +144,11 @@ are one conflict group. localStorage offers no multi-key transaction: detect sta
 previews and concurrent changes, roll back only writes still owned by the import,
 and expose a recovery path when rollback cannot safely finish. No backup operation
 clears unrelated storage or claims to merge individual model semantics.
+Production imports restore only families usable at the current address: Product
+and Lab on Tools, Energy on Energy, and Lab on the original Site. Mixed files show
+the remaining destinations and stay reusable there. Otherwise an Energy import on
+Tools would report success before navigation redirected away from its saved values.
+Recent-work links likewise return to the catalogue on the snapshot's own origin.
 
 
 ## The design system

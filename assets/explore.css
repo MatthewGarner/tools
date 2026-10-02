@@ -9,12 +9,7 @@ body.mg-site { margin: 0; --page-max: 1208px; font: 16px/1.5 var(--mg-sans); }
 .explore input[type=search] { width: 100%; min-height: 52px; padding: .65rem .85rem; border: 1px solid var(--mg-line); border-radius: 0; color: var(--mg-ink); background: var(--mg-paper); font: 400 1.125rem/1.4 var(--mg-sans); -webkit-appearance: none; }
 .explore input[type=search]::placeholder { color: var(--mg-muted); opacity: 1; }
 .explore-filter-row { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1.5rem; margin-top: .75rem; }
-.explore-collections { display: flex; flex-wrap: wrap; gap: .25rem; border: 0; padding: 0; margin: 0 auto 0 0; }
-.explore-collections legend { margin-bottom: .2rem; font-size: .8rem; color: var(--mg-muted); }
 .explore button { min-width: 44px; min-height: 44px; color: var(--mg-ink); cursor: pointer; font: inherit; }
-.explore-collections button { border: 1px solid transparent; background: transparent; padding: .5rem .85rem; }
-.explore-collections button[aria-pressed=true] { border-color: var(--mg-accent); color: var(--mg-accent); }
-.explore-collections button:hover { background: var(--mg-surface); }
 .explore-select { display: grid; gap: .2rem; font-size: .8rem; color: var(--mg-muted); }
 .explore select { min-height: 44px; max-width: 100%; padding: .5rem 1.65rem .5rem .65rem; border: 1px solid var(--mg-line); border-radius: 0; background: var(--mg-paper); color: var(--mg-ink); font: 400 1rem/1.4 var(--mg-sans); }
 .explore-clear { padding: .5rem 0; background: transparent; border: 0; text-decoration: underline; text-underline-offset: .2em; }
@@ -43,7 +38,6 @@ body.mg-site { margin: 0; --page-max: 1208px; font: 16px/1.5 var(--mg-sans); }
   /* Native selects retain intrinsic widths in flex rows on phones. Explicit
      tracks keep each field and Clear filters in its own hit area. */
   .explore-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem 1rem; }
-  .explore-collections { grid-column: 1 / -1; width: 100%; }
   .explore-select { min-width: 0; }
   .explore select { width: 100%; min-width: 0; }
   .explore-filter-row > .explore-clear { grid-column: 1 / -1; justify-self: end; }
@@ -53,6 +47,5 @@ body.mg-site { margin: 0; --page-max: 1208px; font: 16px/1.5 var(--mg-sans); }
   .explore-arrow { grid-column: 2; grid-row: 1; }
 }
 @media(forced-colors:active) {
-  .explore-collections button[aria-pressed=true] { border-color: Highlight; font-weight: 700; }
   .explore-row a, .explore-arrow { color: LinkText; }
 }

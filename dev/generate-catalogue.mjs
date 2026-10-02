@@ -7,11 +7,17 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const check = process.argv.includes('--check');
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
+const subjects={
+  commitment:['teams','systems'],teams:['teams'],exploration:['product','teams'],
+  flexibility:['energy','systems'],delay:['systems'],exceptions:['teams','systems'],
+  knowledge:['teams'],local:['teams','systems'],predictions:['systems'],accuracy:['energy','product'],
+  reliability:['systems'],adoption:['product','systems'],interventions:['ideas','systems'],
+};
 const lab = experiments.map(experiment => ({
   id: `lab:${experiment.route}`, route: experiment.route, title: experiment.title,
   description: experiment.question, type: experiment.kind,
   keywords: `${experiment.route} ${experiment.caption}${['flexibility', 'accuracy'].includes(experiment.route) ? ' battery bess decisions energy' : ''}`,
-  collections: ['flexibility', 'accuracy'].includes(experiment.route) ? ['energy', 'lab'] : ['lab'],
+  domains: subjects[experiment.route] || ['ideas'],
   maturity: ['archived', 'merged'].includes(experiment.status) ? 'archived' : 'experimental',
   status: experiment.status ?? 'active', source: 'lab',
   ...(experiment.archiveReason ? { archiveReason: experiment.archiveReason } : {}),
@@ -21,10 +27,10 @@ const lab = experiments.map(experiment => ({
 const moduleFile = path.join(root, 'assets/suite-catalog.js');
 const original = fs.readFileSync(moduleFile, 'utf8');
 const moduleSource = original.replace(/\/\/ lab-catalogue:start[\s\S]*?\/\/ lab-catalogue:end/, `// lab-catalogue:start\nconst lab = ${JSON.stringify(lab, null, 2)};\n// lab-catalogue:end`);
-const { SUITE_CATALOG, COLLECTIONS, TYPES, MATURITIES, toolHref } = await import(`data:text/javascript;base64,${Buffer.from(moduleSource).toString('base64')}`);
+const { SUITE_CATALOG, DOMAINS, TYPES, MATURITIES, toolHref } = await import(`data:text/javascript;base64,${Buffer.from(moduleSource).toString('base64')}`);
 
 function row(tool) {
-  const meta = [...tool.collections.map(c => COLLECTIONS[c]), TYPES[tool.type], MATURITIES[tool.maturity]].join(' · ');
+  const meta = [...tool.domains.map(c => DOMAINS[c]), TYPES[tool.type], MATURITIES[tool.maturity]].join(' · ');
   return `    <li class="explore-row" data-catalog-id="${escape(tool.id)}"><a href="${escape(toolHref(tool))}"><h2>${escape(tool.title)}</h2><div class="explore-copy"><p>${escape(tool.description)}</p><span class="explore-meta">${escape(meta)}</span>${tool.archiveReason ? `<span class="explore-meta">${escape(tool.archiveReason)}</span>` : ''}</div><span class="explore-arrow" aria-hidden="true">→</span></a></li>`;
 }
 const markup = `<!-- suite-catalog:start -->

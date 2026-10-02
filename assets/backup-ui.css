@@ -21,6 +21,7 @@
 .backup-main details p{font-size:15px}
 .backup-file-label{font-weight:600}
 .backup-note{font-size:14px;color:var(--mg-muted);margin-top:12px!important}
+#other-addresses a{display:flex;align-items:center;width:fit-content;min-height:44px;color:var(--mg-accent);text-underline-offset:4px}
 .backup-status:empty{display:none}
 .backup-status{padding:14px 16px;background:var(--mg-surface);border-left:3px solid var(--mg-accent);max-width:none!important;overflow-wrap:anywhere}
 .backup-status[data-error]{border-left-color:var(--err)}

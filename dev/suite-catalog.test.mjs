@@ -14,7 +14,7 @@ test('catalogue represents every existing tool once, with stable routes and sepa
   }
   for (const tool of SUITE_CATALOG) {
     assert.match(tool.id, /^(product|energy|lab):[a-z][a-z-]*$/);
-    assert.ok(tool.type && tool.maturity && tool.collections.length);
+    assert.ok(tool.type && tool.maturity && tool.domains.length);
     const folder = tool.source === 'lab' ? 'lab/dist/' : tool.source === 'energy' ? 'energy/' : '';
     assert.ok(fs.existsSync(new URL(`../${folder}${tool.route}/index.html`, import.meta.url)), `Page exists: ${tool.id}`);
   }
@@ -31,15 +31,15 @@ test('active results exclude archives; archive discovery retains merged identiti
     assert.equal(entry.mergedInto, original.mergedInto);
     assert.equal(entry.archiveReason, original.archiveReason);
   }
-  assert.ok(filterCatalog({ collection: 'energy' }).some(t => t.id === 'lab:flexibility'));
-  assert.ok(filterCatalog({ collection: 'energy', maturity: 'experimental' }).some(t => t.id === 'lab:accuracy'));
+  assert.ok(filterCatalog({ domain: 'energy' }).some(t => t.id === 'lab:flexibility'));
+  assert.ok(filterCatalog({ domain: 'energy', maturity: 'experimental' }).some(t => t.id === 'lab:accuracy'));
 });
 
-test('search is case and accent insensitive, combines words, and composes with collection/type/maturity', () => {
+test('search is case and accent insensitive, combines words, and composes with domain/type/maturity', () => {
   assert.equal(normaliseText('ÉNERGY’s'), "energy's");
   assert.deepEqual(filterCatalog({ q: 'BÁTTÉRY' }), filterCatalog({ q: 'battery' }));
   assert.deepEqual(filterCatalog({ q: 'BATTERY warranty' }).map(t => t.id), ['energy:cycles']);
-  assert.deepEqual(filterCatalog({ q: 'battery', collection: 'product' }), []);
+  assert.deepEqual(filterCatalog({ q: 'battery', domain: 'product' }).map(t=>t.id), ['lab:accuracy']);
   assert.deepEqual(filterCatalog({ q: 'battery', type: 'calculator' }).map(t => t.id), ['energy:cycles']);
   assert.ok(filterCatalog({ maturity: 'established' }).every(t => t.source !== 'lab'));
   assert.equal(filterCatalog({ q: '    ' }).length, filterCatalog().length);
@@ -47,13 +47,13 @@ test('search is case and accent insensitive, combines words, and composes with c
 });
 
 test('shareable filters validate unknown values, retain unrelated query data, and round-trip Unicode safely', () => {
-  assert.deepEqual(parseFilters('?collection=unknown&type=__proto__&maturity=merged'), { q: '', collection: '', type: '', maturity: '' });
-  const filters = { q: 'café & batteries', collection: 'energy', type: 'model', maturity: 'experimental' };
+  assert.deepEqual(parseFilters('?domain=unknown&type=__proto__&maturity=merged'), { q: '', domain: '', type: '', maturity: '' });
+  const filters = { q: 'café & batteries', domain: 'energy', type: 'model', maturity: 'experimental' };
   assert.deepEqual(parseFilters(filtersToSearch(filters)), filters);
-  const params = new URLSearchParams(filtersToSearch({ q: '' }, '?q=old&collection=lab&from=bookmark'));
+  const params = new URLSearchParams(filtersToSearch({ q: '' }, '?q=old&domain=lab&from=bookmark'));
   assert.equal(params.get('from'), 'bookmark');
   assert.equal(params.has('q'), false);
-  assert.equal(params.has('collection'), false);
+  assert.equal(params.has('domain'), false);
   assert.equal(parseFilters(`?q=${'a'.repeat(300)}`).q.length, 200);
 });
 

@@ -1,4 +1,4 @@
-import {MAX_BACKUP_BYTES, exportArchive, parseArchive, previewImport, recoveryArchive, serializeArchive, applyImport, assertUnchanged, readOwned, isOwnedKey, keyLabel} from './backup-store.js';
+import {MAX_BACKUP_BYTES, exportArchive, parseArchive, partitionArchive, previewImport, recoveryArchive, serializeArchive, applyImport, assertUnchanged, readOwned, isOwnedKey, keyLabel} from './backup-store.js';
 
 const $ = id => document.getElementById(id);
 let plan, selectedArchive, recovery, downloadRequested = false, fileRevision = 0, stale = false;
@@ -47,7 +47,15 @@ function updateChoices() {
   for(const label of $('import-list').querySelectorAll('[data-conflict]')) label.textContent = replace ? 'Replace with file version' : 'Keep this browser’s version';
 }
 function buildPreview() {
-  plan = previewImport(store(), selectedArchive);
+  const {archive,elsewhere}=partitionArchive(selectedArchive,location.hostname);
+  plan = previewImport(store(), archive);
+  $('other-addresses').replaceChildren(...elsewhere.map(destination=>{
+    const paragraph=document.createElement('p'),link=document.createElement('a');
+    paragraph.append(`${destination.count} ${destination.count===1?'item belongs':'items belong'} at another address. Use this same file there to restore that work.`);
+    link.href=destination.url;link.textContent='Open '+destination.label+' backup';
+    paragraph.append(link);return paragraph;
+  }));
+  $('other-addresses').hidden=!elsewhere.length;
   recovery = recoveryArchive(plan, metadata());
   stale = false; downloadRequested = false;
   $('recovery-confirmed').checked = false;
@@ -65,15 +73,15 @@ function buildPreview() {
   }));
   $('register-note').hidden = !plan.registerConflict;
   $('conflict-choice').hidden = !plan.rows.some(row => row.status === 'conflict');
-  $('preview').hidden = false;
+  $('preview').hidden = !plan.rows.length;
   updateChoices();
-  status('Preview ready. No saved work has changed.');
-  $('preview-heading').focus();
+  status(plan.rows.length?'Preview ready. No saved work has changed.':'This file has no work for this address. No saved work has changed.',false,!plan.rows.length);
+  if(plan.rows.length) $('preview-heading').focus();
 }
 $('backup-file').addEventListener('change', async event => {
   const revision = ++fileRevision;
   const file = event.target.files[0];
-  plan = null; selectedArchive = null; $('preview').hidden = true;
+  plan = null; selectedArchive = null; $('preview').hidden = true; $('other-addresses').hidden = true;
   if(!file) return;
   try {
     if(file.size > MAX_BACKUP_BYTES) throw new Error('Choose a JSON backup smaller than 20 MB.');
@@ -100,7 +108,7 @@ $('download-failed-recovery').addEventListener('click', () => {
 });
 $('refresh-preview').addEventListener('click', () => { try { buildPreview(); } catch(error) { stale = true; updateChoices(); status(error.message, true, true); } });
 $('cancel').addEventListener('click', () => {
-  ++fileRevision; plan = null; selectedArchive = null; $('preview').hidden = true; $('backup-file').value = ''; status('Import cancelled.'); $('backup-file').focus();
+  ++fileRevision; plan = null; selectedArchive = null; $('preview').hidden = true; $('other-addresses').hidden = true; $('backup-file').value = ''; status('Import cancelled.'); $('backup-file').focus();
 });
 $('apply').addEventListener('click', () => {
   if(!plan || stale) return;

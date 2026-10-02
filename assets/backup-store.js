@@ -70,6 +70,31 @@ export function parseArchive(text) {
   return validateArchive(value);
 }
 
+// Energy remains a separate live storage origin. Importing its drafts on Tools
+// would report success, then redirect the user away from the restored values.
+// Partition mixed recovery files by the tools available at the destination;
+// the original file stays intact and can be used again at the other address.
+export function partitionArchive(input, hostname) {
+  const archive = validateArchive(input);
+  const families = {
+    'tools.matthewgarner.me':['tools','lab'],
+    'energy.matthewgarner.me':['energy'],
+    'thinking-lab-experiments.matthewg12.chatgpt.site':['lab'],
+  }[hostname];
+  if(!families) return {archive, elsewhere:[]}; // Combined local/deployment previews.
+  const entries=[], destinations=new Map();
+  for(const entry of archive.entries) {
+    const family=entry.key.startsWith('thinking-lab:') ? 'lab'
+      : /^(?:cycles-src|risk-src|mg:recent:v1:energy:)/.test(entry.key) ? 'energy' : 'tools';
+    if(families.includes(family)) { entries.push(entry); continue; }
+    const label=family==='energy'?'Energy':'Tools Lab';
+    const url=family==='energy'?'https://energy.matthewgarner.me/backup/':'https://tools.matthewgarner.me/backup/';
+    const destination=destinations.get(url)||{label,url,count:0};
+    destination.count++;destinations.set(url,destination);
+  }
+  return {archive:validateArchive({...archive,entries}),elsewhere:[...destinations.values()]};
+}
+
 export function readOwned(storage) {
   try {
     const keys = new Set();

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {BACKUP_FORMAT, MAX_BACKUP_BYTES, MAX_VALUE_BYTES, isOwnedKey, exportArchive, parseArchive, serializeArchive,
-  previewImport, recoveryArchive, applyImport, readOwned, keyLabel} from '../assets/backup-store.js';
+  previewImport, partitionArchive, recoveryArchive, applyImport, readOwned, keyLabel} from '../assets/backup-store.js';
 
 const metadata = {origin:'https://tools.matthewgarner.me', now:'2026-10-02T12:00:00.000Z'};
 const incoming = entries => ({format:BACKUP_FORMAT, version:1, origin:'https://thinking-lab-experiments.matthewg12.chatgpt.site', createdAt:'2026-10-01T12:00:00.000Z', entries});
@@ -21,6 +21,21 @@ function memory(initial = {}, hooks = {}) {
     get writes() { return writes; },
   };
 }
+
+test('mixed backups restore only where the model is available, with destinations for every remaining item',()=>{
+  const archive=incoming([pair('cycles-src','battery'),pair('risk-src','risk'),pair('mg:recent:v1:energy:one','snapshot'),pair('roadmap-src','plan'),pair('premortem:index','[]'),pair('thinking-lab:reframe:v1','workspace')]);
+  const tools=partitionArchive(archive,'tools.matthewgarner.me');
+  assert.deepEqual(tools.archive.entries.map(x=>x.key),['roadmap-src','premortem:index','thinking-lab:reframe:v1']);
+  assert.deepEqual(tools.elsewhere,[{label:'Energy',url:'https://energy.matthewgarner.me/backup/',count:3}]);
+  const energy=partitionArchive(archive,'energy.matthewgarner.me');
+  assert.equal(energy.archive.entries.length,3);assert.equal(energy.elsewhere[0].label,'Tools Lab');assert.equal(energy.elsewhere[0].count,3);
+  const legacy=partitionArchive(archive,'thinking-lab-experiments.matthewg12.chatgpt.site');
+  assert.deepEqual(legacy.archive.entries.map(x=>x.key),['thinking-lab:reframe:v1']);
+  assert.deepEqual(legacy.elsewhere.map(x=>x.count),[3,2]);
+  assert.deepEqual(partitionArchive(archive,'localhost'),{archive,elsewhere:[]});
+  assert.equal(archive.entries.length,6,'original file is reusable at each destination');
+  assert.throws(()=>partitionArchive(incoming([pair('credential','secret')]),'tools.matthewgarner.me'));
+});
 
 test('export reads only actual suite work keys and preserves damaged raw recovery values', () => {
   const store = memory({

@@ -30,17 +30,16 @@ for(const {page,section,catalogue,file} of SUITE_PAGES){
   const energy=section==='energy',lab=section==='lab';
   const local=catalogue?'./':'../';
   const main=html.match(/<main\b[^>]*\bid="([^"]+)"/)?.[1]||'main';
-  const current=name=>section===name?' aria-current="'+(catalogue?'page':'true')+'"':'';
   const header=`<!-- identity:header:start -->
 <a class="mg-skip" href="#${main}">Skip to content</a>
 <div class="mg-masthead" role="banner">
   <a class="mg-identity" href="${personal}/">Matthew Garner</a>
-  <nav class="mg-nav" aria-label="Main navigation"><a data-suite-link="explore" href="${energy?'https://tools.matthewgarner.me/':'/'}"${current('explore')}>Explore</a><a data-suite-link="tools" href="${energy?'https://tools.matthewgarner.me/product/':'/product/'}"${current('tools')}>Product</a><a data-suite-link="energy" href="${energy?local:'/energy/'}"${current('energy')}>Energy</a><a data-suite-link="lab" href="${energy?'https://tools.matthewgarner.me/lab/':'/lab/'}"${current('lab')}>Lab</a></nav>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="${personal}/writing">Writing</a><a data-suite-link="explore" href="${energy?'https://tools.matthewgarner.me/':'/'}" aria-current="${page==='explore'?'page':'true'}">Tools Lab</a><a href="${personal}/now">Now</a></nav>
   <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true">${icon}</span></button>
 </div>
 <!-- identity:header:end -->`;
   const footer=`<!-- identity:footer:start -->
-<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a>${lab?`<a href="${local}about.html">Model limits</a>`:''}<a href="${personal}/writing">Writing</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere">${!catalogue&&!lab?`<a href="${energy?'../':'/'}#recent-work">Recent work</a>`:''}<a data-suite-link="backup" href="/backup/">Backup &amp; restore</a>${lab?`<a href="${local}about.html">Model limits</a>`:''}<a href="${personal}/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
 <!-- identity:footer:end -->`;
   const head=`<!-- identity:head:start -->
 <script src="/assets/identity/theme-init.js"></script>
@@ -52,6 +51,7 @@ for(const {page,section,catalogue,file} of SUITE_PAGES){
   html=html.replace(/<html([^>]*)>/,(_,attrs)=>`<html${attrs.replace(/ data-mg-section="[^"]*"/,'')} data-mg-section="${section}">`);
   html=html.replace(/<body([^>]*)>/,(_,attrs)=>`<body${/class="/.test(attrs)?attrs.replace(/class="([^"]*)"/,(_,c)=>`class="${[...new Set([...c.split(' '),'mg-site'])].join(' ')}"`):attrs+' class="mg-site"'}>`);
   if(!/<main\b[^>]*\bid=/.test(html))html=html.replace(/<main\b/,'<main id="main" tabindex="-1"');
+  html=html.replace(/<section data-recent-work/, '<section id="recent-work" data-recent-work');
   if(!catalogue&&!lab&&!html.includes('data-tool-header'))html=html.replace(/<header\b/,'<header data-tool-header');
   if(energy&&!catalogue)html=html.replace(/\s*<div class="masthead">[\s\S]*?<\/div>/,'');
   for(const [name,block] of [['head',head],['header',header],['footer',footer]]){

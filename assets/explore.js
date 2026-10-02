@@ -4,7 +4,7 @@ const form = document.querySelector('[data-explore-form]');
 const search = form.elements.q;
 const type = form.elements.type;
 const maturity = form.elements.maturity;
-const choices = [...form.querySelectorAll('[data-collection]')];
+const domain = form.elements.domain;
 const rows = [...document.querySelectorAll('[data-catalog-id]')];
 const count = document.querySelector('[data-result-count]');
 const empty = document.querySelector('[data-empty-results]');
@@ -28,11 +28,12 @@ function render() {
   count.textContent = `${matches.length} ${matches.length === 1 ? 'tool' : 'tools'}`;
   empty.hidden = matches.length !== 0;
   clear.disabled = Object.keys(DEFAULT_FILTERS).every(key => !filters[key]);
-  for (const choice of choices) choice.setAttribute('aria-pressed', String(choice.dataset.collection === filters.collection));
+
 }
 
 function restoreControls() {
   search.value = filters.q;
+  domain.value = filters.domain;
   type.value = filters.type;
   maturity.value = filters.maturity;
 }
@@ -54,11 +55,7 @@ search.addEventListener('input', () => {
   editingSearch = true;
 });
 search.addEventListener('blur', () => { editingSearch = false; });
-for (const choice of choices) choice.addEventListener('click', () => {
-  editingSearch = false;
-  update({ ...filters, collection: choice.dataset.collection });
-});
-for (const select of [type, maturity]) select.addEventListener('change', () => {
+for (const select of [domain, type, maturity]) select.addEventListener('change', () => {
   editingSearch = false;
   update({ ...filters, [select.name]: select.value });
 });

@@ -1,8 +1,8 @@
-# Tools to think with
+# Tools Lab
 
-Interactive tools for product work, energy and exploring uncertain situations. One repository, a shared catalogue and Matthew’s [website identity](https://www.matthewgarner.me), with each tool’s model and working surface kept independent.
+Interactive tools for product work, energy and exploring uncertain situations. One repository and one searchable catalogue, with domain, interaction-type and maturity filters. Matthew’s [website identity](https://www.matthewgarner.me) ties the collection together; each tool keeps its own model and working surface.
 
-Explore lives at [tools.matthewgarner.me](https://tools.matthewgarner.me). Product retains its existing tool URLs and a collection page at `/product/`; [Energy](https://energy.matthewgarner.me) keeps its original domain. Lab uses `/lab/`, including the archived prototypes. The consolidation’s implementation and publication status is recorded in [CONSOLIDATION.md](CONSOLIDATION.md).
+Tools Lab lives at [tools.matthewgarner.me](https://tools.matthewgarner.me). Product retains its existing tool URLs and a collection page at `/product/`; [Energy](https://energy.matthewgarner.me) keeps its original domain. Lab uses `/lab/`, including the archived prototypes. The consolidation’s implementation and publication status is recorded in [CONSOLIDATION.md](CONSOLIDATION.md).
 
 ## Work locally
 
@@ -26,7 +26,7 @@ The gate runs the existing model/export tests, Lab’s mechanism tests, SVG gold
 
 ## State and maintenance
 
-Models can live in URLs, local drafts, named saves or Lab workspaces. `/backup/` exports this browser origin’s saved work and previews an import before changing it. Existing items are kept by default; replacement requires a pre-import recovery copy. To move between addresses, export on the old address first. Keep share links for work held only in a URL. Backup transports damaged saved values too; it does not repair them.
+Models can live in URLs, local drafts, named saves or Lab workspaces. `/backup/` exports this browser origin’s saved work and previews an import before changing it. Existing items are kept by default; replacement requires a pre-import recovery copy. Export on the old address first. Product and Lab work can move to Tools Lab; Energy work stays on Energy. Mixed files import the compatible items and link to the remaining destinations. Keep share links for work held only in a URL. Backup transports damaged saved values too; it does not repair them.
 
 Tools and Energy retain their complete offline releases. Lab still requires a connection and is not silently added to either collection’s precache. Keep the original Lab address available while saved work moves. `node dev/package-lab.mjs /tmp/new-lab-release` prepares that Site from the same source, including the common identity and backup page; follow the existing Site’s audience and release settings.
 
