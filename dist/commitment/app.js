@@ -1,4 +1,4 @@
-import { mountShell } from '../shared/shell.js';
+import { mountShell } from '../shared/shell.js?v=0.3.0';
 import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js';
 import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js';
 

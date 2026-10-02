@@ -1,8 +1,8 @@
-import {mountShell} from '../shared/shell.js';
+import {mountShell} from '../shared/shell.js?v=0.3.0';
 import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js';
 import {MODEL,POLICIES,createRun,publicView,preview,projection,advance,policyDecision,commitments,envelope,result,serialize,restore,hour} from './engine.js';
 import {registerFlexibilityTools} from './webmcp.js';
-mountShell({active:'flexibility',label:'MODEL 02',title:'Where flexibility gets trapped'});
+mountShell({active:'flexibility',label:'MODEL 04',title:'Where flexibility gets trapped'});
 const STORE='thinking-lab:flexibility:v1';
 const app=document.querySelector('#app');
 const money=(n,sign=false)=>`${n<-.005?'−':sign&&n>.005?'+':''}£${Math.abs(n).toLocaleString('en-GB',{maximumFractionDigits:0})}`;

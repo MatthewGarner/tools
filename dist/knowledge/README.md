@@ -1,0 +1,3 @@
+# Specialists and shared knowledge · M07
+
+Starting-skill grid, work assignment and a draggable coaching period make the capacity/learning tradeoff visible. Buttons/number inputs and arrow keys provide alternatives. Both plans share deterministic demand and absence; pinned skill assumptions remain explicit. Each person's time is conserved; coaching costs both people 35% of a week and knowledge is credited at week end. Missing participants block coaching. Work also teaches slowly. Local save, Undo, baseline and Markdown export. Fictional divisible independent work, no forgetting/hiring/motivation or certification. Tests cover accounting, delayed knowledge and blocked training.

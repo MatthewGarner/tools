@@ -1,0 +1,3 @@
+# Intervention ladder · S05
+
+A hypothesised causal sequence sits beside six intervention levels. Move options between levels, attach them to concrete steps, develop causal reasoning/costs and choose a bounded test. Higher levels are not ranked as better. Step edits and changed attachments mark dependent claims for review while retaining writing. Steps with attached interventions cannot be removed until those interventions move. Editable examples, local workspace preservation, grouped Undo and Markdown/JSON via workshop-kit. Limits: 7 steps, 24 interventions, 100 workspaces. Tests cover contextual review and reference/portable integrity.

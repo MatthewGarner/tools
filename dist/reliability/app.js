@@ -1,8 +1,8 @@
-import {mountShell} from '../shared/shell.js';
+import {mountShell} from '../shared/shell.js?v=0.3.0';
 import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js';
 import {LIMITS,example,validate,availability,liveState,ancestors,improvements,connect,disconnect,updateNode,addNode,addAlternative,addCommonDependency,removeNode,setOutput} from './engine.js';
 import {registerTools} from './webmcp.js';
-mountShell({active:'reliability',label:'MODEL 05',title:'A system of almost reliable parts'});
+mountShell({active:'reliability',label:'MODEL 11',title:'A system of almost reliable parts'});
 const STORAGE='thinking-lab:reliability:v1';const app=document.querySelector('#app');
 const clone=v=>structuredClone(v),pct=p=>`${(p*100).toFixed(2)}%`,pp=p=>`${p<0?'−':'+'}${(Math.abs(p)*100).toFixed(2)} pp`;
 let graph=example(),baseline=clone(graph),failed=[],scenario='bess',selected='clock',linkSource=null,commonTargets=null,undo=[],redo=[],message='',isError=false,storageOK=true;

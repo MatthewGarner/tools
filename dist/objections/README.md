@@ -1,0 +1,3 @@
+# Objections into alternatives · S07
+
+Clarify the concern beneath an objection, then drag it to remove-the-need, change-delivery or limit-exposure routes to create a distinct alternative. A concern dropped onto an existing design adds a connection. Buttons provide equivalent operations. The original benefit stays visible; alternatives state how it survives and what remains costly. Changed concerns/benefits flag designs for review without erasing them. Referenced concerns are retained until designs are removed. Local workspaces, Undo and Markdown/JSON via creative-kit. Limits: 12 concerns, 18 alternatives. Tests cover provenance, retained benefit and reference integrity.

@@ -1,0 +1,15 @@
+export const clone=value=>structuredClone(value);
+export const uid=()=>globalThis.crypto?.randomUUID?.()||`id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+export function text(value){if(typeof value!=='string'||value.length>20000)throw Error('Text must be under 20,000 characters.');return value;}
+export function list(value,max=30){if(!Array.isArray(value)||value.length>max)throw Error(`Keep at most ${max} items.`);return value;}
+export function identifiers(items){const ids=items.map(x=>text(x.id));// IDs also form drag payloads and map coordinates; separators belong to the UI protocol.
+if(ids.some(x=>!/^[-_a-zA-Z0-9]+$/.test(x))||new Set(ids).size!==ids.length)throw Error('Items need distinct identifiers using letters, numbers, hyphens or underscores.');}
+export function choice(value,allowed){if(!allowed.includes(value))throw Error('Unknown choice.');return value;}
+export function validateSession(raw,validate){if(!raw||raw.version!==1)throw Error('Unknown saved format.');list(raw.workspaces,100);if(!raw.workspaces.length)throw Error('A workspace is required.');const result=clone(raw);result.workspaces.forEach(w=>{text(w.id);text(w.problem);validate(w);});identifiers(result.workspaces);if(!result.workspaces.some(w=>w.id===result.activeId))throw Error('Missing active workspace.');return result;}
+export const active=s=>s.workspaces.find(w=>w.id===s.activeId);
+export function advance(session,action,config){const next=clone(session),w=active(next);if(action.type==='problem')w.problem=text(action.value);else if(action.type==='new'){if(next.workspaces.length>=100)throw Error('Export a workspace before creating more than 100.');const n=config.make(action.id,action.example);next.workspaces.push(n);next.activeId=n.id;}else if(action.type==='fork-workspace'){const n=clone(w);n.id=action.id;n.problem+=' · variation';next.workspaces.push(n);next.activeId=n.id;}else if(action.type==='switch'){next.activeId=action.id;}else if(action.type==='import'){const n=clone(action.workspace);n.id=action.id;next.workspaces.push(n);next.activeId=n.id;}else config.apply(w,action);return validateSession(next,config.validate);}
+export function history(session){return{present:clone(session),past:[],group:null};}
+export function transition(h,a,c,group=null){const next=advance(h.present,a,c);return{present:next,past:group&&group===h.group?h.past:[...h.past,clone(h.present)].slice(-40),group};}
+export function undo(h){return h.past.length?{present:clone(h.past.at(-1)),past:h.past.slice(0,-1),group:null}:h;}
+export function portable(workspace,kind,validate){validate(workspace);return JSON.stringify({kind,version:1,workspace},null,2);}
+export function parse(raw,kind,validate){if(typeof raw!=='string'||raw.length>8000000)throw Error('Choose an export under 8 MB.');let value;try{value=JSON.parse(raw);}catch{throw Error('That file is not valid JSON.');}if(value?.kind!==kind||value.version!==1)throw Error('Choose an export from this experiment.');text(value.workspace?.id);text(value.workspace?.problem);validate(value.workspace);return clone(value.workspace);}

@@ -1,0 +1,3 @@
+# When predictions change behaviour · M09
+
+Move participants between common and private signals (or activate their buttons), change forecast speed, reaction strength, threshold diversity and market impact, and inspect repeated clearing rounds. Forecasts use only preceding realised prices; actions alter the outcome before it becomes new information. Baselines share underlying demand. Unit participants, bounded charge/discharge actions, no energy/state-of-charge or financial calibration. Private estimates are slower and deliberately heterogeneous. Local save, baseline, Undo/reset and Markdown export. Tests cover timing, price accounting, no-impact counterfactual and stable/oscillating responses.

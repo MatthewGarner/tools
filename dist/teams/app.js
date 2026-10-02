@@ -1,9 +1,9 @@
-import { mountShell } from '../shared/shell.js';
+import { mountShell } from '../shared/shell.js?v=0.3.0';
 import { attachCardDrag } from '../shared/drag.js';
 import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js';
 import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js';
 
-mountShell({ active: 'teams', label: 'MODEL 03', title: 'How teams fit the work' });
+mountShell({ active: 'teams', label: 'MODEL 02', title: 'How teams fit the work' });
 const $ = selector => document.querySelector(selector);
 const KEY = 'thinking-lab:teams:v1';
 const palette = { a: { color: '#5077bf', wash: '#f1f5fc', line: '#d3dfef' }, b: { color: '#548f85', wash: '#f0f7f4', line: '#d0e3dc' }, c: { color: '#b28b4a', wash: '#faf6ee', line: '#e7ddca' } };

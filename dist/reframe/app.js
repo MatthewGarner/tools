@@ -1,4 +1,4 @@
-import { mountShell } from '../shared/shell.js';
+import { mountShell } from '../shared/shell.js?v=0.3.0';
 import { escapeHtml as esc, downloadText } from '../shared/utils.js';
 import { STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js';
 import { createWorkbenchTools, registerWorkbenchTools } from './tools.js';
