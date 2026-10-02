@@ -175,6 +175,102 @@
       "destination": "/home/"
     },
     {
+      "source": "/lab/commitment/",
+      "destination": "/lab/dist/commitment/"
+    },
+    {
+      "source": "/lab/teams/",
+      "destination": "/lab/dist/teams/"
+    },
+    {
+      "source": "/lab/exploration/",
+      "destination": "/lab/dist/exploration/"
+    },
+    {
+      "source": "/lab/flexibility/",
+      "destination": "/lab/dist/flexibility/"
+    },
+    {
+      "source": "/lab/delay/",
+      "destination": "/lab/dist/delay/"
+    },
+    {
+      "source": "/lab/exceptions/",
+      "destination": "/lab/dist/exceptions/"
+    },
+    {
+      "source": "/lab/knowledge/",
+      "destination": "/lab/dist/knowledge/"
+    },
+    {
+      "source": "/lab/local/",
+      "destination": "/lab/dist/local/"
+    },
+    {
+      "source": "/lab/predictions/",
+      "destination": "/lab/dist/predictions/"
+    },
+    {
+      "source": "/lab/accuracy/",
+      "destination": "/lab/dist/accuracy/"
+    },
+    {
+      "source": "/lab/reliability/",
+      "destination": "/lab/dist/reliability/"
+    },
+    {
+      "source": "/lab/adoption/",
+      "destination": "/lab/dist/adoption/"
+    },
+    {
+      "source": "/lab/reframe/",
+      "destination": "/lab/dist/reframe/"
+    },
+    {
+      "source": "/lab/mixer/",
+      "destination": "/lab/dist/mixer/"
+    },
+    {
+      "source": "/lab/constraints/",
+      "destination": "/lab/dist/constraints/"
+    },
+    {
+      "source": "/lab/analogy/",
+      "destination": "/lab/dist/analogy/"
+    },
+    {
+      "source": "/lab/interventions/",
+      "destination": "/lab/dist/interventions/"
+    },
+    {
+      "source": "/lab/answers/",
+      "destination": "/lab/dist/answers/"
+    },
+    {
+      "source": "/lab/objections/",
+      "destination": "/lab/dist/objections/"
+    },
+    {
+      "source": "/lab/territory/",
+      "destination": "/lab/dist/territory/"
+    },
+    {
+      "source": "/lab/scenes/",
+      "destination": "/lab/dist/scenes/"
+    },
+    {
+      "source": "/lab/family/",
+      "destination": "/lab/dist/family/"
+    },
+    {
+      "source": "/lab/questions/",
+      "destination": "/lab/dist/questions/"
+    },
+    {
+      "source": "/lab/disagreement/",
+      "destination": "/lab/dist/disagreement/"
+    },
+    {
       "source": "/lab/",
       "destination": "/lab/dist/"
     },

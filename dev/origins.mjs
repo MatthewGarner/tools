@@ -34,6 +34,9 @@ export const ENERGY_ROUTES = [
 /* the tools origin's (and previews') view of the relocated root trio */
 export const SHARED_ROUTES = [
   {from: '/product/', to: '/home/', exact: true},
+  // Vercel's wildcard capture drops the terminal slash. Explicit page rows
+  // preserve directory-index resolution; the broad row handles asset files.
+  ...LAB_ROUTES.map(route=>({from:`/lab/${route}/`,to:`/lab/dist/${route}/`,exact:true})),
   {from: '/lab/', to: '/lab/dist/'},
 ];
 export const FALLBACK_ROUTES = [

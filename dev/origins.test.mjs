@@ -91,6 +91,15 @@ test('toToolsPath serves the relocated root trio and passes everything else thro
   assert.equal(toToolsPath('/assets/series.js'), '/assets/series.js');
 });
 
+test('every Lab page has an exact directory rewrite before its asset wildcard',()=>{
+  const rows=vercelRewrites(),wildcard=rows.findIndex(row=>row.source==='/lab/:path*');
+  for(const route of LAB_ROUTES){
+    const index=rows.findIndex(row=>row.source===`/lab/${route}/`);
+    assert.ok(index>=0&&index<wildcard,route+' preserves its terminal slash before Vercel wildcard capture');
+    assert.equal(rows[index].destination,`/lab/dist/${route}/`);
+  }
+});
+
 test('toOriginUrl inverts toRepoPath for exposed files', () => {
   for(const p of ['/', '/risk/', '/risk/app.js', '/sw.js', '/manifest.webmanifest',
                   '/icons/icon-192.png', '/assets/tokens.css'])

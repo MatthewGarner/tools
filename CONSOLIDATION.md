@@ -41,6 +41,7 @@ Use fictional examples. Preserve explicit assumptions and model limitations. Avo
 - Cached-page safeguard: retained a compatible shell/theme controller for original Lab HTML fetching new shared assets. A valid mutation removing only that guard makes the legacy-header assertion fail, demonstrating that the regression test detects the break.
 - Saved-work correction: a production-host browser reproduction showed an Energy draft incorrectly imported on Tools, where its model redirects elsewhere. Imports now partition mixed files by destination and link to remaining work; the same regression passes. A footer route reaches Recent work on each instrument's own storage origin.
 - Recovery is available offline on both installed-app origins; the Energy worker now includes the shared backup page. Real cold-offline downloads preserve the original draft bytes.
+- Hosted preview caught a routing difference: Vercel's wildcard capture removes the terminal slash, so Lab directory pages returned 404 while their assets and gallery worked. Exact generated page rewrites now precede the asset wildcard. The original hosted failure and the focused routing contract protect this boundary; the replacement preview must pass before merging.
 - Personal website: prepared `codex/tools-lab-navigation` at `144ddb1` in `/private/tmp/website-tools-lab-navigation`, based on current `origin/v5` (`78e8c50`). Its release build, 24 tests and six Chromium/WebKit navigation/appearance journeys pass. Release it alongside the suite; the website remains a separate repository.
 
 ## Release next
