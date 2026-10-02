@@ -2,15 +2,15 @@
 
 Updated 2 October 2026. This is the working plan for improving the suite, incorporating Matthew’s portfolio review and the subsequent cutting decisions. Update it as implementation and feedback change the plan; earlier delivery records describe what shipped at the time.
 
-Published starting point: 24 experiments. First increment now has 22 active experiments and two archived prototypes; publication is pending. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. Implementation is underway; the table distinguishes work in progress from verified and published changes. Pause new experiments while improving the existing collection.
+Published starting point: 24 experiments. Current release has 22 active experiments and two archived prototypes. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. Implementation is underway; the table distinguishes work in progress from verified and published changes. Pause new experiments while improving the existing collection.
 
 ## Build order
 
 | Order | Work | Status | Completion criterion |
 |---|---|---|---|
-| 1 | Retire Local wins (M08) and the current Exploration versus delivery (M03) from the main bench | Implemented 2 Oct — [evidence](ROADMAP-DELIVERY.md#retirement-and-predictions) | Gallery and primary navigation distinguish active tools from archived prototypes; existing links, source and saved work remain accessible. |
-| 2 | Correct Predictions (M09) | Implemented 2 Oct — [evidence](ROADMAP-DELIVERY.md#retirement-and-predictions) | Sharing, update speed and noise are independently controlled. Matched comparisons hold other assumptions constant, so common information is not confused with fast reactions. |
-| 3 | Deepen Reliability (M11) | In progress | The existing BESS scenario supports comparing proposed improvements, explaining their dependencies, and capturing a decision with assumptions and evidence still needed. |
+| 1 | Retire Local wins (M08) and the current Exploration versus delivery (M03) from the main bench | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#retirement-and-predictions) | Gallery and primary navigation distinguish active tools from archived prototypes; existing links, source and saved work remain accessible. |
+| 2 | Correct Predictions (M09) | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#retirement-and-predictions) | Sharing, update speed and noise are independently controlled. Matched comparisons hold other assumptions constant, so common information is not confused with fast reactions. |
+| 3 | Deepen Reliability (M11) | Implemented 2 Oct — [evidence](ROADMAP-DELIVERY.md#reliability-comparison) | The existing BESS scenario supports comparing proposed improvements, explaining their dependencies, and capturing a decision with assumptions and evidence still needed. |
 | 4 | Combine Reframing (S01) and Questions (S11) | Planned | A situation leads to questions, alternative frames and different possible actions in one workspace, with progressive prompts and meaningful connections between cards. |
 | 5 | Bring Three Answers (S06) and Disagreement (S12) into an alternatives workspace based on Objections (S07) | Planned | Generating options, responding to concerns and reconciling proposals are entry points into the same comparison of mechanisms, benefits, costs and assumptions. |
 | 6 | Combine Possibility Mixer (S02) and Territory (S08) | Planned | Generation and coverage mapping use the same collection of ideas; moving between them retains context. |
@@ -68,3 +68,5 @@ Update an item to **In progress**, **Implemented**, **Published** or **Deferred*
 ## Findings affecting the plan
 
 2 October: the corrected Predictions model confirms that noiseless shared and separate estimates are identical when their starting values and update rates match. Keep this counterexample visible. A single noise sample must not become another predetermined lesson; users can replay other samples. Old saves are retained separately because correcting the mechanism changes their results.
+
+2 October: Reliability comparisons need a shared definition of a successful service request. Added that definition to the model and each saved design; withhold gains across different definitions. Effort remains an editable assumption rather than a computed recommendation. The fallback example explicitly includes its own measurement dependency. These changes deepen the existing static model without claiming to simulate switching or repair.
