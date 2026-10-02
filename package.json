@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:node": "node --test --test-concurrency=1 dev/*.test.mjs */tests/*.mjs energy/*/tests/*.mjs",
+    "test:node": "node --test --test-concurrency=1 dev/*.test.mjs */tests/*.mjs energy/*/tests/*.mjs lab/dist/*/*.test.js",
     "gate": "npm --prefix dev/pw run gate --",
     "gate:serial": "npm --prefix dev/pw run gate -- --jobs 1",
-    "worktree": "node dev/worktree.mjs"
+    "worktree": "node dev/worktree.mjs",
+    "sync": "node dev/generate-catalogue.mjs && node dev/sync-identity.mjs && node dev/gen-sw.mjs"
   }
 }

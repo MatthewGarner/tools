@@ -1,6 +1,6 @@
 # Tools agent guide
 
-Small, sharp tools for product work under uncertainty. Each does one job
+Tools for product work, energy and exploring uncertain situations. The consolidation plan and delivery evidence live in `CONSOLIDATION.md`. Each does one job
 exceptionally well: no accounts, no tracking, and static browser code without a
 build step. Shareable models belong in the URL; local persistence and Gauge’s
 ephemeral relay have explicit boundaries in `ARCHITECTURE.md`. This guide adds repository constraints to the user-level
@@ -50,6 +50,7 @@ here. A parallel red needs the failed suite re-run serially before it is classif
 | New tool | `docs/agent/NEW_TOOL.md` | approved design/spec before implementation |
 | Preview, CI, or merge | `docs/agent/RELEASE.md` | gate, preview, branch CI, then approval |
 
-Use `dev/tool-dirs.mjs` for tool inventory, `dev/origins.mjs` for origin routing,
+Use `dev/tool-dirs.mjs` and `lab/dist/shared/catalog.js` for tool inventories,
+`dev/suite-pages.mjs` for shared pages, `dev/origins.mjs` for origin routing,
 and `dev/pw/package.json` for the browser-suite chain. These are sources of truth,
 not prose to copy.

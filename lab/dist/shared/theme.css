@@ -1,0 +1,34 @@
+/* Retained for cached HTML; new pages load the pinned identity faces last. */
+@font-face{font-family:'Oswald Variable';font-style:normal;font-display:swap;font-weight:200 700;src:url('./fonts/oswald-latin-wght-normal.woff2') format('woff2')}
+@font-face{font-family:'Newsreader Variable';font-style:normal;font-display:swap;font-weight:200 800;src:url('./fonts/newsreader-latin-standard-normal.woff2') format('woff2')}
+/* Source: matthewgarner.me / website/site/src/styles/global.css, 2 October 2026.
+   Extend semantic roles here; model and chart colours must follow both themes. */
+@font-face{font-family:'Newsreader Variable';font-style:italic;font-display:swap;font-weight:200 800;src:url('./fonts/newsreader-latin-standard-italic.woff2') format('woff2')}
+@font-face{font-family:'Newsreader Variable';font-style:normal;font-display:swap;font-weight:200 800;src:url('./fonts/newsreader-latin-ext-standard-normal.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Newsreader Variable';font-style:italic;font-display:swap;font-weight:200 800;src:url('./fonts/newsreader-latin-ext-standard-italic.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+:root{
+  color-scheme:light;
+  --paper:#faf8f2;--ink:#24212c;--heading:#24212c;--muted:#686170;
+  --line:#c9c2d1;--accent:#594278;--surface:#eee9f3;--mark:#e4dbee;
+  --display:'Oswald Variable',Impact,sans-serif;
+  --serif:'Newsreader Variable',Georgia,serif;
+  --mono:ui-monospace,'SFMono-Regular',Consolas,monospace;
+  --bg:var(--paper);--card:#fdfbf6;--accent-soft:var(--surface);--accent-line:#a697b9;
+  --accent-hover:#46305f;--on-accent:#faf8f2;--line-strong:#91839e;
+  --good:#42634d;--good-soft:#e6ebdf;--good-line:#91aa91;
+  --warn:#815c29;--warn-soft:#f0e6d2;--warn-line:#c2a16a;
+  --danger:#9a4653;--danger-soft:#f3e2e4;--danger-line:#c28b93;
+  --energy:var(--warn);--radius:4px;--shadow-ink:#24212c;
+  --shadow:0 3px 12px color-mix(in srgb,var(--shadow-ink) 4%,transparent);
+}
+:root[data-theme='dark']{
+  color-scheme:dark;
+  --paper:#24212c;--ink:#f4f0e6;--heading:#e4ddef;--muted:#bdb5c8;
+  --line:#62596d;--accent:#d6ec79;--surface:#35303e;--mark:#454c32;
+  --card:#2c2735;--accent-soft:#353c2b;--accent-line:#929e59;
+  --accent-hover:#e5f6a4;--on-accent:#24212c;--line-strong:#9989aa;
+  --good:#b2d5ad;--good-soft:#2d3b32;--good-line:#709578;
+  --warn:#e0bf84;--warn-soft:#423629;--warn-line:#a88a5e;
+  --danger:#f0a8b1;--danger-soft:#452e39;--danger-line:#b37789;
+  --shadow-ink:#000;
+}

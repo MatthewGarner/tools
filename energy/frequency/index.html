@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="/assets/identity/identity.css">
 <link rel="stylesheet" href="/assets/identity-tools.css">
 <script type="module" src="/assets/identity/appearance.js"></script>
+<script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
 </head>
@@ -35,7 +36,7 @@
 <a class="mg-skip" href="#main">Skip to content</a>
 <div class="mg-masthead" role="banner">
   <a class="mg-identity" href="https://www.matthewgarner.me/">Matthew Garner</a>
-  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a href="https://tools.matthewgarner.me/">Tools</a><a href="../" aria-current="true">Energy</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a data-suite-link="explore" href="https://tools.matthewgarner.me/" aria-current="true">Tools Lab</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
   <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
 </div>
 <!-- identity:header:end -->
@@ -147,7 +148,7 @@
 </div>
 <script type="module" src="./app.js"></script>
 <!-- identity:footer:start -->
-<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a href="https://www.matthewgarner.me/about">About</a><a href="https://www.matthewgarner.me/bookshelf">Bookshelf</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a href="../#recent-work">Recent work</a><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a><a href="https://www.matthewgarner.me/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
 <!-- identity:footer:end -->
 </body>
 </html>

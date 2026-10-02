@@ -4,73 +4,616 @@
     {
       "source": "/(.*)",
       "headers": [
-        {"key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"},
-        {"key": "X-Content-Type-Options", "value": "nosniff"},
-        {"key": "Referrer-Policy", "value": "no-referrer"}
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
       ]
     }
   ],
   "rewrites": [
-    {"source": "/risk/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/"},
-    {"source": "/risk/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/:path*"},
-    {"source": "/cycles/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/cycles/"},
-    {"source": "/cycles/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/cycles/:path*"},
-    {"source": "/frequency/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/frequency/"},
-    {"source": "/frequency/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/frequency/:path*"},
-    {"source": "/merit-order/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/merit-order/"},
-    {"source": "/merit-order/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/merit-order/:path*"},
-    {"source": "/intraday/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/intraday/"},
-    {"source": "/intraday/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/intraday/:path*"},
-    {"source": "/icons/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/"},
-    {"source": "/icons/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/:path*"},
-    {"source": "/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/"},
-    {"source": "/sw.js", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/sw.js"},
-    {"source": "/manifest.webmanifest", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/manifest.webmanifest"},
-    {"source": "/", "destination": "/home/"},
-    {"source": "/sw.js", "destination": "/home/sw.js"},
-    {"source": "/manifest.webmanifest", "destination": "/home/manifest.webmanifest"}
+    {
+      "source": "/risk/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/risk/"
+    },
+    {
+      "source": "/risk/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/risk/:path*"
+    },
+    {
+      "source": "/cycles/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/cycles/"
+    },
+    {
+      "source": "/cycles/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/cycles/:path*"
+    },
+    {
+      "source": "/frequency/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/frequency/"
+    },
+    {
+      "source": "/frequency/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/frequency/:path*"
+    },
+    {
+      "source": "/merit-order/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/merit-order/"
+    },
+    {
+      "source": "/merit-order/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/merit-order/:path*"
+    },
+    {
+      "source": "/intraday/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/intraday/"
+    },
+    {
+      "source": "/intraday/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/intraday/:path*"
+    },
+    {
+      "source": "/icons/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/icons/"
+    },
+    {
+      "source": "/icons/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/icons/:path*"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/"
+    },
+    {
+      "source": "/sw.js",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/sw.js"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/energy/manifest.webmanifest"
+    },
+    {
+      "source": "/product/",
+      "destination": "/home/"
+    },
+    {
+      "source": "/lab/commitment/",
+      "destination": "/lab/dist/commitment/"
+    },
+    {
+      "source": "/lab/teams/",
+      "destination": "/lab/dist/teams/"
+    },
+    {
+      "source": "/lab/exploration/",
+      "destination": "/lab/dist/exploration/"
+    },
+    {
+      "source": "/lab/flexibility/",
+      "destination": "/lab/dist/flexibility/"
+    },
+    {
+      "source": "/lab/delay/",
+      "destination": "/lab/dist/delay/"
+    },
+    {
+      "source": "/lab/exceptions/",
+      "destination": "/lab/dist/exceptions/"
+    },
+    {
+      "source": "/lab/knowledge/",
+      "destination": "/lab/dist/knowledge/"
+    },
+    {
+      "source": "/lab/local/",
+      "destination": "/lab/dist/local/"
+    },
+    {
+      "source": "/lab/predictions/",
+      "destination": "/lab/dist/predictions/"
+    },
+    {
+      "source": "/lab/accuracy/",
+      "destination": "/lab/dist/accuracy/"
+    },
+    {
+      "source": "/lab/reliability/",
+      "destination": "/lab/dist/reliability/"
+    },
+    {
+      "source": "/lab/adoption/",
+      "destination": "/lab/dist/adoption/"
+    },
+    {
+      "source": "/lab/reframe/",
+      "destination": "/lab/dist/reframe/"
+    },
+    {
+      "source": "/lab/mixer/",
+      "destination": "/lab/dist/mixer/"
+    },
+    {
+      "source": "/lab/constraints/",
+      "destination": "/lab/dist/constraints/"
+    },
+    {
+      "source": "/lab/analogy/",
+      "destination": "/lab/dist/analogy/"
+    },
+    {
+      "source": "/lab/interventions/",
+      "destination": "/lab/dist/interventions/"
+    },
+    {
+      "source": "/lab/answers/",
+      "destination": "/lab/dist/answers/"
+    },
+    {
+      "source": "/lab/objections/",
+      "destination": "/lab/dist/objections/"
+    },
+    {
+      "source": "/lab/territory/",
+      "destination": "/lab/dist/territory/"
+    },
+    {
+      "source": "/lab/scenes/",
+      "destination": "/lab/dist/scenes/"
+    },
+    {
+      "source": "/lab/family/",
+      "destination": "/lab/dist/family/"
+    },
+    {
+      "source": "/lab/questions/",
+      "destination": "/lab/dist/questions/"
+    },
+    {
+      "source": "/lab/disagreement/",
+      "destination": "/lab/dist/disagreement/"
+    },
+    {
+      "source": "/lab/",
+      "destination": "/lab/dist/"
+    },
+    {
+      "source": "/lab/:path*",
+      "destination": "/lab/dist/:path*"
+    },
+    {
+      "source": "/",
+      "destination": "/explore/"
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/home/sw.js"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "destination": "/home/manifest.webmanifest"
+    }
   ],
   "redirects": [
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "fermi.matthewgarner.me" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "fermi.matthewgarner.me"
+        }
+      ],
       "destination": "https://tools.matthewgarner.me/fermi/:path*",
       "permanent": true
     },
     {
       "source": "/energy/",
-      "has": [{"type": "host", "value": "tools.matthewgarner.me"}],
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
       "destination": "https://energy.matthewgarner.me/",
       "permanent": false
     },
     {
       "source": "/energy/:path*",
-      "has": [{"type": "host", "value": "tools.matthewgarner.me"}],
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
       "destination": "https://energy.matthewgarner.me/:path*",
       "permanent": false
     },
-    {"source": "/risk", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/risk/", "permanent": false},
-    {"source": "/cycles", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/cycles/", "permanent": false},
-    {"source": "/frequency", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/frequency/", "permanent": false},
-    {"source": "/merit-order", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/merit-order/", "permanent": false},
-    {"source": "/intraday", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/intraday/", "permanent": false},
-    {"source": "/fermi", "destination": "/fermi/", "permanent": false},
-    {"source": "/rank", "destination": "/rank/", "permanent": false},
-    {"source": "/roadmap", "destination": "/roadmap/", "permanent": false},
-    {"source": "/why", "destination": "/why/", "permanent": false},
-    {"source": "/tree", "destination": "/tree/", "permanent": false},
-    {"source": "/map", "destination": "/map/", "permanent": false},
-    {"source": "/gauge", "destination": "/gauge/", "permanent": false},
-    {"source": "/flow", "destination": "/flow/", "permanent": false},
-    {"source": "/timeline", "destination": "/timeline/", "permanent": false},
-    {"source": "/wardley", "destination": "/wardley/", "permanent": false},
-    {"source": "/alarm", "destination": "/alarm/", "permanent": false},
-    {"source": "/duel", "destination": "/duel/", "permanent": false},
-    {"source": "/premortem", "destination": "/premortem/", "permanent": false},
-    {"source": "/bets", "destination": "/bets/", "permanent": false},
-    {"source": "/signal-vs-noise", "destination": "/signal-vs-noise/", "permanent": false},
-    {"source": "/case", "destination": "/case/", "permanent": false},
-    {"source": "/paths", "destination": "/paths/", "permanent": false},
-    {"source": "/proxy", "destination": "/proxy/", "permanent": false}
+    {
+      "source": "/lab/dist/:path*",
+      "destination": "/lab/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/risk",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/risk/",
+      "permanent": false
+    },
+    {
+      "source": "/cycles",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/cycles/",
+      "permanent": false
+    },
+    {
+      "source": "/frequency",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/frequency/",
+      "permanent": false
+    },
+    {
+      "source": "/merit-order",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/merit-order/",
+      "permanent": false
+    },
+    {
+      "source": "/intraday",
+      "has": [
+        {
+          "type": "host",
+          "value": "energy.matthewgarner.me"
+        }
+      ],
+      "destination": "/intraday/",
+      "permanent": false
+    },
+    {
+      "source": "/fermi",
+      "destination": "/fermi/",
+      "permanent": false
+    },
+    {
+      "source": "/rank",
+      "destination": "/rank/",
+      "permanent": false
+    },
+    {
+      "source": "/roadmap",
+      "destination": "/roadmap/",
+      "permanent": false
+    },
+    {
+      "source": "/why",
+      "destination": "/why/",
+      "permanent": false
+    },
+    {
+      "source": "/tree",
+      "destination": "/tree/",
+      "permanent": false
+    },
+    {
+      "source": "/map",
+      "destination": "/map/",
+      "permanent": false
+    },
+    {
+      "source": "/gauge",
+      "destination": "/gauge/",
+      "permanent": false
+    },
+    {
+      "source": "/flow",
+      "destination": "/flow/",
+      "permanent": false
+    },
+    {
+      "source": "/timeline",
+      "destination": "/timeline/",
+      "permanent": false
+    },
+    {
+      "source": "/wardley",
+      "destination": "/wardley/",
+      "permanent": false
+    },
+    {
+      "source": "/alarm",
+      "destination": "/alarm/",
+      "permanent": false
+    },
+    {
+      "source": "/duel",
+      "destination": "/duel/",
+      "permanent": false
+    },
+    {
+      "source": "/premortem",
+      "destination": "/premortem/",
+      "permanent": false
+    },
+    {
+      "source": "/bets",
+      "destination": "/bets/",
+      "permanent": false
+    },
+    {
+      "source": "/signal-vs-noise",
+      "destination": "/signal-vs-noise/",
+      "permanent": false
+    },
+    {
+      "source": "/case",
+      "destination": "/case/",
+      "permanent": false
+    },
+    {
+      "source": "/paths",
+      "destination": "/paths/",
+      "permanent": false
+    },
+    {
+      "source": "/proxy",
+      "destination": "/proxy/",
+      "permanent": false
+    },
+    {
+      "source": "/product",
+      "destination": "/product/",
+      "permanent": false
+    },
+    {
+      "source": "/explore",
+      "destination": "/explore/",
+      "permanent": false
+    },
+    {
+      "source": "/lab",
+      "destination": "/lab/",
+      "permanent": false
+    },
+    {
+      "source": "/backup",
+      "destination": "/backup/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/commitment",
+      "destination": "/lab/commitment/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/teams",
+      "destination": "/lab/teams/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/exploration",
+      "destination": "/lab/exploration/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/flexibility",
+      "destination": "/lab/flexibility/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/delay",
+      "destination": "/lab/delay/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/exceptions",
+      "destination": "/lab/exceptions/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/knowledge",
+      "destination": "/lab/knowledge/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/local",
+      "destination": "/lab/local/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/predictions",
+      "destination": "/lab/predictions/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/accuracy",
+      "destination": "/lab/accuracy/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/reliability",
+      "destination": "/lab/reliability/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/adoption",
+      "destination": "/lab/adoption/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/reframe",
+      "destination": "/lab/reframe/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/mixer",
+      "destination": "/lab/mixer/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/constraints",
+      "destination": "/lab/constraints/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/analogy",
+      "destination": "/lab/analogy/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/interventions",
+      "destination": "/lab/interventions/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/answers",
+      "destination": "/lab/answers/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/objections",
+      "destination": "/lab/objections/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/territory",
+      "destination": "/lab/territory/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/scenes",
+      "destination": "/lab/scenes/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/family",
+      "destination": "/lab/family/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/questions",
+      "destination": "/lab/questions/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/disagreement",
+      "destination": "/lab/disagreement/",
+      "permanent": false
+    }
   ]
 }

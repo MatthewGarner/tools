@@ -6,7 +6,7 @@ const base=process.env.BASE||'http://localhost:8087';
 const energy=process.env.EBASE||process.env.ENERGY_BASE||'http://localhost:8089';
 const browser=await chromium.launch();
 try{
-  for(const url of [base+'/',energy+'/',base+'/timeline/',base+'/rank/',base+'/gauge/',energy+'/frequency/']){
+  for(const url of [base+'/',energy+'/',base+'/lab/knowledge/',base+'/timeline/',base+'/rank/',base+'/gauge/',energy+'/frequency/']){
     const context=await browser.newContext({viewport:{width:390,height:844},colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);await page.locator('html[data-mg-ready]').waitFor();
@@ -14,7 +14,7 @@ try{
     assert.equal(await page.locator('[data-mg-theme-reset]').isVisible(),false,'system default stays quiet');
     const mast=page.locator('.mg-masthead');
     assert.equal(await mast.locator('button').count(),1,'tool actions stay outside global navigation');
-    assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing','Tools','Energy','Now']);
+    assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing','Tools Lab','Now']);
     assert.ok(await mast.locator('a[aria-current]').count());
     const geometry=await mast.locator('a,button').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return [r.width,r.height,r.left,r.right];}));
     assert.ok(geometry.every(([w,h,left,right])=>w>=44&&h>=44&&left>=0&&right<=390),url+' masthead targets and reflow');
@@ -36,7 +36,7 @@ try{
   }
   const nojs=await browser.newContext({javaScriptEnabled:false,colorScheme:'dark',viewport:{width:320,height:800}});
   const page=await nojs.newPage();await page.goto(base+'/');
-  assert.equal(await page.locator('.mg-nav a').count(),4);
+  assert.equal(await page.locator('.mg-nav a').count(),3);
   assert.equal(await page.locator('.mg-appearance').isVisible(),false);
   assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(36, 33, 44)');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

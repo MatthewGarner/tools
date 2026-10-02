@@ -1,0 +1,13 @@
+# Possibility mixer · S02, incorporating Territory
+
+Generate and map one collection of concepts. Edit dimensions, select or lock ingredients, mix the rest, then develop a mechanism, usefulness, assumption and smallest experiment. The coverage view uses any two dimensions; drag a concept or use its labelled move control to question its placement. Counts describe combinations and coverage, never opportunity quality.
+
+Captured ingredients are immutable snapshots. Current map placements are separate, can be partial, and survive switching axes. Moving a concept or renaming a mapped label requests a fit review without rewriting its reasoning. Gap notes follow a canonical dimension pair, including transposition. A candidate created in a gap keeps its original note and labels. Locking a mapped space returns to the generator while preserving other locks. Removing options or dimensions that hold mapped work is prevented; move the concepts and clear the notes first. All changes, including grouped writing, have Undo during the visit.
+
+The original `thinking-lab:mixer:v1` store and JSON imports remain supported. Schema 2 retains map state, notes and fit; earlier captures acquire coordinates only from exact, unambiguous label matches. Renamed/ambiguous ingredients stay unplaced. Territory sessions and exports copy into new workspaces with all concepts, partial placements, gap reasoning and an unchanged source record. Original Territory bytes remain untouched. Text is validated, never silently truncated. Unreadable storage is preserved for recovery; changes in another tab pause saving. Markdown includes reasoning and context; JSON retains editable state. Saves belong to this browser and origin. No server or live AI.
+
+Mixing samples unlocked dimensions uniformly and tries to avoid recent combinations, falling back to a different valid combination if repeated randomness cannot find one. Limits: 2–8 dimensions, 1–12 options each, 100 concepts/workspaces. Imported files must be under 8 MB.
+
+Run `node --test dist/mixer/*.test.js`. Tests cover locks, snapshots, migration, partial classifications, stable notes, dimension changes, invalid transitions and portable round trips.
+
+Branch a developed concept or combine two into a deliberately blank mechanism and unplaced classification. Each keeps its full source reasoning, ingredient/map context and any earlier gap note, with explicit change and reason fields. The shared generation view opens any live ancestor for editing. Park/revive concepts without losing their place in the history; parents with descendants cannot be deleted. JSON and Markdown preserve the complete record. Snapshot size is checked before saving an unimportable workspace.

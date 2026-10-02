@@ -18,3 +18,11 @@ parity-*.png
 .claude/
 .bar/
 .superpowers/
+
+# Repository-only consolidation records and standalone Lab hosting metadata.
+CONSOLIDATION.md
+lab/*.md
+lab/docs/
+lab/.openai/
+lab/package.json
+lab/**/*.test.js

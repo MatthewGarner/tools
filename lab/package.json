@@ -1,0 +1,10 @@
+{
+  "name": "thinking-lab",
+  "version": "0.21.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test dist/*/*.test.js",
+    "serve": "node ../dev/serve.mjs 4173"
+  }
+}

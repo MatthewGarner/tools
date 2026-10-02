@@ -1,4 +1,5 @@
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {LAB_ROUTES} from './suite-pages.mjs';
 
 /* Single source of truth for the two-origin path map. vercel.json's rewrites,
    serve.mjs's emulation and gen-sw's precache lists all derive from this table
@@ -31,8 +32,16 @@ export const ENERGY_ROUTES = [
 ];
 
 /* the tools origin's (and previews') view of the relocated root trio */
+export const SHARED_ROUTES = [
+  {from: '/product/', to: '/home/', exact: true},
+  // Vercel's wildcard capture drops the terminal slash. Explicit page rows
+  // preserve directory-index resolution; the broad row handles asset files.
+  ...LAB_ROUTES.map(route=>({from:`/lab/${route}/`,to:`/lab/dist/${route}/`,exact:true})),
+  {from: '/lab/', to: '/lab/dist/'},
+];
 export const FALLBACK_ROUTES = [
-  {from: '/', to: '/home/', exact: true},
+  ...SHARED_ROUTES,
+  {from: '/', to: '/explore/', exact: true},
   {from: '/sw.js', to: '/home/sw.js', exact: true},
   {from: '/manifest.webmanifest', to: '/home/manifest.webmanifest', exact: true},
 ];
@@ -46,7 +55,10 @@ function applyRoutes(routes, p){
 }
 
 /* energy-origin request path → repo path; unmapped paths pass through (/assets/…) */
-export function toRepoPath(p){ return applyRoutes(ENERGY_ROUTES, p); }
+export function toRepoPath(p){
+  const mapped=applyRoutes(ENERGY_ROUTES,p);
+  return mapped===p ? applyRoutes(SHARED_ROUTES,p) : mapped;
+}
 
 /* tools-origin (and preview) request path → repo path */
 export function toToolsPath(p){ return applyRoutes(FALLBACK_ROUTES, p); }
@@ -74,7 +86,7 @@ export function vercelRewrites(){
       {source: r.from + ':path*', has, destination: r.to + ':path*'},
     ];
   });
-  const fallback = FALLBACK_ROUTES.map(r => ({source: r.from, destination: r.to}));
+  const fallback = FALLBACK_ROUTES.flatMap(r => r.exact ? [{source:r.from,destination:r.to}] : [{source:r.from,destination:r.to},{source:r.from+':path*',destination:r.to+':path*'}]);
   return [...energy, ...fallback];
 }
 
@@ -97,7 +109,7 @@ export function energyRedirectSources(){
    URLs then resolve at the site root. Canonicalise every bare tool URL before
    that filesystem handling happens; this applies to previews too. */
 export function toolRedirectSources(){
-  return TOOL_DIRS.map(name => '/' + name);
+  return [...TOOL_DIRS.map(name => '/' + name),'/product','/explore','/lab','/backup',...LAB_ROUTES.map(name=>'/lab/'+name)];
 }
 
 export function vercelRedirects(){

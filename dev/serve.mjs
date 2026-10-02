@@ -26,22 +26,24 @@ const HEADERS = Object.fromEntries(
     .headers[0].headers.map(h => [h.key, h.value]));
 const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png',
-  '.json': 'application/json', '.webmanifest': 'application/manifest+json'};
+  '.woff2':'font/woff2', '.json': 'application/json', '.webmanifest': 'application/manifest+json'};
 const ENERGY_REDIR = new Set(energyRedirectSources());   /* bare tool path → trailing-slash */
 const TOOL_REDIR = new Set(toolRedirectSources());       /* bare tool path → trailing-slash */
 
 createServer(async (req, res) => {
-  let p = normalize(new URL(req.url, 'http://x').pathname).replace(/^(\.\.[/\\])+/, '');
+  const requestURL=new URL(req.url,'http://x');
+  let p = normalize(requestURL.pathname).replace(/^(\.\.[/\\])+/, '');
   if(ORIGIN_ENERGY && ENERGY_REDIR.has(p)){   /* emulate vercel.json's no-slash redirect */
-    res.writeHead(308, {Location: p + '/', ...HEADERS});
+    res.writeHead(308, {Location: p + '/' + requestURL.search, ...HEADERS});
     res.end();
     return;
   }
-  if(!ORIGIN_ENERGY && TOOL_REDIR.has(p)){
-    res.writeHead(308, {Location: p + '/', ...HEADERS});
+  if(TOOL_REDIR.has(p)){
+    res.writeHead(308, {Location: p + '/' + requestURL.search, ...HEADERS});
     res.end();
     return;
   }
+  if(p.startsWith('/lab/dist/')){res.writeHead(308,{Location:p.replace('/lab/dist/','/lab/')+requestURL.search,...HEADERS});res.end();return;}
   p = ORIGIN_ENERGY ? toRepoPath(p) : toToolsPath(p);   /* previews = tools shape */
   if(p.endsWith('/')) p += 'index.html';
   try{
@@ -49,8 +51,8 @@ createServer(async (req, res) => {
     res.writeHead(200, {'Content-Type': MIME[extname(p)] || 'application/octet-stream', ...HEADERS});
     res.end(data);
   }catch(e){
-    res.writeHead(404, HEADERS);
-    res.end('not found');
+    res.writeHead(404, {'Content-Type':'text/html',...HEADERS});
+    res.end(await readFile(join(ROOT,'404.html')));
   }
 }).listen(PORT, () => console.log('serving ' + ROOT + ' on ' + PORT +
   (ORIGIN_ENERGY ? ' as energy origin' : '') + ' with production headers'));

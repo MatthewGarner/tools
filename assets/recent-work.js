@@ -1,7 +1,7 @@
 import {encodeHash, decodeHash} from './series.js';
 import {RECENT_TOOLS, HASH_LIMIT, recentStore, recentRoute, snapshotName} from './recent-store.js';
 
-const scope = document.documentElement.dataset.mgSection;
+const scope = document.documentElement.dataset.recentScope || document.documentElement.dataset.mgSection;
 const tool = location.pathname.split('/').filter(part=>part && part!=='index.html').at(-1);
 const el = (tag, text, cls) => {const node=document.createElement(tag);if(text)node.textContent=text;if(cls)node.className=cls;return node;};
 const button = text => {const b=el('button',text);b.type='button';return b;};

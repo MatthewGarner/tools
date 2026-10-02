@@ -1,0 +1,9 @@
+/* The bench keeps its canvas geometry and semantic chart colours. */
+:root{--paper:var(--mg-paper);--ink:var(--mg-ink);--muted:var(--mg-muted);--line:var(--mg-line);--accent:var(--mg-accent);--surface:var(--mg-surface);--display:var(--mg-display);--serif:var(--mg-serif)}
+body.mg-site>.mg-masthead,body.mg-site>.mg-footer{width:min(1376px,calc(100% - 48px));margin-inline:auto}
+body.mg-site>.mg-footer{margin-top:48px}
+.lab-tool-switch{display:flex;justify-content:flex-end;align-items:center;gap:12px;width:min(1376px,calc(100% - 48px));margin:20px auto 0}
+.lab-tool-switch label{font-size:16px;color:var(--muted)}
+.lab-tool-switch select{width:min(440px,100%);min-height:44px;border:1px solid var(--line);border-radius:3px;padding:7px 12px;color:var(--ink);background:var(--paper);font:400 16px/1.4 var(--serif)}
+@media(max-width:760px){body.mg-site>.mg-masthead,body.mg-site>.mg-footer,.lab-tool-switch{width:calc(100% - 32px)}.lab-tool-switch{flex-wrap:wrap;justify-content:flex-start}.lab-tool-switch select{width:100%}}
+@media print{.lab-tool-switch{display:none}}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-mg-section="lab">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Reframe a problem through different lenses, compare the next moves, and choose a small test. A private, locally saved thinking workbench.">
+  <meta name="theme-color" content="#faf8f2">
+  <script src="../shared/appearance.js?v=0.21.0"></script><title>Reframing Workbench · Thinking Lab</title>
+  <link rel="stylesheet" href="../shared/base.css?v=0.21.0">
+  <link rel="stylesheet" href="../shared/ancestry.css?v=0.21.0">
+  <link rel="stylesheet" href="./style.css?v=0.21.0">
+<link rel="stylesheet" href="../shared/design.css?v=0.21.0"><!-- identity:head:start -->
+<script src="/assets/identity/theme-init.js"></script>
+<link rel="stylesheet" href="/assets/identity/identity.css">
+<link rel="stylesheet" href="/assets/identity-lab.css">
+<script type="module" src="/assets/identity/appearance.js"></script>
+<script type="module" src="/assets/suite-navigation.js"></script>
+<!-- identity:head:end -->
+</head>
+<body class="mg-site">
+<!-- identity:header:start -->
+<a class="mg-skip" href="#workbench">Skip to content</a>
+<div class="mg-masthead" role="banner">
+  <a class="mg-identity" href="https://www.matthewgarner.me/">Matthew Garner</a>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a data-suite-link="explore" href="/" aria-current="true">Tools Lab</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
+  <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
+</div>
+<!-- identity:header:end -->
+  <main id="workbench" class="workbench">
+    <noscript>This workbench needs JavaScript to edit and save your frames. Your writing is stored only in this browser.</noscript>
+  </main>
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="lens-dialog" aria-labelledby="lens-title"></dialog>
+  <dialog id="sessions-dialog" aria-labelledby="sessions-title"></dialog>
+  <dialog id="export-dialog" aria-labelledby="export-title"></dialog>
+  <dialog id="inquiry-dialog" aria-labelledby="inquiry-title"></dialog>
+  <input type="file" id="import-file" accept=".json,application/json" hidden>
+  <script type="module" src="./app.js?v=0.21.0"></script>
+<!-- identity:footer:start -->
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a><a href="../about.html">Model limits</a><a href="https://www.matthewgarner.me/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<!-- identity:footer:end -->
+</body>
+</html>

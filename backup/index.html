@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en" data-mg-section="backup">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saved work · Matthew Garner</title>
+<meta name="description" content="Move saved work between browsers or keep a recovery copy.">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
+<!-- identity:head:start -->
+<script src="/assets/identity/theme-init.js"></script>
+<link rel="stylesheet" href="/assets/identity/identity.css">
+<link rel="stylesheet" href="/assets/identity-tools.css">
+<script type="module" src="/assets/identity/appearance.js"></script>
+<script type="module" src="/assets/suite-navigation.js"></script>
+<!-- identity:head:end -->
+<link rel="stylesheet" href="/assets/backup-ui.css">
+<script type="module" src="/assets/backup-ui.js"></script>
+</head>
+<body class="mg-site backup-page">
+<!-- identity:header:start -->
+<a class="mg-skip" href="#main">Skip to content</a>
+<div class="mg-masthead" role="banner">
+  <a class="mg-identity" href="https://www.matthewgarner.me/">Matthew Garner</a>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a data-suite-link="explore" href="/" aria-current="true">Tools Lab</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
+  <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
+</div>
+<!-- identity:header:end -->
+<main id="main" class="backup-main" tabindex="-1">
+  <header data-tool-header>
+    <h1>Keep your work</h1>
+    <p class="tagline">Save a recovery copy, or bring your work to another browser.</p>
+  </header>
+  <p class="backup-origin">This browser · <strong id="origin"></strong></p>
+  <p id="status" class="backup-status" role="status" tabindex="-1"></p>
+  <noscript><p>Enable JavaScript to download or import saved work.</p></noscript>
+  <section class="backup-section" aria-labelledby="export-heading">
+    <h2 id="export-heading">Download a copy</h2>
+    <div>
+      <p id="local-summary">Reading saved work…</p>
+      <p>Includes saved drafts, versions, snapshots and Lab workspaces on this address, including earlier experiments and recovery data.</p>
+      <button id="download" type="button">Download saved work</button>
+      <details>
+        <summary>What travels with a backup?</summary>
+        <p>Each address keeps separate browser storage. Download on the old address first, then import on the address where you use the tool. Product and Lab work can move to Tools Lab; Energy work stays on the Energy address. A mixed file can be used at both destinations.</p>
+        <p>Unsaved edits and models held only in a page URL need their own share link or tool export. Appearance settings, Gauge participant identity and live-session drafts are excluded. Nothing is sent to a server.</p>
+        <p>Backup files contain your work as readable text. Keep them somewhere appropriate for their contents. A recovery copy preserves damaged saved data without attempting to repair it.</p>
+      </details>
+    </div>
+  </section>
+  <section class="backup-section" aria-labelledby="import-heading">
+    <h2 id="import-heading">Bring work here</h2>
+    <div>
+      <p>Choose a saved-work backup to preview its contents. Existing work is kept by default.</p>
+      <label class="backup-file-label" for="backup-file">Backup file</label>
+      <input id="backup-file" type="file" accept=".json,application/json">
+      <p class="backup-note">Close other tool tabs before importing, then reopen them afterwards so they load the imported version.</p>
+    </div>
+  </section>
+  <section id="other-addresses" class="backup-note" hidden aria-label="Work for another address"></section>
+  <section id="preview" class="backup-preview" hidden aria-labelledby="preview-heading">
+    <header>
+      <h2 id="preview-heading" tabindex="-1">Review the import</h2>
+      <p id="file-summary"></p>
+    </header>
+    <ul id="import-list" class="backup-list"></ul>
+    <p id="register-note" hidden>Premortem’s list and registers form one library. Keeping existing work skips the incoming library; replacing imports its list and may hide registers absent from that list. The pre-import backup retains your current library.</p>
+    <fieldset id="conflict-choice" hidden>
+      <legend>When work already exists here</legend>
+      <label><input type="radio" name="conflicts" value="preserve" checked> Keep this browser’s version</label>
+      <label><input type="radio" name="conflicts" value="replace"> Replace with the file’s version</label>
+    </fieldset>
+    <div id="recovery-step" class="backup-recovery" hidden>
+      <p>Keep a copy of this browser’s work before replacing it.</p>
+      <button id="download-recovery" type="button">Download pre-import backup</button>
+      <label><input id="recovery-confirmed" type="checkbox" disabled> I have saved the pre-import backup</label>
+    </div>
+    <div class="backup-actions">
+      <button id="apply" type="button">Import new items</button>
+      <button id="refresh-preview" class="secondary" type="button">Preview again</button>
+      <button id="cancel" class="secondary" type="button">Cancel</button>
+    </div>
+    <p id="import-count" class="backup-note"></p>
+  </section>
+  <section id="recovery-problem" class="backup-recovery" hidden aria-labelledby="recovery-heading">
+    <h2 id="recovery-heading">Some items need review</h2>
+    <ul id="recovery-list"></ul>
+    <p>The original and pre-import files are your recovery copies. Another tab’s edit has been left in place where it could be detected.</p>
+    <button id="download-failed-recovery" type="button">Download pre-import backup</button>
+  </section>
+</main>
+<!-- identity:footer:start -->
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a><a href="https://www.matthewgarner.me/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<!-- identity:footer:end -->
+</body>
+</html>

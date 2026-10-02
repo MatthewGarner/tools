@@ -155,7 +155,7 @@ const FLOW_THEMES = ['light'];
 
 /* ---- landing ---- */
 {
-  const {page, errors} = await freshPage('/');
+  const {page, errors} = await freshPage('/product/');
   const instruments = TOOL_DIRS.filter(d => !BINDERS.includes(d));
   check('landing: one card per instrument', await page.locator('a.tool').count() === instruments.length);
   check('landing: every card carries its instrument sketch', await page.locator('a.tool svg.thumb').count() === instruments.length);

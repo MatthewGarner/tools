@@ -73,6 +73,8 @@ const PAGES = {
      assets/verdict.js) + the .vcopy chip css (~0.7k on page.css) ride EVERY
      page graph, so every budget below moved once, +3-4k, reason written here
      rather than nineteen times (the Swiss 6b precedent). --- */
+  'explore/index.html': 90_000,
+  'backup/index.html': 75_000,
   'home/index.html': 40_000,
   /* fermi 120k -> 132k (2026-07-15, debt sizing / levered returns): debt.js
      (sculpt + co-fund + leverTrials), engine.js probit/distQuantile/irrOf, the
@@ -554,7 +556,7 @@ test('per-page load stays under budget', () => {
     // CSS, controller and static markup. Paid once per origin and cached offline.
     // Recent work: ~14k of shared storage, accessible UI and static CSS;
     // catalogues also load the existing ~6.4k model codec. Keep this bounded.
-    const recent = files.has('assets/recent-work.js') ? (page==='home/index.html' || page==='energy/index.html' ? 21_000 : 15_000) : 0;
+    const recent = files.has('assets/recent-work.js') ? (page==='home/index.html' || page==='energy/index.html' || page==='explore/index.html' ? 21_000 : 15_000) : 0;
     const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }
@@ -566,7 +568,7 @@ test('no orphaned shipped modules', () => {
   ['home/sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
   for(const file of COMPATIBILITY_MODULES) moduleGraph(file, reachable);
   const orphans = [];
-  const DIRS = [...TOOL_DIRS, 'energy', 'home', 'assets'];   // was missing 'wardley' — the orphan check couldn't see the newest tool
+  const DIRS = [...TOOL_DIRS, 'energy', 'home', 'explore', 'backup', 'assets'];   // was missing 'wardley' — the orphan check couldn't see the newest tool
   for(const d of DIRS){
     (function walk(dir){
       for(const f of readdirSync(join(ROOT, dir))){

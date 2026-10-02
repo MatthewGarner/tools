@@ -3,15 +3,17 @@
 The tools in this repo are small, sharp, and share a spine. This document is the
 spine — the properties that hold across every tool, and the reasons they're shaped
 the way they are. It's deliberately not an inventory: the list of tools, the path
-map between the two domains, and the browser suites all live in code that's checked
-at test time (`dev/tool-dirs.mjs`, `dev/origins.mjs`, `dev/pw/package.json`), so
+map across the collections, and the browser suites all live in code that's checked
+at test time (`dev/tool-dirs.mjs`, `dev/suite-pages.mjs`, `dev/origins.mjs`, `dev/pw/package.json`), so
 listing them again here would just be a second copy to drift. Where a fact is
 enumerable, this points at the code that enumerates it.
 
 ## The shape of a tool
 
 One folder per tool: an `index.html` plus ES modules, with node tests beside it
-under `<tool>/tests/`. Browser code ships as static files without a build step or
+under `<tool>/tests/`. Lab retains its standalone source under `lab/dist/`, with
+mechanism tests beside each route and shared workshop infrastructure under
+`lab/dist/shared/`. Browser code ships as static files without a build step or
 externally fetched JavaScript dependencies. Gauge additionally uses the ephemeral
 relay described below.
 
@@ -97,7 +99,7 @@ models and snapshot state; target-parser contract tests guard their meaning. His
 module URLs remain available for pages cached before a move, without making current
 pages depend on those compatibility paths.
 
-## Two origins, one repo
+## Collections and origins
 
 There are two public domains served from this one repository. The main tools serve
 straight off the repo root; a second set of energy tools lives under `energy/` and
@@ -110,7 +112,8 @@ The trap worth writing down, because it shipped broken once: **Vercel serves the
 filesystem before it applies rewrites.** So a rewrite can't shadow a file that
 physically exists at that path. That's why each origin's root trio
 (`index.html` / `sw.js` / `manifest.webmanifest`) is relocated into a subfolder —
-`home/` for the tools origin, `energy/` for the energy origin — and served back by
+`explore/` for the Tools catalogue, `home/` for its worker/manifest and Product
+catalogue, `energy/` for the Energy origin — and served back by
 rewrites, rather than sitting at the root where the wrong origin's copy would win.
 Energy pages reference shared files by climbing-relative paths (`../../assets/…`) so
 the same reference resolves correctly on both the served origin and in node.
@@ -122,6 +125,31 @@ worker; a waiting release takes over after those pages close. Static requests th
 read that release's cache, while APIs and unlisted URLs stay on the network. This
 keeps lazy imports and offline navigation on the same version as their document.
 Regenerate workers after changing shipped bytes; the gate rejects stale workers.
+
+Lab is served from `/lab/` through a prefix rewrite to `lab/dist/`. The original
+Site is packaged from the same source with common identity assets, preserving its
+root paths and storage origin. Lab is network-only; it is deliberately outside the
+Tools/Energy precaches. Catalogue discovery does not download its model engines.
+
+Common navigation is generated into HTML and works without JavaScript. A small
+controller keeps previews local and routes established domains to Tools Lab.
+The searchable catalogue is also static first; JavaScript progressively adds
+URL-backed filters. Subject domains, interaction type and maturity are distinct;
+source collection is provenance, not a navigation category.
+
+Backup reads only known saved-work keys on the current origin. It preserves raw
+values, validates the transport before writes, defaults to keeping conflicts and
+requires a recovery download before replacement. Premortem's index and registers
+are one conflict group. localStorage offers no multi-key transaction: detect stale
+previews and concurrent changes, roll back only writes still owned by the import,
+and expose a recovery path when rollback cannot safely finish. No backup operation
+clears unrelated storage or claims to merge individual model semantics.
+Production imports restore only families usable at the current address: Product
+and Lab on Tools, Energy on Energy, and Lab on the original Site. Mixed files show
+the remaining destinations and stay reusable there. Otherwise an Energy import on
+Tools would report success before navigation redirected away from its saved values.
+Recent-work links likewise return to the catalogue on the snapshot's own origin.
+
 
 ## The design system
 

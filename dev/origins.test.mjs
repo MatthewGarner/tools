@@ -15,6 +15,7 @@ import {readFileSync} from 'node:fs';
 import {ENERGY_HOST, toRepoPath, toToolsPath, toOriginUrl, vercelRewrites,
   vercelRedirects, energyRedirectSources, toolRedirectSources} from './origins.mjs';
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {LAB_ROUTES} from './suite-pages.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8'));
@@ -58,7 +59,7 @@ test('energy tool paths redirect bare → trailing-slash (no-slash asset-404 bug
 });
 
 test('every tools-origin page redirects bare → trailing-slash before relative assets load', () => {
-  assert.deepEqual(toolRedirectSources(), TOOL_DIRS.map(name => '/' + name));
+  assert.deepEqual(toolRedirectSources(), [...TOOL_DIRS.map(name => '/' + name),'/product','/explore','/lab','/backup',...LAB_ROUTES.map(name=>'/lab/'+name)]);
   const inVercel = (vercel.redirects || []).filter(r => toolRedirectSources().includes(r.source));
   const expected = toolRedirectSources().map(source => ({
     source, destination: source + '/', permanent: false,
@@ -79,11 +80,24 @@ test('toRepoPath maps energy-origin paths and passes shared paths through', () =
 });
 
 test('toToolsPath serves the relocated root trio and passes everything else through', () => {
-  assert.equal(toToolsPath('/'), '/home/');
+  assert.equal(toToolsPath('/'), '/explore/');
+  assert.equal(toToolsPath('/product/'), '/home/');
+  assert.equal(toToolsPath('/lab/knowledge/'), '/lab/dist/knowledge/');
+  assert.equal(toRepoPath('/lab/knowledge/'), '/lab/dist/knowledge/');
+  assert.equal(toRepoPath('/product/'), '/home/');
   assert.equal(toToolsPath('/sw.js'), '/home/sw.js');
   assert.equal(toToolsPath('/manifest.webmanifest'), '/home/manifest.webmanifest');
   assert.equal(toToolsPath('/fermi/'), '/fermi/');
   assert.equal(toToolsPath('/assets/series.js'), '/assets/series.js');
+});
+
+test('every Lab page has an exact directory rewrite before its asset wildcard',()=>{
+  const rows=vercelRewrites(),wildcard=rows.findIndex(row=>row.source==='/lab/:path*');
+  for(const route of LAB_ROUTES){
+    const index=rows.findIndex(row=>row.source===`/lab/${route}/`);
+    assert.ok(index>=0&&index<wildcard,route+' preserves its terminal slash before Vercel wildcard capture');
+    assert.equal(rows[index].destination,`/lab/dist/${route}/`);
+  }
 });
 
 test('toOriginUrl inverts toRepoPath for exposed files', () => {

@@ -21,7 +21,9 @@ try{
   const first=await save(page,tool+' original'),state=await decodeHash(first.hash);assert.ok(state&&typeof state==='object',tool+' encoded state');
   if(tool==='gauge'){assert.equal(state.id,undefined);assert.equal(state.key,undefined);assert.equal(typeof state.t,'string');}
   // Leave the instrument first: hash-only navigation does not rerun its boot.
-  await page.goto(origin+'/');await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await page.locator('.recent-save').waitFor();
+  await page.getByRole('link',{name:'Recent work',exact:true}).click();
+  assert.equal(new URL(page.url()).origin,origin,'Recent work stays with its browser storage');
+  await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await page.locator('.recent-save').waitFor();
   const second=await save(page,tool+' reopened'),restored=await decodeHash(second.hash);
   // Premortem deliberately mints new identifiers and normalises optional fields.
   if(tool==='premortem'){assert.equal(restored.title,state.title);assert.equal(restored.entries.length,state.entries.length);assert.notEqual(restored.id,state.id);assert.ok(await page.locator('#importstrip').isVisible());}
@@ -62,7 +64,7 @@ try{
  console.log('PASS Recent work offline on both installed-app origins');
  if(process.env.RECENT_SCREENSHOTS)await mkdir(process.env.RECENT_SCREENSHOTS,{recursive:true});
  for(const [label,origin] of [['tools',base],['energy',energy]])for(const width of [390,1280])for(const theme of ['light','dark']){
-  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+'/');await vp.evaluate(()=>document.fonts.ready);
+  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+(label==='tools'?'/product/':'/'));await vp.evaluate(()=>document.fonts.ready);
   assert.equal(await vp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   if(process.env.RECENT_SCREENSHOTS)await vp.screenshot({path:process.env.RECENT_SCREENSHOTS+'/'+label+'-'+width+'-'+theme+'-empty.png'});
   await vp.evaluate(async scope=>{const {recentStore}=await import('/assets/recent-store.js');const tool=scope==='tools'?'flow':'frequency';const names=scope==='tools'?['Team capacity review','Launch plan — October','Support queue scenarios']:['Winter battery scenario','Low-inertia grid','Morning dispatch'];for(let i=0;i<names.length;i++)recentStore(localStorage,scope).add({id:'visual'+i,tool,name:names[i],hash:btoa('{}'),savedAt:Date.now()+i});},label);await vp.reload();await vp.evaluate(()=>document.fonts.ready);

@@ -146,7 +146,7 @@ async function poolRun(suites, n, env){
 
 try{
   await step('node tests (dev/ + tool + energy globs)', () => run('node',
-    ['--test', '--test-concurrency=1', 'dev/*.test.mjs', '*/tests/*.mjs', 'energy/*/tests/*.mjs'], {cwd: ROOT}));
+    ['--test', '--test-concurrency=1', 'dev/*.test.mjs', '*/tests/*.mjs', 'energy/*/tests/*.mjs', 'lab/dist/*/*.test.js'], {cwd: ROOT}));
   await step('golden verify (identical + committed)', () => run('node', ['dev/golden.mjs', 'verify'], {cwd: ROOT}));
 
   if(!failed){

@@ -1,32 +1,37 @@
-# Small, sharp tools
+# Tools Lab
 
-Utilities for product work under uncertainty. Live at [tools.matthewgarner.me](https://tools.matthewgarner.me).
+Interactive tools for product work, energy and exploring uncertain situations. One repository and one searchable catalogue, with domain, interaction-type and maturity filters. Matthew’s [website identity](https://www.matthewgarner.me) ties the collection together; each tool keeps its own model and working surface.
 
-| Tool | Path | What it does |
-|---|---|---|
-| Fermi estimator | [/fermi](https://tools.matthewgarner.me/fermi/) | Ranges in, P10/P50/P90 distribution out — Monte Carlo estimation with value-of-information sensitivity, a deck-ready driver-tree view, and a cashflow mode (NPV / IRR / payback / runway as distributions) |
-| Rank stability | [/rank](https://tools.matthewgarner.me/rank/) | Wobbles prioritisation weights and scores to show which ranks are signal and which are noise |
-| Roadmap as code | [/roadmap](https://tools.matthewgarner.me/roadmap/) | Plain-text DSL → deck-ready roadmap graphic: drag-and-drop that edits the text, snapshot diffs, palettes, SVG/PNG export |
-| Decision tree sketcher | [/tree](https://tools.matthewgarner.me/tree/) | Expected-value trees with honest uncertainty: 90% ranges, Monte Carlo rollback, and what would flip the decision |
-| Why | [/why](https://tools.matthewgarner.me/why/) | An Opportunity Solution Tree and a roadmap as projections of one text file — columns derived from discovery status, audits for roadmap items with no why |
-| Map | [/map](https://tools.matthewgarner.me/map/) | Plane + zones with method presets — assumption mapping, stakeholder grids, futures matrices, risk registers; drag-to-place edits the text |
-| Gauge | [/gauge](https://tools.matthewgarner.me/gauge/) | Shared-session crowd estimation: everyone answers privately (probabilities, 90% ranges), the facilitator reveals the room's spread at once — before anchoring sets in |
-| Timeline | [/timeline](https://tools.matthewgarner.me/timeline/) | Milestones as P50–P90 ranges with uncertainty whiskers — and a snapshot compare that renders the slip slide for the next board pack |
-| Flow playground | [/flow](https://tools.matthewgarner.me/flow/) | Little's Law made visceral: demand, team, WIP limit and variability drive a living queue — see how much of cycle time is waiting, price your batch size on the U-curve, and triage which lever clears a real backlog fastest |
-| Wardley map | [/wardley](https://tools.matthewgarner.me/wardley/) | Plain-text DSL → a Wardley map: components placed by evolution across the value chain, dependencies drawn, and the strategic reading surfaced — what's load-bearing, what to build vs buy; tap-to-place editing on phones |
-| Base-rate playground | [/alarm](https://tools.matthewgarner.me/alarm/) | Base-rate neglect made visceral: 1,000 cases through a signal-detection gate; drag the threshold and watch the alarm bin fill with false alarms as the base rate drops, with the natural-frequency verdict ("9 in 10 alarms are false") |
-| Pairwise showdown | [/duel](https://tools.matthewgarner.me/duel/) | Prioritise by rapid two-tap duels instead of scoring — the order falls out (Copeland, no invented numbers), and the A>B>C>A loops that expose criteria pretending to be one are found and asked to be named |
-| Premortem | [/premortem](https://tools.matthewgarner.me/premortem/) | Imagine it already failed and work backwards — a staged workshop into a living, EV-ranked risk register with honest ranges (not a red/amber/green grid), plus a Facts/Assumptions/Beliefs board that promotes into it |
-| Bets board as code | [/bets](https://tools.matthewgarner.me/bets/) | The portfolio as explicit bets: a DSL of stake/odds/payoff/kill → a deck-ready blotter with stamped audits (NO KILL CRITERION, ODDS IMPLY CERTAINTY, LOSES AT P50), a Monte-Carlo P(loses money), and a risk-return quadrant second view |
-| Paths | [/paths](https://tools.matthewgarner.me/paths/) | Conditional plans: record the questions, answers and assumptions that determine which work applies |
-| Proxy Hunt | [/proxy](https://tools.matthewgarner.me/proxy/) | Stress-test whether optimising an operating metric could harm the intended outcome or something that must be protected |
-| Case | [/case](https://tools.matthewgarner.me/case/) | An authored decision, its supporting claims and review history, with links to the exact models behind it |
-| Signal vs noise | [/signal-vs-noise](https://tools.matthewgarner.me/signal-vs-noise/) | Manage noisy results across eight quarters and explore tampering and regression to the mean |
+Tools Lab lives at [tools.matthewgarner.me](https://tools.matthewgarner.me). Product retains its existing tool URLs and a collection page at `/product/`; [Energy](https://energy.matthewgarner.me) keeps its original domain. Lab uses `/lab/`, including the archived prototypes. The consolidation’s implementation and publication status is recorded in [CONSOLIDATION.md](CONSOLIDATION.md).
 
-**Energy tools** live on a second domain — [energy.matthewgarner.me](https://energy.matthewgarner.me) (cycle budget, risk transfer, merit order, frequency & inertia, a day through the stack). Same repo, same rules; see [`energy/README.md`](energy/README.md).
+## Work locally
 
-Rules of the series: each tool does one job exceptionally well — no accounts, no tracking, no runtime dependencies or build step (CodeMirror is vendored as a committed bundle; everything ships as static files). Shareable models live in the URL; saved items and snapshots may also live locally. Premortem autosaves registers in localStorage and imports shared links as separate registers. Gauge carries the series' one deliberate backend exception: a tiny ephemeral relay (`api/gauge/` + Upstash Redis) that sees only numbers, never questions, and forgets everything after 24 hours — the questions still live in the URL.
+```sh
+npm --prefix dev/pw ci
+node dev/serve.mjs 8087
+node dev/serve.mjs 8089 --origin=energy
+```
 
-**How it's built:** one folder per tool (`<tool>/index.html` + pure ES modules, tested in node), shared code in `assets/`, two public domains served from one repo, and correctness held by byte-exact golden SVGs plus a set of self-enforcing meta-tests. The full picture — the parse → project → render → app spine, why the text (not the DOM) is the model, the two-origin serving trick, and how the checks are the standard — is in [`ARCHITECTURE.md`](ARCHITECTURE.md). Dev harness in `dev/` (Playwright suites under `dev/pw/`, `dev/golden.mjs` for SVG regression; node suites live beside each tool in `<tool>/tests/`). `api/` holds the one backend exception (the gauge relay). The DSL grammars for the text-driven tools are documented together — one LLM-pasteable reference — in [`DSL.md`](DSL.md).
+The first server emulates Tools and previews; the second emulates the Energy domain. Open `/`, `/product/`, `/energy/` or `/lab/` on the first server. Plain HTML, CSS and ES modules ship without a framework build. CodeMirror is vendored; fonts are local.
 
-Built with Claude Code, 2026.
+After editing inventory, shared navigation or shipped assets:
+
+```sh
+npm run sync
+npm run test:node
+npm run gate
+```
+
+The gate runs the existing model/export tests, Lab’s mechanism tests, SVG goldens and browser journeys. Source inventories live in `dev/tool-dirs.mjs`, `lab/dist/shared/catalog.js` and `dev/suite-pages.mjs`. `dev/generate-catalogue.mjs` checks that the combined catalogue covers them; collection membership does not create a second copy of a tool.
+
+## State and maintenance
+
+Models can live in URLs, local drafts, named saves or Lab workspaces. `/backup/` exports this browser origin’s saved work and previews an import before changing it. Existing items are kept by default; replacement requires a pre-import recovery copy. Export on the old address first. Product and Lab work can move to Tools Lab; Energy work stays on Energy. Mixed files import the compatible items and link to the remaining destinations. Keep share links for work held only in a URL. Backup transports damaged saved values too; it does not repair them.
+
+Tools and Energy retain their complete offline releases. Lab still requires a connection and is not silently added to either collection’s precache. Keep the original Lab address available while saved work moves. `node dev/package-lab.mjs /tmp/new-lab-release` prepares that Site from the same source, including the common identity and backup page; follow the existing Site’s audience and release settings.
+
+The personal website owns `assets/identity`; update its pinned copy explicitly with `node dev/sync-identity.mjs --from <website>/site/src/identity`, then `npm run sync`. Shared presentation must not change author-selected artefact fonts, chart semantics or export measurements.
+
+Release from a tested feature branch using [the release guide](docs/agent/RELEASE.md). Keep the import merge ancestry when merging the consolidation. Roll back a bad deployment to the previous verified release; never clear users’ storage to fix an asset problem. Service workers activate a new complete release after old pages close, so an already-open tool stays coherent.
+
+[ARCHITECTURE.md](ARCHITECTURE.md) explains the model/browser boundaries, routing, persistence and relay. [DSL.md](DSL.md) documents the text-driven tools. Lab assumptions stay beside their engines. Examples are fictional; models are explanatory tools rather than calibrated operational forecasts. Gauge’s ephemeral, numbers-only relay is the sole backend exception.
