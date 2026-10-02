@@ -1,6 +1,6 @@
-import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.20.0';
-import {ancestry,blankAncestry,sourceSnapshot,derivedFrom,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.20.0';
-import {MOMENT_FIELDS,IDEA_FIELDS,FITS,MOMENT_LABELS} from './definitions.js?v=0.20.0';
+import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.21.0';
+import {ancestry,blankAncestry,sourceSnapshot,derivedFrom,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.21.0';
+import {MOMENT_FIELDS,IDEA_FIELDS,FITS,MOMENT_LABELS} from './definitions.js?v=0.21.0';
 const clone=x=>structuredClone(x);
 const meta=id=>({id,title:'Original scene',changed:'',reason:'',order:0,ancestry:blankAncestry()});
 export function upgradeIdea(i){i.fit??='unchecked';i.fitReason??='';i.fitNeeds??='';i.checkedAgainst??=null;i.ancestry=ancestry(i.ancestry);i.changed??='';i.reason??='';return i;}

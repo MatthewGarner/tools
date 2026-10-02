@@ -1,0 +1,52 @@
+import {chromium} from 'playwright';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const base=process.env.BASE||'http://localhost:8087';
+const browser = await chromium.launch({headless:true});
+try {
+const context = await browser.newContext({acceptDownloads:true, viewport:{width:1440,height:1000}, reducedMotion:'reduce'});
+const page = await context.newPage();
+const errors=[]; page.on('pageerror', error => errors.push(error.message));
+await page.goto(base+'/backup/');
+await page.evaluate(() => {localStorage.setItem('roadmap-src','current draft');localStorage.setItem('thinking-lab:reframe:v1','{damaged recovery');localStorage.setItem('credential','secret');});
+await page.reload();
+const download = page.waitForEvent('download');
+await page.getByRole('button',{name:'Download saved work',exact:true}).click();
+const archive = JSON.parse(await readFile(await (await download).path(), 'utf8'));
+assert.deepEqual(archive.entries.map(x=>x.key),['roadmap-src','thinking-lab:reframe:v1']);
+assert.equal(archive.entries[1].value,'{damaged recovery');
+const incoming={format:'matthew-garner-saved-work',version:1,origin:'https://thinking-lab-experiments.matthewg12.chatgpt.site',createdAt:'2026-10-01T12:00:00.000Z',entries:[{key:'roadmap-src',value:'incoming draft'},{key:'thinking-lab:constraints:v1',value:'new workspace'},{key:'premortem:example-lantern',value:'{"title":"<img src=x onerror=alert(1)>"}'}]};
+const file={name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(incoming))};
+await page.locator('#backup-file').setInputFiles(file);
+await page.locator('#preview').waitFor({state:'visible'});
+assert.equal(await page.locator('#preview img').count(),0);
+assert.equal(await page.locator('#preview-heading').evaluate(el=>el===document.activeElement),true);
+await page.getByRole('button',{name:'Import 2 new items',exact:true}).click();
+assert.equal(await page.evaluate(()=>localStorage.getItem('roadmap-src')),'current draft');
+assert.equal(await page.evaluate(()=>localStorage.getItem('thinking-lab:constraints:v1')),'new workspace');
+await page.locator('#backup-file').setInputFiles(file);
+await page.getByLabel('Replace with the file’s version',{exact:true}).check();
+assert.equal(await page.locator('#apply').isDisabled(),true);
+const recoveryDownload = page.waitForEvent('download');
+await page.getByRole('button',{name:'Download pre-import backup',exact:true}).first().click();
+const recovery=JSON.parse(await readFile(await (await recoveryDownload).path(),'utf8'));
+assert.equal(recovery.entries.find(x=>x.key==='roadmap-src').value,'current draft');
+await page.getByLabel('I have saved the pre-import backup').check();
+await page.locator('#apply').click();
+assert.equal(await page.evaluate(()=>localStorage.getItem('roadmap-src')),'incoming draft');
+assert.equal(await page.evaluate(()=>localStorage.getItem('credential')),'secret');
+await page.locator('#backup-file').setInputFiles(file);
+const other=await context.newPage();await other.goto(base+'/backup/');
+await other.evaluate(()=>localStorage.setItem('roadmap-src','changed in other tab'));
+await page.waitForFunction(()=>document.getElementById('status').textContent.includes('another tab'));
+assert.equal(await page.locator('#apply').isDisabled(),true);
+await page.getByRole('button',{name:'Preview again'}).click();
+for(const [name,width,height,theme] of [['desktop-light',1440,1000,'light'],['desktop-dark',1440,1000,'dark'],['phone-light',390,844,'light'],['phone-dark',390,844,'dark']]){
+  await page.setViewportSize({width,height}); await page.emulateMedia({colorScheme:theme});
+  await page.evaluate(()=>document.fonts.ready);
+  if(process.env.SUITE_SCREENSHOTS)await page.screenshot({path:`${process.env.SUITE_SCREENSHOTS}/backup-${name}.png`,fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`overflow ${name}`);
+}
+assert.deepEqual(errors,[]);
+console.log('Backup browser flow passed: real export/recovery downloads, raw-value import, conflict preservation/replacement, escaped names, cross-tab stale preview, focus, and four overflow-free screenshots.');
+} finally {await browser.close();}

@@ -19,7 +19,8 @@ import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {join, dirname} from 'node:path';
-import {TOOL_DIRS, ENERGY_TOOL_DIRS} from './tool-dirs.mjs';
+import {ENERGY_TOOL_DIRS} from './tool-dirs.mjs';
+import {toToolsPath} from './origins.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
@@ -60,7 +61,9 @@ function candidatesIn(text){
 
 function resolves(docPath, token){
   const docDir = dirname(join(ROOT, docPath));
-  return existsSync(join(ROOT, token)) || existsSync(join(docDir, token));
+  // A documented root URL may be a maintained rewrite rather than a folder.
+  return existsSync(join(ROOT, token)) || existsSync(join(docDir, token)) ||
+    (token.startsWith('/') && token.endsWith('/') && existsSync(join(ROOT,toToolsPath(token),'index.html')));
 }
 
 for(const doc of DOCS){
@@ -77,7 +80,8 @@ for(const doc of DOCS){
 /* A valid URL can still omit a newly shipped tool. Compare the whole catalogue,
    including duplicates and stale entries, against the executable registry. */
 for(const [doc, origin, tools] of [
-  ['README.md', 'https://tools.matthewgarner.me', TOOL_DIRS],
+  // Root README now points to the generated catalogue; suite-catalog.test owns
+  // its complete inventory contract instead of maintaining a second prose copy.
   ['energy/README.md', 'https://energy.matthewgarner.me', ENERGY_TOOL_DIRS],
 ]){
   test(`${doc} catalogue matches its tool registry`, () => {

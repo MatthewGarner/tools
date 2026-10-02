@@ -1,5 +1,5 @@
-import {engine,clone,text,list,unique,record,object,mdField} from '../workshop-kit/state.js?v=0.20.0';
-import {ancestry,blankAncestry,derivedFrom,sourceSnapshot,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.20.0';
+import {engine,clone,text,list,unique,record,object,mdField} from '../workshop-kit/state.js?v=0.21.0';
+import {ancestry,blankAncestry,derivedFrom,sourceSnapshot,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.21.0';
 export const LEVELS={step:{name:'Change a step',prompt:'What could you simplify, remove, or replace inside this step?'},handoff:{name:'Repair a handoff',prompt:'What agreement or transfer between people needs to change?'},delay:{name:'Change the timing',prompt:'What happens too early, too late, or after an avoidable wait?'},information:{name:'Change the information',prompt:'Who needs to see what before making this decision?'},rule:{name:'Change the rule',prompt:'What threshold, permission, or incentive produces this behaviour?'},goal:{name:'Change the goal',prompt:'What is being optimised, and what outcome should matter instead?'}};
 const OLD_FIELDS=['title','change','why','tradeoff','test','evidence'];
 const OPTION_FIELDS=[...OLD_FIELDS,'expected','competing','observe','changed','reason'];

@@ -35,7 +35,7 @@ jobs:
       - name: Pure-module test gate
         env:
           PERF_SCALE: 3
-        run: node --test --test-concurrency=1 dev/*.test.mjs */tests/*.mjs energy/*/tests/*.mjs
+        run: npm run test:node
       - name: Golden SVG regression (byte-identical + fully committed)
         run: node dev/golden.mjs verify
 

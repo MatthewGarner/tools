@@ -1,6 +1,6 @@
-import {escapeHtml as esc} from '../shared/utils.js?v=0.20.0';
-import {HORIZON,SCENARIOS,policyAt} from './engine.js?v=0.20.0';
-import {LEVERS,MECHANISMS,compareTiming,metricValue,validateStudy} from './timing.js?v=0.20.0';
+import {escapeHtml as esc} from '../shared/utils.js?v=0.21.0';
+import {HORIZON,SCENARIOS,policyAt} from './engine.js?v=0.21.0';
+import {LEVERS,MECHANISMS,compareTiming,metricValue,validateStudy} from './timing.js?v=0.21.0';
 
 const n=value=>Number(value.toFixed(1)).toLocaleString('en-GB');
 const colours=['var(--muted)','var(--accent)','var(--warn)'];

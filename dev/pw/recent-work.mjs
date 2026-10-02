@@ -62,7 +62,7 @@ try{
  console.log('PASS Recent work offline on both installed-app origins');
  if(process.env.RECENT_SCREENSHOTS)await mkdir(process.env.RECENT_SCREENSHOTS,{recursive:true});
  for(const [label,origin] of [['tools',base],['energy',energy]])for(const width of [390,1280])for(const theme of ['light','dark']){
-  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+'/');await vp.evaluate(()=>document.fonts.ready);
+  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+(label==='tools'?'/product/':'/'));await vp.evaluate(()=>document.fonts.ready);
   assert.equal(await vp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   if(process.env.RECENT_SCREENSHOTS)await vp.screenshot({path:process.env.RECENT_SCREENSHOTS+'/'+label+'-'+width+'-'+theme+'-empty.png'});
   await vp.evaluate(async scope=>{const {recentStore}=await import('/assets/recent-store.js');const tool=scope==='tools'?'flow':'frequency';const names=scope==='tools'?['Team capacity review','Launch plan — October','Support queue scenarios']:['Winter battery scenario','Low-inertia grid','Morning dispatch'];for(let i=0;i<names.length;i++)recentStore(localStorage,scope).add({id:'visual'+i,tool,name:names[i],hash:btoa('{}'),savedAt:Date.now()+i});},label);await vp.reload();await vp.evaluate(()=>document.fonts.ready);

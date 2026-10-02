@@ -1,4 +1,4 @@
-import {capacityDefaults,capacityPreview} from './capacity.js?v=0.20.0';
+import {capacityDefaults,capacityPreview} from './capacity.js?v=0.21.0';
 export const LANES={pending:'New requests',tailored:'Keep tailored',standard:'Make standard',retired:'Decline / retire'};
 export const REQUESTS=[
 {id:'export',name:'A bespoke export',arrive:0,life:6,value:14,bonus:16,setup:8,standard:30,maint:5,retire:6,touches:['data']},

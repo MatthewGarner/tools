@@ -1,6 +1,6 @@
 # Thinking Lab
 
-Seventeen active thinking experiments and seven earlier prototypes, separate from the production tools repository. Use plain HTML, CSS and ES modules in `dist/`; no build step, externally fetched fonts, runtime libraries, live AI or employer data. Read the applicable route README and current code before changing a model. `dist/shared/catalog.js` is the collection map, using original idea-bank IDs M01–M12 and S01–S12.
+Seventeen active thinking experiments and seven earlier prototypes in the consolidated Tools repository. The root AGENTS.md owns the release workflow; CONSOLIDATION.md records the current migration. Use plain HTML, CSS and ES modules in `dist/`; no build step, externally fetched fonts, runtime libraries, live AI or employer data. Read the applicable route README and current code before changing a model. `dist/shared/catalog.js` is the collection map, using original idea-bank IDs M01–M12 and S01–S12.
 
 Read `docs/ROADMAP.md` before planning improvements. Keep its scope, priorities, progress and feedback current as work proceeds. Distinguish planned, implemented and published changes; link completed work to its dated delivery evidence. Historical delivery records do not override the current roadmap.
 
@@ -12,6 +12,6 @@ Matthew likes tactile interactions when moving, connecting, assigning, sequencin
 
 Visual direction: extend Matthew’s personal website, using local Oswald headings, Newsreader text, warm paper/purple and charcoal/lime dark mode. Use `shared/theme.css` semantic tokens in CSS and SVG output; do not add route-specific hex colours. See `docs/DESIGN-SYSTEM.md`. Main body text at least 18px, regular labels 16px; smaller type for secondary metadata. Keep the working surface immediate. Verify real desktop (1440px) and phone (390px) journeys and representative touch/keyboard interactions without page overflow. Do not add a separate verification agent.
 
-Reuse the existing owner-private Site in `.openai/hosting.json`. Follow Sites’ existing-source opening and publishing workflow, preserving its audience. Version changed entry assets/shared navigation so an already-open bench can receive updates. Verification and review findings belong in the concise delivery record for the relevant wave.
+The consolidated routes are `/lab/<route>/`; `dist/` remains the source for the original Site. Package that compatibility deployment with the root packaging command so it receives common identity assets. Preserve the original Site audience unless Matthew explicitly changes it. Version changed entry assets/shared navigation so an already-open bench can receive updates. Verification and review findings belong in the concise delivery record for the relevant wave.
 
 Idea ancestry uses `shared/ancestry.js`, `ancestry-ui.js` and `ancestry.css`. Freeze source wording at creation, record the reason for change in the consumer’s own fields, and keep live parent references separate from snapshots. Keep snapshots flat; do not recursively copy entire ancestor histories. New branching consumers must retain ancestry through their validators, imports and Markdown/JSON exports.

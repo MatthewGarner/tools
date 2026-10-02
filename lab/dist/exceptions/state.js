@@ -1,5 +1,5 @@
-import {create,move,preview,advance,policy,configure,REQUESTS} from './engine.js?v=0.20.0';
-import {validateCapacity} from './capacity.js?v=0.20.0';
+import {create,move,preview,advance,policy,configure,REQUESTS} from './engine.js?v=0.21.0';
+import {validateCapacity} from './capacity.js?v=0.21.0';
 export const KEY='thinking-lab:exceptions:v1';
 const clone=structuredClone;
 export function validateRun(raw){if(!raw||!Number.isInteger(raw.quarter)||raw.quarter<0||raw.quarter>6||!Array.isArray(raw.history)||raw.history.length!==raw.quarter)throw Error('Invalid run history.');let s=configure(create(),{aging:raw.aging,pairCost:raw.pairCost});if(raw.capacity)s.capacity=clone(validateCapacity(raw.capacity));

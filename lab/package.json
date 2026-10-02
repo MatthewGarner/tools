@@ -1,10 +1,10 @@
 {
   "name": "thinking-lab",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test dist/*/*.test.js",
-    "serve": "python3 -m http.server 4173 --bind 127.0.0.1 --directory dist"
+    "serve": "node ../dev/serve.mjs 4173"
   }
 }

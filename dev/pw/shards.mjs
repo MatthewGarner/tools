@@ -46,7 +46,7 @@
    only (which also trims their apt-deps step). Everything moved onto it is
    chromium-only, so it costs that shard no extra install — webkit is already there. */
 export const SHARDS = [
-  {name: 'smoke',         suites: ['recent-work.mjs', 'identity.mjs', 'design-bar.mjs', 'smoke.mjs', 'chapter.mjs', 'chapter-interactions.mjs', 'timeline.mjs'],                          browsers: 'chromium'},
+  {name: 'smoke',         suites: ['lab-migration.mjs','backup.mjs','suite.mjs', 'recent-work.mjs', 'identity.mjs', 'design-bar.mjs', 'smoke.mjs', 'chapter.mjs', 'chapter-interactions.mjs', 'timeline.mjs'],                          browsers: 'chromium'},
   {name: 'eip',           suites: ['check-eip.mjs'],                      browsers: 'chromium'},
   {name: 'mobile-core',   suites: ['mobile.mjs', 'pwa.mjs', 'pwa-upgrade.mjs'],             browsers: 'chromium'},
   {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs', 'check.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium webkit'},
@@ -106,6 +106,9 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    CI spread is 50s (the 56s figure at the top of this file is LOCAL — different
    machines, different numbers, and they are not comparable). */
 export const SUITE_SECONDS = {
+  'lab-migration.mjs': 10,
+  'backup.mjs': 10,
+  'suite.mjs': 30, // Initial consolidation journey hint; revise from measured gate.
   'recent-work.mjs': 60,
   // Initial ordering hints for the design-bar regressions; refine from the complete gate.
   'identity.mjs': 12, 'design-bar.mjs': 10, 'energy-design-bar.mjs': 12, 'workshop-design.mjs': 25,

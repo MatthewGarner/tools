@@ -1,7 +1,7 @@
-import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.20.0';
-import {MOMENT_FIELDS,IDEA_FIELDS,FITS} from './definitions.js?v=0.20.0';
-import {upgrade,upgradeIdea,validateVariants,applyVariant,currentScene,reviewSnapshot,variantsMarkdown} from './variants.js?v=0.20.0';
-import {hasDescendants} from '../shared/ancestry.js?v=0.20.0';
+import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.21.0';
+import {MOMENT_FIELDS,IDEA_FIELDS,FITS} from './definitions.js?v=0.21.0';
+import {upgrade,upgradeIdea,validateVariants,applyVariant,currentScene,reviewSnapshot,variantsMarkdown} from './variants.js?v=0.21.0';
+import {hasDescendants} from '../shared/ancestry.js?v=0.21.0';
 export {MOMENT_FIELDS,IDEA_FIELDS};
 export const moment=id=>({id,title:'New moment',actor:'',trigger:'',knows:'',unknown:'',can:'',stakes:''});
 export const idea=(id,momentId=null)=>upgradeIdea({id,momentId,title:'New intervention',action:'',assumption:'',test:'',stale:false});

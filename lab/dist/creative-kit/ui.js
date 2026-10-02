@@ -1,7 +1,7 @@
-import {mountShell} from '../shared/shell.js?v=0.20.0';
-import {escapeHtml,downloadText} from '../shared/utils.js?v=0.20.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.20.0';
-import {uid,active,history,transition,undo,validateSession,portable,parse} from './state.js?v=0.20.0';
+import {mountShell} from '../shared/shell.js?v=0.21.0';
+import {escapeHtml,downloadText} from '../shared/utils.js?v=0.21.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.21.0';
+import {uid,active,history,transition,undo,validateSession,portable,parse} from './state.js?v=0.21.0';
 export const e=escapeHtml;
 export const field=(id,label,value,attrs='',help='',rows=2)=>`<div class="field"><label for="${e(id)}">${label}</label>${help?`<p id="${e(id)}-help">${e(help)}</p>`:''}<textarea id="${e(id)}" rows="${rows}" maxlength="20000" ${attrs} ${help?`aria-describedby="${e(id)}-help"`:''}>${e(value)}</textarea></div>`;
 export const select=(id,label,value,options,attrs='')=>`<div class="field"><label for="${e(id)}">${label}</label><select id="${e(id)}" ${attrs}>${Object.entries(options).map(([key,name])=>`<option value="${e(key)}" ${key===value?'selected':''}>${e(name)}</option>`).join('')}</select></div>`;

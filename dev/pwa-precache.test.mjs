@@ -12,7 +12,7 @@ import {workers} from './gen-sw.mjs';
 import {generateWorker, integrity} from './sw-release.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const KEEP = [...TOOL_DIRS, 'assets'];   // was missing 'wardley' — the guard couldn't see the newest tool
+const KEEP = [...TOOL_DIRS, 'assets', 'explore', 'backup'];   // was missing 'wardley' — the guard couldn't see the newest tool
 
 function walk(dir, out = []){
   for(const f of readdirSync(join(ROOT, dir))){

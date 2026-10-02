@@ -2,7 +2,7 @@
 
 Updated 2 October 2026. This is the working plan for improving the suite, incorporating Matthew’s portfolio review and the subsequent cutting decisions. Update it as implementation and feedback change the plan; earlier delivery records describe what shipped at the time.
 
-Published starting point: 24 experiments. Current published release has 17 active experiences, two archived models and five earlier scaffolds. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. Implementation is underway; the table distinguishes work in progress from verified and published changes. Pause new experiments while improving the existing collection.
+Published starting point: 24 experiments. Current published release has 17 active experiences, two archived models and five earlier scaffolds. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. The roadmap is delivered and published as of 2 October 2026. The table links each completed change to its evidence. Pause new experiments while Matthew reviews the improved collection.
 
 ## Build order
 
@@ -17,7 +17,7 @@ Published starting point: 24 experiments. Current published release has 17 activ
 | 6 | Combine Possibility Mixer (S02) and Territory (S08) | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#mixer-and-territory) | Generation and coverage mapping use the same collection of ideas; moving between them retains context. |
 | 7 | Make Family Tree (S10) a shared capability | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#shared-idea-ancestry) | Scaffolds retain branches, parent ideas, reasons for change and source snapshots without requiring a separate destination. |
 
-First review point: after retirement, the Predictions correction and the Reliability depth pass. Matthew has authorised delivering the full roadmap autonomously. Invite feedback at this point while continuing independent work; revise the queue using his feedback and evidence from implementation. Introduce shared ancestry only as concrete consolidation work needs it; avoid building a general platform in advance.
+The authorised roadmap has been delivered autonomously, with scope revised from implementation evidence. Matthew’s review is the next decision point; use it to identify what helps actual thinking before adding further scope.
 
 ## What we are cutting
 
@@ -39,7 +39,7 @@ Success: a ten-minute session helps Matthew prepare a real product discussion an
 
 ## Subsequent improvements
 
-Remaining items are planned unless marked otherwise. Priorities guide worthwhile investment, not a commitment to expand every tool.
+The retained improvements below are delivered. Priorities guided worthwhile investment; Delay was deliberately maintained without adding scenarios.
 
 | Priority | Experiment | Worthwhile next change |
 |---|---|---|
@@ -53,7 +53,7 @@ Remaining items are planned unless marked otherwise. Priorities guide worthwhile
 | Medium · Published | Exceptions (M06) | Independent effort estimates and finite quarter budgets expose named core work displaced by exception obligations; impossible policies are marked infeasible. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#exceptions-capacity-and-displaced-work). |
 | Medium · Published | Adoption (M12) | Matched-degree networks, hub and custom connections, equal-size pilot placements and per-person comparisons expose who adopts and why. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#adoption-networks-and-pilot-placement). |
 | Retain · Published | Intervention workbench (S05) | Explicit causal relationships, contextual reviews and branched interventions support comparing tests against rival explanations. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#interventions-causal-hypotheses-and-tests). |
-| Selective · Implemented | Accuracy (M10) | Three decision contexts vary trigger direction and error consequences while replaying the same allocations under matched assumptions. Verified 2 Oct; publication pending — [evidence](ROADMAP-DELIVERY.md#accuracy-decision-contexts). |
+| Selective · Published | Accuracy (M10) | Three decision contexts vary trigger direction and error consequences while replaying the same allocations under matched assumptions. Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#accuracy-decision-contexts). |
 | Maintain · Reviewed | Delay (M05) | Steering, delayed observation and matched feedback-rule comparison remain distinct and useful. No new scenario needed; browser and mechanism checks passed 2 Oct — [evidence](ROADMAP-DELIVERY.md#delay-maintenance-review). |
 
 ## Rules for each increment
@@ -74,7 +74,7 @@ Update an item to **In progress**, **Implemented**, **Published** or **Deferred*
 
 2 October: question inversion should not manufacture an opposite to an interrogative sentence. New branches retain their parent and ask the user to name the premise being challenged. The combined Reframing board connects questions to frames as opening or challenging them, with detail opened progressively. Question-to-frame and frame-to-frame creation retain source snapshots; this is the first concrete use of shared ancestry intent, without prematurely retiring Family Tree.
 
-Next: publish the verified final increment, then Matthew reviews the suite. No further implementation is queued without new evidence or feedback.
+Next: Matthew reviews the published suite. No further implementation is queued without new evidence or feedback.
 
 2 October: Matthew prioritised matching his personal website before further consolidation, and authorised extending that language where the tools need it. The website repo supplies Oswald/Newsreader, warm paper and purple, and charcoal/lime dark mode. Add shared semantic colours for model states, retain the useful working geometry, and make this the foundation for remaining roadmap work.
 
@@ -108,4 +108,4 @@ Next: publish the verified final increment, then Matthew reviews the suite. No f
 
 ## Completion review
 
-All build-order and subsequent-improvement requirements have delivery evidence. The current catalogue has 17 active experiences (10 models, 7 scaffolds), 2 archived models and 5 consolidated scaffolds. All 24 original routes remain; the 26 pages retain the shared website theme and valid local assets/links. The full suite passes 246 tests. Each changed journey has desktop/phone and portable-work evidence in [Roadmap delivery](ROADMAP-DELIVERY.md). Final publication is pending; after that the next milestone is Matthew’s review, not another expansion pass.
+All build-order and subsequent-improvement requirements have delivery evidence. The current catalogue has 17 active experiences (10 models, 7 scaffolds), 2 archived models and 5 consolidated scaffolds. All 24 original routes remain; the 26 pages retain the shared website theme and valid local assets/links. The full suite passes 246 tests. Each changed journey has desktop/phone and portable-work evidence in [Roadmap delivery](ROADMAP-DELIVERY.md). Final publication succeeded at 20:33 UK on 2 October 2026, release 0.20.0. The next milestone is Matthew’s review, not another expansion pass.
