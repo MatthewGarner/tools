@@ -1,10 +1,10 @@
-import {escapeHtml as e} from '../shared/utils.js?v=0.14.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.14.0';
-import {validateSession} from '../creative-kit/state.js?v=0.14.0';
-import {validate as validateTerritory,markdown as territoryMarkdown} from '../territory/state.js?v=0.14.0';
-import {uid} from './model.js?v=0.14.0';
-import {VERDICTS,axes,cell,selectedCell,locationOf,gap,noteKey,labelCoordinates,usedOption,transition} from './map.js?v=0.14.0';
-import {fromTerritory} from './import.js?v=0.14.0';
+import {escapeHtml as e} from '../shared/utils.js?v=0.15.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.15.0';
+import {validateSession} from '../creative-kit/state.js?v=0.15.0';
+import {validate as validateTerritory,markdown as territoryMarkdown} from '../territory/state.js?v=0.15.0';
+import {uid} from './model.js?v=0.15.0';
+import {VERDICTS,axes,cell,selectedCell,locationOf,gap,noteKey,labelCoordinates,usedOption,transition} from './map.js?v=0.15.0';
+import {fromTerritory} from './import.js?v=0.15.0';
 
 const labels=items=>items.map(i=>`${i.dimension}: ${i.label}`).join(' · ');
 const name=(w,c)=>c.title||`Combination ${w.concepts.indexOf(c)+1}`;

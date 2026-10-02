@@ -1,9 +1,9 @@
-import { mountShell } from '../shared/shell.js?v=0.14.0';
-import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.14.0';
-import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js?v=0.14.0';
+import { mountShell } from '../shared/shell.js?v=0.15.0';
+import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.15.0';
+import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js?v=0.15.0';
 
-import {createStudy,validateStudy,compareTiming,timingMarkdown} from './timing.js?v=0.14.0';
-import {mountTiming} from './timing-ui.js?v=0.14.0';
+import {createStudy,validateStudy,compareTiming,timingMarkdown} from './timing.js?v=0.15.0';
+import {mountTiming} from './timing-ui.js?v=0.15.0';
 
 mountShell({ active: 'commitment', label: 'MODEL 01', title: 'The Commitment Spiral' });
 const $ = selector => document.querySelector(selector);

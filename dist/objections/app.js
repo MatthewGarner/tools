@@ -1,9 +1,9 @@
-import {sourceDetails,familyMap,parentChoices} from '../shared/ancestry-ui.js?v=0.14.0';
-import {hasDescendants} from '../shared/ancestry.js?v=0.14.0';
-import {markdown as familyMarkdown} from '../family/state.js?v=0.14.0';
-import {boot,e,field,editAttrs} from '../creative-kit/ui.js?v=0.14.0';
-import {make,validate,apply,markdown,METHODS,ENTRIES,ENTRY_METHODS,CONCERN_FIELDS,DESIGN_FIELDS,SIDE_FIELDS} from './state.js?v=0.14.0';
-import {parseImport,legacySession,migrate} from './import.js?v=0.14.0';
+import {sourceDetails,familyMap,parentChoices} from '../shared/ancestry-ui.js?v=0.15.0';
+import {hasDescendants} from '../shared/ancestry.js?v=0.15.0';
+import {markdown as familyMarkdown} from '../family/state.js?v=0.15.0';
+import {boot,e,field,editAttrs} from '../creative-kit/ui.js?v=0.15.0';
+import {make,validate,apply,markdown,METHODS,ENTRIES,ENTRY_METHODS,CONCERN_FIELDS,DESIGN_FIELDS,SIDE_FIELDS} from './state.js?v=0.15.0';
+import {parseImport,legacySession,migrate} from './import.js?v=0.15.0';
 const prompts={first:'What would you try first? Make the mechanism concrete.',refine:'Which part could work differently while the main mechanism stays?',different:'What could replace the mechanism rather than polish it?',need:'Could the concern disappear because this requirement is no longer needed?',delivery:'Could the benefit arrive through a different channel, moment or actor?',exposure:'Could a smaller scope, limit or reversible trial contain the concern?',context:'Under which observable conditions would each approach make sense?',sequence:'Could one approach create the conditions for the other?',invent:'What different mechanism might protect both useful intentions?'};
 const labels={title:'Alternative name',mechanism:'How does it work?',benefit:'What benefit does it retain or create?',cost:'What cost or unresolved concern remains?',difference:'What is different about the mechanism?',assumptions:'What has to be true?',evidence:'What evidence do you have or still need?',boundary:'Where does this approach fit — and where does it stop?',assessment:'How does it fare against your criteria?',test:'Smallest useful test',learn:'What result would change your mind?',reason:'Why make this branch?',ingredients:'Which ingredients or components does it use?'};
 const sideLabels={proposal:'The proposed approach',benefit:'The useful intention it protects',context:'When is this a good fit?',cost:'What does it cost or put at risk?',evidence:'What observation could support or challenge it?'};

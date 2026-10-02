@@ -17,3 +17,7 @@ Ancestry’s parked collection contains nested detail summaries. Browser journey
 A synthetic touch fling can cross more than one generation before scroll snapping settles. Check that it lands on a generation boundary, rather than requiring the immediately next column. After route navigation, wait for `.lab-archive-notice` before reading its text; the body can be available before the shared shell finishes mounting.
 
 For Analogy phone fixtures, wait for the mounted relationship editor before selecting an import file, then wait for the visible “Workshop imported” result. A fixed startup delay did not establish that the expected unmatched-role fixture was ready; inspecting the same export confirmed four target roles and no mappings.
+
+Scenes integration uses the tool-owned browser page when temporary browser contexts close between calls; tool-call globals do not preserve handles. After creating a variation, wait for the dialog to close and the scene picker to receive focus before direct pointer geometry, since the shared close handler redraws the page. For Undo/import assertions, wait for the expected stored workspace count instead of assuming the 220ms save has fired after a fixed 250ms delay. The shared kit now keeps its pending/failed save message through redraws.
+
+For Scenes screenshots, bringing the preview to the foreground and using CDP capture with `fromSurface: true` returned the rendered page; `fromSurface: false` returned a white frame. A white capture alone is not evidence of a blank application.
