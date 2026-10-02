@@ -1,6 +1,8 @@
 # Thinking Lab
 
-Twenty-four standalone thinking experiments, separate from the production tools repository. Use plain HTML, CSS and ES modules in `dist/`; no build step, external fonts, runtime libraries, live AI or employer data. Read the applicable route README and current code before changing a model. `dist/shared/catalog.js` is the collection map, using original idea-bank IDs M01–M12 and S01–S12.
+Twenty-two active and two archived thinking experiments, separate from the production tools repository. Use plain HTML, CSS and ES modules in `dist/`; no build step, external fonts, runtime libraries, live AI or employer data. Read the applicable route README and current code before changing a model. `dist/shared/catalog.js` is the collection map, using original idea-bank IDs M01–M12 and S01–S12.
+
+Read `docs/ROADMAP.md` before planning improvements. Keep its scope, priorities, progress and feedback current as work proceeds. Distinguish planned, implemented and published changes; link completed work to its dated delivery evidence. Historical delivery records do not override the current roadmap.
 
 Preserve existing routes and stored-work formats. Prefix new storage keys `thinking-lab:`. The eight latest scaffolds use `creative-kit` or `workshop-kit`; validate imports before changing work, preserve alternatives, and support Undo plus Markdown/JSON export. Shared changes affect multiple experiments: inspect their actual consumers.
 

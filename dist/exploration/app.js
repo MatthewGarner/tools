@@ -1,4 +1,4 @@
-import { mountShell } from '../shared/shell.js?v=0.3.0';
+import { mountShell } from '../shared/shell.js?v=0.4.0';
 import { downloadText, readStore, writeStore } from '../shared/utils.js';
 import { WEEKS, SCENARIOS, defaultPlan, normalizePlan, normalizeAssumptions, simulate } from './engine.js';
 mountShell({ active: 'exploration', label: 'M03', title: 'Exploration versus delivery' });

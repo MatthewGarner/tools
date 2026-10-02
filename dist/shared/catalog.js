@@ -25,6 +25,8 @@ export const experiments=[
   },
   {
     "id": "M03",
+    "status": "archived",
+    "archiveReason": "This allocation model is being reconsidered around hypotheses and evidence.",
     "route": "exploration",
     "title": "Exploration versus delivery",
     "question": "Spend limited effort learning about the problem or building a response.",
@@ -85,6 +87,8 @@ export const experiments=[
   },
   {
     "id": "M08",
+    "status": "archived",
+    "archiveReason": "The fixed payoff assumptions carry too much of the lesson in this version.",
     "route": "local",
     "title": "Local wins, collective losses",
     "question": "Change one team’s action and watch who absorbs the consequences.",
@@ -100,10 +104,10 @@ export const experiments=[
     "route": "predictions",
     "title": "When predictions change behaviour",
     "question": "A shared forecast changes the behaviour that produces its target.",
-    "move": "Slow the forecast update, then separate some participants’ signals.",
+    "move": "Remove noise, compare sharing, then add noise back.",
     "art": "wave",
     "caption": "FORECAST → RESPONSE → PRICE",
-    "limits": "Price-taking responses collectively change the realised price, which updates the next forecast. Common and private signals differ in speed and offsets. Repeated fictional clearing rounds omit inventory, state of charge, bids and market calibration.",
+    "limits": "Price-taking responses collectively change the realised price, which updates the next forecast. Common and private signals use matched update speeds, noise amplitudes and starting estimates. Repeated fictional clearing rounds omit inventory, state of charge, bids and market calibration.",
     "kind": "model",
     "new": true
   },

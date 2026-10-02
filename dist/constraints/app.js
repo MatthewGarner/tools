@@ -1,4 +1,4 @@
-import {mountShell} from '../shared/shell.js?v=0.3.0';
+import {mountShell} from '../shared/shell.js?v=0.4.0';
 import {attachCardDrag} from '../shared/drag.js';
 import {escapeHtml as e, downloadText} from '../shared/utils.js';
 import {KEY, TYPES, LANES, NOTE_FIELDS, TYPE_PROMPTS, initialState, active, selected, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js';

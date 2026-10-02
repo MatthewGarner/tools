@@ -1,4 +1,4 @@
-import { mountShell } from '../shared/shell.js?v=0.3.0';
+import { mountShell } from '../shared/shell.js?v=0.4.0';
 import { attachCardDrag } from '../shared/drag.js';
 import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js';
 import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js';
