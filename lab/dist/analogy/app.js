@@ -1,6 +1,6 @@
 import {transfersPanel,refreshTransfers} from './transfers-ui.js?v=0.21.0';
 import {familyMap} from '../shared/ancestry-ui.js?v=0.21.0';
-import {mountShell} from '../shared/shell.js?v=0.21.0';
+import {mountShell} from '../shared/shell.js?v=0.22.0';
 import {attachCardDrag} from '../shared/drag.js?v=0.21.0';
 import {escapeHtml as e, downloadText} from '../shared/utils.js?v=0.21.0';
 import {KEY, SOURCES, FITS, initialState, active, targetFor, roleName, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js?v=0.21.0';

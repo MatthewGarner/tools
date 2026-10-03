@@ -555,8 +555,10 @@ test('per-page load stays under budget', () => {
     // Identity v1: 160,488 bytes of pinned local variable fonts, plus scoped
     // CSS, controller and static markup. Paid once per origin and cached offline.
     // Recent work: ~14k of shared storage, accessible UI and static CSS;
-    // catalogues also load the existing ~6.4k model codec. Keep this bounded.
-    const recent = files.has('assets/recent-work.js') ? (page==='home/index.html' || page==='energy/index.html' || page==='explore/index.html' ? 21_000 : 15_000) : 0;
+    // Catalogues also load the codec and native work discovery. The 2026-10
+    // library reaches 241.4k on Product (formerly capped at 241k); allow 2k
+    // for that explicit capability. Individual tools do not import discovery.
+    const recent = files.has('assets/recent-work.js') ? (page==='home/index.html' || page==='energy/index.html' || page==='explore/index.html' ? 23_000 : 15_000) : 0;
     const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }

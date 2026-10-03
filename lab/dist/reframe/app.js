@@ -1,5 +1,6 @@
+import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {sourceDetails} from '../shared/ancestry-ui.js?v=0.21.0';
-import { mountShell } from '../shared/shell.js?v=0.21.0';
+import { mountShell } from '../shared/shell.js?v=0.22.0';
 import { escapeHtml as esc, downloadText } from '../shared/utils.js?v=0.21.0';
 import { ancestryOfFrame, STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js?v=0.21.0';
 import {attachCardDrag} from '../shared/drag.js?v=0.21.0';
@@ -12,7 +13,7 @@ let state = initialState();
 let recoveryRaw = null;
 let storageIssue = '';
 let storagePaused = false;
-let saveMessage = 'Saved on this device';
+let saveMessage = 'Saved in this browser';
 let saveTimer;
 let toastTimer;
 let editingKey = null;
@@ -21,6 +22,7 @@ try {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) { try { state = normalizeState(JSON.parse(raw)); } catch { recoveryRaw = raw; storagePaused = true; storageIssue = 'Saved work could not be opened. Download a recovery copy before replacing it.'; } }
 } catch { storageIssue = 'This browser is blocking local saving. Export your work before closing this page.'; }
+const resumed=resumeWorkspace(state,'sessions');state=resumed.state;consumeWorkPointer();
 const uid = () => globalThis.crypto?.randomUUID?.() || `r-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const icon = (name) => ({ arrow: '↗', plus: '+', close: '×', check: '✓', back: '↶', download: '↓' }[name] || '');
 const nameOf = item => LENSES[item.lens].name;
@@ -40,7 +42,7 @@ function save(immediate = false) {
   if (storagePaused) { saveMessage = 'Local saving paused'; updateStatus(); return; }
   saveMessage = 'Saving…'; updateStatus();
   const run = () => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageIssue = ''; saveMessage = 'Saved on this device'; }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageIssue = ''; saveMessage = 'Saved in this browser'; }
     catch { storageIssue = 'Local saving is unavailable or full. Export your work before closing this page.'; saveMessage = 'Not saved · export a copy'; announce(storageIssue); }
     updateStatus();
   };
@@ -155,7 +157,7 @@ function planView(session) {
 function render() {
   const openIds=[...root.querySelectorAll('details[open][id]')].map(el=>el.id);destroyInquiryDrag();
   const session = activeSession(state);
-  root.innerHTML = `<div class="workbench-top"><div><p class="eyebrow">SCAFFOLD 01 <span aria-hidden="true">/</span> REFRAME THE QUESTION</p><h1>Reframing workbench</h1></div><div class="workspace-actions"><button class="button quiet" data-action="undo" ${history.length ? '' : 'disabled'}><span aria-hidden="true">↶</span> Undo</button><button class="button secondary" data-action="open-sessions">My problems <span class="button-count">${state.sessions.length}</span></button><button class="button secondary" data-action="open-export">Export <span aria-hidden="true">↓</span></button></div></div>
+  root.innerHTML = `<div class="workbench-top"><div><p class="eyebrow">SCAFFOLD 01 <span aria-hidden="true">/</span> REFRAME THE QUESTION</p><h1>Reframing workbench</h1></div><div class="workspace-actions"><button class="button" data-action="new-session">New</button><button class="button quiet" data-action="undo" ${history.length ? '' : 'disabled'}><span aria-hidden="true">↶</span> Undo</button><button class="button secondary" data-action="open-sessions">My work <span class="button-count">${state.sessions.length}</span></button><button class="button secondary" data-action="open-export">Export <span aria-hidden="true">↓</span></button></div></div>
     ${storageIssue ? `<div class="notice" role="status">${esc(storageIssue)}${recoveryRaw ? ' <button class="text-button" data-action="recover">Download recovery copy</button>' : ''}${storagePaused && !recoveryRaw ? ' <button class="text-button" data-action="resume-save">Save this tab instead</button>' : ''}</div>` : ''}
     <section class="problem-section" aria-labelledby="problem-heading"><div class="problem-label"><label id="problem-heading" for="problem">The problem, in your words</label><span class="saved-status ${storageIssue ? 'save-error' : ''}" id="save-status" role="status">${storagePaused ? 'Local saving paused' : storageIssue ? 'Not saved · export a copy' : saveMessage}</span></div><textarea id="problem" class="problem-input" aria-describedby="problem-help" rows="1" maxlength="20000" data-group="problem" data-key="problem" placeholder="We need… / We keep… / We cannot…">${esc(session.problem)}</textarea><div class="problem-bottom"><p id="problem-help">Start with the way you say it now. You can change it as you go.</p><button class="text-button" data-action="new-session">Start my own problem <span aria-hidden="true">↗</span></button></div><details class="context-details"><summary>Add context <span>${session.context.trim() ? 'Written' : 'Optional'}</span></summary>${textarea({id: 'context', label: 'What someone else would need to know', value: session.context, group: 'problem', key: 'context', rows: 2})}</details></section>
     <nav class="view-nav" aria-label="Workbench steps">${[['questions','01','Questions & connections'], ['frames', '02', 'Develop frames'], ['compare', '03', 'Compare moves'], ['plan', '04', 'Choose a test']].map(([view, number, label]) => `<button data-action="view" data-view="${view}" ${session.view === view ? 'aria-current="step"' : ''}><span class="step-number">${number}</span><span>${label}</span>${view === 'plan' && session.selected.length ? `<span class="selection-count">${session.selected.length}</span>` : ''}</button>`).join('')}</nav>
@@ -175,7 +177,7 @@ function openLenses() {
   openDialog('lens-dialog', `${dialogHeading('lens-title', 'TRY ANOTHER ANGLE', 'What could this be a problem of?', 'Add a blank frame with questions to guide your thinking.')}<div class="lens-options">${Object.entries(LENSES).map(([key, lens]) => `<button class="lens-option" data-action="add-lens" data-lens="${key}"><span class="lens-option-top"><strong>${lens.name}</strong><span>${session.frames.some(item => item.lens === key) ? 'In use · add another' : '+'}</span></span><span class="lens-short">${lens.short}</span><span class="lens-description">${lens.question}</span></button>`).join('')}</div>`);
 }
 function openSessions() {
-  openDialog('sessions-dialog', `${dialogHeading('sessions-title', 'YOUR WORKSPACE', 'My problems', 'Starting something new keeps your existing work here.')}<div class="new-session-options"><button class="button primary" data-action="new-session">+ Start a blank problem</button><button class="button secondary" data-action="load-example" data-example="forecasts">Forecasting example</button><button class="button secondary" data-action="load-example" data-example="bess">Battery example</button></div><div class="sessions-list">${[...state.sessions].reverse().map(session => `<button class="session-row ${session.id === state.activeId ? 'active' : ''}" data-action="switch-session" data-id="${esc(session.id)}"><span><strong>${esc(shortTitle(session))}</strong><span class="session-meta">${session.frames.length} frames · ${session.selected.length} chosen</span></span><span>${session.id === state.activeId ? 'Open' : '→'}</span></button>`).join('')}</div><button class="text-button import-button" data-action="import">Import a saved JSON session <span aria-hidden="true">↑</span></button>`);
+  openDialog('sessions-dialog', `${dialogHeading('sessions-title', 'YOUR WORKSPACE', 'My work', 'Starting something new keeps your existing work here.')}<div class="new-session-options"><button class="button primary" data-action="new-session">+ Start a blank problem</button><button class="button secondary" data-action="load-example" data-example="forecasts">Forecasting example</button><button class="button secondary" data-action="load-example" data-example="bess">Battery example</button></div><div class="sessions-list">${[...state.sessions].reverse().map(session => `<button class="session-row ${session.id === state.activeId ? 'active' : ''}" data-action="switch-session" data-id="${esc(session.id)}"><span><strong>${esc(shortTitle(session))}</strong><span class="session-meta">${session.frames.length} frames · ${session.selected.length} chosen</span></span><span>${session.id === state.activeId ? 'Open' : '→'}</span></button>`).join('')}</div><button class="text-button import-button" data-action="import">Import a saved JSON session <span aria-hidden="true">↑</span></button>`);
 }
 function openExport() {
   openDialog('export-dialog', `${dialogHeading('export-title', 'TAKE YOUR THINKING WITH YOU', 'Export this problem', 'Includes all questions, connections, frames, source snapshots and the working test.')}<div class="export-options"><button class="export-option" data-action="export-markdown"><span class="export-symbol">MD</span><span><strong>Download Markdown</strong><span>A readable note for your notes app or a colleague.</span></span><span aria-hidden="true">↓</span></button><button class="export-option" data-action="export-json"><span class="export-symbol">{ }</span><span><strong>Download editable session</strong><span>A JSON file you can import here later.</span></span><span aria-hidden="true">↓</span></button><button class="export-option" data-action="copy-markdown"><span class="export-symbol">↗</span><span><strong>Copy as Markdown</strong><span>Put the complete note on your clipboard.</span></span></button></div><p class="microcopy">Local saving is specific to this browser and website address. An export gives you a portable copy.</p>`);
@@ -207,7 +209,7 @@ document.addEventListener('click', async event => {
   else if (action === 'remove-frame') { const item = activeSession(state).frames.find(frame => frame.id === button.dataset.id); if (act({type: 'remove-frame', id: button.dataset.id})) toast(`${nameOf(item)} frame removed. Undo restores it.`); }
   else if (action === 'choose') { act({type: 'select-frame', id: button.dataset.id}); announce(`${activeSession(state).selected.length} frames chosen.`); }
   else if (action === 'build-plan') { if (act({type: 'build-plan'}, {focus: 'plan-statement'})) toast('Your selected words are copied into a working draft. Edit the combination.'); }
-  else if (action === 'new-session' || action === 'load-example') { closeDialogs(); if (act({type: 'new-session', example: action === 'load-example' ? button.dataset.example : 'blank', id: uid()}, {focus: 'problem'})) toast('New problem opened. Previous work is in My problems.'); }
+  else if (action === 'new-session' || action === 'load-example') { closeDialogs(); if (act({type: 'new-session', example: action === 'load-example' ? button.dataset.example : 'blank', id: uid()}, {focus: 'problem'})) toast('New problem opened. Previous work is in My work.'); }
   else if (action === 'switch-session') { closeDialogs(); act({type: 'switch-session', id: button.dataset.id}, {undo: false}); toast('Saved problem opened.'); }
   else if (action === 'edit-field') {act({type:'view',value:'frames'},{undo:false});openFrameEditor(button.dataset.id,button.dataset.key);}
   else if (action === 'export-markdown') { downloadText(filename('md'), markdown(activeSession(state)), 'text/markdown;charset=utf-8'); toast('Markdown downloaded.'); closeDialogs(); }
@@ -258,7 +260,7 @@ window.addEventListener('storage', event => {
   storageIssue = 'Another tab changed the saved work. This tab is kept open, with local saving paused. Export it, or choose which tab to save.';
   render();
 });
-render();
+render();if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');
 if (!recoveryRaw) save();
 
 registerWorkbenchTools(document.modelContext || navigator.modelContext, createWorkbenchTools({read: () => state, edit: action => act(action)}));

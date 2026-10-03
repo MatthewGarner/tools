@@ -1,3 +1,4 @@
+import {validateCriteriaRows,validateAssessments,applyCriteria,snapshotCriteria,validateCriteriaSnapshot,criterionSnapshotFields,criteriaMarkdown,markAssessmentsForReview} from './criteria.js?v=0.22.0';
 import {blankAncestry,ancestry,sourceSnapshot,derivedFrom,validateGraph,hasDescendants,ancestryMarkdown,assertPortable} from '../shared/ancestry.js?v=0.21.0';
 import {validate as validateFamily,markdown as familyMarkdown} from '../family/state.js?v=0.21.0';
 import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.21.0';
@@ -13,15 +14,16 @@ export {SIDE_FIELDS};
 const clone=x=>structuredClone(x);
 const emptySide=()=>Object.fromEntries(SIDE_FIELDS.map(f=>[f,'']));
 export const concern=id=>({id,objection:'',concern:'',evidence:''});
-export const design=(id,method,concerns=[])=>({id,method,concerns,protects:[],borrowed:[],origin:null,ancestry:blankAncestry(),stale:false,...Object.fromEntries(DESIGN_FIELDS.map(f=>[f,f==='title'?METHODS[method]:'']))});
+export const design=(id,method,concerns=[])=>({id,method,concerns,protects:[],borrowed:[],origin:null,ancestry:blankAncestry(),stale:false,assessments:[],...Object.fromEntries(DESIGN_FIELDS.map(f=>[f,f==='title'?METHODS[method]:'']))});
 export function make(id='first',example='example'){
-  const w={schema:2,id,problem:'',benefit:'',concerns:[],designs:[],selected:null,entry:'generate',view:'build',comparison:[],sides:{a:emptySide(),b:emptySide()},criteria:'',decision:'',test:'',learn:'',source:null};
+  const w={schema:2,id,problem:'',benefit:'',concerns:[],designs:[],selected:null,entry:'generate',view:'build',comparison:[],sides:{a:emptySide(),b:emptySide()},criteria:'',criteriaRows:[],decision:'',test:'',learn:'',source:null};
   if(example==='blank')return w;
   w.problem='A rehearsal tool for unfamiliar battery decisions.';w.benefit='Let people practise a consequential choice before the real moment.';w.entry='concerns';
   w.concerns=[{id:'c1',objection:'People will not make time for another training tool.',concern:'The learning benefit arrives later; the effort is needed now.',evidence:'Observe what prompts someone to practise without being told.'},{id:'c2',objection:'The simulation might create false confidence.',concern:'A simplified scenario may hide conditions that matter in operation.',evidence:'Ask users to explain the model’s limits after a rehearsal.'}];
   w.designs=[{...design('d1','delivery',['c1']),title:'Rehearsal at the point of change',mechanism:'Offer a five-minute scenario when a rule or operating condition changes.',benefit:'Practice stays tied to an imminent real choice.',cost:'Some users may still skip it when they are busy.',test:'Offer one scenario during a fictional rule change; observe voluntary completion.'}];w.comparison=['d1'];
   w.sides.a={proposal:'Make a short rehearsal part of every significant rule change.',benefit:'Everyone encounters the consequences before the real decision.',context:'The change affects a bounded group and practice time is available.',cost:'A mandatory step can delay work or become a box-ticking exercise.',evidence:'What do people notice in practice that they would otherwise miss?'};
   w.sides.b={proposal:'Offer optional rehearsal only at a person’s point of uncertainty.',benefit:'Protect attention and let the person decide when practice is useful.',context:'People recognise uncertainty and can ask for help safely.',cost:'A person may not notice the limits of their understanding.',evidence:'Which uncertain situations do people recognise without prompting?'};
+  w.criteriaRows=[{id:'time',label:'Fits a five-minute rehearsal',kind:'constraint',active:true},{id:'understanding',label:'Helps someone name the model’s limits',kind:'preference',active:true}];
   return w;
 }
 // Existing Objections work remains in its original storage key. Only absent schema
@@ -38,8 +40,10 @@ export function validate(w){
   upgrade(w);if(w.schema!==2)throw Error('Unknown alternatives format.');text(w.id);text(w.problem);WORK_FIELDS.forEach(f=>text(w[f]));choice(w.entry,Object.keys(ENTRIES));choice(w.view,['build','compare']);
   list(w.concerns,12);list(w.designs,32);identifiers(w.concerns);identifiers(w.designs);w.concerns.forEach(c=>CONCERN_FIELDS.forEach(f=>text(c[f])));
   for(const side of ['a','b']){if(!w.sides?.[side])throw Error('Both positions are required.');SIDE_FIELDS.forEach(f=>text(w.sides[side][f]));}
+  validateCriteriaRows(w);
   const ids=w.designs.map(d=>d.id);
   for(const d of w.designs){
+    validateAssessments(w.criteriaRows,d);
     if(d.ingredients===undefined)d.ingredients='';if(d.origin&&d.origin.snapshot.ingredients===undefined)d.origin.snapshot.ingredients='';
     d.ancestry=ancestry(d.ancestry===undefined?(d.origin?derivedFrom([sourceSnapshot(d.origin.sourceId,d.origin.snapshot.title,snapshotFields(d.origin.snapshot))]):blankAncestry()):d.ancestry);
     choice(d.method,Object.keys(METHODS));DESIGN_FIELDS.forEach(f=>text(d[f]));refs(d.concerns,w.concerns.map(c=>c.id),12);refs(d.protects,['a','b'],2);
@@ -47,7 +51,7 @@ export function validate(w){
     if(typeof d.stale!=='boolean')throw Error('Invalid review flag.');
     list(d.borrowed,31);refs(d.borrowed.map(b=>b.from),ids.filter(id=>id!==d.id),31);
     for(const b of d.borrowed){text(b.text);text(b.title);if(typeof b.stale!=='boolean')throw Error('Invalid borrowed-strength review.');}
-    if(d.origin!==null){text(d.origin.sourceId);identifiers([{id:d.origin.sourceId}]);if(d.origin.sourceId===d.id)throw Error('A branch cannot be its own parent.');const s=d.origin.snapshot;choice(s.method,Object.keys(METHODS));DESIGN_FIELDS.forEach(f=>text(s[f]));list(s.concerns,12);s.concerns.forEach(c=>CONCERN_FIELDS.forEach(f=>text(c[f])));list(s.positions,2);s.positions.forEach(p=>SIDE_FIELDS.forEach(f=>text(p[f])));list(s.borrowed,31);s.borrowed.forEach(b=>{text(b.title);text(b.text);});}
+    if(d.origin!==null){text(d.origin.sourceId);identifiers([{id:d.origin.sourceId}]);if(d.origin.sourceId===d.id)throw Error('A branch cannot be its own parent.');const s=d.origin.snapshot;validateCriteriaSnapshot(s);choice(s.method,Object.keys(METHODS));DESIGN_FIELDS.forEach(f=>text(s[f]));list(s.concerns,12);s.concerns.forEach(c=>CONCERN_FIELDS.forEach(f=>text(c[f])));list(s.positions,2);s.positions.forEach(p=>SIDE_FIELDS.forEach(f=>text(p[f])));list(s.borrowed,31);s.borrowed.forEach(b=>{text(b.title);text(b.text);});}
   }
   if(w.selected!==null&&!ids.includes(w.selected))throw Error('Selected alternative is missing.');refs(w.comparison,ids,4);
   if(w.source!==null){choice(w.source.kind,['answers','disagreement','family']);text(w.source.workspace?.id);text(w.source.workspace?.problem);(w.source.kind==='answers'?validateAnswers:w.source.kind==='family'?validateFamily:validateDisagreement)(w.source.workspace);}
@@ -55,14 +59,16 @@ export function validate(w){
 }
 function get(w,id){const d=w.designs.find(d=>d.id===id);if(!d)throw Error('Alternative is missing.');return d;}
 function add(w,d){w.designs.push(d);if(w.comparison.length<4)w.comparison.push(d.id);}
-export function snapshot(w,d){return{method:d.method,...Object.fromEntries(DESIGN_FIELDS.map(f=>[f,d[f]])),concerns:d.concerns.map(id=>clone(w.concerns.find(c=>c.id===id))),positions:d.protects.map(id=>clone(w.sides[id])),borrowed:d.borrowed.map(b=>({title:b.title,text:b.text}))};}
-export function snapshotFields(s){return [...DESIGN_FIELDS.map(f=>({label:f,text:s[f]??''})),...s.concerns.flatMap((c,i)=>CONCERN_FIELDS.map(f=>({label:`Concern ${i+1} · ${f}`,text:c[f]}))),...s.positions.flatMap((p,i)=>SIDE_FIELDS.map(f=>({label:`Position ${i+1} · ${f}`,text:p[f]}))),...s.borrowed.flatMap(b=>[{label:'Borrowed from',text:b.title},{label:'Borrowed benefit',text:b.text}])];}
+export function snapshot(w,d){return{...snapshotCriteria(w,d),method:d.method,...Object.fromEntries(DESIGN_FIELDS.map(f=>[f,d[f]])),concerns:d.concerns.map(id=>clone(w.concerns.find(c=>c.id===id))),positions:d.protects.map(id=>clone(w.sides[id])),borrowed:d.borrowed.map(b=>({title:b.title,text:b.text}))};}
+export function snapshotFields(s){return [...criterionSnapshotFields(s),...DESIGN_FIELDS.map(f=>({label:f,text:s[f]??''})),...s.concerns.flatMap((c,i)=>CONCERN_FIELDS.map(f=>({label:`Concern ${i+1} · ${f}`,text:c[f]}))),...s.positions.flatMap((p,i)=>SIDE_FIELDS.map(f=>({label:`Position ${i+1} · ${f}`,text:p[f]}))),...s.borrowed.flatMap(b=>[{label:'Borrowed from',text:b.title},{label:'Borrowed benefit',text:b.text}])];}
 export function parentSnapshot(w,d){return sourceSnapshot(d.id,d.title,[{label:'Problem at creation',text:w.problem},{label:'Benefit worth keeping',text:w.benefit},...snapshotFields(snapshot(w,d))]);}
 export function apply(w,a){
+  if(['add-criterion','retire-criterion','remove-criterion','record-assessment'].includes(a.type)||a.type==='edit'&&['criterion-rows','criterion-assessments'].includes(a.collection)){applyCriteria(w,a);return;}
   if(a.type==='edit'){
     if(a.collection==='workspace'){choice(a.field,WORK_FIELDS);w[a.field]=text(a.value);if(a.field==='benefit')w.designs.forEach(d=>d.stale=true);}
     else if(a.collection==='sides'){choice(a.item,['a','b']);choice(a.field,SIDE_FIELDS);w.sides[a.item][a.field]=text(a.value);w.designs.filter(d=>d.protects.includes(a.item)).forEach(d=>d.stale=true);}
-    else{const coll=choice(a.collection,['concerns','designs']),item=w[coll].find(i=>i.id===a.item);if(!item)throw Error('Item is missing.');choice(a.field,coll==='concerns'?CONCERN_FIELDS:DESIGN_FIELDS);item[a.field]=text(a.value);
+    else{const coll=choice(a.collection,['concerns','designs']),item=w[coll].find(i=>i.id===a.item);if(!item)throw Error('Item is missing.');choice(a.field,coll==='concerns'?CONCERN_FIELDS:DESIGN_FIELDS);const changed=item[a.field]!==a.value;item[a.field]=text(a.value);
+      if(coll==='designs'&&changed&&['mechanism','benefit','cost','assumptions','boundary','ingredients'].includes(a.field))markAssessmentsForReview(item);
       if(coll==='concerns')w.designs.filter(d=>d.concerns.includes(item.id)).forEach(d=>d.stale=true);
       if(coll==='designs'&&['benefit','title'].includes(a.field))for(const d of w.designs)for(const b of d.borrowed)if(b.from===item.id){b.stale=true;d.stale=true;}
     }
@@ -74,7 +80,7 @@ export function apply(w,a){
   }else if(a.type==='add-design'){
     choice(a.method,Object.keys(METHODS));if(ENTRY_METHODS.concerns.includes(a.method))throw Error('Choose the concern that opens this alternative.');const d=design(a.id,a.method);if(a.side)d.protects=[choice(a.side,['a','b'])];add(w,d);
   }else if(a.type==='branch'){
-    const source=get(w,a.parent),d=clone(source);d.id=a.id;d.title=source.title+' · variation';d.reason='';d.origin={sourceId:source.id,snapshot:snapshot(w,source)};d.ancestry=derivedFrom([parentSnapshot(w,source)]);d.difference='';add(w,d);
+    const source=get(w,a.parent),d=clone(source);d.id=a.id;d.title=source.title+' · variation';d.reason='';d.origin={sourceId:source.id,snapshot:snapshot(w,source)};d.ancestry=derivedFrom([parentSnapshot(w,source)]);d.difference='';markAssessmentsForReview(d);add(w,d);
   }else if(a.type==='combine'){
     if(!Array.isArray(a.parents)||a.parents.length!==2||a.parents[0]===a.parents[1])throw Error('Choose two different parents.');
     const parents=a.parents.map(id=>get(w,id)),d=design(a.id,'different');d.title='A combination to develop';d.ancestry=derivedFrom(parents.map(p=>parentSnapshot(w,p)));add(w,d);
@@ -103,7 +109,7 @@ export function markdown(w){
   const lines=['# Alternatives workbench','',w.problem,'','## Benefit worth keeping',content(w.benefit),''];
   if(w.concerns.length)lines.push('## Concerns','',...w.concerns.flatMap(c=>[`### ${c.objection}`,'',`Underlying concern: ${content(c.concern)}`,`Evidence or question: ${content(c.evidence)}`,'']));
   for(const side of ['a','b'])if(Object.values(w.sides[side]).some(Boolean))lines.push(`## Position ${side.toUpperCase()}`,'',...SIDE_FIELDS.flatMap(f=>[`**${f}**`,content(w.sides[side][f]),'']));
-  for(const d of w.designs){lines.push(`## ${d.title}${w.selected===d.id?' · selected for a test':''}${d.stale?' · recheck context':''}`,'',`Route: ${METHODS[d.method]}`,`Addresses: ${d.concerns.map(id=>w.concerns.find(c=>c.id===id).objection).join('; ')||'No concern linked'}`,`Aims to protect: ${d.protects.map(side=>`${side.toUpperCase()}: ${w.sides[side].benefit}`).join('; ')||'No position linked'}`,'',...DESIGN_FIELDS.slice(1).flatMap(f=>[`**${f}**`,content(d[f]),'']),...d.borrowed.flatMap(b=>[`Borrowed strength from ${b.title}: ${content(b.text)}${b.stale?' (source changed; snapshot retained)':''}`,'']));lines.push(ancestryMarkdown(d.ancestry),'');}
+  for(const d of w.designs){lines.push(`## ${d.title}${w.selected===d.id?' · selected for a test':''}${d.stale?' · recheck context':''}`,'',`Route: ${METHODS[d.method]}`,`Addresses: ${d.concerns.map(id=>w.concerns.find(c=>c.id===id).objection).join('; ')||'No concern linked'}`,`Aims to protect: ${d.protects.map(side=>`${side.toUpperCase()}: ${w.sides[side].benefit}`).join('; ')||'No position linked'}`,'',...DESIGN_FIELDS.slice(1).flatMap(f=>[`**${f}**`,content(d[f]),'']),...d.borrowed.flatMap(b=>[`Borrowed strength from ${b.title}: ${content(b.text)}${b.stale?' (source changed; snapshot retained)':''}`,'']));lines.push(criteriaMarkdown(w,d),ancestryMarkdown(d.ancestry),'');}
   lines.push('## Comparison and test','',`Comparing: ${w.comparison.map(id=>get(w,id).title).join('; ')}`,...['criteria','decision','test','learn'].flatMap(f=>['',`**${f}**`,content(w[f])]));
   if(w.source)lines.push('','## Original imported workspace (unchanged snapshot)','',w.source.kind==='answers'?answersMarkdown(w.source.workspace):w.source.kind==='family'?familyMarkdown(w.source.workspace):disagreementMarkdown(w.source.workspace));
   return lines.join('\n');

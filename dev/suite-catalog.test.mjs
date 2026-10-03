@@ -47,14 +47,47 @@ test('search is case and accent insensitive, combines words, and composes with d
 });
 
 test('shareable filters validate unknown values, retain unrelated query data, and round-trip Unicode safely', () => {
-  assert.deepEqual(parseFilters('?domain=unknown&type=__proto__&maturity=merged'), { q: '', domain: '', type: '', maturity: '' });
-  const filters = { q: 'café & batteries', domain: 'energy', type: 'model', maturity: 'experimental' };
+  assert.deepEqual(parseFilters('?domain=unknown&type=__proto__&maturity=merged'), { q: '', domain: '', type: '', maturity: '', favourites: '' });
+  const filters = { q: 'café & batteries', domain: 'energy', type: 'model', maturity: 'experimental', favourites: '' };
   assert.deepEqual(parseFilters(filtersToSearch(filters)), filters);
   const params = new URLSearchParams(filtersToSearch({ q: '' }, '?q=old&domain=lab&from=bookmark'));
   assert.equal(params.get('from'), 'bookmark');
   assert.equal(params.has('q'), false);
   assert.equal(params.has('domain'), false);
   assert.equal(parseFilters(`?q=${'a'.repeat(300)}`).q.length, 200);
+});
+
+test('intent searches find relevant thinking jobs without matching every experimental tool', () => {
+  const experimentalWork = ['lab:interventions', 'lab:objections', 'lab:scenes'];
+  for (const q of ['experiment', 'experiments', 'test hypothesis', 'testing hypotheses']) {
+    assert.deepEqual(filterCatalog({ q }).map(t => t.id), experimentalWork, q);
+  }
+  assert.deepEqual(filterCatalog({ q: 'compare criteria' }).map(t => t.id), ['product:rank', 'lab:objections']);
+  assert.deepEqual(filterCatalog({ q: 'root cause' }).map(t => t.id), ['lab:reframe']);
+  // Premortem already estimates risks; intent additions must retain that match.
+  assert.deepEqual(filterCatalog({ q: 'estimate' }).map(t => t.id), ['product:premortem', 'product:fermi', 'product:gauge']);
+  assert.deepEqual(filterCatalog({ q: 'test hypothesis', domain: 'systems' }).map(t => t.id), ['lab:interventions']);
+});
+
+test('favourites compose with search and existing filters, keeping archived tools explicit', () => {
+  const favourites = new Set(['product:roadmap', 'energy:cycles', 'lab:interventions', 'lab:questions', 'unknown:tool']);
+  const find = filters => filterCatalog({ ...filters, favourites: '1' }, SUITE_CATALOG, favourites).map(t => t.id);
+  assert.deepEqual(find({}), ['product:roadmap', 'energy:cycles', 'lab:interventions']);
+  assert.deepEqual(find({ q: 'experiment' }), ['lab:interventions']);
+  assert.deepEqual(find({ domain: 'energy', type: 'calculator' }), ['energy:cycles']);
+  assert.deepEqual(find({ maturity: 'archived' }), ['lab:questions']);
+  assert.deepEqual(find({ q: 'no-matches-here' }), []);
+  assert.deepEqual(filterCatalog({ favourites: '1' }), []);
+  assert.deepEqual(filterCatalog({}, SUITE_CATALOG, favourites), filterCatalog());
+});
+
+test('favourites URLs carry only the filter and preserve normal Back/reload filter state', () => {
+  const filters = parseFilters('?q=test+hypothesis&favourites=1');
+  assert.equal(filters.favourites, '1');assert.deepEqual(parseFilters(filtersToSearch(filters)), filters);
+  assert.equal(filtersToSearch(filters), '?q=test+hypothesis&favourites=1');
+  assert.equal(parseFilters('?favourites=product:roadmap').favourites, '');
+  assert.equal(parseFilters('?favourites=true').favourites, '');
+  assert.equal(filtersToSearch({}, '?favourites=1&from=bookmark'), '?from=bookmark');
 });
 
 test('Energy links respect its established host while local and preview browsing stays on origin', () => {

@@ -393,8 +393,38 @@ const lab = [
 ];
 // lab-catalogue:end
 
-export const SUITE_CATALOG = [...product, ...energy, ...lab];
-export const DEFAULT_FILTERS = Object.freeze({ q: '', domain: '', type: '', maturity: '' });
+// Vocabulary for a job someone wants to do. Keep this explicit: adding the same
+// broad terms to every tool would make an intent search as long as the catalogue.
+const INTENT_TERMS = {
+  'product:roadmap': 'priorities priority planning capacity schedule backlog now next later',
+  'product:timeline': 'milestone milestones deadline deadlines dependency dependencies sequence schedule',
+  'product:rank': 'prioritise prioritize compare comparison choice options tradeoffs weights scoring criteria',
+  'product:duel': 'preferences preference choose choices voting prioritise prioritize',
+  'product:map': 'portfolio compare comparison options positioning landscape',
+  'product:tree': 'choices choose scenarios consequence consequences probability probabilities',
+  'product:why': 'assumptions hypothesis hypotheses challenge reasoning goals strategy',
+  'product:premortem': 'risks mitigation mitigations prevent failures failure modes',
+  'product:fermi': 'estimate estimates estimating assumptions range cost drivers',
+  'product:gauge': 'estimate estimates estimating consensus independent judgement',
+  'product:flow': 'workload bottleneck capacity lead time waiting queue',
+  'product:signal-vs-noise': 'variation random randomness measurement overreact reaction',
+  'energy:risk': 'contract hedging volatility downside merchant',
+  'lab:commitment': 'overload burnout overtime promises pressure deadlines rework',
+  'lab:teams': 'team organisation organization structure handoff handoffs capabilities skills workflow',
+  'lab:exceptions': 'customisation customization debt maintenance workload capacity',
+  'lab:knowledge': 'coaching training absence coverage bottleneck bus factor skills',
+  'lab:reliability': 'failure dependencies outage outages resilience availability backups redundancy scenarios comparison',
+  'lab:adoption': 'pilot network networks uptake rollout coordination change',
+  'lab:reframe': 'problem framing question questions assumptions challenge perspective root cause',
+  'lab:mixer': 'brainstorm brainstorming ideation possibilities concepts combinations creativity',
+  'lab:constraints': 'limitation limits feasibility assumptions counterfactual what if practical',
+  'lab:analogy': 'analogies inspiration mechanism mechanisms comparison',
+  'lab:interventions': 'experiment experiments hypothesis hypotheses test testing evidence causal observation observations results review',
+  'lab:objections': 'options alternatives comparison criteria tradeoffs constraints unknowns evidence experiment experiments test testing hypothesis hypotheses',
+  'lab:scenes': 'scenario scenarios storyboard user journey rehearsal experiment experiments test testing hypothesis hypotheses assumptions',
+};
+export const SUITE_CATALOG = [...product, ...energy, ...lab].map(tool => ({ ...tool, keywords: `${tool.keywords} ${INTENT_TERMS[tool.id] || ''}`.trim() }));
+export const DEFAULT_FILTERS = Object.freeze({ q: '', domain: '', type: '', maturity: '', favourites: '' });
 
 export function normaliseText(value) {
   return String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase('en').replace(/[’‘]/g, "'");
@@ -403,7 +433,7 @@ export function normaliseText(value) {
 export function parseFilters(search = '') {
   const params = new URLSearchParams(search);
   const member = (name, choices) => Object.hasOwn(choices, params.get(name)) ? params.get(name) : '';
-  return { q: (params.get('q') ?? '').slice(0, 200), domain: member('domain', DOMAINS), type: member('type', TYPES), maturity: member('maturity', MATURITIES) };
+  return { q: (params.get('q') ?? '').slice(0, 200), domain: member('domain', DOMAINS), type: member('type', TYPES), maturity: member('maturity', MATURITIES), favourites: params.get('favourites') === '1' ? '1' : '' };
 }
 
 export function filtersToSearch(filters, search = '') {
@@ -417,10 +447,12 @@ export function filtersToSearch(filters, search = '') {
   return query ? `?${query}` : '';
 }
 
-export function filterCatalog(filters = DEFAULT_FILTERS, entries = SUITE_CATALOG) {
+export function filterCatalog(filters = DEFAULT_FILTERS, entries = SUITE_CATALOG, favourites = []) {
   const safe = parseFilters(new URLSearchParams(filters));
   const terms = normaliseText(safe.q).trim().split(/\s+/).filter(Boolean);
+  const selected = new Set(favourites);
   return entries.filter(tool => {
+    if (safe.favourites && !selected.has(tool.id)) return false;
     if (safe.domain && !tool.domains.includes(safe.domain)) return false;
     if (safe.type && tool.type !== safe.type) return false;
     if (safe.maturity ? tool.maturity !== safe.maturity : tool.maturity === 'archived') return false;

@@ -8,7 +8,7 @@ const destination=process.argv[2]&&resolve(process.argv[2]);
 if(!destination||existsSync(destination))throw Error('Pass a new output directory: node dev/package-lab.mjs /tmp/lab-release');
 mkdirSync(destination,{recursive:true});
 cpSync(join(root,'lab/dist'),destination,{recursive:true,filter:path=>!path.endsWith('.test.js')&&!path.endsWith('.md')});
-const shared=['identity','identity-lab.css','identity-tools.css','suite-navigation.js','tokens.css','page.css','backup-store.js','backup-ui.js','backup-ui.css'];
+const shared=['identity','identity-lab.css','identity-tools.css','suite-navigation.js','tokens.css','page.css','backup-store.js','saved-work-keys.js','backup-ui.js','backup-ui.css'];
 mkdirSync(join(destination,'assets'),{recursive:true});
 for(const file of shared)cpSync(join(root,'assets',file),join(destination,'assets',file),{recursive:true});
 cpSync(join(root,'backup'),join(destination,'backup'),{recursive:true});

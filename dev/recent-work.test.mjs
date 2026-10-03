@@ -25,7 +25,7 @@ test('scopes, malformed records and names are bounded without deleting unrelated
 });
 test('storage failures and a full shelf never silently discard snapshots',()=>{
  const storage=memory(),a=recentStore(storage,'tools');for(let i=0;i<RECENT_LIMIT;i++)a.add(record('r'+i));
- assert.throws(()=>a.add(record('overflow')),/20 snapshots/);assert.equal(a.list().length,RECENT_LIMIT);
+ assert.throws(()=>a.add(record('overflow')),/20 saved copies/);assert.equal(a.list().length,RECENT_LIMIT);
  const full=recentStore({...memory(),setItem(){throw new DOMException('Full','QuotaExceededError');}},'tools');
  assert.throws(()=>full.add(record()),{name:'QuotaExceededError'});
  const blocked=recentStore({get length(){throw new DOMException('Blocked','SecurityError');}},'tools');assert.throws(()=>blocked.list(),{name:'SecurityError'});

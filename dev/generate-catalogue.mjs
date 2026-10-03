@@ -31,7 +31,7 @@ const { SUITE_CATALOG, DOMAINS, TYPES, MATURITIES, toolHref } = await import(`da
 
 function row(tool) {
   const meta = [...tool.domains.map(c => DOMAINS[c]), TYPES[tool.type], MATURITIES[tool.maturity]].join(' · ');
-  return `    <li class="explore-row" data-catalog-id="${escape(tool.id)}"><a href="${escape(toolHref(tool))}"><h2>${escape(tool.title)}</h2><div class="explore-copy"><p>${escape(tool.description)}</p><span class="explore-meta">${escape(meta)}</span>${tool.archiveReason ? `<span class="explore-meta">${escape(tool.archiveReason)}</span>` : ''}</div><span class="explore-arrow" aria-hidden="true">→</span></a></li>`;
+  return `    <li class="explore-row" data-catalog-id="${escape(tool.id)}"><a href="${escape(toolHref(tool))}"><h2>${escape(tool.title)}</h2><div class="explore-copy"><p>${escape(tool.description)}</p><span class="explore-meta">${escape(meta)}</span>${tool.archiveReason ? `<span class="explore-meta">${escape(tool.archiveReason)}</span>` : ''}</div><span class="explore-arrow" aria-hidden="true">→</span></a><button type="button" class="explore-favourite" data-favourite-toggle aria-label="Add ${escape(tool.title)} to favourites" aria-pressed="false" hidden><span aria-hidden="true">☆</span></button></li>`;
 }
 const markup = `<!-- suite-catalog:start -->
   <ul class="explore-list" aria-label="Current tools">

@@ -127,7 +127,7 @@ check('Cmd+Z undoes', undone === before);
 
 // snapshot + compare shows badges
 await page.getByText('History', {exact: true}).click();
-await page.getByRole('button', {name: 'Snapshot'}).click();
+await page.getByRole('button', {name: 'Save baseline'}).click();
 await focusRoadmapSource(page);
 await page.keyboard.press('Meta+ArrowDown');
 await page.keyboard.press('Enter');

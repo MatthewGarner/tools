@@ -27,7 +27,7 @@ export function snapshotName(state, fallback){
 export function recentStore(storage, scope){
   if(!Object.hasOwn(RECENT_TOOLS,scope)) throw new Error('Unknown catalogue.');
   const prefix = PREFIX + scope + ':';
-  const key = id => {if(!idPattern.test(id)) throw new Error('Invalid snapshot.');return prefix+id;};
+  const key = id => {if(!idPattern.test(id)) throw new Error('Invalid saved copy.');return prefix+id;};
   const read = id => {
     const raw = storage.getItem(key(id));
     if(!raw) return null;
@@ -42,14 +42,14 @@ export function recentStore(storage, scope){
     }
     return out.sort((a,b)=>b.savedAt-a.savedAt || a.id.localeCompare(b.id));
   };
-  const write = r => {if(!validRecord(r,scope))throw new Error('This snapshot cannot be saved.');storage.setItem(key(r.id),JSON.stringify(r));return r;};
+  const write = r => {if(!validRecord(r,scope))throw new Error('This copy cannot be saved.');storage.setItem(key(r.id),JSON.stringify(r));return r;};
   return {list,
     add({id,tool,name,hash,savedAt}){
-      if(list().length >= RECENT_LIMIT) throw new Error('Recent work holds 20 snapshots. Remove one from the catalogue before saving another.');
-      if(storage.getItem(key(id)) !== null) throw new Error('This snapshot already exists. Try again.');
+      if(list().length >= RECENT_LIMIT) throw new Error('Your work holds 20 saved copies. Remove one from the catalogue before saving another.');
+      if(storage.getItem(key(id)) !== null) throw new Error('This copy already exists. Try again.');
       return write({v:1,scope,id,tool,name:name.trim(),hash,savedAt});
     },
-    rename(id,name){const r=read(id);if(!r)throw new Error('This snapshot was removed in another tab.');return write({...r,name:name.trim()});},
+    rename(id,name){const r=read(id);if(!r)throw new Error('This copy was removed in another tab.');return write({...r,name:name.trim()});},
     remove(id){storage.removeItem(key(id));},
   };
 }

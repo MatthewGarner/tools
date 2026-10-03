@@ -1,4 +1,4 @@
-import {e,field,editAttrs} from '../creative-kit/ui.js?v=0.21.0';
+import {e,field,editAttrs} from '../creative-kit/ui.js?v=0.22.0';
 import {sourceDetails,familyMap} from '../shared/ancestry-ui.js?v=0.21.0';
 import {FITS,MOMENT_LABELS} from './definitions.js?v=0.21.0';
 import {allScenes,currentScene,needsReview} from './variants.js?v=0.21.0';

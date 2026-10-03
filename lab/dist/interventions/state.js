@@ -5,6 +5,9 @@ const OLD_FIELDS=['title','change','why','tradeoff','test','evidence'];
 const OPTION_FIELDS=[...OLD_FIELDS,'expected','competing','observe','changed','reason'];
 const LINK_FIELDS=['mechanism','conditions','lag','alternative','observations'];
 export const STATUS={untested:'Untested hypothesis',supporting:'Observations consistent with it',challenged:'Observations challenge it'};
+export const TEST_DECISIONS={undecided:'Undecided',continue:'Continue',revise:'Revise',stop:'Stop'};
+export const ATTEMPT_LIMIT=100;
+const RESULT_FIELDS=['observations','interpretation','reason','nextCheck'];
 export const newOption=(id,anchor,level)=>({id,anchor,level,linkId:null,...Object.fromEntries(OPTION_FIELDS.map(key=>[key,''])),review:false,checked:null,ancestry:blankAncestry()});
 export const newLink=(id,from,to)=>({id,from,to,...Object.fromEntries(LINK_FIELDS.map(key=>[key,''])),status:'untested',review:false,checked:null,origin:'explicit'});
 function createBase(id='first',example='example'){
@@ -17,7 +20,7 @@ function createBase(id='first',example='example'){
 }
 
 export function create(id='first',example='example'){
- const w=createBase(id,example);w.links=[];w.compareIds=[];w.decision='';
+ const w=createBase(id,example);w.links=[];w.compareIds=[];w.decision='';w.attempts=[];
  if(example!=='blank'){
   const claims=example==='battery'?[
    ['A new opportunity triggers checks against current commitments.','Checks use current, available operating limits.','Before the operating window closes.','A stale forecast may be the real source of delay.'],
@@ -49,6 +52,28 @@ export function optionSnapshot(w,o){const l=w.links.find(l=>l.id===o.linkId);ret
  ...(l?linkSnapshot(w,l).fields.map(f=>({label:'Relationship · '+f.label,text:f.text})):[{label:'Relationship',text:'Not attached'}]),
  ...OPTION_FIELDS.map(k=>({label:k,text:o[k]}))]);}
 function same(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function date(value,optional=false){
+ if(optional&&value==='')return value;
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))throw new Error('Choose a calendar date.');
+ const parsed=new Date(value+'T00:00:00.000Z');
+ if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==value)throw new Error('Choose a valid calendar date.');
+ return value;
+}
+function attempt(value){
+ if(!object(value)||!object(value.source))throw new Error('A test attempt needs its original intervention.');
+ const fields=list(value.source.fields,160,'source fields').map(f=>record(f,['label','text']));
+ if(new Set(fields.map(f=>f.label)).size!==fields.length||!['Problem','Intervention type','Attached step','Step description',...OPTION_FIELDS].every(label=>fields.some(f=>f.label===label)))throw new Error('A test attempt needs its original expectations and context.');
+ // Rebuild the flat record: live source references and ancestry never enter an attempt.
+ const source=sourceSnapshot(text(value.source.id,true),text(value.source.title),fields);
+ const startedOn=date(value.startedOn),reviewedOn=date(value.reviewedOn,true);
+ if(!Object.hasOwn(TEST_DECISIONS,value.decision))throw new Error('Choose a valid test decision.');
+ if(reviewedOn&&reviewedOn<startedOn)throw new Error('The review date cannot precede the test start.');
+ const result=record(value,RESULT_FIELDS);
+ if(reviewedOn){text(result.observations,true);text(result.reason,true);}
+ else if(value.decision!=='undecided'||RESULT_FIELDS.some(k=>result[k]))throw new Error('A test result needs a review date.');
+ return {id:text(value.id,true),startedOn,source,...result,decision:value.decision,reviewedOn};
+}
+export function attemptSourceStatus(w,a){const o=w.options.find(o=>o.id===a.source.id);return !o?'Intervention removed · original preserved':same(a.source,optionSnapshot(w,o))?'Original intervention unchanged':'Intervention changed since this test started';}
 export function validate(value){
  if(!object(value))throw new Error('Invalid intervention workspace.');
  const steps=unique(list(value.steps,7,'steps').map(s=>({id:text(s.id,true),...record(s,['name','mechanism'])})));if(!steps.length)throw new Error('A mechanism needs a step.');
@@ -66,7 +91,8 @@ export function validate(value){
  }));validateGraph(options);
  for(const k of ['selectedId','chosenId'])if(value[k]!==null&&!options.some(o=>o.id===value[k]))throw new Error('Intervention selection is inconsistent.');
  const compareIds=list(value.compareIds??[],4,'comparison');if(new Set(compareIds).size!==compareIds.length||compareIds.some(id=>!options.some(o=>o.id===id)))throw new Error('Comparison references a missing intervention.');
- const w={id:text(value.id,true),problem:text(value.problem),steps,links,options,selectedId:value.selectedId,chosenId:value.chosenId,compareIds:[...compareIds],decision:text(value.decision??'')};
+ const attempts=unique(list(value.attempts===undefined?[]:value.attempts,ATTEMPT_LIMIT,'test attempts').map(attempt));
+ const w={id:text(value.id,true),problem:text(value.problem),steps,links,options,selectedId:value.selectedId,chosenId:value.chosenId,compareIds:[...compareIds],decision:text(value.decision??''),attempts};
  for(const l of links)if(l.checked&&!same(l.checked,linkSnapshot(w,l)))l.review=true;
  for(const o of options)if(o.checked&&!same(o.checked,optionSnapshot(w,o)))o.review=true;
  assertPortable({kind:'thinking-lab-interventions',version:1,workspace:w});return w;
@@ -96,10 +122,15 @@ export function reduce(value,a){
   case'compare':if(!o)throw new Error('Intervention not found.');w.compareIds=w.compareIds.includes(o.id)?w.compareIds.filter(id=>id!==o.id):[...w.compareIds,o.id];break;
   case'select':if(!o)throw new Error('Intervention not found.');w.selectedId=o.id;break;
   case'choose':if(!o)throw new Error('Intervention not found.');w.chosenId=o.id;w.selectedId=o.id;break;
+  case'start-attempt':if(!o||w.chosenId!==o.id)throw new Error('Choose an intervention for this test first.');w.attempts.push({id:text(a.newId,true),startedOn:date(a.startedOn),source:optionSnapshot(w,o),...Object.fromEntries(RESULT_FIELDS.map(k=>[k,''])),decision:'undecided',reviewedOn:''});break;
+  case'review-attempt':{const current=w.attempts.find(t=>t.id===a.id);if(!current)throw new Error('Test attempt not found.');Object.assign(current,record(a,RESULT_FIELDS),{reviewedOn:date(a.reviewedOn),decision:a.decision});break;}
   case'remove-option':if(!o)throw new Error('Intervention not found.');if(hasDescendants(w.options,o.id))throw new Error('Keep this parent while its branches remain.');w.options=w.options.filter(x=>x!==o);w.compareIds=w.compareIds.filter(id=>id!==o.id);if(w.selectedId===o.id)w.selectedId=w.options[0]?.id??null;if(w.chosenId===o.id)w.chosenId=null;break;
   default:throw new Error('Unknown action.');
  }return validate(w);
 }
 export const model=engine({kind:'thinking-lab-interventions',create,validate,reduce});
 export function markdown(value){const w=validate(value),parts=['# Intervention workbench','',w.problem,'','## Mechanism steps',''];w.steps.forEach(s=>parts.push(`### ${s.name||'Unnamed step'}`,'',s.mechanism,'',''));parts.push('## Causal hypotheses','');for(const l of w.links){parts.push(`### ${linkTitle(w,l)}`,'',STATUS[l.status],l.origin==='sequence'?'Suggested from earlier step order; not an established causal link.':'',l.review?'Context changed; review needed.':'',...LINK_FIELDS.map(k=>mdField(k,l[k])),l.checked?ancestryMarkdown(derivedFrom([l.checked])):'');}
- for(const o of w.options){parts.push(`## ${o.title||'Untitled intervention'}${w.chosenId===o.id?' · chosen for a test':''}`,'',`Type: ${LEVELS[o.level].name}`,'',`Relationship: ${o.linkId?linkTitle(w,w.links.find(l=>l.id===o.linkId)):'Not attached'}`,'',`Attached step: ${stepName(w,o.anchor)}`,w.compareIds.includes(o.id)?'Included in comparison.':'',o.review?'Review needed.':o.checked?'Context reviewed; hypothesis not proven.':'Not reviewed.',...OPTION_FIELDS.filter(k=>k!=='title').map(k=>mdField(k,o[k])),ancestryMarkdown(o.ancestry),o.checked?'Last reviewed context:\n'+ancestryMarkdown(derivedFrom([o.checked])):'');}parts.push(mdField('Decision and remaining uncertainty',w.decision));return parts.join('\n');}
+ for(const o of w.options){parts.push(`## ${o.title||'Untitled intervention'}${w.chosenId===o.id?' · chosen for a test':''}`,'',`Type: ${LEVELS[o.level].name}`,'',`Relationship: ${o.linkId?linkTitle(w,w.links.find(l=>l.id===o.linkId)):'Not attached'}`,'',`Attached step: ${stepName(w,o.anchor)}`,w.compareIds.includes(o.id)?'Included in comparison.':'',o.review?'Review needed.':o.checked?'Context reviewed; hypothesis not proven.':'Not reviewed.',...OPTION_FIELDS.filter(k=>k!=='title').map(k=>mdField(k,o[k])),ancestryMarkdown(o.ancestry),o.checked?'Last reviewed context:\n'+ancestryMarkdown(derivedFrom([o.checked])):'');}parts.push(mdField('Decision and remaining uncertainty',w.decision));
+ if(w.attempts.length)parts.push('## Test attempts','');
+ for(const a of w.attempts){parts.push(`### ${a.startedOn} · ${a.source.title||'Untitled intervention'}`,'',`Attempt ID: ${a.id}`,`Source ID: ${a.source.id}`,attemptSourceStatus(w,a),'','#### Original test and causal expectation','',...a.source.fields.map(f=>mdField(f.label,f.text)),'#### Result and review','',a.reviewedOn?`Reviewed: ${a.reviewedOn}`:'Awaiting a result review',mdField('Actual observations',a.observations),mdField('Interpretation',a.interpretation),mdField('Decision',TEST_DECISIONS[a.decision]),mdField('Reason for decision',a.reason),mdField('Next check',a.nextCheck));}
+ return parts.join('\n');}

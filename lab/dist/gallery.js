@@ -1,4 +1,4 @@
-import{mountShell}from'./shared/shell.js?v=0.21.0';
+import{mountShell}from'./shared/shell.js?v=0.22.0';
 import{experiments}from'./shared/catalog.js?v=0.21.0';
 mountShell();
 let filter=location.hash==='#archive'?'archive':'all';

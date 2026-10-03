@@ -2,8 +2,69 @@
 :root{--paper:var(--mg-paper);--ink:var(--mg-ink);--muted:var(--mg-muted);--line:var(--mg-line);--accent:var(--mg-accent);--surface:var(--mg-surface);--display:var(--mg-display);--serif:var(--mg-serif)}
 body.mg-site>.mg-masthead,body.mg-site>.mg-footer{width:min(1376px,calc(100% - 48px));margin-inline:auto}
 body.mg-site>.mg-footer{margin-top:48px}
-.lab-tool-switch{display:flex;justify-content:flex-end;align-items:center;gap:12px;width:min(1376px,calc(100% - 48px));margin:20px auto 0}
-.lab-tool-switch label{font-size:16px;color:var(--muted)}
-.lab-tool-switch select{width:min(440px,100%);min-height:44px;border:1px solid var(--line);border-radius:3px;padding:7px 12px;color:var(--ink);background:var(--paper);font:400 16px/1.4 var(--serif)}
-@media(max-width:760px){body.mg-site>.mg-masthead,body.mg-site>.mg-footer,.lab-tool-switch{width:calc(100% - 32px)}.lab-tool-switch{flex-wrap:wrap;justify-content:flex-start}.lab-tool-switch select{width:100%}}
+body[data-lab-tool]>.mg-masthead{--mg-masthead-height:76px}
+
+/* One navigation row; guidance expands in the page without covering the work. */
+.lab-tool-switch{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;width:min(1376px,calc(100% - 48px));margin:8px auto 0}
+.lab-tool-choice{display:flex;align-items:center;gap:10px;max-width:480px;min-width:0}
+.lab-tool-choice label{flex:none;font-size:16px;color:var(--muted)}
+.lab-tool-choice select{flex:1;min-width:0;width:100%;min-height:44px;border:1px solid var(--line);border-radius:3px;padding:7px 12px;color:var(--ink);background:var(--paper);font:400 16px/1.4 var(--serif)}
+.lab-tool-guide-toggle{min-width:60px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:3px;color:var(--ink);background:var(--paper);font:400 16px/1.4 var(--serif)}
+.lab-tool-guide-toggle:hover,.lab-tool-guide-toggle[aria-expanded="true"]{border-color:var(--accent);background:var(--surface)}
+.lab-tool-guide{grid-column:1/-1;max-width:80ch;padding:14px 18px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink);font:400 18px/1.5 var(--serif)}
+.lab-tool-guide[hidden]{display:none}
+.lab-tool-guide p{margin:0}
+.lab-tool-guide p+p{margin-top:8px;color:var(--muted)}
+.lab-tool-switch :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* The catalogue and guide own introductions; scaffold headers identify the work. */
+body[data-lab-kind="scaffold"]>main{padding-top:16px}
+body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro){gap:12px;margin-bottom:16px}
+body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro)>div{min-width:0}
+body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro)>div:first-child>.eyebrow,
+body[data-lab-kind="scaffold"] .page-top .lede,
+body[data-lab-tool="mixer"] .intro>div:first-child>p{display:none}
+body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro) h1{font-size:32px;line-height:1.15;margin:0}
+body[data-lab-kind="scaffold"] :is(.toolbar,.work-toolbar,.workspace-actions,.workspace-tools){gap:6px}
+body[data-lab-kind="scaffold"] :is(.toolbar,.work-toolbar,.workspace-actions,.workspace-tools)>:is(button,select){min-height:44px;font-size:16px;padding:8px 10px}
+body[data-lab-kind="scaffold"] :is(.problem-box,.problem-bar){padding:12px 16px;margin-bottom:16px}
+body[data-lab-kind="scaffold"] :is(.problem-box,.problem-bar,.problem-label) label{font-size:16px}
+body[data-lab-kind="scaffold"] :is(.problem-box,.problem-bar) #save-status,
+body[data-lab-tool="reframe"] .saved-status{font-size:14px}
+body[data-lab-kind="scaffold"] :is(.problem-box,.problem-bar)>textarea{min-height:44px;padding-top:6px;font-size:22px;line-height:1.4}
+
+/* Keep Reframe's context and step navigation, with less repeated setup copy. */
+body[data-lab-tool="reframe"] .problem-section{padding:12px 16px 0}
+body[data-lab-tool="reframe"] .problem-input{min-height:58px;padding:8px 0;font-size:24px;line-height:1.4}
+body[data-lab-tool="reframe"] .problem-bottom{display:none}
+body[data-lab-tool="reframe"] .context-details summary{min-height:44px;padding:10px 0;font-size:16px;line-height:1.5}
+body[data-lab-tool="reframe"] .context-details summary span{font-size:14px}
+body[data-lab-tool="reframe"] .view-nav{margin:12px 0 16px}
+body[data-lab-tool="reframe"] .view-nav button{min-height:44px;padding:10px 2px;font-size:16px}
+
+/* Mixer keeps its question rail and generation/map layouts. */
+body[data-lab-tool="mixer"] .workspace-tools{max-width:760px;align-items:center}
+body[data-lab-tool="mixer"] .workspace-tools select{flex:1 1 180px;width:220px;min-width:0}
+body[data-lab-tool="mixer"] .question-panel{gap:16px;padding:12px 0;margin-bottom:16px}
+body[data-lab-tool="mixer"] .question-panel .section-label{font-size:16px}
+body[data-lab-tool="mixer"] .title-input{min-height:44px;font-size:16px}
+body[data-lab-tool="mixer"] .question-panel .problem-input{min-height:44px;font-size:18px}
+body[data-lab-tool="mixer"] .view-nav{margin-bottom:16px;padding-bottom:12px}
+
+@media(min-width:1101px){body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro){align-items:center}}
+@media(max-width:760px){
+  body.mg-site>.mg-masthead,body.mg-site>.mg-footer,.lab-tool-switch{width:calc(100% - 32px)}
+  body[data-lab-tool]>.mg-masthead{min-height:98px;padding-top:6px}
+  body[data-lab-tool]>.mg-masthead .mg-nav{padding:0 0 4px}
+  .lab-tool-switch{gap:8px}
+  .lab-tool-choice{max-width:none}
+  .lab-tool-choice label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .lab-tool-guide{padding:12px 14px}
+  body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro){gap:10px;margin-bottom:12px}
+  body[data-lab-kind="scaffold"] main>:is(.page-top,.work-top,.workbench-top,.intro) h1{font-size:28px}
+  body[data-lab-kind="scaffold"] :is(.work-toolbar,.workspace-actions) .quiet{margin-left:0;order:0}
+  body[data-lab-tool="mixer"] .workspace-tools{width:100%;justify-content:flex-start}
+  body[data-lab-tool="mixer"] .workspace-tools select{flex-basis:100%;width:100%}
+  body[data-lab-tool="mixer"] .question-panel{gap:8px}
+}
 @media print{.lab-tool-switch{display:none}}

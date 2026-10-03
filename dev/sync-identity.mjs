@@ -39,7 +39,7 @@ for(const {page,section,catalogue,file} of SUITE_PAGES){
 </div>
 <!-- identity:header:end -->`;
   const footer=`<!-- identity:footer:start -->
-<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere">${!catalogue&&!lab?`<a href="${energy?'../':'/'}#recent-work">Recent work</a>`:''}<a data-suite-link="backup" href="/backup/">Backup &amp; restore</a>${lab?`<a href="${local}about.html">Model limits</a>`:''}<a href="${personal}/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere">${!catalogue&&!lab?`<a href="${energy?'../':'/'}#recent-work">Your work</a>`:''}<a data-suite-link="backup" href="/backup/">Backup &amp; restore</a>${lab?`<a href="${local}about.html">Model limits</a>`:''}<a href="${personal}/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
 <!-- identity:footer:end -->`;
   const head=`<!-- identity:head:start -->
 <script src="/assets/identity/theme-init.js"></script>

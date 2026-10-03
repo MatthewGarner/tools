@@ -1,6 +1,18 @@
 # Thinking Lab roadmap
 
-Updated 2 October 2026. This is the working plan for improving the suite, incorporating Matthew’s portfolio review and the subsequent cutting decisions. Update it as implementation and feedback change the plan; earlier delivery records describe what shipped at the time.
+Updated 3 October 2026. This is the working plan for improving the suite, incorporating Matthew’s portfolio review and the subsequent cutting decisions. Update it as implementation and feedback change the plan; earlier delivery records describe what shipped at the time.
+
+## Regular personal use
+
+Matthew approved this next pass on 3 October, starting from the latest main. No new tools or cross-tool workflows are included.
+
+| Work | Status | Completion criterion |
+|---|---|---|
+| Find and resume work | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | The catalogue exposes existing local work with clear distinctions between editable work, saved copies and comparison baselines; origin boundaries remain explicit. |
+| Alternatives comparison | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | Compare options against individual criteria and constraints, keeping reasons and unknowns visible and requesting review when the basis changes. |
+| Working controls and space | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | Consistent New, My work, Undo, save status and export meanings; compact Lab headers make working surfaces visible sooner on desktop and phone. |
+| Intervention test attempts | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | Dated attempts retain their original expectations, subsequent observations and review decisions through source changes, Undo and export. |
+| Catalogue access | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | Explicit local favourites and useful search vocabulary make frequently used tools easy to find. |
 
 Published starting point: 24 experiments. Current published release has 17 active experiences, two archived models and five earlier scaffolds. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. The roadmap is delivered and published as of 2 October 2026. The table links each completed change to its evidence. Pause new experiments while Matthew reviews the improved collection.
 
@@ -17,7 +29,7 @@ Published starting point: 24 experiments. Current published release has 17 activ
 | 6 | Combine Possibility Mixer (S02) and Territory (S08) | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#mixer-and-territory) | Generation and coverage mapping use the same collection of ideas; moving between them retains context. |
 | 7 | Make Family Tree (S10) a shared capability | Published 2 Oct — [evidence](ROADMAP-DELIVERY.md#shared-idea-ancestry) | Scaffolds retain branches, parent ideas, reasons for change and source snapshots without requiring a separate destination. |
 
-The authorised roadmap has been delivered autonomously, with scope revised from implementation evidence. Matthew’s review is the next decision point; use it to identify what helps actual thinking before adding further scope.
+The earlier roadmap is published. The approved regular-use pass above is implemented; its pull request carries verification and publication status.
 
 ## What we are cutting
 
@@ -74,7 +86,7 @@ Update an item to **In progress**, **Implemented**, **Published** or **Deferred*
 
 2 October: question inversion should not manufacture an opposite to an interrogative sentence. New branches retain their parent and ask the user to name the premise being challenged. The combined Reframing board connects questions to frames as opening or challenging them, with detail opened progressively. Question-to-frame and frame-to-frame creation retain source snapshots; this is the first concrete use of shared ancestry intent, without prematurely retiring Family Tree.
 
-Next: Matthew reviews the published suite. No further implementation is queued without new evidence or feedback.
+Next: deliver the approved regular-personal-use pass above; retain the published consolidation evidence below.
 
 2 October: Matthew prioritised matching his personal website before further consolidation, and authorised extending that language where the tools need it. The website repo supplies Oswald/Newsreader, warm paper and purple, and charcoal/lime dark mode. Add shared semantic colours for model states, retain the useful working geometry, and make this the foundation for remaining roadmap work.
 

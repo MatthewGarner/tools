@@ -228,9 +228,18 @@ question, and forgets everything after a day.
 *This file is the public companion to the repo's local working notes. It describes
 what the code **is**; how work happens here (branching, gates, deploy) is separate.*
 
-### Recent work
+### Your work
 
-Each catalogue has an origin-local shelf of explicitly named snapshots. Visiting a
+The catalogue reads native saved-work stores without loading tool engines or
+rewriting data. It distinguishes editable workspaces, current drafts, saved copies
+and comparison baselines. Workspace links select an existing record in the owning
+tool's validated state; the pointer is consumed before further work. Baselines
+open the comparison controls without replacing the current draft. Named Gauge
+question sets and Premortem registers retain their native editing behaviour.
+Unreadable stores remain available for recovery; one damaged store does not hide
+other work. Favourites store only explicit tool preferences, never visit history.
+
+Each catalogue also has an origin-local shelf of explicitly named copies. Visiting a
 tool, loading an example or editing never adds or updates a snapshot. Each save
 captures the current model through the tool’s state callback, not its debounced
 URL. Reopening restores a separate copy; later edits require another explicit save.
