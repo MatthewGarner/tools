@@ -1,0 +1,10 @@
+import {base,objectSchema,rangeSchema,enumSchema,range,action} from './_lab.js';
+import {initialState,validate,arrange} from '../../lab/dist/authority/model.js';
+import {renderArticle} from '../../lab/dist/authority/view.js';
+const array=(items,length)=>({type:'array',items,minItems:length,maxItems:length});
+const int=(min,max)=>rangeSchema(min,max,true),bool={type:'boolean'};
+const schema=objectSchema({scenario:enumSchema(['paired','independent','common']),demand:int(1,6),deadline:int(1,30),duration:int(1,4),consultationDelay:int(0,4),approvalDuration:int(1,4),coupled:bool,sharedMethod:int(0,1),needs:array(int(0,1),2),deciders:array(int(0,2),2),knowledge:array(int(0,2),2),consequences:array(int(0,2),2),consultLocal:array(bool,2),consultLink:array(bool,2),approval:array(bool,2),linkKnowledge:int(0,2),capacity:array(int(1,3),3),fallback:int(0,1)});
+const controls={local:action('Local authority','local'),central:action('Central authority','central'),context:action('Local with shared context','context'),deadline:range('Decision deadline',['deadline'],1,30)};
+export const definition=base('authority','Who can actually decide?','Move knowledge, authority and consequences; inspect decisions and queues.',initialState,validate,{queues:{title:'Decisions and queues',description:'Who decides, what they know, and when permission arrives.',controls:Object.keys(controls),defaultControls:['local','central','context'],render:renderArticle}},controls,{local:s=>arrange(s,'local'),central:s=>arrange(s,'central'),context:s=>arrange(s,'context')},schema);
+export const toToolState=state=>({state,pinned:null});
+export const fromToolState=raw=>raw.state;
