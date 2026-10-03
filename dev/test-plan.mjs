@@ -65,18 +65,24 @@ export function expandTools(tools, edges){
 /* Literal references in JS, CSS and HTML, plus explicit URL handoffs. This is
    deliberately not advertised as a complete JS dependency parser. Computed
    imports, missing files, shared code and deletions choose the full gate. */
+// Comments are valid between call tokens. Recognise that trivia without
+// stripping comments from string literals, then inspect the complete operand.
+const JS_TRIVIA = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\r\n\u2028\u2029]*(?:[\r\n\u2028\u2029]|$))`;
+const IMPORT_CALL = new RegExp(String.raw`\bimport${JS_TRIVIA}*\(`, 'g');
+const WORKER_CALL = new RegExp(String.raw`\bnew${JS_TRIVIA}+Worker${JS_TRIVIA}*\(`, 'g');
+
 export function dependencyEdges(sources){
   const edges = [], references = [];
   for(const [file, source] of sources){
     // Release manifests enumerate every asset; they are generated dependents,
     // not a reason that a calculator edit changes every other tool's behavior.
     if(['home/sw.js','energy/sw.js'].includes(file)) continue;
-    for(const match of source.matchAll(/\bimport\s*\(/g)){
+    for(const match of source.matchAll(IMPORT_CALL)){
       const operand = source.slice(match.index + match[0].length);
       if(!/^\s*(?:'[^']*'|"[^"]*"|`[^`$]*`)\s*\)/.test(operand))
         return {edges, references, uncertain:file + ': computed or unrecognised import'};
     }
-    for(const match of source.matchAll(/\bnew\s+Worker\s*\(/g)){
+    for(const match of source.matchAll(WORKER_CALL)){
       const operand = source.slice(match.index + match[0].length);
       if(!/^\s*(?:new\s+URL\(\s*)?(?:'[^']*'|"[^"]*"|`[^`$]*`)\s*[,)]/.test(operand))
         return {edges, references, uncertain:file + ': computed or unrecognised worker'};

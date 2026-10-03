@@ -56,6 +56,32 @@ test('computed imports refuse to guess dependency scope', () => {
   assert.ok(dependencyEdges([['rank/app.js',"new Worker('../tree/' + name + '.js')"]]).uncertain);
   assert.ok(dependencyEdges([['rank/app.js','import(`../${tool}/app.js`)']]).uncertain);
 });
+test('comments cannot hide computed imports or workers from dependency selection', () => {
+  const calls = [
+    'import /* load */ (target)',
+    'import // load\n(target)',
+    'import // load\r(target)',
+    'new /* load */ Worker(target)',
+    'new // load\nWorker(target)',
+    'new Worker /* load */ (target)',
+    'new Worker // load\n(target)',
+  ];
+  for(const call of calls){
+    const source = "const target = '../' + route + '/engine.js'; " + call;
+    assert.doesNotThrow(() => new Function('route', source));
+    const graph = dependencyEdges([['rank/app.js',source]]);
+    // The consumer is unchanged: editing Tree must not silently omit Rank.
+    assert.equal(planChanges(['tree/engine.js'],graph).mode,'full',call);
+  }
+  for(const call of [
+    "import /* load */ ('../tree/engine.js')",
+    "new /* load */ Worker /* start */ ('../tree/engine.js')",
+  ]){
+    const graph = dependencyEdges([['rank/app.js',call]]);
+    assert.equal(graph.uncertain,undefined,call);
+    assert.ok(planChanges(['tree/engine.js'],graph).tools.includes('rank'),call);
+  }
+});
 test('verified generated workers do not turn an owned edit into global browser work', () => {
   const files=['rank/engine.js','home/sw.js'];
   assert.equal(planChanges(files).mode,'full');
