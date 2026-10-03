@@ -1,30 +1,8 @@
 import {encodeHash, decodeHash} from './series.js';
-import {RECENT_TOOLS, HASH_LIMIT, recentStore, recentRoute, snapshotName} from './recent-store.js';
+import {RECENT_TOOLS, HASH_LIMIT, snapshotName} from './recent-store.js';
+import {createTemplates} from './template-ui.js';
 
-const scope = document.documentElement.dataset.recentScope || document.documentElement.dataset.mgSection;
-const tool = location.pathname.split('/').filter(part=>part && part!=='index.html').at(-1);
-const el = (tag, text, cls) => {const node=document.createElement(tag);if(text)node.textContent=text;if(cls)node.className=cls;return node;};
-const button = text => {const b=el('button',text);b.type='button';return b;};
-const store = () => recentStore(localStorage,scope);
-const failure = error => error?.name === 'QuotaExceededError'
-  ? 'Device storage is full. Nothing was saved. Remove an older copy or free some browser storage.'
-  : error?.name === 'SecurityError' ? 'Browser storage is unavailable. Allow site storage to use Your work.'
-  : error.message || 'Could not access Your work. Try again.';
-
-function modal(title, opener){
-  const dialog=el('dialog',null,'recent-dialog'), heading=el('h2',title);
-  const form=el('form'), info=el('p',null,'recent-note'), error=el('p',null,'recent-error');
-  heading.id='recent-heading';dialog.setAttribute('aria-labelledby',heading.id);
-  error.setAttribute('role','alert');const actions=el('div',null,'recent-dialog-actions');
-  const cancel=button('Cancel');cancel.addEventListener('click',()=>dialog.close());actions.append(cancel);
-  form.append(heading,info,error,actions);dialog.append(form);document.body.append(dialog);
-  dialog.addEventListener('close',()=>{dialog.remove();if(opener?.isConnected)opener.focus();});
-  return {dialog,form,info,error,actions};
-}
-function nameField(form, before, value){
-  const label=el('label','Copy name'), input=el('input');input.type='text';input.required=true;input.maxLength=120;input.value=value;
-  label.append(input);form.insertBefore(label,before);return input;
-}
+import {scope,tool,el,button,store,failure,modal,nameField} from './recent-ui.js';
 
 // Capture through the tool's current-state callback, never its debounced URL.
 // Saving is explicit; opening an example, editing or visiting never adds a row.
@@ -39,14 +17,29 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
   // Some instruments already use Snapshot for a comparison baseline.
   const save=button('Save a copy');save.className='btn recent-save';host.append(save);
   const status=el('span',null,'recent-status');status.setAttribute('role','status');host.append(status);
+  async function capture(){
+    const state=getState ? structuredClone(getState()) : null;
+    if(getState && !state)throw new Error('Open a model before saving a copy.');
+    const hash=getHash ? (await getHash(state)).replace(/^.*#/,'') : await encodeHash(state);
+    if(!hash || hash.length > Math.min(maxLength,HASH_LIMIT)) throw new Error('This model is too large for a saved copy. Export it from the tool instead.');
+    return {hash,value:state || await decodeHash(hash)};
+  }
+  // Fixed teaching exercises and binders keep their existing controls. Templates
+  // belong to authored models; starting one first keeps the outgoing draft.
+  if(!['alarm','flow','signal-vs-noise','case','paths','frequency'].includes(tool)){
+    const templates=createTemplates({scope,tool,format:'model-link',capture:async()=>(await capture()).hash,
+      name:()=>snapshotName(getState?.(),RECENT_TOOLS[scope][tool]),notice:message=>status.textContent=message,
+      description:'Starting from a template first keeps your current model as a saved copy in Your work.',
+      beforeStart:async()=>{const {hash,value}=await capture(),shelf=store();if(!shelf.list().some(copy=>copy.tool===tool&&copy.hash===hash))shelf.add({id:crypto.randomUUID(),tool,name:snapshotName(value,RECENT_TOOLS[scope][tool]),hash,savedAt:Date.now()});},
+      restore:hash=>{if(!/^(?:z:)?[A-Za-z0-9_+/=-]+$/.test(hash)||hash.length>HASH_LIMIT)throw Error('This template does not contain a valid model link.');location.hash=hash;location.reload();},
+    });
+    const manage=button('Templates');manage.className='btn';manage.addEventListener('click',templates.open);
+    const start=button('New from template');start.className='btn';start.addEventListener('click',templates.newWork);host.insertBefore(manage,status);host.insertBefore(start,status);
+  }
   save.addEventListener('click',async()=>{
     save.disabled=true;status.textContent='';
     try{
-      const state=getState ? structuredClone(getState()) : null;
-      if(getState && !state)throw new Error('Open a model before saving a copy.');
-      const hash=getHash ? (await getHash(state)).replace(/^.*#/,'') : await encodeHash(state);
-      if(!hash || hash.length > Math.min(maxLength,HASH_LIMIT)) throw new Error('This model is too large for a saved copy. Export it from the tool instead.');
-      const value=state || await decodeHash(hash);
+      const {hash,value}=await capture();
       const ui=modal('Save a copy',save);
       ui.info.textContent='Saved in this browser. Later edits won’t update this copy.'+(note?' '+note:'');
       const name=nameField(ui.form,ui.error,snapshotName(value,RECENT_TOOLS[scope][tool]));
@@ -64,4 +57,4 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
   return save;
 }
 
-export {scope,el,button,store,failure,modal,nameField};
+export {scope,el,button,store,failure,modal,nameField} from './recent-ui.js';

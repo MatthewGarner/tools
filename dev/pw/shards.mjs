@@ -5,7 +5,7 @@
    7s case to layout to balance the complete job, including setup.
    Local runs use a work-stealing pool instead of these fixed shards. */
 export const SHARDS = [
-  {name:'smoke', suites:['lab-migration.mjs','backup.mjs','suite.mjs','identity.mjs','smoke.mjs','gauge.mjs','timeline.mjs'], browsers:'chromium'},
+  {name:'smoke', suites:['lab-migration.mjs','backup.mjs','suite.mjs','templates.mjs','identity.mjs','smoke.mjs','gauge.mjs','timeline.mjs'], browsers:'chromium'},
   {name:'eip', suites:['check-eip.mjs'], browsers:'chromium'},
   {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs','design-bar.mjs'], browsers:'chromium'},
   {name:'motion-webkit', suites:['motion.mjs','webkit.mjs','check.mjs','paths-budget.mjs','map.mjs'], browsers:'chromium webkit'},
@@ -20,6 +20,7 @@ export const SUITE_SECONDS = {
   'backup.mjs': 10,
   'suite.mjs': 30, // Initial consolidation journey hint; revise from measured gate.
   'recent-work.mjs': 60,
+  'templates.mjs': 20,
   // Initial ordering hints for the design-bar regressions; refine from the complete gate.
   'identity.mjs': 12, 'design-bar.mjs': 10, 'energy-design-bar.mjs': 12, 'workshop-design.mjs': 25,
   // Initial ordering hints for Chapter; update from the first complete gate run.

@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved portfolios, exports, boot, snapshot compare
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
@@ -126,7 +127,7 @@ function doRefresh(){
   }
   renderWarningList($('warns'), warnings);
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) localStorage.setItem('bets-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'bets-src', text); }catch(e){}
   clearTimeout(hashTimer);
   // Suppressed autoload never gets a deferred URL write.
   if(shouldPersist()) hashTimer = setTimeout(writeHash, 400);

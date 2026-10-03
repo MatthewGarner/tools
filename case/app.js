@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Source owns the review. Inspection and export preview never change it. */
 import {parse, classifyReference, CONFIG_KEYS} from './parse.js';
@@ -68,7 +69,7 @@ function paint(){
 async function refresh(){
   const source=editor.getText(),turn=++revision;
   model=project(parse(source));paint();
-  if(shouldPersist())try{localStorage.setItem('case-src',source);}catch{}
+  if(shouldPersist())try{saveTrackedWork(localStorage,'case-src',source);}catch{}
   scheduleHash();
   try{const inspected=await inspectReview(parse(source));if(turn!==revision)return;model=inspected;paint();}catch{if(turn===revision)status('Some captured references could not be inspected. Their source is preserved.');}
 }

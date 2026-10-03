@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../../assets/work-metadata.js';
 import {mountDocumentStart} from '../../assets/document-start.js';
 import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
 import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
@@ -275,7 +276,7 @@ function render(){
   setActionsEnabled(!!out && !previewRevision.blocked);
 }
 function persistAndScheduleHash(text){
-  try{ if(shouldPersist()) localStorage.setItem('cycles-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'cycles-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

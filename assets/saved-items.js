@@ -1,3 +1,4 @@
+import {saveTrackedWork,retainWorkIdentity} from './work-metadata.js';
 /* Shared "saved models" chip row (extracted 2026-07-11, ~5-consumer rule):
    a localStorage-backed list plus the chip-row render that lists them, loads
    one on click, and deletes one via its × — the block roadmap/why/tree/map/
@@ -10,7 +11,15 @@ export function loadSaved(key){
   try{ return JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ return []; }
 }
 export function storeSaved(key, list){
-  try{ localStorage.setItem(key, JSON.stringify(list)); return true; }catch(e){ return false; }
+  // Gauge edits named sets in place. Give those records stable identity before
+  // their source changes, so catalogue organisation cannot follow an array slot.
+  if(key==='gauge-saved'){
+    const previous=loadSaved(key);
+    list=list.map((item,index)=>{if(item.id)return item;const next={...item,id:crypto.randomUUID()};
+      const original=previous.find(old=>old.name===item.name&&old.src===item.src)||(previous.length===list.length?previous[index]:item);
+      retainWorkIdentity(localStorage,key,original,next);return next;});
+  }
+  try{ saveTrackedWork(localStorage,key, JSON.stringify(list)); return true; }catch(e){ return false; }
 }
 /* Renders the "Saved:" lead + one chip per item into `row` (cleared first).
    Does NOT append a Save-current button — callers append their own after

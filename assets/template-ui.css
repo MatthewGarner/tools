@@ -1,0 +1,15 @@
+.mg-template-dialog { box-sizing:border-box; width:min(42rem,calc(100% - 2rem)); max-height:calc(100dvh - 2rem); padding:1.5rem; border:1px solid var(--mg-line); border-radius:0; background:var(--mg-paper); color:var(--mg-ink); font:400 1rem/1.5 var(--mg-sans); }
+.mg-template-dialog::backdrop { background:rgb(0 0 0 / .4); }
+.mg-template-dialog h2 { margin:0; font:600 1.75rem/1.2 var(--mg-display); }
+.mg-template-dialog h3 { margin-top:0; }
+.mg-template-note { display:block; color:var(--mg-muted); font-size:.9375rem; }
+.mg-template-actions { display:flex; flex-wrap:wrap; gap:.5rem; margin:.75rem 0; }
+.mg-template-dialog button { min-width:44px; min-height:44px; padding:.5rem .75rem; border:1px solid var(--mg-line); border-radius:0; background:transparent; color:var(--mg-ink); font:400 .9375rem/1.4 var(--mg-sans); cursor:pointer; }
+.mg-template-dialog button:disabled { cursor:default; opacity:.65; }
+.mg-template-dialog input { box-sizing:border-box; display:block; width:100%; min-height:44px; padding:.5rem; margin-top:.375rem; border:1px solid var(--mg-line); border-radius:0; background:var(--mg-surface); color:var(--mg-ink); font:400 1rem/1.4 var(--mg-sans); }
+.mg-template-dialog :focus-visible { outline:2px solid var(--mg-accent); outline-offset:3px; }
+.mg-template-list { padding:0; margin:1rem 0; list-style:none; border-top:1px solid var(--mg-line); }
+.mg-template-list li { padding:1rem 0; border-bottom:1px solid var(--mg-line); }
+.mg-template-list strong { display:block; overflow-wrap:anywhere; }
+.mg-template-dialog [role=alert]:empty { display:none; }
+@media(max-width:640px) { .mg-template-dialog { padding:1.25rem; } }

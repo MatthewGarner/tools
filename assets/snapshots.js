@@ -1,3 +1,4 @@
+import {saveTrackedWork} from './work-metadata.js';
 /* Shared snapshot machinery (extracted from /roadmap 2026-07-06, third-consumer
    rule): a capped localStorage store of {label, src}, a pure keyed differ, and
    the Snapshot / Compare-with… / delete wiring the workspace tools share.
@@ -7,7 +8,7 @@ import {workToken} from './work-reference.js';
 
 export function snapStore(storageKey){
   const load = () => { try{ return JSON.parse(localStorage.getItem(storageKey) || '[]'); }catch(e){ return []; } };
-  const save = list => { try{ localStorage.setItem(storageKey, JSON.stringify(list.slice(-20))); }catch(e){} };
+  const save = list => { try{ saveTrackedWork(localStorage,storageKey, JSON.stringify(list.slice(-20))); }catch(e){} };
   return {load, save};
 }
 

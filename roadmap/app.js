@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
@@ -545,7 +546,7 @@ function doRefresh(){
   $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
   syncDeckActions();
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

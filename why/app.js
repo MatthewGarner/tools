@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
@@ -135,7 +136,7 @@ function doRefresh(){
   const vd = whyVerdict(model, projection);
   paintVerdict($('verdict'), vd ? vd.line : '', vd ? vd.fig : '');
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) localStorage.setItem('why-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'why-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

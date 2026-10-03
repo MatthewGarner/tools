@@ -558,8 +558,11 @@ test('per-page load stays under budget', () => {
     // Catalogues also load the codec and native work discovery. The 2026-10
     // library reaches 241.4k on Product (formerly capped at 241k); allow 2k
     // for that explicit capability. Individual tools do not import discovery.
-    const recent = files.has('assets/recent-work.js') ? (page==='home/index.html' || page==='energy/index.html' || page==='explore/index.html' ? 23_000 : 15_000) : 0;
-    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent;
+    const recent = files.has('assets/recent-ui.js') ? (page==='home/index.html' || page==='energy/index.html' || page==='explore/index.html' ? 23_000 : 15_000) : 0;
+    // Personal work: ~8k for durable organisation/change dates, ~10k for the
+    // template store/editor. Catalogue pages deliberately exclude that editor.
+    const personal = (files.has('assets/work-metadata.js') ? 8_000 : 0) + (files.has('assets/template-ui.js') ? 10_000 : 0);
+    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }
 });

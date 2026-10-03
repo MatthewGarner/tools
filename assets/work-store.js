@@ -1,6 +1,7 @@
 import {SOURCE_TOOLS, NAMED_TOOLS, BASELINE_TOOLS, LAB_TITLES, REGISTER_KEY} from './saved-work-keys.js';
 import {RECENT_TOOLS} from './recent-store.js';
 import {workToken} from './work-reference.js';
+import {workId,itemId} from './work-metadata.js';
 
 export const WORK_KINDS = {workspace:'Editable workspace', draft:'Current draft', copy:'Saved copy', baseline:'Comparison baseline'};
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -26,10 +27,10 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
     if (!json) return raw;
     try { return JSON.parse(raw); } catch { unreadable.push(key); return null; }
   }
-  function add(record) { records.push({...record, id:record.key + ':' + (record.localId ?? workToken(record.state || record.name))}); }
+  function add(record, value) { records.push({...record, id:workId(record.key,record.localId), fingerprint:workToken(value)}); }
   for (const tool of SOURCE_TOOLS.filter(tool => Object.hasOwn(titles, tool))) {
     const key = `${tool}-src`, source = read(key, false);
-    if (typeof source === 'string' && source.trim()) add({key, tool, toolName:titles[tool], kind:'draft', name:label(sourceTitle(source), titles[tool]), href:route(tool), savedAt:null});
+    if (typeof source === 'string' && source.trim()) add({key, tool, toolName:titles[tool], kind:'draft', name:label(sourceTitle(source), titles[tool]), href:route(tool), savedAt:null},source);
   }
   for (const tool of NAMED_TOOLS.filter(tool => Object.hasOwn(titles, tool))) {
     const key = `${tool}-saved`, items = read(key);
@@ -39,11 +40,11 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
       // Gauge named question sets remain editable records, unlike the other
       // tools' load-a-copy lists. Reopen through its native selection path.
       if(tool==='gauge'){
-        add({key,localId:String(i),tool,toolName:titles[tool],kind:'workspace',name:label(item.name,'Untitled questions'),href:route(tool)+'?work='+workToken(item),savedAt:date(item.savedAt)});
+        add({key,localId:itemId(item),tool,toolName:titles[tool],kind:'workspace',name:label(item.name,'Untitled questions'),href:route(tool)+'?work='+workToken(item),savedAt:date(item.savedAt)},item);
         continue;
       }
-      add({key, localId:String(i), tool, toolName:titles[tool], kind:'copy', name:label(item.name, sourceTitle(item.src) || titles[tool]),
-        href:route(tool), state:{t:item.src, ...(tool === 'proxy' && typeof item.selectedTheoryId === 'string' ? {s:item.selectedTheoryId} : {})}, savedAt:date(item.savedAt)});
+      add({key, localId:itemId(item), tool, toolName:titles[tool], kind:'copy', name:label(item.name, sourceTitle(item.src) || titles[tool]),
+        href:route(tool), state:{t:item.src, ...(tool === 'proxy' && typeof item.selectedTheoryId === 'string' ? {s:item.selectedTheoryId} : {})}, savedAt:date(item.savedAt)},item);
     }
   }
   for (const tool of BASELINE_TOOLS.filter(tool => Object.hasOwn(titles, tool))) {
@@ -51,7 +52,7 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
     if (items !== null && !Array.isArray(items)) { unreadable.push(key); continue; }
     for (const [i, item] of (items || []).entries()) {
       if (!object(item) || typeof item.src !== 'string' || typeof item.label !== 'string') { unreadable.push(key); continue; }
-      add({key, localId:String(i), tool, toolName:titles[tool], kind:'baseline', name:label(item.label, titles[tool]), href:route(tool) + '?baseline=' + workToken(item), savedAt:date(item.savedAt)});
+      add({key, localId:itemId(item), tool, toolName:titles[tool], kind:'baseline', name:label(item.label, titles[tool]), href:route(tool) + '?baseline=' + workToken(item), savedAt:date(item.savedAt)},item);
     }
   }
   if (scope === 'tools') {
@@ -60,7 +61,7 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
     for (const [i, item] of (Array.isArray(estimates) ? estimates : []).entries()) {
       if (!object(item) || typeof item.f !== 'string' || !object(item.v)) { unreadable.push('fermi-models'); continue; }
       const {name, ...state} = item;
-      add({key:'fermi-models', localId:String(i), tool:'fermi', toolName:'Fermi', kind:'copy', name:label(name, item.q || item.f), href:'/fermi/', state, savedAt:date(item.savedAt)});
+      add({key:'fermi-models', localId:itemId(item), tool:'fermi', toolName:'Fermi', kind:'copy', name:label(name, item.q || item.f), href:'/fermi/', state, savedAt:date(item.savedAt)},item);
     }
     const registers = read('premortem:index');
     if (registers !== null && !Array.isArray(registers)) unreadable.push('premortem:index');
@@ -69,7 +70,7 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
       // Follow only the library's own IDs, never a storage prefix scan.
       const key = 'premortem:' + item.id, document = read(key);
       if (!object(document) || document.id !== item.id) continue;
-      add({key, localId:item.id, tool:'premortem', toolName:'Premortem', kind:'workspace', name:label(item.title, 'Untitled register'), href:'/premortem/?work=' + encodeURIComponent(item.id), savedAt:date(item.saved)});
+      add({key, localId:item.id, tool:'premortem', toolName:'Premortem', kind:'workspace', name:label(item.title, 'Untitled register'), href:'/premortem/?work=' + encodeURIComponent(item.id), savedAt:date(item.saved)},document);
     }
     for (const [tool, toolName] of Object.entries(LAB_TITLES)) {
       let key = `thinking-lab:${tool}:${tool === 'predictions' ? 'v2' : 'v1'}`, value = read(key);
@@ -82,10 +83,10 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
         for (const work of workspaces) {
           if (!object(work) || typeof work.id !== 'string' || work.id.length > 200) { unreadable.push(key); continue; }
           add({key, localId:work.id, tool, toolName, kind:'workspace', name:label(work.problem, label(work.title, 'Untitled workspace')),
-            href:`/lab/${tool}/?work=${encodeURIComponent(work.id)}`, savedAt:date(work.updatedAt || work.savedAt || work.createdAt)});
+            href:`/lab/${tool}/?work=${encodeURIComponent(work.id)}`, savedAt:date(work.updatedAt || work.savedAt || work.createdAt)},work);
         }
       } else {
-        add({key, tool, toolName, kind:'workspace', name:label(value.title || value.problem, toolName), href:`/lab/${tool}/`, savedAt:date(value.savedAt || value.updatedAt)});
+        add({key, tool, toolName, kind:'workspace', name:label(value.title || value.problem, toolName), href:`/lab/${tool}/`, savedAt:date(value.savedAt || value.updatedAt)},value);
       }
     }
   }
@@ -95,5 +96,5 @@ export function readNativeWork(storage, {scope = 'tools', pathname = '/'} = {}) 
 export function filterWork(records, query = '', kind = '') {
   const normal = value => String(value).normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase('en');
   const terms = normal(query).trim().split(/\s+/).filter(Boolean);
-  return records.filter(record => (!kind || record.kind === kind) && terms.every(term => normal(`${record.name} ${record.toolName} ${WORK_KINDS[record.kind]}`).includes(term)));
+  return records.filter(record => (!kind || record.kind === kind) && terms.every(term => normal(`${record.name} ${record.originalName||''} ${record.toolName} ${WORK_KINDS[record.kind]}`).includes(term)));
 }
