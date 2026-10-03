@@ -647,3 +647,11 @@ test('Case structured views and every deck page escape all authored fields',asyn
   for(const view of ['brief','compare','review'])assertClean(render(parse(doc+'\nview: '+view),ctx),'case-'+view);
   for(const page of buildCaseDeck(parse(doc),{measure:ctx.measure}).pages)assertClean(page.svg,'case-deck');
 });
+
+
+test('Rank native and article rows escape hostile initiative names', async () => {
+  const {rankResultRows}=await import('../rank/render.js');
+  const names=EVIL.map((_,i)=>label(i));
+  const result={n:names.length,k:3,baseOrder:names.map((_,i)=>i),stats:names.map((name,i)=>({i,name,med:i,p10:0,p90:names.length-1,ptop:.5}))};
+  assertClean(rankResultRows(result,{}),'rank-rows');
+});

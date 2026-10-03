@@ -1,9 +1,10 @@
+import {receiveArticleWorkspace} from '../shared/article-import.js';
 import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {createTemplates} from '../shared/templates.js?v=0.23.0';
 import {ancestryTools,ancestryEditor,wireAncestry} from './ancestry.js?v=0.21.0';
 import {hasDescendants,assertPortable} from '../shared/ancestry.js?v=0.21.0';
 import {mountShell} from '../shared/shell.js?v=0.22.0';
-import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.21.0';
+import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.24.0';
 import {PRESETS,uid,createWorkspace,ingredients,combinationCount,mixWorkspace,captureConcept,markdown,validateWorkspace} from './model.js?v=0.21.0';
 import {navigation,mapView,fitEditor,sourceRecord,wireCoverage} from './coverage.js?v=0.21.0';
 import {gap,noteKey} from './map.js?v=0.21.0';
@@ -13,6 +14,7 @@ const KEY='thinking-lab:mixer:v1';
 let state,undo=[],promptIndex=0,toastTimer,recoveryRaw=null,savePaused=false,storageNotice='';
 let raw=null;try{raw=localStorage.getItem(KEY);}catch{storageNotice='Browser storage is unavailable. Export your work to keep it.';}
 try{if(!raw)throw Error();state=JSON.parse(raw);if(!Array.isArray(state?.workspaces)||!state.workspaces.length||state.workspaces.length>100)throw Error();state.workspaces=state.workspaces.map(validateWorkspace);if(new Set(state.workspaces.map(w=>w.id)).size!==state.workspaces.length)throw Error();if(!state.workspaces.some(w=>w.id===state.activeId))state.activeId=state.workspaces[0].id;}catch{if(raw){recoveryRaw=raw;savePaused=true;storageNotice='Saved data could not be read. Saving is paused to preserve it. Download a recovery copy before starting fresh.';}const w=createWorkspace();state={workspaces:[w],activeId:w.id};}
+const article=await receiveArticleWorkspace({route:'mixer',state,key:KEY,paused:savePaused,append:(current,workspace,id)=>{if(current.workspaces.length>=100)throw Error('Export a workspace before importing more than 100.');const added=validateWorkspace({...workspace,id});current.workspaces.push(added);current.activeId=id;return current;}});state=article.state;if(article.error)savePaused=true;
 const resumed=resumeWorkspace(state);state=resumed.state;consumeWorkPointer();
 const app=document.querySelector('#app'),dialog=document.querySelector('#editor');
 const prompts=['Which ingredient is genuinely changing the idea, and which is just decoration?','What would make this combination awkward? The friction may be the useful part.','Who would this leave out? Try replacing the audience while keeping the mechanism.','What is the smallest version that somebody could actually try tomorrow?','Keep the problem. Borrow a mechanism from a completely different world.','Which dimension have you treated as fixed without noticing?'];
@@ -72,5 +74,5 @@ dialog.addEventListener('click',event=>{if(event.target===dialog){const box=dial
 addEventListener('storage',event=>{if(event.key===KEY&&event.newValue!==JSON.stringify(state)){savePaused=true;storageNotice='Another tab changed the saved work. Saving is paused so this tab cannot overwrite it.';render();}});
 wireAncestry({app,dialog,current,change,openDialog,render,toast});
 const coverage=wireCoverage({app,dialog,current,change,openDialog,addWorkspace,render,save,toast,checkpoint});
-render();if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');
+render();if(article.error)toast(article.error);else if(article.imported)toast('Article example imported as separate work.');if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');
 if(document.modelContext?.registerTool){const controller=new AbortController();const tools=[{name:'read_possibility_workspace',title:'Read possibility workspace',description:'Read the current question, dimensions, selected ingredients and kept concepts.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:async(input)=>{if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('Expected an empty object.');return{content:[{type:'text',text:JSON.stringify(current())}]};}},{name:'mix_possibility_ingredients',title:'Mix unlocked ingredients',description:'Generate a new combination while preserving locked ingredients. This updates the visible workspace.',inputSchema:{type:'object',properties:{},additionalProperties:false},execute:async(input)=>{if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('Expected an empty object.');act('mix');return{content:[{type:'text',text:JSON.stringify(ingredients(current()))}]};}}];for(const tool of tools){try{Promise.resolve(document.modelContext.registerTool(tool,{signal:controller.signal})).catch(()=>{});}catch{}}addEventListener('pagehide',()=>controller.abort(),{once:true});}

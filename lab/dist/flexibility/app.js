@@ -1,5 +1,7 @@
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('flexibility','thinking-lab:flexibility:v1');
 import {mountShell} from '../shared/shell.js?v=0.22.0';
-import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.21.0';
+import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.24.0';
 import {MODEL,POLICIES,createRun,publicView,preview,projection,advance,policyDecision,commitments,envelope,result,serialize,restore,hour} from './engine.js?v=0.21.0';
 import {diagnose,promiseLabel,informationName,preparationRule,matchedComparison} from './study.js?v=0.21.0';
 import {renderInformation,renderInspector,renderProbeResults,renderMatched,outputName} from './study-ui.js?v=0.21.0';

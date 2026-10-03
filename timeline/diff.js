@@ -2,7 +2,7 @@
    occurrence within its lane. State carries timing AND kind, so a former fixed
    fact remains visible when it becomes an estimate. The view gives the Field
    historic geometry + receipts. Pure. */
-import {diffItems} from '../assets/snapshots.js';
+import {diffItems} from '../assets/diff-items.js';
 
 const keyed = m => m.items.map(it => ({
   key: it.identity || (it.lane + '|' + it.label), label: it.label, lane: it.lane, note: it.note, rawDates: it.rawDates,

@@ -1,15 +1,17 @@
 import {readFileSync} from 'node:fs';
 import {posix} from 'node:path';
 
-/* Relative ES-module imports/re-exports, lazy imports and module workers used
+/* Relative ES-module imports/re-exports (including compact import{...} syntax),
+   cache-tagged Lab modules, lazy imports and module workers used
    by the shipped static pages. Paths are repository-relative throughout. */
 export function moduleReferences(file, source){
   const refs = new Set();
-  for(const match of source.matchAll(/(?:\b(?:import|export)\s+(?:[^;'"`]*?\bfrom\s*)?|\bimport\s*\(\s*)['"]([^'"]+\.js)['"]/g))
+  for(const match of source.matchAll(/(?:\b(?:import|export)\s*(?:[^;'"`]*?\bfrom\s*)?|\bimport\s*\(\s*)['"]([^'"]+\.js(?:\?[^'"]*)?)['"]/g))
     refs.add(match[1]);
-  for(const match of source.matchAll(/new\s+Worker\(\s*new\s+URL\(\s*['"]([^'"]+\.js)['"]/g))
+  for(const match of source.matchAll(/new\s+Worker\(\s*new\s+URL\(\s*['"]([^'"]+\.js(?:\?[^'"]*)?)['"]/g))
     refs.add(match[1]);
   return [...refs].filter(ref => ref.startsWith('.') || ref.startsWith('/'))
+    .map(ref => ref.split(/[?#]/)[0])
     .map(ref => ref.startsWith('/') ? ref.slice(1) : posix.normalize(posix.join(posix.dirname(file), ref)));
 }
 

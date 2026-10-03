@@ -1,6 +1,6 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
 import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdictOf, delphiVerdictOf} from './engine.js';
-import {resolveVerdict} from '../assets/verdict.js';   // `verdict:` — the console headline must agree with the artefact band
+import {resolveVerdict} from '../assets/verdict-core.js';   // `verdict:` — the console headline must agree with the artefact band
 import {fermiHandoff, fermiHandoffIssue} from './handoff.js';
 import {handoffHref, handoffMeta} from '../assets/handoff.js';
 import {renderForm, collectValues} from './render-form.js';

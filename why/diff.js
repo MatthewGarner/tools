@@ -1,7 +1,7 @@
 /* Discovery-narrative diff (parked V2, built 2026-07-06): flatten the tree to
    keyed entries, diff via the shared core, and phrase what changed the way a
    discovery review would say it. Pure. */
-import {diffItems} from '../assets/snapshots.js';
+import {diffItems} from '../assets/diff-items.js';
 
 function duplicateSiblingLine(model){
   let duplicate = null;

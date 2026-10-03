@@ -5,7 +5,7 @@
    7s case to layout to balance the complete job, including setup.
    Local runs use a work-stealing pool instead of these fixed shards. */
 export const SHARDS = [
-  {name:'smoke', suites:['lab-migration.mjs','backup.mjs','suite.mjs','templates.mjs','identity.mjs','smoke.mjs','gauge.mjs','timeline.mjs'], browsers:'chromium'},
+  {name:'smoke', suites:['standard-embeds.mjs','lab-article-origin.mjs','lab-migration.mjs','backup.mjs','suite.mjs','templates.mjs','identity.mjs','smoke.mjs','gauge.mjs','timeline.mjs'], browsers:'chromium'},
   {name:'eip', suites:['check-eip.mjs'], browsers:'chromium'},
   {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs','design-bar.mjs'], browsers:'chromium'},
   {name:'motion-webkit', suites:['motion.mjs','webkit.mjs','check.mjs','paths-budget.mjs','map.mjs'], browsers:'chromium webkit'},
@@ -16,6 +16,8 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
 
 /* Local ordering hints, not CI budgets. CI packing uses the measured run above. */
 export const SUITE_SECONDS = {
+  'standard-embeds.mjs': 30,
+  'lab-article-origin.mjs': 10,
   'lab-migration.mjs': 10,
   'backup.mjs': 10,
   'suite.mjs': 30, // Initial consolidation journey hint; revise from measured gate.

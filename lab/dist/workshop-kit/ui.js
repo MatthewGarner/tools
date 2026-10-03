@@ -1,3 +1,4 @@
+import {receiveArticleWorkspace} from '../shared/article-import.js';
 import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {createTemplates} from '../shared/templates.js?v=0.23.0';
 import {copyDecisionNote} from '../shared/decision-note-ui.js?v=0.23.0';
@@ -11,7 +12,7 @@ export const uid=()=>crypto.randomUUID?.()||`w-${Date.now()}-${Math.random().toS
 export const short=(value,max=90)=>value.length>max?`${value.slice(0,max-1)}…`:value;
 export function field(id,label,value,action,help='',rows=2) {return `<div class="field"><label for="${e(id)}">${label}</label>${help?`<p id="${e(id)}-help">${e(help)}</p>`:''}<textarea id="${e(id)}" maxlength="20000" rows="${rows}" data-edit="${e(JSON.stringify(action))}" ${help?`aria-describedby="${e(id)}-help"`:''}>${e(value)}</textarea></div>`;}
 export function select(id,label,value,options,action) {return `<div class="field"><label for="${e(id)}">${label}</label><select id="${e(id)}" data-edit="${e(JSON.stringify(action))}">${options.map(([key,label])=>`<option value="${e(key)}" ${key===value?'selected':''}>${e(label)}</option>`).join('')}</select></div>`;}
-export function start(config) {
+export async function start(config) {
   mountShell({active:config.route});
   const root=document.querySelector('#app');
   const dialog=document.createElement('dialog');dialog.id='work-dialog';document.body.append(dialog);
@@ -21,6 +22,7 @@ export function start(config) {
   const key=`thinking-lab:${config.route}:v1`,eng=config.engine;
   let history=createHistory(eng.initial()),timer,toastTimer,destroyDrag,paused=false,recovery=null,saveMessage='Saved in this browser',dialogOrigin=null;
   try{const raw=localStorage.getItem(key);if(raw){try{history=createHistory(eng.validateState(JSON.parse(raw)));}catch{recovery=raw;paused=true;saveMessage='Saved data needs recovery';}}}catch{saveMessage='Saving unavailable · export a copy';}
+  const article=await receiveArticleWorkspace({route:config.route,state:history.present,key,paused,append:(current,workspace,id)=>eng.transition(current,{type:'@import',workspace,id})});history=createHistory(article.state);if(article.error)paused=true;
   const resumed=resumeWorkspace(history.present);history=createHistory(resumed.state);consumeWorkPointer();
   const work=()=>eng.active(history.present);
   createTemplates({scope:'lab',tool:config.route,format:'workspace-json',capture:()=>eng.serialize(work()),name:()=>work().problem,
@@ -60,5 +62,5 @@ export function start(config) {
   dialog.addEventListener('click',event=>{if(event.target===dialog){const box=dialog.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)dialog.close();}});
   input.addEventListener('change',async()=>{const file=input.files?.[0];if(!file)return;try{if(file.size>12000000)throw new Error('Choose a JSON file under 12 MB.');const workspace=eng.parse(await file.text());dialog.close();if(update({type:'@import',id:uid(),workspace}))toast('Workspace imported. Existing work is preserved.');}catch(error){toast(error.message);}input.value='';});
   window.addEventListener('pagehide',()=>save(true));window.addEventListener('storage',event=>{if(event.key!==key||event.newValue===JSON.stringify(history.present))return;clearTimeout(timer);paused=true;saveMessage='Local saving paused';render();});
-  render();if(!paused)save();if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');return manager;
+  render();if(!paused)save();if(article.error)toast(article.error);else if(article.imported)toast('Article example imported as separate work.');if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');return manager;
 }

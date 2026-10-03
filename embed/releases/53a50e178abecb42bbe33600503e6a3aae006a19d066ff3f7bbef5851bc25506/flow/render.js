@@ -1,0 +1,416 @@
+/* Flow readout → SVG string. Pure: colours and text measure come from ctx.
+   Layout: verdict block, cycle-time histogram, two small WIP-sweep charts
+   (never dual-axis). This SVG is what exports — the canvas strip never does. */
+import {esc, txt} from '../assets/svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
+
+const W = 860, PAD = 26;
+/* the stack the SVG root sets — reused verbatim for the verdict block's own
+   text nodes so the measured wrap matches what the browser paints. It carries
+   no quote characters, so it splices into either attribute convention. */
+const FONT = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+
+const day = n => {
+  const v = n < 10 ? Math.round(n * 10) / 10 : Math.round(n);
+  return v + (v === 1 ? ' day' : ' days');
+};
+const f1 = n => (Math.round(n * 10) / 10).toString();
+
+/* plain-text mirror of the SVG readout's headline — the HTML text app.js
+   shows next to the diagram. Pure; same inputs renderReadout itself uses. */
+/* the DISPLAY verdict (Swiss 6b): the headline sentence and the ONE load-bearing
+   figure inside it — the average item's calendar time. Pure; readoutVerdict()
+   below opens with this exact line, so the plain mirror (markdown, copy-for-doc,
+   the SVG's aria-label) and the drawn block can never drift. */
+export function readoutVerdictParts(result){
+  const fig = day(result.lead.mean);
+  return {fig, line: 'The average item takes ' + fig + ' — ' + day(result.workDays) +
+    ' working, ' + day(result.waitDays) + ' waiting.'};
+}
+
+export function readoutVerdict(result){
+  // means, not the median: working + waiting = total is EXACT only for means
+  // (median of a sum ≠ sum of medians), so lead.p50 here contradicted the parts.
+  const bits = [readoutVerdictParts(result).line];
+  if(!result.stable){
+    bits.push('Backlog growing ~' + f1(result.backlogSlopePerWeek) +
+      '/week — demand exceeds capacity; reduce intake or add capacity.');
+  }
+  return bits.join('  ');
+}
+
+export function renderReadout(result, sweep, knee, params, ctx){
+  const W = Math.max(320, ctx.width || 860), narrow = W < 640, PAD = narrow ? 16 : 26;
+  const C = ctx.colors;
+  const s = [];
+  let y = PAD + 6;
+
+  /* ---- verdict (Swiss 6b anatomy: VERDICT kicker + one display line whose
+     single brand-coloured figure is the average item's calendar time). The
+     block's height is content-driven, so a wrapped headline pushes the
+     histogram down rather than overlapping it. ---- */
+  const overloaded = !result.stable;
+  const lead = result.lead;
+  const {line, fig} = readoutVerdictParts(result);
+  const V = svgVerdict({x: PAD, y: y + 14, width: W - PAD * 2, line, fig, copyTap: !!ctx.copyTap,
+    ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: FONT, measure: ctx.measure});
+  s.push(V.svg);
+  y = y + 14 + V.height + 4;
+  const prose = (text, color = C.muted, weight = 400) => {
+    const words = text.split(' '); let line = '';
+    for(const word of words){
+      const next = line ? line + ' ' + word : word;
+      if(line && (ctx.measure ? ctx.measure(next, weight + ' 12.5px ' + FONT) : next.length * 6.5) > W - PAD * 2){
+        s.push(txt(PAD, y, line, 12.5, color, {weight})); y += 18; line = word;
+      } else line = next;
+    }
+    s.push(txt(PAD, y, line, 12.5, color, {weight})); y += 20;
+  };
+  prose('P85 ' + day(lead.p85) + ' · P95 ' + day(lead.p95) +
+    ' · throughput ' + f1(result.throughputPerWeek) + '/week vs demand ' + f1(params.demandPerWeek) + '/week' +
+    ' · team busy ' + Math.round(result.utilisation * 100) + '%');
+  if(overloaded){
+    prose('⚠ Backlog growing ~' + f1(result.backlogSlopePerWeek) +
+      '/week — demand exceeds capacity; reduce intake or add capacity.', C.err, 600);
+  }
+  prose('WIP ' + knee + ' keeps ≥95% of max throughput — beyond it you buy cycle time, not delivery.');
+  y += 10;
+
+  /* ---- cycle-time histogram ---- */
+  const histH = 120, histW = W - PAD * 2;
+  s.push(txt(PAD, y + 4, 'LEAD TIME, REQUEST → DONE (SIMULATED ITEMS)', 10, C.muted, {weight: 600, tracking: 1}));
+  y += 14;
+  const samples = result.leadSamples || [];
+  const maxDay = Math.max(1, Math.ceil(lead.p95 * 1.3));
+  const bins = 30;
+  const counts = new Array(bins).fill(0);
+  for(const v of samples){
+    const b = Math.min(bins - 1, Math.floor(v / maxDay * bins));
+    counts[b]++;
+  }
+  const maxC = Math.max(1, ...counts);
+  const bw = histW / bins;
+  for(let b = 0; b < bins; b++){
+    const h = counts[b] / maxC * (histH - 18);
+    if(h <= 0) continue;
+    s.push('<rect x="' + f1(PAD + b * bw + 1) + '" y="' + f1(y + histH - 14 - h) +
+      '" width="' + f1(bw - 2) + '" height="' + f1(h) + '" rx="2" fill="' + C.accent + '"/>');
+  }
+  for(const [q, label] of [[lead.p50, 'P50'], [lead.p85, 'P85']]){
+    const x = PAD + Math.min(1, q / maxDay) * histW;
+    s.push('<line x1="' + f1(x) + '" y1="' + y + '" x2="' + f1(x) + '" y2="' + (y + histH - 14) +
+      '" stroke="' + C.ink + '" stroke-width="1" stroke-dasharray="3 3"/>');
+    s.push(txt(x + 4, y + 10, label + ' ' + day(q), 10.5, C.ink, {weight: 600}));
+  }
+  s.push(txt(PAD, y + histH, '0', 10, C.muted));
+  s.push(txt(PAD + histW, y + histH, day(maxDay), 10, C.muted, {anchor: 'end'}));
+  y += histH + 24;
+
+  /* ---- WIP sweep: two small charts, shared x ---- */
+  const chW = narrow ? W - PAD * 2 : (W - PAD * 3) / 2, chH = 110;
+  const maxWip = sweep[sweep.length - 1].wip;
+  const sx = i => (i - 1) / (maxWip - 1) * (chW - 8) + 4;
+  const chart = (x0, title, vals, colour, marker) => {
+    s.push(txt(x0, y + 4, title, 10, C.muted, {weight: 600, tracking: 1}));
+    const top = y + 14, maxV = Math.max(...vals) * 1.08 || 1;
+    s.push('<rect x="' + x0 + '" y="' + top + '" width="' + chW + '" height="' + (chH - 30) +
+      '" fill="none" stroke="' + C.border + '"/>');
+    const pts = vals.map((v, i) => f1(x0 + sx(i + 1)) + ',' + f1(top + (chH - 30) * (1 - v / maxV)));
+    s.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + colour + '" stroke-width="2"/>');
+    const kv = vals[knee - 1];
+    const kx = x0 + sx(knee), ky = top + (chH - 30) * (1 - kv / maxV);
+    s.push('<circle cx="' + f1(kx) + '" cy="' + f1(ky) + '" r="4" fill="' + colour +
+      '" stroke="' + C.card + '" stroke-width="1.5"/>');
+    if(marker) s.push(txt(kx + 6, ky - 4, 'WIP ' + knee, 10, C.ink, {weight: 600}));
+    s.push(txt(x0, y + chH, 'WIP 1', 10, C.muted));
+    s.push(txt(x0 + chW, y + chH, String(maxWip), 10, C.muted, {anchor: 'end'}));
+  };
+  chart(PAD, 'THROUGHPUT / WEEK vs WIP LIMIT', sweep.map(p => p.throughputPerWeek), C.accent, true);
+  if(narrow) y += chH + 24;
+  chart(narrow ? PAD : PAD * 2 + chW, 'CYCLE TIME P85 (DAYS) vs WIP LIMIT', sweep.map(p => p.cycleP85), C.err, false);
+  y += chH + 16;
+
+  const H = y + 4;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"' +
+    ' role="img" aria-label="' + esc(readoutVerdict(result)) + '">' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
+}
+
+const gbp = n => '£' + Math.round(n).toLocaleString('en-GB');
+const wk = days => {                       // 5 working days per week, as in the engine
+  const w = days / 5;
+  const v = w < 10 ? Math.round(w * 10) / 10 : Math.round(w);
+  return v + (v === 1 ? ' week' : ' weeks');
+};
+
+/* ---- expedite lane: a service-class trade, not a capacity claim ---- */
+export function renderExpedite(reading, ctx){
+  const C = ctx.colors, s = [], dayRate = n => n == null ? 'not enough completed items' : day(n.mean);
+  const standard = reading.standard;
+  const exp = reading.expedite;
+  const tax = standard && exp ? standard.mean - exp.mean : 0;
+  let y = PAD + 20;
+  const off = reading.effectivePerWeek < .05;
+  const head = off ? 'No priority lane: standard work is the one queue.' :
+    'Expedited work averages <tspan font-weight="700">' + esc(dayRate(exp)) + '</tspan>; standard work averages <tspan font-weight="700">' + esc(dayRate(standard)) + '</tspan>.';
+  const plain = off ? 'No priority lane: standard work is the one queue.' :
+    'Expedited work averages ' + dayRate(exp) + '; standard work averages ' + dayRate(standard) + '.';
+  s.push(txt(PAD, y, 'EXPEDITE LANE — THE COST OF "JUST THIS ONCE"', 10, C.muted, {weight: 600, tracking: 1})); y += 30;
+  s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' + head + '</text>'); y += 24;
+  const sub = off ? 'Turn on a small priority arrival rate to make the service-class trade visible.' :
+    'The lane uses the same people and WIP. The ' + (tax > 0 ? day(tax) + ' gap is waiting shifted onto standard work.' : 'difference is sampled queue variation, not extra capacity.');
+  s.push(txt(PAD, y, sub, 12.5, tax > 0 ? C.err : C.muted, tax > 0 ? {weight: 600} : {})); y += 30;
+  const rows = [
+    ['EXPEDITED', exp, C.accent],
+    ['STANDARD', standard, C.err],
+  ];
+  const max = Math.max(1, ...rows.map(([, r]) => r?.p85 || 0));
+  rows.forEach(([label, r, colour], i) => {
+    const ry = y + i * 48, value = r ? r.mean : 0, p85 = r ? r.p85 : 0;
+    s.push(txt(PAD, ry + 12, label, 10, C.muted, {weight: 600, tracking: 1}));
+    s.push('<rect x="' + (PAD + 150) + '" y="' + ry + '" width="' + (W - PAD * 2 - 260) + '" height="18" fill="' + C.track + '"/>');
+    s.push('<rect x="' + (PAD + 150) + '" y="' + ry + '" width="' + f1(Math.max(2, value / max * (W - PAD * 2 - 260))) + '" height="18" fill="' + colour + '"/>');
+    s.push('<line x1="' + f1(PAD + 150 + p85 / max * (W - PAD * 2 - 260)) + '" y1="' + (ry - 3) + '" x2="' + f1(PAD + 150 + p85 / max * (W - PAD * 2 - 260)) + '" y2="' + (ry + 21) + '" stroke="' + C.ink + '" stroke-width="1"/>');
+    s.push(txt(W - PAD, ry + 13, r ? day(r.mean) + ' mean · P85 ' + day(r.p85) : 'no completed items', 11.5, C.ink, {anchor: 'end', weight: 600}));
+  });
+  y += 112;
+  s.push(txt(PAD, y, 'Priority arrival rate ' + f1(reading.effectivePerWeek) + '/week · total throughput ' + f1(reading.throughputPerWeek) + '/week', 11.5, C.muted));
+  const H = y + 26;
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + FONT + '" role="img" aria-label="' + esc(plain + ' ' + sub) + '"><rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
+}
+
+/* ---- dependent dice: local averages do not sum to a predictable system ---- */
+export function renderDice(game, ctx){
+  const C = ctx.colors, s = [], n = game.stations;
+  let y = PAD + 20;
+  const average = game.delivered / game.days;
+  const head = 'Every station averages about <tspan font-weight="700">' + game.averageRoll + '</tspan> units/day; the system delivered <tspan font-weight="700">' + f1(average) + '</tspan>.';
+  const plain = 'Every station averages about ' + game.averageRoll + ' units/day; the system delivered ' + f1(average) + '.';
+  s.push(txt(PAD, y, 'DEPENDENT DICE — LOCAL CAPACITY IS NOT FLOW', 10, C.muted, {weight: 600, tracking: 1})); y += 30;
+  s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' + head + '</text>'); y += 24;
+  const sub = game.finalWip ? game.finalWip + ' items are stranded between dependent steps after ' + game.days + ' days.' : 'The short run happened to clear every buffer; run another game to see the variation.';
+  s.push(txt(PAD, y, sub, 12.5, game.finalWip ? C.err : C.muted, game.finalWip ? {weight: 600} : {})); y += 34;
+  const gap = 16, cardW = (W - PAD * 2 - gap * (n - 1)) / n;
+  for(let i = 0; i < n; i++){
+    const x = PAD + i * (cardW + gap);
+    s.push('<rect x="' + f1(x) + '" y="' + y + '" width="' + f1(cardW) + '" height="76" fill="' + C.bg + '" stroke="' + C.border + '"/>');
+    s.push(txt(x + 10, y + 17, 'STEP ' + (i + 1), 10, C.muted, {weight: 600, tracking: 1}));
+    s.push(txt(x + 10, y + 40, f1(game.realisedAverage[i]) + ' avg roll', 14, C.ink, {weight: 700}));
+    s.push(txt(x + 10, y + 60, i < n - 1 ? game.buffers[i] + ' waiting after' : game.delivered + ' delivered', 10.5, i < n - 1 && game.buffers[i] ? C.err : C.muted));
+    if(i < n - 1) s.push('<line x1="' + f1(x + cardW) + '" y1="' + (y + 38) + '" x2="' + f1(x + cardW + gap) + '" y2="' + (y + 38) + '" stroke="' + C.muted + '" stroke-dasharray="3 3"/>');
+  }
+  y += 102;
+  const chH = 60, maxWip = Math.max(1, ...game.daily.map(d => d.wip));
+  s.push(txt(PAD, y, 'WORK WAITING BETWEEN STEPS', 10, C.muted, {weight: 600, tracking: 1})); y += 10;
+  const bw = (W - PAD * 2) / game.daily.length;
+  game.daily.forEach((d, i) => { const h = d.wip / maxWip * chH; if(h) s.push('<rect x="' + f1(PAD + i * bw + 1) + '" y="' + f1(y + chH - h) + '" width="' + f1(Math.max(1, bw - 2)) + '" height="' + f1(h) + '" fill="' + C.err + '"/>'); });
+  y += chH + 18;
+  s.push(txt(PAD, y, 'One sampled run · same local distribution at each step · dependencies turn variation into waiting.', 11.5, C.muted));
+  const H = y + 26;
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + FONT + '" role="img" aria-label="' + esc(plain + ' ' + sub) + '"><rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
+}
+
+/* ---- batch-size U-curve (#75): pure SVG, same visual grammar as the readout ---- */
+export function renderBatch(econ, params, ctx){
+  const C = ctx.colors;
+  const s = [];
+  let y = PAD + 6;
+  s.push(txt(PAD, y + 14, 'THE ECONOMICS OF YOUR BATCH', 10, C.muted, {weight: 600, tracking: 1}));
+  y += 38;
+  const batchHead = 'Economic batch ≈ ' + econ.optimum + (econ.optimum === 1 ? ' item' : ' items') +
+    ' — about ' + wk(econ.optimumWeeks * 5) + ' of demand per release.';
+  s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' +
+    'Economic batch ≈ <tspan font-weight="700">' + econ.optimum +
+    (econ.optimum === 1 ? ' item' : ' items') + '</tspan> — about ' +
+    esc(wk(econ.optimumWeeks * 5)) + ' of demand per release.' + '</text>');
+  y += 24;
+  const meaningfulPenalty = econ.penaltyPerItem >= 0.5;
+  const batchSub = meaningfulPenalty
+    ? 'Your batch of ' + econ.currentBatch + ' costs ' + gbp(econ.penaltyPerItem) +
+      ' more per item — ≈ ' + gbp(econ.penaltyPerWeek) + '/week left on the table.'
+    : 'Your batch of ' + econ.currentBatch + ' is at the economic batch already — nothing left on the table.';
+  s.push(txt(PAD, y, batchSub, 12.5, meaningfulPenalty ? C.err : C.muted, meaningfulPenalty ? {weight: 600} : {}));
+  y += 26;
+
+  const chW = W - PAD * 2, chH = 170, top = y;
+  const maxB = econ.curve.length;
+  const maxV = Math.max(...econ.curve.map(p => p.total)) * 1.08;
+  const sx = b => PAD + (b - 1) / (maxB - 1) * chW;
+  const sy = v => top + (chH - 30) * (1 - v / maxV);
+  s.push('<rect x="' + PAD + '" y="' + top + '" width="' + chW + '" height="' + (chH - 30) +
+    '" fill="none" stroke="' + C.border + '"/>');
+  const line = (key, colour, width, dash) =>
+    s.push('<polyline points="' + econ.curve.map(p => f1(sx(p.batch)) + ',' + f1(sy(p[key]))).join(' ') +
+      '" fill="none" stroke="' + colour + '" stroke-width="' + width + '"' +
+      (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>');
+  line('transaction', C.muted, 1.5, '2 5');
+  line('holding', C.muted, 1.5, '7 3');
+  line('total', C.accent, 2.5);
+  const last = econ.curve[maxB - 1];
+  s.push(txt(PAD + chW - 6, sy(last.transaction) - 5, 'transaction cost / item', 10.5, C.muted, {anchor: 'end'}));
+  s.push(txt(PAD + chW - 6, sy(last.holding) - 5, 'holding cost / item', 10.5, C.muted, {anchor: 'end'}));
+  const ox = sx(econ.optimum), oy = sy(econ.optimumCost);
+  s.push('<circle cx="' + f1(ox) + '" cy="' + f1(oy) + '" r="4.5" fill="' + C.accent +
+    '" stroke="' + C.card + '" stroke-width="1.5"/>');
+  s.push(txt(ox + 7, oy - 7, 'economic batch: ' + econ.optimum, 10.5, C.ink, {weight: 600}));
+  const cx = sx(Math.min(maxB, econ.currentBatch));
+  s.push('<line x1="' + f1(cx) + '" y1="' + top + '" x2="' + f1(cx) + '" y2="' + (top + chH - 30) +
+    '" stroke="' + (meaningfulPenalty ? C.err : C.muted) + '" stroke-width="1" stroke-dasharray="3 3"/>');
+  s.push(txt(cx + 5, top + 12, 'yours: ' + econ.currentBatch, 10.5, meaningfulPenalty ? C.err : C.muted, {weight: 600}));
+  s.push(txt(PAD, top + chH - 8, '1 item per batch', 10, C.muted));
+  s.push(txt(PAD + chW, top + chH - 8, maxB + ' items', 10, C.muted, {anchor: 'end'}));
+  s.push(txt(PAD, top - 6, gbp(maxV) + ' / item', 10, C.muted));
+  y = top + chH + 8;
+
+  const H = y;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"' +
+    ' role="img" aria-label="' + esc(batchHead + ' ' + batchSub) + '">' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
+}
+
+/* ---- queue triage (#65): ranked levers, drain-or-lead framing ---- */
+export function renderTriage(triage, params, initialBacklog, ctx){
+  const C = ctx.colors;
+  const s = [];
+  let y = PAD + 6;
+  const drainMode = triage.mode === 'drain';
+  const top0 = triage.levers[0];
+  s.push(txt(PAD, y + 14, 'QUEUE TRIAGE — WHICH LEVER FIRST', 10, C.muted, {weight: 600, tracking: 1}));
+  y += 38;
+  let head, headPlain;
+  if(drainMode){
+    if(top0.drainDays == null){
+      head = 'No single lever clears this pile — cut intake <tspan font-weight="700">and</tspan> add capacity.';
+      headPlain = 'No single lever clears this pile — cut intake and add capacity.';
+    } else if(triage.base.drainDays == null){
+      head = 'Today the pile <tspan font-weight="700">never clears</tspan>. ' +
+        esc(top0.label) + ' clears it in <tspan font-weight="700">' + esc(wk(top0.drainDays)) + '</tspan>.';
+      headPlain = 'Today the pile never clears. ' + top0.label + ' clears it in ' + wk(top0.drainDays) + '.';
+    } else {
+      head = 'Fastest way out: <tspan font-weight="700">' + esc(top0.label) + '</tspan> — the pile clears in ' +
+        '<tspan font-weight="700">' + esc(wk(top0.drainDays)) + '</tspan> instead of ' +
+        esc(wk(triage.base.drainDays)) + '.';
+      headPlain = 'Fastest way out: ' + top0.label + ' — the pile clears in ' + wk(top0.drainDays) +
+        ' instead of ' + wk(triage.base.drainDays) + '.';
+    }
+  } else {
+    head = 'Best lever for lead time: <tspan font-weight="700">' + esc(top0.label) + '</tspan>' +
+      ' — P85 goes from ' + esc(day(triage.base.leadP85)) + ' to <tspan font-weight="700">' +
+      esc(day(top0.leadP85)) + '</tspan>.';
+    headPlain = 'Best lever for lead time: ' + top0.label + ' — P85 goes from ' + day(triage.base.leadP85) +
+      ' to ' + day(top0.leadP85) + '.';
+  }
+  s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' + head + '</text>');
+  y += 22;
+  const sub = drainMode
+    ? 'Ranked by time to clear the backlog of ' + initialBacklog + ' — steady-state P85 lead breaks ties.'
+    : 'Queue is healthy — ranked by steady-state P85 lead time.';
+  s.push(txt(PAD, y, sub, 12.5, C.muted));
+  y += 22;
+
+  const labW = 250, barX = PAD + labW, barW = W - PAD - barX - 130, rowH = 34;
+  const val = l => drainMode ? l.drainDays : l.leadP85;
+  const finite = triage.levers.map(val).filter(v => v != null);
+  const baseVal = drainMode ? triage.base.drainDays : triage.base.leadP85;
+  if(baseVal != null) finite.push(baseVal);
+  const maxV = Math.max(...finite, 1) * 1.05;
+  triage.levers.forEach((l, i) => {
+    const ry = y + i * rowH, rec = l.id === triage.recommended;
+    s.push(txt(PAD, ry + 15, l.label, 12.5, rec ? C.ink : C.muted, rec ? {weight: 700} : {}));
+    const v = val(l);
+    if(v == null){
+      s.push('<rect data-bar="' + l.id + '" x="' + barX + '" y="' + (ry + 4) + '" width="' + barW +
+        '" height="16" rx="3" fill="none" stroke="' + C.err + '" stroke-dasharray="4 3"/>');
+      s.push(txt(barX + barW + 8, ry + 16, 'never drains', 11.5, C.err, {weight: 600}));
+    } else {
+      const bw = Math.max(3, v / maxV * barW);
+      s.push('<rect data-bar="' + l.id + '" x="' + barX + '" y="' + (ry + 4) + '" width="' + f1(bw) +
+        '" height="16" rx="3" fill="' + (rec ? C.accent : C.track) + '"' +
+        (rec ? '' : ' stroke="' + C.border + '"') + '/>');
+      s.push(txt(barX + bw + 8, ry + 16, drainMode ? wk(v) : day(v) + ' P85', 11.5,
+        rec ? C.ink : C.muted, rec ? {weight: 600} : {}));
+    }
+  });
+  const rowsH = triage.levers.length * rowH;
+  if(baseVal != null){
+    const bx = barX + baseVal / maxV * barW;
+    s.push('<line x1="' + f1(bx) + '" y1="' + (y - 2) + '" x2="' + f1(bx) + '" y2="' + (y + rowsH - 6) +
+      '" stroke="' + C.ink + '" stroke-width="1" stroke-dasharray="3 3"/>');
+    s.push(txt(bx + 5, y + rowsH - 8, 'today', 10, C.muted));
+  }
+  y += rowsH + 10;
+
+  const H = y;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"' +
+    ' role="img" aria-label="' + esc(headPlain + ' ' + sub) + '">' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
+}
+
+export function markdownSummary(result, sweep, knee, params, extras){
+  const lines = [];
+  lines.push('**Flow check** — demand ' + params.demandPerWeek + '/week · item ~' + params.itemDays +
+    ' days · team ' + params.team + ' · WIP limit ' + params.wipLimit);
+  lines.push('');
+  lines.push('The average item takes **' + day(result.lead.mean) + '** — ' + day(result.workDays) +
+    ' working, ' + day(result.waitDays) + ' waiting. P85 ' +
+    day(result.lead.p85) + ', P95 ' + day(result.lead.p95) + '.');
+  lines.push('Throughput ' + f1(result.throughputPerWeek) + '/week · team busy ' +
+    Math.round(result.utilisation * 100) + '%.');
+  if(!result.stable){
+    lines.push('**Backlog growing ~' + f1(result.backlogSlopePerWeek) +
+      '/week — demand exceeds capacity; reduce intake or add capacity.**');
+  }
+  lines.push('WIP ' + knee + ' keeps ≥95% of max throughput; beyond it you buy cycle time, not delivery.');
+  if(extras && extras.econ){
+    const e = extras.econ;
+    lines.push('');
+    lines.push('**Economic batch ≈ ' + e.optimum + (e.optimum === 1 ? ' item' : ' items') + '**' +
+      (e.penaltyPerItem >= 0.5
+        ? ' — the current batch of ' + e.currentBatch + ' costs ~' + gbp(e.penaltyPerItem) +
+          ' more per item (≈ ' + gbp(e.penaltyPerWeek) + '/week).'
+        : ' — the current batch of ' + e.currentBatch + ' is already there.'));
+  }
+  if(extras && extras.triage){
+    const t = extras.triage, top = t.levers[0];
+    lines.push('');
+    if(t.mode === 'drain'){
+      lines.push('**Queue triage** (backlog of ' + (extras.initialBacklog ?? 0) + '): fastest lever is ' +
+        top.label.toLowerCase() + ' — ' + (top.drainDays == null
+          ? 'even that never clears the pile; combine levers.'
+          : 'the pile clears in ' + wk(top.drainDays) +
+            (t.base.drainDays == null ? ' (today it never clears).' : ' vs ' + wk(t.base.drainDays) + ' today.')));
+    } else {
+      lines.push('**Queue triage:** best lever is ' + top.label.toLowerCase() + ' — P85 lead ' +
+        day(t.base.leadP85) + ' → ' + day(top.leadP85) + '.');
+    }
+  }
+  if(extras && extras.expedite){
+    const e = extras.expedite;
+    lines.push('');
+    if(e.expedite && e.standard){
+      lines.push('**Expedite lane:** expedited work averages ' + day(e.expedite.mean) +
+        '; standard work averages ' + day(e.standard.mean) + '. This is a priority trade within the same people and WIP, not extra capacity.');
+    } else {
+      lines.push('**Expedite lane:** no priority arrival is being modelled; standard work is the one queue.');
+    }
+  }
+  if(extras && extras.dice){
+    const d = extras.dice;
+    lines.push('');
+    lines.push('**Dependent dice:** local steps averaged about ' + d.averageRoll + ' units/day; this sampled run delivered ' +
+      f1(d.delivered / d.days) + '/day and left ' + d.finalWip + ' items waiting between steps. It demonstrates dependency, not a team forecast.');
+  }
+  lines.push('');
+  lines.push('_Seeded queue simulation · [live playground](' +
+    (typeof location !== 'undefined' ? location.href : 'https://tools.matthewgarner.me/flow/') + ')_');
+  return lines.join('\n');
+}

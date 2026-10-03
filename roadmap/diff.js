@@ -1,7 +1,7 @@
 /* Roadmap comparison is pure and source-derived. Duplicate visible titles are
    deliberately ambiguous because the DSL has no stable ID that could justify a
    moved badge; additions and removals remain visible without inventing identity. */
-import {diffItems} from '../assets/snapshots.js';
+import {diffItems} from '../assets/diff-items.js';
 
 const flatHorizon = model => model.items.map(item => ({
   title: item.title,

@@ -1,6 +1,8 @@
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('predictions','thinking-lab:predictions:v2');
 import{mountShell}from'../shared/shell.js?v=0.22.0';
 import{attachCardDrag}from'../shared/drag.js?v=0.21.0';
-import{readStore,writeStore,downloadText}from'../shared/utils.js?v=0.21.0';
+import{readStore,writeStore,downloadText}from'../shared/utils.js?v=0.24.0';
 import{lineChart}from'../model-kit/chart.js?v=0.21.0';
 import{create,validate,simulate,compareSharing,upgradeSettings,threshold,COUNT}from'./engine.js?v=0.21.0';
 mountShell({active:'predictions'});

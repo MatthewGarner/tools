@@ -21,3 +21,10 @@ tidiness alone.
 Use `dev/tool-dirs.mjs` for registration, `dev/origins.mjs` for origin decisions,
 and the existing test suites as the completion checklist. Treat product examples as
 fictional or generic.
+
+Start with `node dev/new-tool.mjs <id> <title>` for the shared full-app/article
+scaffold. Every registered tool must own a bounded definition and useful default
+article view; the catalogue gate enforces this. Follow [embed/README.md](../../embed/README.md)
+for model isolation, preview, immutable release, and article generation. Remove the
+starter's draft marker only after replacing its example semantics and completing
+native registration and checks.

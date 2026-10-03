@@ -26,6 +26,8 @@ export const FILTER_TOOLS = {
 const all = TOOL_ROOTS;
 export const SUITE_TOOLS = {
   ...FILTER_TOOLS,
+  'standard-embeds.mjs': all,
+  'lab-article-origin.mjs': LAB_ROUTES.map(t => 'lab/dist/' + t),
   'lab-migration.mjs': LAB_ROUTES.map(t => 'lab/dist/' + t),
   'backup.mjs': all, 'suite.mjs': all, 'recent-work.mjs': all, 'templates.mjs': all, 'identity.mjs': all,
   'design-bar.mjs': all,
