@@ -24,6 +24,8 @@ npm run gate
 
 The gate runs the existing model/export tests, Lab’s mechanism tests, SVG goldens and browser journeys. Source inventories live in `dev/tool-dirs.mjs`, `lab/dist/shared/catalog.js` and `dev/suite-pages.mjs`. `dev/generate-catalogue.mjs` checks that the combined catalogue covers them; collection membership does not create a second copy of a tool.
 
+For focused demonstrations inside writing, follow [the article embed guide](embed/README.md): supported views, example manifests, matching static figures and the cross-repository publishing workflow.
+
 ## State and maintenance
 
 Models can live in URLs, local drafts, named saves or Lab workspaces. `/backup/` exports this browser origin’s saved work and previews an import before changing it. Existing items are kept by default; replacement requires a pre-import recovery copy. Export on the old address first. Product and Lab work can move to Tools Lab; Energy work stays on Energy. Mixed files import the compatible items and link to the remaining destinations. Keep share links for work held only in a URL. Backup transports damaged saved values too; it does not repair them.

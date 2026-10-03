@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Flow — demand and waiting</title>
+  <link rel="stylesheet" href="../../../assets/tokens.css">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main id="demo">
+    <header><p class="eyebrow">Flow · interactive example</p><h1>How demand creates waiting</h1></header>
+    <p id="error" role="alert" hidden></p>
+    <div id="content" hidden>
+      <div class="control" id="demand-control">
+        <label for="demand">Demand <output id="demand-value" for="demand"></output></label>
+        <input id="demand" type="range" min="0.5" max="10" step="0.5" value="8" aria-label="Demand, items per week">
+      </div>
+      <div id="chart"></div>
+      <p id="result" class="result" aria-live="polite" aria-atomic="true"></p>
+      <p id="assumptions" class="note"></p>
+      <p class="note">One queue, random arrivals and variable item sizes. A fixed simulation illustrates the mechanism; it is not a delivery forecast.</p>
+      <footer><button id="reset" type="button">Reset example</button><a id="full-tool" target="_blank" rel="noopener noreferrer">Open full Flow ↗</a></footer>
+    </div>
+    <noscript><p>This demonstration needs JavaScript. <a href="https://tools.matthewgarner.me/flow/" target="_blank" rel="noopener noreferrer">Open Flow</a>.</p></noscript>
+  </main>
+</body>
+</html>

@@ -51,6 +51,8 @@ function pageLoad(page){
 }
 
 const PAGES = {
+  // Article demos carry a frozen model and focused shell, with no identity fonts.
+  'embed/v1/flow/index.html': 40_000,
   // 2026-09 design bar: complete Alarm/Energy export receipts, faithful Flow
   // queue states, readable Bets/Premortem phone artefacts and native Energy
   // controls. Measured loads: Flow147k, Alarm117.2k, Premortem134.1k, Bets583k,
@@ -573,7 +575,7 @@ test('no orphaned shipped modules', () => {
   ['home/sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
   for(const file of COMPATIBILITY_MODULES) moduleGraph(file, reachable);
   const orphans = [];
-  const DIRS = [...TOOL_DIRS, 'energy', 'home', 'explore', 'backup', 'assets'];   // was missing 'wardley' — the orphan check couldn't see the newest tool
+  const DIRS = [...TOOL_DIRS, 'energy', 'home', 'explore', 'backup', 'assets', 'embed'];
   for(const d of DIRS){
     (function walk(dir){
       for(const f of readdirSync(join(ROOT, dir))){

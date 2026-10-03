@@ -18,6 +18,7 @@ import {LAB_ROUTES} from './suite-pages.mjs';
    rows (the test prints the exact shape). */
 export const ENERGY_HOST = 'energy.matthewgarner.me';
 export const TOOLS_HOST = 'tools.matthewgarner.me';
+export const EMBED_ROUTES = ['/embed/v1/flow'];
 
 export const ENERGY_ROUTES = [
   {from: '/risk/', to: '/energy/risk/'},
@@ -109,7 +110,7 @@ export function energyRedirectSources(){
    URLs then resolve at the site root. Canonicalise every bare tool URL before
    that filesystem handling happens; this applies to previews too. */
 export function toolRedirectSources(){
-  return [...TOOL_DIRS.map(name => '/' + name),'/product','/explore','/lab','/backup',...LAB_ROUTES.map(name=>'/lab/'+name)];
+  return [...TOOL_DIRS.map(name => '/' + name),'/product','/explore','/lab','/backup',...LAB_ROUTES.map(name=>'/lab/'+name),...EMBED_ROUTES];
 }
 
 export function vercelRedirects(){
