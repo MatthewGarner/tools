@@ -1,6 +1,43 @@
 import assert from 'node:assert/strict';
 
+export async function verifyLabWorkspaceLinks(browser,base,out){
+ // Each bespoke workbench must consume the catalogue pointer, as the shared kits do.
+ for(const route of ['constraints','analogy']){
+  const ctx=await browser.newContext({serviceWorkers:'block',reducedMotion:'reduce'}),page=await ctx.newPage(),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  try{
+   const key=`thinking-lab:${route}:v1`,first=`${route} saved workspace one`,second=`${route} saved workspace two`;
+   await page.goto(`${base}/lab/${route}/`);await page.locator('#problem').fill(first);
+   await page.getByRole('button',{name:'New',exact:true}).click();await page.locator('#problem').fill(second);
+   await page.waitForFunction(({key,second})=>JSON.parse(localStorage.getItem(key))?.workspaces.some(w=>w.problem===second),{key,second});
+   const before=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
+   await page.goto(base+'/');await page.getByLabel('Find saved work',{exact:true}).fill(first);
+   await page.locator('[data-work-kind=workspace]').filter({hasText:first}).click();
+   assert.equal(await page.locator('#problem').inputValue(),first,route+' catalogue link resumes the selected workspace');
+   assert.equal(new URL(page.url()).search,'',route+' workspace pointer is consumed');
+   if(out)for(const width of [1440,390])for(const theme of ['light','dark']){
+    await page.setViewportSize({width,height:width===390?844:1000});await page.emulateMedia({colorScheme:theme});await page.evaluate(()=>document.fonts.ready);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' resumed work overflow');
+    await page.screenshot({path:`${out}/regular-resume-${route}-${width}-${theme}.png`});
+   }
+   await page.locator('#problem').fill(first+' edited');
+   await page.waitForFunction(({key,first})=>JSON.parse(localStorage.getItem(key))?.workspaces.some(w=>w.problem===first+' edited'),{key,first});
+   const after=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
+   assert.equal(after.workspaces.length,before.workspaces.length);
+   assert.deepEqual(after.workspaces.find(w=>w.id===before.activeId),before.workspaces.find(w=>w.id===before.activeId),route+' other workspace stays unchanged');
+   await page.getByRole('button',{name:'New',exact:true}).click();await page.locator('#problem').fill('A later workspace');await page.reload();
+   assert.equal(await page.locator('#problem').inputValue(),'A later workspace',route+' consumed pointer cannot replace later work');
+   await page.goto(`${base}/lab/${route}/?work=missing`);
+   await page.getByText('That workspace is no longer available here. Your current work is open.',{exact:true}).waitFor();
+   assert.equal(await page.locator('#problem').inputValue(),'A later workspace');assert.equal(new URL(page.url()).search,'');
+   assert.deepEqual(errors,[],route+' page errors');
+  }finally{await ctx.close();}
+ }
+ console.log('PASS Constraints and Analogy catalogue resume, isolation, consumed and missing pointers');
+}
+
 export async function verifyRegularWork(browser,base,out){
+ await verifyLabWorkspaceLinks(browser,base,out);
  const ctx=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce',serviceWorkers:'block'}),page=await ctx.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  try{

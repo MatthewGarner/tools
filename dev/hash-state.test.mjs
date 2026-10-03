@@ -84,6 +84,28 @@ test('a decompression bomb is refused, not parsed', async () => {
   assert.equal(await decodeHash(bomb), null);
 });
 
+test('oversize decompression stops reading at the limit instead of buffering the whole payload', async () => {
+  const NativeStream = globalThis.DecompressionStream;
+  let produced = 0, cancelled = false;
+  // A streaming witness makes the memory boundary observable without allocating
+  // a dangerous-sized bomb in the test process.
+  globalThis.DecompressionStream = class {
+    writable = new WritableStream();
+    readable = new ReadableStream({
+      pull(controller){
+        if(++produced <= 20) controller.enqueue(new Uint8Array(1_000_000));
+        else controller.close();
+      },
+      cancel(){ cancelled = true; },
+    });
+  };
+  try {
+    assert.equal(await decodeHash('z:AA'), null);
+    assert.ok(produced <= 6, 'stop inflating after the first chunk past 4MB');
+    assert.equal(cancelled, true, 'cancel the oversized decompression stream');
+  } finally { globalThis.DecompressionStream = NativeStream; }
+});
+
 test('base64url chunking survives >32KB payloads byte-for-byte', async () => {
   const rnd = mulberry32(7);
   const noise = Array.from({length: 120000}, () => (rnd() * 16 | 0).toString(16)).join('');

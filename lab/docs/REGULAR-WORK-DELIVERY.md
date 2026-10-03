@@ -30,3 +30,12 @@ favourites and storage failures, reassessment, test results and reload. Desktop
 outputs remain identical. The initial browser assertions were corrected to await
 native dialog repaints and autosave completion rather than earlier DOM presence.
 No new tools or cross-tool workflows are included.
+
+3 October audit follow-up (implemented, awaiting release): Constraint playground
+and Analogy workshop now consume catalogue workspace links through the shared
+resume helper. Their bespoke shells previously ignored the pointer and opened the
+last active workspace. The browser regression first failed with workspace two
+where workspace one was requested; it now passes for both tools, including edit
+isolation, reload after New, and missing-workspace recovery. Desktop 1440px and
+phone 390px captures in both themes were inspected without overflow. The prior
+Lab baseline passed all 276 Node tests; no model or stored-work format changed.

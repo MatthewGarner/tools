@@ -59,3 +59,45 @@ test('organisation and templates survive backup, routed to their owning origin',
  const lab=partitionArchive(archive,'thinking-lab-experiments.matthewg12.chatgpt.site');assert.equal(lab.archive.entries.length,3);
  assert.equal(isOwnedKey('mg:template:v1:lab:unknown:token'),false);assert.equal(isOwnedKey('mg:work-meta:v1:tools:__proto__'),false);
 });
+test('discarded baselines do not accumulate generated dates until backup stops working',()=>{
+ const storage=memory();let baselines=[];
+ for(let n=1;n<=500;n++){
+  baselines=[...baselines,{label:`Baseline ${n}`,src:`title: Version ${n}`}].slice(-20);
+  saveTrackedWork(storage,'roadmap-snaps',JSON.stringify(baselines),n);
+ }
+ const archive=exportArchive(storage,{origin:'https://tools.matthewgarner.me'});
+ assert.equal(archive.entries.length,21);assert.equal(work(storage).length,20);
+ assert.ok(work(storage).every(record=>record.savedAt>=481));
+});
+test('metadata cleanup preserves explicit organisation and only follows a successful native save',()=>{
+ const key='roadmap-snaps',baseline={label:'Before',src:'title: Before'},storage=memory();
+ saveTrackedWork(storage,key,JSON.stringify([baseline]),1000);
+ const saved=work(storage)[0];organiseWork(storage,saved,{name:'Review baseline',pinned:true,archived:true});
+ saveTrackedWork(storage,key,'[]',2000);
+ // Undo can restore a record's explicitly authored organisation.
+ saveTrackedWork(storage,key,JSON.stringify([baseline]),3000);
+ assert.equal(work(storage)[0].name,'Review baseline');assert.equal(work(storage)[0].archived,true);
+ const before=[...storage.map],write=storage.setItem;
+ storage.setItem=(k,value)=>{if(k===key)throw Error('Full');write(k,value);};
+ assert.throws(()=>saveTrackedWork(storage,key,'[]',4000),/Full/);assert.deepEqual([...storage.map],before);
+});
+test('keeping conflicting work also keeps its organisation instead of applying backup names and archives',()=>{
+ const source=memory({'roadmap-src':'title: Old plan','tree-src':'title: Separate work'});
+ for(const record of work(source))organiseWork(source,record,{name:'Backup '+record.name,archived:true});
+ const archive=exportArchive(source,{origin:'https://tools.matthewgarner.me'});
+ const local=memory({'roadmap-src':'title: Current plan'}),plan=previewImport(local,archive);
+ applyImport(local,plan);
+ const current=work(local).find(record=>record.key==='roadmap-src');
+ assert.equal(current.name,'Current plan');assert.equal(current.archived,false);
+ assert.equal(work(local).find(record=>record.key==='tree-src').archived,true,'independent added work retains its metadata');
+ const replacement=previewImport(local,archive);applyImport(local,replacement,{replace:true,backupDownloaded:true});
+ assert.equal(work(local).find(record=>record.key==='roadmap-src').name,'Backup Old plan');
+ assert.equal(work(local).find(record=>record.key==='roadmap-src').archived,true);
+});
+test('skipped Premortem conflict groups also skip organisation of incoming registers',()=>{
+ const key='premortem:example-lantern',source=memory({'premortem:index':JSON.stringify([{id:'example-lantern',title:'Incoming register'}]),[key]:JSON.stringify({id:'example-lantern'})});
+ organiseWork(source,work(source)[0],{archived:true,name:'Incoming archive'});
+ const archive=exportArchive(source,{origin:'https://tools.matthewgarner.me'});
+ const local=memory({'premortem:index':'[]'}),before=[...local.map];
+ applyImport(local,previewImport(local,archive));assert.deepEqual([...local.map],before);
+});

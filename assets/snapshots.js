@@ -63,7 +63,8 @@ export function wireSnapshots({store, parse, getSrc, makeLabel, els, onChange, c
     if(idx === '') return null;
     const sn = store.load()[+idx];
     if(!sn) return null;
-    const key = idx + '|' + sn.src.length + '|' + sn.label;
+    // Capped lists reuse indices; equal-length edits can share a date/title too.
+    const key = workToken(sn);
     if(!cache.has(key)) cache.set(key, parse(sn.src));
     return {label: sn.label, model: cache.get(key)};
   }

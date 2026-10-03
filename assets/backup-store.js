@@ -140,9 +140,21 @@ export function previewImport(storage, input) {
   const current = new Map(before.map(entry => [entry.key, entry.value]));
   const incomingRegisters = premortem(archive.entries), existingRegisters = premortem(before);
   const registerConflict = incomingRegisters.length > 0 && existingRegisters.length > 0 && !same(incomingRegisters, existingRegisters);
-  const rows = archive.entries.map(entry => {
+  const statuses = new Map(archive.entries.map(entry => {
     const previous = current.get(entry.key);
     const status = registerConflict && entry.key.startsWith('premortem:') ? 'conflict' : previous === entry.value ? 'same' : previous === undefined ? 'add' : 'conflict';
+    return [entry.key,status];
+  }));
+  const conflicts = archive.entries.filter(entry => statuses.get(entry.key) === 'conflict' && !WORK_META_KEY.test(entry.key));
+  const rows = archive.entries.map(entry => {
+    let status = statuses.get(entry.key);
+    if (WORK_META_KEY.test(entry.key) && status === 'add') {
+      let meta; try { meta = JSON.parse(entry.value); } catch { /* Opaque damaged values remain recoverable. */ }
+      // Keeping a native store must also keep its catalogue identity: importing
+      // an absent metadata key could otherwise rename or archive different work.
+      if (plain(meta) && typeof meta.ref === 'string' && conflicts.some(owner => meta.ref.startsWith(owner.key + ':')))
+        status = 'conflict';
+    }
     return Object.freeze({key:entry.key, name:keyLabel(entry.key, entry.value), status, bytes:bytes(entry.value)});
   });
   const plan = Object.freeze({origin:archive.origin, createdAt:archive.createdAt, rows:Object.freeze(rows), registerConflict});

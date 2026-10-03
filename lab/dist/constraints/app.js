@@ -1,3 +1,4 @@
+import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {saveTrackedWork} from '../shared/work-storage.js?v=0.23.0';
 import {createTemplates} from '../shared/templates.js?v=0.23.0';
 import {adaptationsPanel, refreshAdaptations} from './adaptations-ui.js?v=0.21.0';
@@ -10,6 +11,7 @@ mountShell({active: 'constraints'});
 const root = document.querySelector('#app'), dialog = document.querySelector('#dialog');
 let history = createHistory(initialState()), timer, toastTimer, dragDestroy, fitDragDestroy, opener, pendingFocus, paused = false, recovery = null, saveMessage = 'Saved on this device';
 try { const raw = localStorage.getItem(KEY); if (raw) {try {history = createHistory(validateState(JSON.parse(raw)));} catch {recovery = raw; paused = true; saveMessage = 'Saved data needs recovery';}} } catch {saveMessage = 'Saving unavailable · export a copy';}
+const resumed=resumeWorkspace(history.present);history=createHistory(resumed.state);consumeWorkPointer();
 const state = () => history.present, workspace = () => active(state());
 const uid = () => crypto.randomUUID?.() || `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const title = value => (value.problem.trim() || 'Untitled problem').replace(/\s+/g, ' ');
@@ -116,4 +118,4 @@ dialog.addEventListener('click', event => {if (event.target === dialog) {const b
 document.querySelector('#file').addEventListener('change', async event => {const file = event.target.files?.[0]; if (!file) return; try {if (file.size > 16000000) throw new Error('Choose a JSON file under 16 MB.'); const imported = parse(await file.text()); dialog.close(); if (act({type:'import', id:uid(), workspace:imported})) toast('Playground imported. Existing work is preserved.');} catch(error) {toast(error.message);} event.target.value = '';});
 window.addEventListener('pagehide', () => save(true));
 window.addEventListener('storage', event => {if (event.key !== KEY || event.newValue === JSON.stringify(state())) return; clearTimeout(timer); paused = true; saveMessage = 'Local saving paused'; render();});
-render(); if (!paused) save();
+render();if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');if (!paused) save();

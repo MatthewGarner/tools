@@ -79,12 +79,26 @@ const unb64u = str => {
   for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 };
-async function pipe(bytes, Stream){
+async function pipe(bytes, Stream, limit = Infinity){
   const st = new Stream('deflate-raw');
   const w = st.writable.getWriter();
   w.write(bytes).catch(() => {});
   w.close().catch(() => {});
-  return new Uint8Array(await new Response(st.readable).arrayBuffer());
+  const reader = st.readable.getReader(), chunks = [];
+  let length = 0;
+  while(true){
+    const {done, value} = await reader.read();
+    if(done) break;
+    length += value.byteLength;
+    // Bound inflation itself: checking a completed arrayBuffer still permits
+    // a small hostile link to exhaust memory before the limit is enforced.
+    if(length > limit){ await reader.cancel(); throw new Error('Hash state is too large'); }
+    chunks.push(value);
+  }
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for(const chunk of chunks){ result.set(chunk, offset); offset += chunk.byteLength; }
+  return result;
 }
 export async function encodeHash(obj){
   return 'z:' + b64u(await pipe(new TextEncoder().encode(JSON.stringify(obj)), CompressionStream));
@@ -92,8 +106,7 @@ export async function encodeHash(obj){
 export async function decodeHash(str){
   try{
     if(str.startsWith('z:')){
-      const bytes = await pipe(unb64u(str.slice(2)), DecompressionStream);
-      if(bytes.length > 4_000_000) return null;   // a crafted link can deflate 1000:1 — cap before the string+parse amplification
+      const bytes = await pipe(unb64u(str.slice(2)), DecompressionStream, 4_000_000);
       return JSON.parse(new TextDecoder().decode(bytes));
     }
     return JSON.parse(decodeURIComponent(escape(atob(str))));   // the legacy wire format, byte-for-byte

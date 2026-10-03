@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {diffItems} from '../assets/snapshots.js';
+import {diffItems, wireSnapshots} from '../assets/snapshots.js';
 
 const K = it => it.title;
 const S = it => it.state;
@@ -41,4 +41,27 @@ test('moved map is keyed by the normalised key and carries the current item', ()
   const m = d.moved.get('big bet');
   assert.equal(m.item.extra, 42);
   assert.equal(m.from, 'todo');
+});
+
+test('comparison parsing follows baseline content when a capped list reuses an index',()=>{
+  // Control stubs exercise the real snapshot controller; no layout is involved.
+  const control=()=>({value:'',style:{},options:[],setAttribute(){},addEventListener(){},
+    appendChild(option){this.options.push(option);},set textContent(_value){this.options=[];}});
+  const oldDocument=globalThis.document,oldLocation=globalThis.location;
+  globalThis.document={createElement:()=>control()};
+  globalThis.location={href:'https://tools.example/roadmap/'};
+  try{
+    const label='2026-10-03 · Weekly plan';
+    let list=Array.from({length:20},(_,index)=>({label,src:`title: Plan ${String(index).padStart(2,'0')}`}));
+    const els={snap:control(),sel:control(),del:control()};
+    const snapshots=wireSnapshots({store:{load:()=>list},parse:src=>({source:src}),els});
+    els.sel.value='0';assert.equal(snapshots.current().model.source,'title: Plan 00');
+    // The native 20-item cap drops the first baseline after the next save.
+    list=[...list.slice(1),{label,src:'title: Plan 20'}];
+    snapshots.refresh();els.sel.value='0';
+    assert.equal(snapshots.current().model.source,'title: Plan 01');
+  }finally{
+    if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
+    if(oldLocation===undefined)delete globalThis.location;else globalThis.location=oldLocation;
+  }
 });
