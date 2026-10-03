@@ -14,6 +14,9 @@ Matthew approved this next pass on 3 October, starting from the latest main. No 
 | Intervention test attempts | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | Dated attempts retain their original expectations, subsequent observations and review decisions through source changes, Undo and export. |
 | Catalogue access | Implemented — [evidence](REGULAR-WORK-DELIVERY.md) | Explicit local favourites and useful search vocabulary make frequently used tools easy to find. |
 
+The 3 October audit corrected catalogue resume in Constraint playground and
+Analogy workshop; the fix is implemented and awaiting release ([evidence](REGULAR-WORK-DELIVERY.md)).
+
 Published starting point: 24 experiments. Current published release has 17 active experiences, two archived models and five earlier scaffolds. Target: approximately 17 distinct experiences, achieved by retiring two prototypes and absorbing five standalone tools. The roadmap is delivered and published as of 2 October 2026. The table links each completed change to its evidence. Pause new experiments while Matthew reviews the improved collection.
 
 ## Build order

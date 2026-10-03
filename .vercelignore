@@ -9,6 +9,7 @@ DSL.md
 # .vercelignore is worth adding.
 CLAUDE.md
 AGENTS.md
+AGENTS.local.md
 docs/
 .design-qa.md
 design-qa.md

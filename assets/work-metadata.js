@@ -76,7 +76,18 @@ export function saveTrackedWork(storage, key, raw, now = Date.now()) {
   storage.setItem(key,raw); // Native save errors retain each tool's existing handling.
   if (previous === raw) return;
   const before = new Map(entries(key,previous).map(record => [record.id,record.fingerprint]));
-  for (const record of entries(key,raw)) {
+  const after = entries(key,raw), retained = new Set(after.map(record => record.id));
+  // Capped native lists discard old records. Keep explicit organisation for undo,
+  // but do not let generated dates for absent records exhaust the backup limit.
+  for (const [id, fingerprint] of before) {
+    if (retained.has(id)) continue;
+    try {
+      const record = {key,id}, meta = readWorkMeta(storage,record);
+      if (meta.fingerprint === fingerprint && Object.keys(meta).every(field => ['v','ref','fingerprint','updatedAt'].includes(field)) && storage.getItem(key) === raw)
+        storage.removeItem(metaKey(record));
+    } catch { /* Metadata cleanup must never prevent a native save. */ }
+  }
+  for (const record of after) {
     if (before.get(record.id) === record.fingerprint) continue;
     try {
       const meta = readWorkMeta(storage,record);
