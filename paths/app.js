@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved paths, exports, boot. */
@@ -1181,7 +1182,7 @@ function doRefresh(){
       : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) localStorage.setItem('paths-src', text); }catch(_){ }
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'paths-src', text); }catch(_){ }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

@@ -49,6 +49,24 @@ try{
  assert.ok((await page.locator('.recent-open').getAttribute('href')).startsWith('/energy/frequency/'),'combined preview keeps local Energy route');await page.goto(base+'/');assert.equal(await page.locator('.recent-open').count(),0,'scopes stay separate on one origin');
  console.log('PASS Recent work fresh edits, rename/remove, multiple tabs and origin isolation');
  await ctx.close();
+ const organised=await browser.newContext(contextOptions),wp=await organised.newPage();
+ await wp.goto(base+'/lab/objections/');await wp.locator('#problem').fill('Which support change should we try?');
+ await wp.waitForFunction(()=>document.querySelector('#save-status')?.textContent==='Saved in this browser');
+ const saved=await wp.evaluate(()=>localStorage.getItem('thinking-lab:objections:v1'));
+ await wp.goto(base+'/');await wp.getByRole('link',{name:/Which support change should we try/}).waitFor();
+ const workRow=wp.locator('.work-list li').filter({hasText:'Which support change should we try?'});
+ assert.match(await workRow.textContent(),/Updated/);
+ await workRow.getByLabel('Manage Which support change should we try?',{exact:true}).click();await workRow.getByRole('button',{name:'Pin Which support change should we try?',exact:true}).click();
+ // Wrapped select labels include option text in getByLabel; use the control's accessible name.
+ await wp.getByRole('combobox',{name:'Show',exact:true}).selectOption('pinned');assert.equal(await wp.locator('.work-list li').count(),1);
+ await wp.getByLabel('Manage Which support change should we try?',{exact:true}).click();await wp.getByRole('button',{name:'Rename Which support change should we try?',exact:true}).click();
+ await wp.getByRole('textbox',{name:'Name in Your work',exact:true}).fill('Friday review');await wp.getByRole('button',{name:'Save name',exact:true}).click();
+ assert.equal(await wp.evaluate(()=>localStorage.getItem('thinking-lab:objections:v1')),saved,'catalogue name preserves authored question');
+ await wp.getByLabel('Manage Friday review',{exact:true}).click();await wp.getByRole('button',{name:'Archive Friday review',exact:true}).click();assert.equal(await wp.locator('.work-list li').count(),0);
+ await wp.getByRole('combobox',{name:'Show',exact:true}).selectOption('archived');await wp.getByRole('link',{name:/Friday review/}).waitFor();
+ await wp.getByLabel('Manage Friday review',{exact:true}).click();await wp.getByRole('button',{name:'Restore Friday review',exact:true}).click();assert.equal(await wp.locator('.work-list li').count(),0);
+ await wp.getByRole('combobox',{name:'Show',exact:true}).selectOption('active');await wp.getByRole('link',{name:/Friday review/}).click();assert.equal(await wp.locator('#problem').inputValue(),'Which support change should we try?');
+ await organised.close();console.log('PASS Work management: changed-save dates, names, pins, reversible archive and exact native resume');
  const fail=await browser.newContext(contextOptions),fp=await fail.newPage();await fp.goto(base+'/flow/');await fp.locator('.recent-save').waitFor();
  await fp.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError');};});
  await fp.locator('.recent-save').click();await fp.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();await fp.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(fp)).length,0);

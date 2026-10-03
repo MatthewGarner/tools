@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../../assets/work-metadata.js';
 import {mountDocumentStart} from '../../assets/document-start.js';
 import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
 import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
@@ -92,7 +93,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!sim);
-  try{ if(shouldPersist()) localStorage.setItem('risk-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'risk-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

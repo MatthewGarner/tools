@@ -43,9 +43,14 @@ try{
   assert.equal(new URL(page.url()).origin,old,'backup stays with the old origin storage');
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download saved work',exact:true}).click();
   const file=await (await download).path();const archive=JSON.parse(readFileSync(file,'utf8'));
-  assert.equal(archive.origin,old);assert.deepEqual(archive.entries.map(item=>item.key),['thinking-lab:knowledge:v1','thinking-lab:reframe:v1']);
+  assert.equal(archive.origin,old);
+  // Changed-save dates travel with native work; appearance remains excluded.
+  assert.deepEqual(archive.entries.filter(item=>!item.key.startsWith('mg:work-meta:v1:lab:')).map(item=>item.key),['thinking-lab:knowledge:v1','thinking-lab:reframe:v1']);
+  const metadata=archive.entries.filter(item=>item.key.startsWith('mg:work-meta:v1:lab:'));
+  assert.deepEqual(metadata.map(item=>JSON.parse(item.value).ref).sort(),['thinking-lab:knowledge:v1:current','thinking-lab:reframe:v1:'+work.activeId].sort());
   await page.goto(base+'/backup/');await page.locator('#backup-file').setInputFiles(file);
-  await page.getByRole('button',{name:'Import 2 new items',exact:true}).click();
+  await page.getByRole('button',{name:`Import ${archive.entries.length} new items`,exact:true}).click();
+  for(const item of metadata)assert.equal(await page.evaluate(key=>localStorage.getItem(key),item.key),item.value,'saved-change metadata survives the origin change');
   await page.goto(base+'/lab/reframe/');await page.locator('#workbench').waitFor();
   const imported=await page.evaluate(()=>JSON.parse(localStorage.getItem('thinking-lab:reframe:v1')));
   assert.deepEqual(imported,work,'full workspace survives the origin change');

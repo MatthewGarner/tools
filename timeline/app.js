@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
@@ -111,7 +112,7 @@ function doRefresh(){
   $('copypng').hidden = deckSet()?.pages.length !== 1;
   /* #93: the hop appears only when there is a merge to premortem (never a dead link) */
   $('topremortem').hidden = !(model && model.items.length && premortemHandoff(model, todayDay()));
-  if(shouldPersist()){ try{ localStorage.setItem('timeline-src', text); }catch(e){} }
+  if(shouldPersist()){ try{ saveTrackedWork(localStorage,'timeline-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

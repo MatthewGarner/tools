@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
@@ -87,7 +88,7 @@ function doRefresh(){
   updateSeam();
   renderWarnings();
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) localStorage.setItem('tree-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'tree-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

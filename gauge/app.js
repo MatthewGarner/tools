@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {workToken} from '../assets/work-reference.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Boot, mode routing, compose/solo mode, exports. */
@@ -258,7 +259,7 @@ async function initCompose(hash){
     $('startbtn').disabled = !model.questions.length;
     if(!transient && shouldPersist()){
       if(activeSaved === null){
-        try{ localStorage.setItem('gauge-src', text); $('saveerror').textContent = ''; }
+        try{ saveTrackedWork(localStorage,'gauge-src', text); $('saveerror').textContent = ''; }
         catch(e){ $('saveerror').textContent = 'Could not remember this draft in this browser.'; }
       }
       if(activeSaved !== null){

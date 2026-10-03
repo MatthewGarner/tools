@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* URL-local Proxy Hunt shell: source -> parse -> project -> render. */
@@ -138,7 +139,7 @@ function doRefresh(){
   setActionsEnabled(Boolean(lastSvg));
   $('receiptpng').disabled = !hunt?.selectedReceipt;
   $('receiptsvg').disabled = !hunt?.selectedReceipt;
-  try{ if(shouldPersist()) localStorage.setItem('proxy-src', text); }catch(_){ }
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'proxy-src', text); }catch(_){ }
   scheduleHash();
 }
 const refresh = rafBatched(doRefresh);

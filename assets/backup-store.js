@@ -7,6 +7,10 @@ export const MAX_VALUE_BYTES = 5 * 1024 * 1024;
 export const MAX_BACKUP_ITEMS = 500;
 const encoder = new TextEncoder();
 import {SOURCE_TOOLS as sources, NAMED_TOOLS as saved, BASELINE_TOOLS as snapshots, LAB_TITLES as lab} from './saved-work-keys.js';
+import {WORK_META_KEY} from './work-metadata.js';
+import {templateKeyInfo} from './template-store.js';
+import {RECENT_TOOLS} from './recent-store.js';
+const templateInfo=key=>{const info=templateKeyInfo(key);return info&&Object.hasOwn(info.scope==='lab'?lab:RECENT_TOOLS[info.scope]||{},info.tool)?info:null;};
 const exact = new Set([
   ...sources.map(tool => `${tool}-src`), ...saved.map(tool => `${tool}-saved`),
   ...snapshots.map(tool => `${tool}-snaps`), 'fermi-models', 'premortem:index', 'premortem:trash',
@@ -21,7 +25,7 @@ const plans = new WeakMap();
 export class BackupError extends Error {
   constructor(message, code = 'invalid', details = {}) { super(message); this.name = 'BackupError'; this.code = code; Object.assign(this, details); }
 }
-export const isOwnedKey = key => typeof key === 'string' && (exact.has(key) || registerKey.test(key) || recentKey.test(key));
+export const isOwnedKey = key => typeof key === 'string' && (exact.has(key) || registerKey.test(key) || recentKey.test(key) || WORK_META_KEY.test(key) || !!templateInfo(key));
 const bytes = text => encoder.encode(text).length;
 const plain = object => object !== null && typeof object === 'object' && !Array.isArray(object) &&
   [Object.prototype, null].includes(Object.getPrototypeOf(object));
@@ -73,8 +77,8 @@ export function partitionArchive(input, hostname) {
   if(!families) return {archive, elsewhere:[]}; // Combined local/deployment previews.
   const entries=[], destinations=new Map();
   for(const entry of archive.entries) {
-    const family=entry.key.startsWith('thinking-lab:') ? 'lab'
-      : /^(?:cycles-src|risk-src|mg:recent:v1:energy:)/.test(entry.key) ? 'energy' : 'tools';
+    const family=templateInfo(entry.key)?.scope || entry.key.match(WORK_META_KEY)?.[1] || (entry.key.startsWith('thinking-lab:') ? 'lab'
+      : /^(?:cycles-src|risk-src|mg:recent:v1:energy:)/.test(entry.key) ? 'energy' : 'tools');
     if(families.includes(family)) { entries.push(entry); continue; }
     const label=family==='energy'?'Energy':'Tools Lab';
     const url=family==='energy'?'https://energy.matthewgarner.me/backup/':'https://tools.matthewgarner.me/backup/';
@@ -110,6 +114,9 @@ export function serializeArchive(archive) {
 }
 
 export function keyLabel(key, raw) {
+  const template=templateInfo(key);
+  if(template)return `${template.scope==='lab'?lab[template.tool]:RECENT_TOOLS[template.scope][template.tool]} · ${template.isDefault?'default template':'personal template'}`;
+  if(WORK_META_KEY.test(key))return 'Your work · name, pin, archive and saved-change date';
   if(key.startsWith('thinking-lab:')) { const [,route,version] = key.split(':'); return `${lab[route]}${route === 'predictions' && version === 'v1' ? ' (earlier version)' : ''}`; }
   if(key === 'premortem:index') return 'Premortem · register list';
   if(key === 'premortem:trash') return 'Premortem · recovery bin';

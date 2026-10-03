@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {parse} from './parse.js';
@@ -103,7 +104,7 @@ function doRefresh(){
   paintMetrics($('metrics'), model && model.items.length ? (model.title || 'Map') : '', ro ? ro.counts.filter(Boolean) : []);
   setActionsEnabled(!!lastSvg);
   $('togauge').hidden = !gaugeHandoff(model, ro);
-  try{ if(shouldPersist()) localStorage.setItem('map-src', text); }catch(e){}
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'map-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

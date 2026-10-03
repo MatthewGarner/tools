@@ -1,3 +1,4 @@
+import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
@@ -134,7 +135,7 @@ function doRefresh(){
   paintMetrics($('metrics'), '', mapCounts());
   renderWarnings();
   setActionsEnabled(!!lastSvg);
-  if(shouldPersist()){ try{ localStorage.setItem('wardley-src', text); }catch(e){} }
+  if(shouldPersist()){ try{ saveTrackedWork(localStorage,'wardley-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

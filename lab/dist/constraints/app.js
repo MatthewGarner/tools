@@ -1,3 +1,5 @@
+import {saveTrackedWork} from '../shared/work-storage.js?v=0.23.0';
+import {createTemplates} from '../shared/templates.js?v=0.23.0';
 import {adaptationsPanel, refreshAdaptations} from './adaptations-ui.js?v=0.21.0';
 import {familyMap} from '../shared/ancestry-ui.js?v=0.21.0';
 import {mountShell} from '../shared/shell.js?v=0.22.0';
@@ -12,12 +14,14 @@ const state = () => history.present, workspace = () => active(state());
 const uid = () => crypto.randomUUID?.() || `c-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const title = value => (value.problem.trim() || 'Untitled problem').replace(/\s+/g, ' ');
 const short = (text, limit = 90) => text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+createTemplates({scope:'lab',tool:'constraints',format:'workspace-json',capture:()=>serialize(workspace()),name:()=>title(workspace()),
+  restore:raw=>act({type:'import',id:uid(),workspace:parse(raw)}),blank:()=>act({type:'new',id:uid(),example:'blank'},{focus:'problem'}),notice:toast});
 function toast(message) {const el = document.querySelector('#toast'); el.textContent = message; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 4200);}
 function announce(message) {document.querySelector('#live').textContent = message;}
 function save(now = false) {
   clearTimeout(timer); if (paused) return;
   saveMessage = 'Saving…'; status();
-  const run = () => {try {localStorage.setItem(KEY, JSON.stringify(state())); saveMessage = 'Saved on this device';} catch {saveMessage = 'Saving unavailable · export a copy';} status();};
+  const run = () => {try {saveTrackedWork(localStorage,KEY, JSON.stringify(state())); saveMessage = 'Saved on this device';} catch {saveMessage = 'Saving unavailable · export a copy';} status();};
   if (now) run(); else timer = setTimeout(run, 250);
 }
 function status() {const el = document.querySelector('#save'); if (el) el.textContent = saveMessage;}
@@ -48,7 +52,7 @@ function render() {
   const opened = [...root.querySelectorAll('details[open][id]')].map(el=>el.id);
   dragDestroy?.(); fitDragDestroy?.();
   const work = workspace();
-  root.innerHTML = `<header class="page-top"><div><p class="eyebrow">SCAFFOLD 03 / CHANGE THE LIMIT</p><h1>Constraint playground</h1></div><div class="toolbar"><button class="button quiet" data-action="undo" ${history.past.length ? '' : 'disabled'}>↶ Undo</button><button class="button" data-action="workspaces">My problems <span>${state().workspaces.length}</span></button><button class="button" data-action="export">Export ↓</button></div></header>
+  root.innerHTML = `<header class="page-top"><div><p class="eyebrow">SCAFFOLD 03 / CHANGE THE LIMIT</p><h1>Constraint playground</h1></div><div class="toolbar"><button class="button" data-template-new>New</button><button class="button" data-personal-templates>Templates</button><button class="button quiet" data-action="undo" ${history.past.length ? '' : 'disabled'}>↶ Undo</button><button class="button" data-action="workspaces">My problems <span>${state().workspaces.length}</span></button><button class="button" data-action="export">Export ↓</button></div></header>
   ${paused ? `<div class="notice">${recovery ? 'Saved work could not be opened. Download a recovery copy before replacing it.' : 'Another tab changed the saved work. Saving here is paused; export this version or explicitly keep it.'}<button class="text-button" data-action="${recovery ? 'recover' : 'resume'}">${recovery ? 'Download recovery copy' : 'Save this tab instead'}</button></div>` : ''}
   <section class="problem-bar"><div class="problem-meta"><label for="problem">The problem you are working on</label><span id="save" role="status">${e(saveMessage)}</span></div><textarea id="problem" data-edit="problem" rows="1" maxlength="20000" placeholder="How could we…?">${e(work.problem)}</textarea></section>
   <div class="board-intro"><p><strong>Move a limit. Notice what opens up.</strong> Drag a handle, or use Move.</p><span>Thought experiments · real limits remain</span></div>

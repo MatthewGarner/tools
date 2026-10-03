@@ -231,13 +231,33 @@ what the code **is**; how work happens here (branching, gates, deploy) is separa
 ### Your work
 
 The catalogue reads native saved-work stores without loading tool engines or
-rewriting data. It distinguishes editable workspaces, current drafts, saved copies
+rewriting their models. It distinguishes editable workspaces, current drafts, saved copies
 and comparison baselines. Workspace links select an existing record in the owning
 tool's validated state; the pointer is consumed before further work. Baselines
 open the comparison controls without replacing the current draft. Named Gauge
 question sets and Premortem registers retain their native editing behaviour.
 Unreadable stores remain available for recovery; one damaged store does not hide
 other work. Favourites store only explicit tool preferences, never visit history.
+
+Catalogue names, pins and reversible archives live in separate per-record metadata.
+Archiving hides work from the active catalogue; it does not delete it or remove it
+from its native tool. Stable workspace IDs and content identities keep organisation
+from following array positions after deletion. Native saves record changed-content
+dates; opening work, switching workspace and organising the index do not move those
+dates. Older work without a reliable date remains undated. A failed metadata write
+does not prevent a model save; fingerprint matching prevents stale dates being shown.
+
+Personal templates are explicit, fixed copies of starting material, with a per-tool
+default pointer. New Lab work imports through the native validator into a fresh
+workspace; blank remains an explicit choice. Original model-link tools preserve the
+outgoing model as a saved copy before starting a template, and stop if preservation
+fails. Merely opening a tool never applies a default. Templates, defaults and work
+organisation participate in browser backup and its existing origin boundaries.
+
+Decision notes project authored choices, reasoning, unknowns and next checks into
+short text. They retain pending or stale judgments and separate predictions from
+observations; they do not infer a decision or establish a causal result. The full
+workspace export remains the editable record.
 
 Each catalogue also has an origin-local shelf of explicitly named copies. Visiting a
 tool, loading an example or editing never adds or updates a snapshot. Each save

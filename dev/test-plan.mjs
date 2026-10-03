@@ -27,7 +27,7 @@ const all = TOOL_ROOTS;
 export const SUITE_TOOLS = {
   ...FILTER_TOOLS,
   'lab-migration.mjs': LAB_ROUTES.map(t => 'lab/dist/' + t),
-  'backup.mjs': all, 'suite.mjs': all, 'recent-work.mjs': all, 'identity.mjs': all,
+  'backup.mjs': all, 'suite.mjs': all, 'recent-work.mjs': all, 'templates.mjs': all, 'identity.mjs': all,
   'design-bar.mjs': all,
   'energy-design-bar.mjs': ENERGY_TOOL_DIRS.map(t => 'energy/' + t),
   'workshop-design.mjs': ['flow','alarm','duel','premortem','gauge'],
