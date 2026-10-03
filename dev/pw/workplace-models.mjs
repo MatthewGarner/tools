@@ -68,7 +68,8 @@ export async function verifyWorkplaceModels(browser,base,out){
  const original=await page.evaluate(()=>localStorage.getItem('thinking-lab:teams:v1')),article=await context.newPage();
  await article.goto(base+'/embed/lab-teams/v2/'+embedFragment({state:teamsDefinition.initialState,view:'maps',controls:['map','owner-customer','ari']}));await article.locator('#embed[data-embed-state=ready]').waitFor();
  const beforeLink=await article.locator('.embed-footer a').getAttribute('href');await article.locator('#control-owner-customer').selectOption('0');
- await article.waitForFunction(href=>document.querySelector('.embed-footer a')?.getAttribute('href')!==href,beforeLink);
+ // Rendering temporarily removes the handoff; wait for the new usable URL.
+ await article.waitForFunction(before=>{const href=document.querySelector('.embed-footer a')?.getAttribute('href');return href&&href!==before;},beforeLink);
  await article.goto(await article.locator('.embed-footer a').getAttribute('href'));await article.locator('#owner-customer').waitFor();assert.equal(await article.locator('#owner-customer').inputValue(),'none');
  await article.locator('#owner-funding').selectOption('none');assert.equal(decodeArticleFragment(new URL(article.url()).hash,{tool:'lab-teams',version:2}).relationships.owners.funding,'none');
  assert.equal(await article.evaluate(()=>localStorage.getItem('thinking-lab:teams:v1')),original);

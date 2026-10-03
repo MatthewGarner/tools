@@ -31,7 +31,9 @@
 .relationship-traces li.crossing{border-left:3px dashed var(--warn)}.relationship-traces small{display:block;font-size:16px;color:var(--muted)}
 .relationship-budgets,.relationship-people{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .relationship-budgets label{display:grid;gap:8px}.relationship-budgets input{width:100%}
-.relationship-table{overflow:auto;margin-top:20px}.relationship-table table{min-width:760px;width:100%;border-collapse:collapse}
+/* Absolute screen-reader labels belong to the scroller; without its containing
+   block, labels in offscreen columns can enlarge the phone viewport. */
+.relationship-table{position:relative;overflow:auto;margin-top:20px}.relationship-table table{min-width:760px;width:100%;border-collapse:collapse}
 .relationship-table td,.relationship-table th{padding:10px;text-align:left;border-bottom:1px solid var(--line)}
 .relationship-table input{width:90px}.relationship-table select{width:225px}
 .relationship-result{padding:18px 0;border-block:1px solid var(--line)}.relationship-result strong{font-family:var(--font-heading);font-size:26px}
