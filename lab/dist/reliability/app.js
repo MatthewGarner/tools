@@ -1,4 +1,4 @@
-import {mountShell} from '../shared/shell.js?v=0.21.0';
+import {mountShell} from '../shared/shell.js?v=0.22.0';
 import {escapeHtml as esc,readStore,writeStore,downloadText} from '../shared/utils.js?v=0.21.0';
 import {LIMITS,example,validate,availability,liveState,ancestors,improvements,connect,disconnect,updateNode,addNode,addAlternative,addCommonDependency,removeNode,setOutput} from './engine.js?v=0.21.0';
 import {basisFor,createStudy,validateStudy,saveDesign,designRows,failureExplanation,recipe} from './study.js?v=0.21.0';

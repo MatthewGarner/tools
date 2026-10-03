@@ -8,7 +8,7 @@ const browser=await chromium.launch();
 const records=page=>page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('mg:recent:v1:')).map(k=>JSON.parse(localStorage.getItem(k))).sort((a,b)=>a.savedAt-b.savedAt));
 async function save(page,name){
  await page.locator('.recent-save').click();const dialog=page.locator('.recent-dialog');await dialog.waitFor();
- await dialog.getByLabel('Snapshot name').fill(name);await dialog.getByRole('button',{name:'Save snapshot',exact:true}).click();await dialog.waitFor({state:'detached'});
+ await dialog.getByLabel('Copy name').fill(name);await dialog.getByRole('button',{name:'Save copy',exact:true}).click();await dialog.waitFor({state:'detached'});
  return (await records(page)).at(-1);
 }
 const contextOptions={viewport:{width:1280,height:900},reducedMotion:'reduce',serviceWorkers:'block'};
@@ -21,7 +21,7 @@ try{
   const first=await save(page,tool+' original'),state=await decodeHash(first.hash);assert.ok(state&&typeof state==='object',tool+' encoded state');
   if(tool==='gauge'){assert.equal(state.id,undefined);assert.equal(state.key,undefined);assert.equal(typeof state.t,'string');}
   // Leave the instrument first: hash-only navigation does not rerun its boot.
-  await page.getByRole('link',{name:'Recent work',exact:true}).click();
+  await page.getByRole('link',{name:'Your work',exact:true}).click();
   assert.equal(new URL(page.url()).origin,origin,'Recent work stays with its browser storage');
   await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await page.locator('.recent-save').waitFor();
   const second=await save(page,tool+' reopened'),restored=await decodeHash(second.hash);
@@ -35,23 +35,23 @@ try{
  await page.goto(energy+'/frequency/');await page.locator('.recent-save').waitFor();
  // Same event turn as the edit: a debounced location.hash would still be stale.
  await page.evaluate(()=>{const i=document.querySelector('#inertia');i.value='155';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.recent-save').click();});
- await page.locator('.recent-dialog').waitFor();await page.getByLabel('Snapshot name').fill('Fresh edit');await page.locator('.recent-dialog').getByRole('button',{name:'Save snapshot',exact:true}).click();
+ await page.locator('.recent-dialog').waitFor();await page.getByLabel('Copy name').fill('Fresh edit');await page.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();
  await page.locator('.recent-dialog').waitFor({state:'detached'});assert.equal((await decodeHash((await records(page))[0].hash)).i,155);
  for(let i=2;i<=4;i++)await save(page,'Grid '+i);
  await page.goto(energy+'/');assert.equal(await page.locator('.recent-list li').count(),3);await page.getByRole('button',{name:'Show all (4)'}).click();assert.equal(await page.locator('.recent-list li').count(),4);
- await page.getByLabel('Manage Fresh edit',{exact:true}).click();await page.getByRole('button',{name:'Rename Fresh edit',exact:true}).click();await page.getByLabel('Snapshot name').fill('<b>My grid</b>');await page.getByRole('button',{name:'Save name',exact:true}).click();
+ await page.getByLabel('Manage Fresh edit',{exact:true}).click();await page.getByRole('button',{name:'Rename Fresh edit',exact:true}).click();await page.getByLabel('Copy name').fill('<b>My grid</b>');await page.getByRole('button',{name:'Save name',exact:true}).click();
  await page.getByRole('link',{name:/<b>My grid<\/b>/}).waitFor();assert.equal(await page.locator('.recent-name b').count(),0);
  await page.getByLabel('Manage Grid 2',{exact:true}).click();await page.getByRole('button',{name:'Remove Grid 2',exact:true}).click();await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.locator('.recent-list li').count(),4);
- await page.getByLabel('Manage Grid 2',{exact:true}).click();await page.getByRole('button',{name:'Remove Grid 2',exact:true}).click();await page.getByRole('button',{name:'Remove snapshot',exact:true}).click();assert.equal(await page.locator('.recent-list li').count(),3);
+ await page.getByLabel('Manage Grid 2',{exact:true}).click();await page.getByRole('button',{name:'Remove Grid 2',exact:true}).click();await page.getByRole('button',{name:'Remove copy',exact:true}).click();assert.equal(await page.locator('.recent-list li').count(),3);
  const other=await ctx.newPage();await other.goto(energy+'/frequency/');await save(other,'Other tab');await page.getByRole('link',{name:/Other tab/}).waitFor();await other.close();
- await page.goto(base+'/');assert.equal(await page.locator('[data-recent-work]').isVisible(),false,'separate origins');
+ await page.goto(base+'/');assert.equal(await page.locator('.recent-open').count(),0,'separate origins');
  await page.goto(base+'/energy/');await page.evaluate(async()=>{const {recentStore}=await import('/assets/recent-store.js');recentStore(localStorage,'energy').add({id:'preview',tool:'frequency',name:'Preview',hash:btoa(JSON.stringify({i:155})),savedAt:Date.now()});});await page.reload();
- assert.ok((await page.locator('.recent-open').getAttribute('href')).startsWith('/energy/frequency/'),'combined preview keeps local Energy route');await page.goto(base+'/');assert.equal(await page.locator('[data-recent-work]').isVisible(),false,'scopes stay separate on one origin');
+ assert.ok((await page.locator('.recent-open').getAttribute('href')).startsWith('/energy/frequency/'),'combined preview keeps local Energy route');await page.goto(base+'/');assert.equal(await page.locator('.recent-open').count(),0,'scopes stay separate on one origin');
  console.log('PASS Recent work fresh edits, rename/remove, multiple tabs and origin isolation');
  await ctx.close();
  const fail=await browser.newContext(contextOptions),fp=await fail.newPage();await fp.goto(base+'/flow/');await fp.locator('.recent-save').waitFor();
  await fp.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError');};});
- await fp.locator('.recent-save').click();await fp.locator('.recent-dialog').getByRole('button',{name:'Save snapshot',exact:true}).click();await fp.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(fp)).length,0);
+ await fp.locator('.recent-save').click();await fp.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();await fp.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(fp)).length,0);
  await fp.getByRole('button',{name:'Cancel',exact:true}).click();// Native dialog close dispatches asynchronously; assert restored focus once it has run.
  await fp.waitForFunction(()=>document.activeElement===document.querySelector('.recent-save'));await fail.close();console.log('PASS Recent work quota failure and keyboard focus');
  // A partial Duel setup and a mid-turn Signal exercise are work, too.

@@ -3,6 +3,8 @@
    the Snapshot / Compare-with… / delete wiring the workspace tools share.
    diffItems is DOM-free; wireSnapshots owns the three controls. */
 
+import {workToken} from './work-reference.js';
+
 export function snapStore(storageKey){
   const load = () => { try{ return JSON.parse(localStorage.getItem(storageKey) || '[]'); }catch(e){ return []; } };
   const save = list => { try{ localStorage.setItem(storageKey, JSON.stringify(list.slice(-20))); }catch(e){} };
@@ -36,6 +38,10 @@ diffItems.norm = norm;
    roadmap/app.js). `els` = {snap, sel, del}; parse caches per snapshot. */
 export function wireSnapshots({store, parse, getSrc, makeLabel, els, onChange, canSnap}){
   const cache = new Map();
+  els.snap.textContent='Save baseline';
+  els.snap.title='Keep the current model for comparison with later edits';
+  els.sel.setAttribute('aria-label','Compare with baseline');
+  els.del.textContent='Delete baseline';
   function refresh(){
     const cur = els.sel.value;
     els.sel.textContent = '';
@@ -67,7 +73,7 @@ export function wireSnapshots({store, parse, getSrc, makeLabel, els, onChange, c
     store.save(list);
     refresh();
     els.snap.textContent = 'Saved';
-    setTimeout(() => { els.snap.textContent = 'Snapshot'; }, 1200);
+    setTimeout(() => { els.snap.textContent = 'Save baseline'; }, 1200);
   });
   els.sel.addEventListener('change', () => {
     els.del.style.display = els.sel.value ? '' : 'none';
@@ -85,5 +91,15 @@ export function wireSnapshots({store, parse, getSrc, makeLabel, els, onChange, c
     onChange();
   });
   refresh();
+  const url=new URL(location.href), token=url.searchParams.get('baseline');
+  if(token){
+    const index=store.load().findIndex(item=>workToken(item)===token);
+    if(index>=0){
+      els.sel.value=String(index);els.del.style.display='';
+      for(let parent=els.sel.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+    }
+    else { const message=document.createElement('span');message.setAttribute('role','status');message.textContent='That comparison baseline is no longer saved here.';els.sel.after(message); }
+    url.searchParams.delete('baseline');window.history.replaceState(window.history.state,'',url.pathname+url.search+url.hash);
+  }
   return {current, refresh};
 }

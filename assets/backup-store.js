@@ -6,18 +6,7 @@ export const MAX_BACKUP_BYTES = 20 * 1024 * 1024;
 export const MAX_VALUE_BYTES = 5 * 1024 * 1024;
 export const MAX_BACKUP_ITEMS = 500;
 const encoder = new TextEncoder();
-const sources = ['bets', 'case', 'cycles', 'gauge', 'map', 'paths', 'proxy', 'risk', 'roadmap', 'timeline', 'tree', 'wardley', 'why'];
-const saved = ['bets', 'gauge', 'map', 'paths', 'proxy', 'roadmap', 'tree', 'why'];
-const snapshots = ['bets', 'map', 'roadmap', 'timeline', 'wardley', 'why'];
-const lab = {
-  commitment:'The commitment spiral', teams:'How teams fit the work', exploration:'Exploration versus delivery',
-  flexibility:'Where flexibility gets trapped', delay:'Steering through delay', exceptions:'How exceptions accumulate',
-  knowledge:'Specialists and shared knowledge', local:'Local wins, collective losses', predictions:'When predictions change behaviour',
-  accuracy:'Accurate enough for which decision?', reliability:'Almost reliable parts', adoption:'Crossing the adoption gap',
-  reframe:'Reframing workbench', mixer:'Possibility mixer', constraints:'Constraint playground', analogy:'Analogy workshop',
-  interventions:'Intervention workbench', answers:'Three different answers', objections:'Alternatives workbench',
-  territory:'Unexplored territory', scenes:'Scene-first invention', family:'Idea family tree', questions:'Questions before answers', disagreement:'Productive disagreement',
-};
+import {SOURCE_TOOLS as sources, NAMED_TOOLS as saved, BASELINE_TOOLS as snapshots, LAB_TITLES as lab} from './saved-work-keys.js';
 const exact = new Set([
   ...sources.map(tool => `${tool}-src`), ...saved.map(tool => `${tool}-saved`),
   ...snapshots.map(tool => `${tool}-snaps`), 'fermi-models', 'premortem:index', 'premortem:trash',

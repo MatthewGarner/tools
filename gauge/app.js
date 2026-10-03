@@ -1,3 +1,4 @@
+import {workToken} from '../assets/work-reference.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
@@ -398,6 +399,15 @@ async function initCompose(hash){
   }
   mountRecentSave({getState:()=>({t:editor.getText(),e:ws.collapsed()?0:1}),note:'Questions only. Live rooms and responses aren’t saved.'});
   if(hash && hash.e === 0) ws.setCollapsed(true);
+  const workURL=new URL(location.href),workId=workURL.searchParams.get('work');
+  if(workId){
+    workURL.searchParams.delete('work');history.replaceState(history.state,'',workURL.pathname+workURL.search+workURL.hash);
+    if(!hash){
+      const list=loadSaved('gauge-saved'),index=list.findIndex(item=>workToken(item)===workId);
+      if(index>=0){activeSaved=index;text=list[index].src;renderSaved();}
+      else $('saveerror').textContent='That saved question set is no longer available here.';
+    }
+  }
   if(!text){ try{ text = localStorage.getItem('gauge-src') || ''; }catch(e){} }
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();

@@ -1,3 +1,4 @@
+import {verifyRegularWork} from './regular-work.mjs';
 import { chromium, devices } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -22,19 +23,19 @@ try {
     const overlaps=await page.locator('.explore-filters button, .explore-filters input, .explore-filters select').evaluateAll(els=>{const boxes=els.map(e=>({name:e.getAttribute('name')||e.textContent,rect:e.getBoundingClientRect()}));return boxes.flatMap((a,i)=>boxes.slice(i+1).filter(b=>Math.min(a.rect.right,b.rect.right)-Math.max(a.rect.left,b.rect.left)>1&&Math.min(a.rect.bottom,b.rect.bottom)-Math.max(a.rect.top,b.rect.top)>1).map(b=>[a.name,b.name]))});
     assert.deepEqual(overlaps,[]);
     if(!phone && colorScheme==='light') {
-      await page.getByRole('searchbox').fill('BÁTTÉRY');
+      await page.locator('[data-explore-form]').getByRole('searchbox').fill('BÁTTÉRY');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
       const typedURL=page.url();
       await page.getByLabel('Maturity',{exact:true}).selectOption('experimental');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),2);
       await page.goBack();assert.equal(page.url(),typedURL);assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
       await page.goBack();assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
-      await page.goForward();assert.equal(await page.getByRole('searchbox').inputValue(),'BÁTTÉRY');
+      await page.goForward();assert.equal(await page.locator('[data-explore-form]').getByRole('searchbox').inputValue(),'BÁTTÉRY');
       await page.reload();assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
       await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
       await page.getByLabel('Maturity',{exact:true}).selectOption('archived');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),7);
-      await page.getByRole('searchbox').fill('<img src=x onerror=alert(1)>');
+      await page.locator('[data-explore-form]').getByRole('searchbox').fill('<img src=x onerror=alert(1)>');
       assert.equal(await page.locator('[data-empty-results]').isVisible(),true);
       assert.equal(await page.locator('.explore img').count(),0);
       await page.locator('[data-empty-clear]').click();
@@ -90,5 +91,6 @@ try {
   assert.equal(await page.locator('[data-explore-form]').isVisible(),false);
   await page.locator('[data-archive-list] summary').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),47);
   await context.close();assert.deepEqual(errors,[]);
+  await verifyRegularWork(browser,base,out);
   console.log('PASS: light/dark desktop/phone; 44px targets; no horizontal overflow; search/filter/history/reload; archive and no-JS discovery; hostile query inert; no page errors.');
 } finally {await browser.close()}

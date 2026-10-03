@@ -469,6 +469,12 @@ $('boardpanel').addEventListener('click', e => {
     }
   }
   const list = store.list();
+  const workURL=new URL(location.href), workId=workURL.searchParams.get('work');
+  if(workId){
+    workURL.searchParams.delete('work');history.replaceState(history.state,'',workURL.pathname+workURL.search+workURL.hash);
+    const loaded=list.some(item=>item.id===workId)&&store.load(workId);
+    if(loaded){doc=loaded;reached=new Set([doc.phase||'REGISTER']);render();return;}
+  }
   if(list.length || pendingDeletion){ doc = null; render(); }
   else { doc = exampleDoc(); saveNow(); render(); }   // greet with a populated register, not a blank form
 })();

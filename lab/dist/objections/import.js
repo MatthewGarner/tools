@@ -1,7 +1,7 @@
 import {derivedFrom,sourceSnapshot} from '../shared/ancestry.js?v=0.21.0';
 import {validate as familyValidate} from '../family/state.js?v=0.21.0';
 import {text,parse,validateSession} from '../creative-kit/state.js?v=0.21.0';
-import {make,design,validate} from './state.js?v=0.21.0';
+import {make,design,validate} from './state.js?v=0.22.0';
 import {validate as answersValidate} from '../answers/state.js?v=0.21.0';
 import {validate as disagreementValidate} from '../disagreement/state.js?v=0.21.0';
 const clone=x=>structuredClone(x);

@@ -1,10 +1,10 @@
-import {sceneHeader,variantDialog,sceneDetails,sceneFamily,comparison,fitLabel} from './variants-ui.js?v=0.21.0';
+import {sceneHeader,variantDialog,sceneDetails,sceneFamily,comparison,fitLabel} from './variants-ui.js?v=0.22.0';
 import {currentScene,needsReview,allScenes} from './variants.js?v=0.21.0';
 import {FITS} from './definitions.js?v=0.21.0';
 import {sourceDetails} from '../shared/ancestry-ui.js?v=0.21.0';
 import {derivedFrom} from '../shared/ancestry.js?v=0.21.0';
 let compareScroll=0,openDetails=[];
-import {boot,e,field,select,editAttrs} from '../creative-kit/ui.js?v=0.21.0';
+import {boot,e,field,select,editAttrs} from '../creative-kit/ui.js?v=0.22.0';
 import {make,validate,apply,markdown} from './state.js?v=0.21.0';
 const labels={title:'Moment',actor:'Who is here?',trigger:'What just happened?',knows:'What do they know?',unknown:'What remains unknown?',can:'What can they do now?',stakes:'What is at stake?'};
 function ideaCard(i,w){return `<article class="card intervention" data-drag-id="i:${e(i.id)}"><div class="card-top"><span>Intervention</span><button class="drag-handle" data-drag-handle data-action="move-menu" data-id="${e(i.id)}" aria-label="Move ${e(i.title)}">⠿</button></div><h3>${e(i.title)}</h3><p>${e(i.action||'Describe a change at this moment.')}</p><span data-fit-scene="${e(w.scene.id)}" data-fit-idea="${e(i.id)}" class="tag ${needsReview(w,currentScene(w),i)?'amber':''}">${e(fitLabel(w,currentScene(w),i))}</span><div class="card-actions"><button class="text-button" data-action="edit-idea" data-id="${e(i.id)}">Develop</button><button class="text-button" data-action="move-menu" data-id="${e(i.id)}">Move ↗</button></div></article>`;}
