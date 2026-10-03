@@ -7,8 +7,10 @@
     "gate": "npm --prefix dev/pw run gate --",
     "gate:serial": "npm --prefix dev/pw run gate -- --jobs 1",
     "worktree": "node dev/worktree.mjs",
-    "sync": "node dev/generate-catalogue.mjs && node dev/sync-identity.mjs && node dev/gen-sw.mjs",
+    "sync": "node dev/generate-catalogue.mjs && node dev/sync-identity.mjs && node dev/gen-sw.mjs && node dev/embed-catalogue.mjs sync",
     "test:changed": "node dev/pw/run.mjs --changed",
-    "test:browser": "node dev/pw/run.mjs --browser-only"
+    "test:browser": "node dev/pw/run.mjs --browser-only",
+    "embed:check": "node dev/embed-catalogue.mjs check",
+    "embed:release": "node dev/embed-catalogue.mjs release"
   }
 }

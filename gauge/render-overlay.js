@@ -3,7 +3,7 @@ import {esc, tint, wrapText} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
 import {verdictOf, delphiVerdictOf} from './engine.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
-import {resolveVerdict} from '../assets/verdict.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
 
 /* single-quoted family names: these stacks land inside double-quoted SVG
    attributes, where an embedded double quote is invalid XML (breaks PNG export) */

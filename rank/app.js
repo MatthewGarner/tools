@@ -1,3 +1,4 @@
+import {rankResultRows, pctStr} from './render.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale} from './engine.js';
@@ -255,9 +256,6 @@ function liveReweight(){
 }
 
 /* ---------- render results ---------- */
-function pctStr(p){
-  return p > 0.995 ? '>99%' : p < 0.005 ? '<1%' : Math.round(p * 100) + '%';
-}
 function renderResults(){
   const R = lastResult;
   if(!R){
@@ -293,41 +291,7 @@ function renderResults(){
   const holder = $('rrows');
   holder.textContent = '';
   const knife = perRowKnife(state);   // per-row ±10% fragility (I10 — labelled below)
-  baseOrder.forEach((idx, pos) => {
-    const s = stats.find(x => x.i === idx);
-    const row = document.createElement('div');
-    row.className = 'rrow' + (knife[s.i] ? ' knife' : '');
-    row.dataset.itemIdx = String(s.i);   // lets a name-only edit patch this row without a resim (see patchInitiativeName)
-    const p = document.createElement('div'); p.className = 'pos'; p.textContent = pos + 1;
-    const nm = document.createElement('div'); nm.className = 'nm';
-    const nmtext = document.createElement('span'); nmtext.className = 'nmtext';
-    nmtext.textContent = s.name; nmtext.title = s.name;
-    nm.appendChild(nmtext);
-    const kp = document.createElement('span'); kp.className = 'knifepill';
-    kp.textContent = 'knife-edge';
-    kp.title = 'This rank flips under a ±10% nudge of a single weight';
-    kp.setAttribute('aria-label', 'knife-edge: rank flips under a ±10% weight nudge');
-    nm.appendChild(kp);
-    const bar = document.createElement('div');
-    bar.className = 'rankbar';
-    bar.style.gridTemplateColumns = 'repeat(' + n + ',1fr)';
-    bar.setAttribute('role', 'img');
-    bar.dataset.med = s.med + 1; bar.dataset.p10 = s.p10 + 1; bar.dataset.p90 = s.p90 + 1;
-    bar.setAttribute('aria-label', s.name + ': median rank ' + (s.med+1) +
-      ', 90% range ' + (s.p10+1) + ' to ' + (s.p90+1));
-    for(let r = 0; r < n; r++){
-      const cell = document.createElement('div');
-      cell.className = 'cell' + (r >= s.p10 && r <= s.p90 ? ' in' : '') +
-        (r === s.med ? ' med' : '');
-      cell.title = 'Rank ' + (r+1);
-      bar.appendChild(cell);
-    }
-    const pt = document.createElement('div');
-    pt.className = 'ptop';
-    pt.innerHTML = 'top-' + k + ' <b>' + pctStr(s.ptop) + '</b>';
-    row.append(p, nm, bar, pt);
-    holder.appendChild(row);
-  });
+  holder.innerHTML = rankResultRows(R, knife);
 }
 
 /* ---------- copy for a doc ---------- */

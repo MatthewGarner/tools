@@ -1,0 +1,19 @@
+# Article views
+
+All 24 preserved Lab routes have a pure `embed/definitions/lab-<route>.js` definition. The root embed host owns controls, themes, accessible text, export and reset. A definition imports native model or workspace logic, never an app entry point. Archived and merged routes retain their lifecycle status.
+
+Scaffold state is one complete active workspace, including authored alternatives, review flags and source snapshots. Model state is editable inputs and replay decisions; derived trajectories and a browser’s saved experiment collection are not the portable unit. Flexibility also carries the pending offer selection and dispatch. Exceptions reconstructs its native run from quarter decisions. Native save envelopes are converted by the definition’s pure `toToolState` and `fromToolState` exports.
+
+`dist/shared/article-import.js` validates the root `#article:` codec and definition schema before handing state to an app. Scaffolds append through their existing import reducers, persist successfully, then consume the fragment. Recovery or rejected imports pause saving. Models use an explicitly registered current-state key in `shared/utils.js`; the article session stays in memory and updates its shareable fragment. Other keys, pinned libraries and saved personal slots retain their native behavior. A rejected article also suppresses autosave to that one current-state key.
+
+Keep native invalidation rules when adding an interaction. Moving a Scene idea must mark its fit for review; changing Analogy mappings must invalidate affected relationship checks; branching must preserve its source snapshot. An article action operates on a clone through the native reducer. Article-only views can omit panels, but their state and handoff cannot omit the meaning of an authored relationship.
+
+The shared chart renderer returns an SVG without intrinsic dimensions. A chart nested inside a larger article SVG must declare its own width and height; otherwise the browser stretches it to the enclosing viewport and overlays captions. Lab’s responsive chart and Knowledge timeline do this explicitly.
+
+Verification: `node --test embed/tests/lab.test.mjs` exercises all route definitions, actions, numeric controls, native conversions, additive scaffold imports and storage rejection. `npm --prefix lab test` runs the native mechanism tests. Use the root article preview command for visual changes. Deployment must include the root `/embed` definition and core paths used by full-tool receivers.
+
+## Original-origin package and versions
+
+`node dev/package-lab.mjs <new-directory>` copies the current Lab definitions and the codec/schema through the same pure dependency walker used by article releases. The package rewrites definition references from the repository’s `lab/dist/` layout to the original Site’s root routes. Native modules already in that package are reused; it does not copy the wider Tools applications, article runtime or frozen release archives. The receiver’s finite dynamic import points at the packaged definitions. `node --test dev/package-lab.test.mjs` checks the closed graph, and `node dev/pw/lab-article-origin.mjs` exercises the actual original-origin pages and storage.
+
+The receiver accepts only the current definition’s exact tool ID and version. A frozen article can hand off while that version remains supported; once the current definition version changes, an older fragment is explicitly rejected unless a deliberate validator/migration is added. There is no silent coercion to a newer example version. Rejection retains the fragment and existing saved bytes, suppressing current-model autosave or pausing scaffold saving. The immutable article itself remains playable under its published version. Full-tool links open a new document; changing only the hash of an already-open native app does not reinitialise its session.

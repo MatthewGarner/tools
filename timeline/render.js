@@ -2,7 +2,7 @@
    module keeps only its semantic helpers and public output routes. */
 import {fmtDay} from './parse.js';
 import {mergeBias, laneVsDeadline} from './mergebias.js';
-import {resolveVerdict} from '../assets/verdict.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
 import {decisionLead, leadDuration, leadReceipt, primaryDecisionLead} from './lrm.js';
 import {renderField} from './render-field.js';
 

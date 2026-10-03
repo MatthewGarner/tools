@@ -1,12 +1,14 @@
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('adoption','thinking-lab:adoption:v1');
 import {mountShell} from '../shared/shell.js?v=0.22.0';
-import {escapeHtml as e,writeStore,downloadText} from '../shared/utils.js?v=0.21.0';
+import {escapeHtml as e,writeStore,downloadText} from '../shared/utils.js?v=0.24.0';
 import {lineChart} from '../model-kit/chart.js?v=0.21.0';
 import {create,simulate,assess,edges,OFFSETS,stateAt} from './engine.js?v=0.21.0';
 import {NETWORKS,KEY,switchNetwork,toggleLink,placement,differences,positions,validateBundle,initialBundle,portable,parse,markdown} from './plans.js?v=0.21.0';
 mountShell({active:'adoption'});
 const app=document.querySelector('#app'),clone=structuredClone,f=x=>Number(x).toFixed(1),name=i=>String(i+1).padStart(2,'0');
 let b=initialBundle(),past=[],message='',pending=null,paused=false,recovery=null,suppressClick=false;
-try{const raw=localStorage.getItem(KEY);if(raw){recovery=raw;b=validateBundle(JSON.parse(raw));recovery=null;}}catch{paused=true;message='Saved work needs recovery. Saving is paused until you choose to replace it.';}
+try{const raw=readArticleRaw(KEY);if(raw){recovery=raw;b=validateBundle(JSON.parse(raw));recovery=null;}}catch{paused=true;message='Saved work needs recovery. Saving is paused until you choose to replace it.';}
 function save(){if(paused)return;if(!writeStore(KEY,b)){message='Storage unavailable. Export to keep this experiment.';app.querySelector('.status').textContent=message;}}
 function change(fn,msg){const before=clone(b);try{fn();b=validateBundle(b);past.push(before);past=past.slice(-40);b.round=0;pending=null;message=msg||'Starting conditions changed. Both trajectories are replayed.';save();render();}catch(error){b=before;message=error.message;render();}}
 const networkNote=s=>({groups:s.bridge?'Two dense groups with two additional cross-group links.':'Two separate groups: 30 links, five partners per person.',mixed:'30 links and five partners per person, as in the unbridged groups; the partner mix changes.',hub:'11 links. Person 01 connects to everyone; each other person has one partner.',custom:'Your edited undirected links. Isolated people have no coordination utility.'}[s.network||'groups']);

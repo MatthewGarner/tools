@@ -1,5 +1,5 @@
 /* Zone readout and portable Markdown. Pure. */
-import {resolveVerdict} from '../assets/verdict.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
 import {zoneFor} from './zones.js';
 import {comparisonSafety, mapDiff} from './diff.js';
 

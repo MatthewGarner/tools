@@ -1,4 +1,6 @@
-import{mountShell}from'../shared/shell.js?v=0.22.0';import{escapeHtml as e,readStore,writeStore,downloadText}from'../shared/utils.js?v=0.21.0';import{HORIZON,DEFAULTS,SCENARIOS,config,createRun,step,observation,simulate,metrics,restore,serialize,readings}from'./engine.js?v=0.21.0';
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('delay','thinking-lab:delay:v1');
+import{mountShell}from'../shared/shell.js?v=0.22.0';import{escapeHtml as e,readStore,writeStore,downloadText}from'../shared/utils.js?v=0.24.0';import{HORIZON,DEFAULTS,SCENARIOS,config,createRun,step,observation,simulate,metrics,restore,serialize,readings}from'./engine.js?v=0.21.0';
 mountShell({active:'delay'});
 const KEY='thinking-lab:delay:v1',root=document.querySelector('#app');
 let stored=readStore(KEY,{}),settings=config(stored.settings),baseline=config(stored.baseline??{...DEFAULTS,lag:0}),manual;

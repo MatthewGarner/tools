@@ -1,6 +1,8 @@
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('teams','thinking-lab:teams:v1');
 import { mountShell } from '../shared/shell.js?v=0.22.0';
 import { attachCardDrag } from '../shared/drag.js?v=0.21.0';
-import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.21.0';
+import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.24.0';
 import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js?v=0.21.0';
 
 import {workloadFromPreset,validateWorkload} from './workload.js?v=0.21.0';

@@ -1,6 +1,6 @@
 /* Divergence stats, headlines, verdict, markdown summary. Pure. */
 import {quantile} from '../assets/series.js';
-import {resolveVerdict} from '../assets/verdict.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
 
 export const RATIO_DIVERGENT = 3;   // pooled spread ÷ median individual width
 export const SPLIT_GAP = 25;        // percentage points

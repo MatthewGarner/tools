@@ -6,8 +6,8 @@
    complete-or-refused presentation plate. */
 import {esc, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
-import {resolveVerdict} from '../assets/verdict.js';
-import {diffItems} from '../assets/snapshots.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
+import {diffItems} from '../assets/diff-items.js';
 import {STAGES, stageOf} from './parse.js';
 import {layoutMap} from './layout.js';
 

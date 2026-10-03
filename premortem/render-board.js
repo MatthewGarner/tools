@@ -5,7 +5,7 @@
    cost?" — the promoted entry lands kind:'risk' in the register. Every user
    string through esc(); risks are NOT shown here (they live in the register). */
 import {esc} from '../assets/svg.js';
-import {markFigure} from '../assets/verdict.js';
+import {markFigure} from '../assets/verdict-core.js';
 import {isCompleteRange, modeOf} from './register.js';
 
 const COLS = [

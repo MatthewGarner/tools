@@ -13,7 +13,7 @@
    view. Mirrors map/diff.js's split (raw diffItems() result -> a render-
    shaped view); wardley recomputes prev geometry inside render instead, but a
    Monte-Carlo resim is too costly to redo on every keystroke unmemoised. */
-import {diffItems} from '../assets/snapshots.js';
+import {diffItems} from '../assets/diff-items.js';
 
 const key = b => b.occurrenceKey || JSON.stringify([(b.group || '').toLowerCase(), 1, b.name.toLowerCase(), 1]);
 const state = b => JSON.stringify([b.stake, b.odds, b.payoff, !!b.kill]);

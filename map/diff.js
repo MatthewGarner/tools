@@ -1,6 +1,6 @@
 /* Drift compare (parked V2, built 2026-07-06): positions are the honest fact,
    so the diff is keyed on labels with "x,y" (1dp) as the state. Pure. */
-import {diffItems} from '../assets/snapshots.js';
+import {diffItems} from '../assets/diff-items.js';
 
 const r1 = v => Math.round(v * 10) / 10;
 const keyed = m => m.items.map(it => ({label: it.label,

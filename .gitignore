@@ -9,3 +9,6 @@ AGENTS.local.md
 design-qa.md
 parity-*.png
 .bar/
+
+# Generated local embed previews; published versions are recorded separately.
+/embed/current/

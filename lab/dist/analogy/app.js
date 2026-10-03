@@ -1,3 +1,4 @@
+import {receiveArticleWorkspace} from '../shared/article-import.js';
 import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {saveTrackedWork} from '../shared/work-storage.js?v=0.23.0';
 import {createTemplates} from '../shared/templates.js?v=0.23.0';
@@ -5,12 +6,13 @@ import {transfersPanel,refreshTransfers} from './transfers-ui.js?v=0.21.0';
 import {familyMap} from '../shared/ancestry-ui.js?v=0.21.0';
 import {mountShell} from '../shared/shell.js?v=0.22.0';
 import {attachCardDrag} from '../shared/drag.js?v=0.21.0';
-import {escapeHtml as e, downloadText} from '../shared/utils.js?v=0.21.0';
+import {escapeHtml as e, downloadText} from '../shared/utils.js?v=0.24.0';
 import {KEY, SOURCES, FITS, initialState, active, targetFor, roleName, createHistory, change, undo, apply, validateState, serialize, parse, markdown} from './state.js?v=0.21.0';
 mountShell({active:'analogy'});
 const root=document.querySelector('#app'), dialog=document.querySelector('#dialog');
 let history=createHistory(initialState()), timer, toastTimer, dragDestroy, dialogOrigin=null, dialogFocus=null, paused=false, recovery=null, saveMessage='Saved on this device';
 try {const raw=localStorage.getItem(KEY); if(raw){try{history=createHistory(validateState(JSON.parse(raw)));}catch{recovery=raw;paused=true;saveMessage='Saved data needs recovery';}}}catch{saveMessage='Saving unavailable · export a copy';}
+const article=await receiveArticleWorkspace({route:'analogy',state:history.present,key:KEY,paused,append:(current,workspace,id)=>apply(current,{type:'import',workspace,id})});history=createHistory(article.state);if(article.error)paused=true;
 const resumed=resumeWorkspace(history.present);history=createHistory(resumed.state);consumeWorkPointer();
 const state=()=>history.present, work=()=>active(state()), uid=()=>crypto.randomUUID?.() || `a-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const short=(value,limit=90)=>value.length>limit?`${value.slice(0,limit-1)}…`:value;
@@ -109,7 +111,7 @@ dialog.addEventListener('close',()=>{render();if(dialogFocus){document.getElemen
 dialog.addEventListener('click',event=>{if(event.target===dialog){const box=dialog.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)dialog.close();}});
 document.querySelector('#file').addEventListener('change',async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>7000000)throw new Error('Choose a JSON file under 7 MB.');const imported=parse(await file.text());dialog.close();if(act({type:'import',id:uid(),workspace:imported}))toast('Workshop imported. Existing work is preserved.');}catch(error){toast(error.message);}event.target.value='';});
 window.addEventListener('pagehide',()=>save(true));window.addEventListener('storage',event=>{if(event.key!==KEY||event.newValue===JSON.stringify(state()))return;clearTimeout(timer);paused=true;saveMessage='Local saving paused';render();});
-render();if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');if(!paused)save();
+render();if(article.error)toast(article.error);else if(article.imported)toast('Article example imported as separate work.');if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');if(!paused)save();
 
 function refreshReviewSignals(){
  const w=work(),selected=w.reviews[w.selectedLink];

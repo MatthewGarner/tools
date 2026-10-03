@@ -104,6 +104,7 @@ test('golden corpus reaches every SVG renderer or explicitly excludes HTML-only 
   const eligible = renderersOnDisk();
   const covered = [...reachableModules('dev/golden.mjs')].filter(rel => eligible.includes(rel));
   const allowed = {
+    'rank/render.js': 'Extracted rank rows emit HTML; native and article browser journeys cover their responsive bars.',
     'duel/render.js': 'HTML interaction renderer; exact SVG golden files cannot represent its output.',
     'gauge/render-form.js': 'HTML questionnaire renderer; the gauge SVG overlay renderer is golden-covered.',
     'premortem/render-board.js': 'HTML workshop board renderer; it does not emit an SVG artefact.',

@@ -1,7 +1,7 @@
 /* /proxy authored model → causal-guardrail projection. Pure; no DOM.
    Routes intentionally omit the proxy: it is a measurement, not a causal step. */
 
-import {firstFigure} from '../assets/verdict.js';
+import {firstFigure} from '../assets/verdict-core.js';
 
 const PATTERN_FIELDS = ['proxyReading', 'outcomeReading', 'population',
   'horizon', 'comparator', 'source'];

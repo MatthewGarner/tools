@@ -91,7 +91,7 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
   let y = pad;
   lines.slice(0, 2).forEach(line => { out.push('<text x="' + pad + '" y="' + y + '" font-family=\'' + SERIF + '\' font-size="' + titleSize + '" font-weight="700" fill="' + C.ink + '">' + e(line) + '</text>'); y += titleSize * 1.18; });
   if(!lines.length) y = presentation ? 54 : 20;
-  out.push('<text x="' + (W - pad) + '" y="' + pad + '" text-anchor="end" font-size="' + (presentation ? 18 : 11) + '" fill="' + C.muted + '">' + new Date().toISOString().slice(0, 10) + '</text>');
+  out.push('<text x="' + (W - pad) + '" y="' + pad + '" text-anchor="end" font-size="' + (presentation ? 18 : 11) + '" fill="' + C.muted + '">' + (ctx.today || new Date().toISOString().slice(0, 10)) + '</text>');
   const metricsY = y + (presentation ? 12 : 1);
   out.push(svgMetrics({x:pad, y:metricsY, model:'', counts:counts(model.root), ink:C.ink, muted:C.muted, font:SANS, scale:presentation ? 1.7 : 1}));
   const vy = metricsY + (presentation ? 54 : 18), vp = verdictParts(model, results);

@@ -7,12 +7,14 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {STANDARD_REGISTRY} from './embed-registry.mjs';
 import {FONT_FACES} from '../assets/chapter-fonts.js';
 import {COMPATIBILITY_MODULES, moduleGraph as walkModules} from './module-graph.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
 const size = p => statSync(join(ROOT, p)).size;
+const ARTICLE_TOOLS=JSON.parse(read('embed/catalogue.json')).tools;
 
 function resolveRef(fromDir, ref){
   if(ref.startsWith('/')) return ref.slice(1);
@@ -47,6 +49,12 @@ function pageLoad(page){
   // Chapter eagerly fetches its local registry before measuring live or export text.
   if(files.has('assets/chapter-font-loader.js'))
     for(const face of FONT_FACES) files.add('assets/fonts/' + face.file);
+  if(page.startsWith('embed/')){
+    // The article host uses CSS imports and frozen FontFace URLs in its entry.
+    for(const file of files){if(file.endsWith('.css'))for(const m of read(file).matchAll(/@import\s+['"]([^'"]+)['"]/g))files.add(resolveRef(file.split('/').slice(0,-1).join('/'),m[1]));}
+    const tool=ARTICLE_TOOLS.find(t=>t.route.slice(1)+'index.html'===page);
+    for(const font of tool?.fonts??[])files.add(font.file);
+  }
   return files;
 }
 
@@ -544,6 +552,11 @@ const PAGES = {
   'proxy/index.html': 510_000,
 };
 
+// Fixed ceilings include shared host/transport, model graph and required fonts.
+// Current article payloads range roughly45–250KB; no editor/app shell is loaded.
+const ARTICLE_BUDGETS={roadmap:300000,timeline:240000,case:215000,paths:205000,bets:185000};
+for(const tool of ARTICLE_TOOLS)PAGES[tool.route.slice(1)+'index.html']=ARTICLE_BUDGETS[tool.id]??(tool.id.startsWith('lab-')?130000:165000);
+
 if(process.env.WEIGHT_DEBUG){
   for(const [page, budget] of Object.entries(PAGES)){
     const bytes = [...pageLoad(page)].reduce((a, f) => a + size(f), 0);
@@ -574,12 +587,16 @@ test('no orphaned shipped modules', () => {
   for(const page of Object.keys(PAGES)) for(const f of pageLoad(page)) reachable.add(f);
   ['home/sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
   for(const file of COMPATIBILITY_MODULES) moduleGraph(file, reachable);
+  // Explicit authoring and portable-export roots are consumed by the release
+  // CLI/website, not the iframe. Walk their real imports instead of exempting JS.
+  for(const entry of STANDARD_REGISTRY)moduleGraph(entry.file,reachable);
+  for(const file of ['embed/core/legacy.js','embed/portable/definition.js','embed/portable/legacy.js'])moduleGraph(file,reachable);
   const orphans = [];
   const DIRS = [...TOOL_DIRS, 'energy', 'home', 'explore', 'backup', 'assets', 'embed'];
   for(const d of DIRS){
     (function walk(dir){
       for(const f of readdirSync(join(ROOT, dir))){
-        if(f === 'tests' || f === 'node_modules') continue;
+        if(f === 'tests' || f === 'node_modules' || (dir==='embed'&&f==='current')) continue;
         const rel = dir + '/' + f;
         if(statSync(join(ROOT, rel)).isDirectory()) walk(rel);
         else if(f.endsWith('.js') && !f.endsWith('.test.mjs') && !reachable.has(rel)) orphans.push(rel);

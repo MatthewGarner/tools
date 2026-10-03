@@ -1,3 +1,4 @@
+import {receiveArticleWorkspace} from '../shared/article-import.js';
 import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {createTemplates} from '../shared/templates.js?v=0.23.0';
 import {copyDecisionNote} from '../shared/decision-note-ui.js?v=0.23.0';
@@ -5,14 +6,15 @@ import {saveTrackedWork} from '../shared/work-storage.js?v=0.23.0';
 import {mountShell} from '../shared/shell.js?v=0.22.0';
 import {escapeHtml,downloadText} from '../shared/utils.js?v=0.21.0';
 import {attachCardDrag} from '../shared/drag.js?v=0.21.0';
-import {uid,active,history,transition,undo,validateSession,portable,parse} from './state.js?v=0.21.0';
+import {uid,active,history,advance,transition,undo,validateSession,portable,parse} from './state.js?v=0.21.0';
 export const e=escapeHtml;
 export const field=(id,label,value,attrs='',help='',rows=2)=>`<div class="field"><label for="${e(id)}">${label}</label>${help?`<p id="${e(id)}-help">${e(help)}</p>`:''}<textarea id="${e(id)}" rows="${rows}" maxlength="20000" ${attrs} ${help?`aria-describedby="${e(id)}-help"`:''}>${e(value)}</textarea></div>`;
 export const select=(id,label,value,options,attrs='')=>`<div class="field"><label for="${e(id)}">${label}</label><select id="${e(id)}" ${attrs}>${Object.entries(options).map(([key,name])=>`<option value="${e(key)}" ${key===value?'selected':''}>${e(name)}</option>`).join('')}</select></div>`;
 export const editAttrs=(collection,item,name)=>`data-field="${name}" data-item="${e(item)}" data-collection="${collection}"`;
-export function boot(config){
+export async function boot(config){
   mountShell({active:config.route});const root=document.querySelector('#app'),dialog=document.querySelector('#dialog'),key=`thinking-lab:${config.route}:v1`;const first=config.make('first','example');let h=history({version:1,activeId:first.id,workspaces:[first]}),paused=false,recovery=null,timer,toastTimer,destroy,dialogOrigin,saveMessage='Not saved yet';
   try{const raw=localStorage.getItem(key);if(raw)try{h=history(validateSession(JSON.parse(raw),config.validate));saveMessage='Saved in this browser';}catch{paused=true;recovery=raw;}}catch{saveMessage='Saving unavailable · export a copy';}
+  const article=await receiveArticleWorkspace({route:config.route,state:h.present,key,paused,append:(current,workspace,id)=>advance(current,{type:'import',workspace,id},config)});h=history(article.state);if(article.error)paused=true;
   const resumed=resumeWorkspace(h.present);h=history(resumed.state);consumeWorkPointer();
   const kit={w:()=>active(h.present),state:()=>h.present,act,render,open,close:()=>dialog.close(),toast,uid};
   createTemplates({scope:'lab',tool:config.route,format:'workspace-json',capture:()=>portable(kit.w(),config.route,config.validate),name:()=>kit.w().problem,
@@ -32,5 +34,5 @@ export function boot(config){
   function edited(el){if(el.hasAttribute('data-problem'))act({type:'problem',value:el.value},{repaint:false,group:'problem'});else if(el.dataset.field)act({type:'edit',collection:el.dataset.collection,item:el.dataset.item,field:el.dataset.field,value:el.value},{repaint:false,group:el.id});resize(el.parentElement);}
   document.addEventListener('input',event=>{if(event.target.matches('textarea,input[data-field]'))edited(event.target);});document.addEventListener('change',event=>{if(event.target.matches('select[data-field]')){edited(event.target);if(!dialog.open)render();}});document.addEventListener('focusout',()=>{h.group=null;});dialog.addEventListener('close',()=>{if(dialog.open)return;render();(dialogOrigin?.id?document.getElementById(dialogOrigin.id):control(dialogOrigin?.data))?.focus({preventScroll:true});dialogOrigin=null;});
   document.querySelector('#import-file').addEventListener('change',async event=>{const file=event.target.files?.[0];if(!file)return;try{if(file.size>8000000)throw Error('Choose a file under 8 MB.');const raw=await file.text(),w=config.parseImport?config.parseImport(raw):parse(raw,config.route,config.validate);dialog.close();if(act({type:'import',id:uid(),workspace:w}))toast('Imported as a new workspace. Previous work is kept.');}catch(error){toast(error.message);}event.target.value='';});
-  window.addEventListener('pagehide',()=>save(true));window.addEventListener('storage',event=>{if(event.key===key&&event.newValue!==JSON.stringify(h.present)){clearTimeout(timer);paused=true;render();}});render();if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');return kit;
+  window.addEventListener('pagehide',()=>save(true));window.addEventListener('storage',event=>{if(event.key===key&&event.newValue!==JSON.stringify(h.present)){clearTimeout(timer);paused=true;render();}});render();if(article.error)toast(article.error);else if(article.imported)toast('Article example imported as separate work.');if(resumed.missing)toast('That workspace is no longer available here. Your current work is open.');return kit;
 }

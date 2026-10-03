@@ -3,7 +3,7 @@ import {workToken} from '../assets/work-reference.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
-import {resolveVerdict} from '../assets/verdict.js';   // the composer headline is a verdict mirror too
+import {resolveVerdict} from '../assets/verdict-core.js';   // the composer headline is a verdict mirror too
 import {sessionStats, sampleMarkdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,

@@ -1,128 +1,74 @@
 # Article demonstrations
 
-`/embed/v1/flow/` is the first supported adapter: **Flow v1 / waiting-time**.
-It shows average waiting against weekly demand, a selected demand point, Reset,
-and a full Flow link carrying current inputs. `controls: ["demand"]` enables
-exploration; `controls: []` locks inputs. It uses no saved work, tracking or
-service-worker registration. Embed routes are network-only, outside the PWA precache.
+Every registered tool has a validated definition, a useful default article view and a current-state full-tool link. The catalogue includes classic Tools, Energy and all preserved Lab routes; archived/merged Lab tools keep their status. The website consumes the catalogue generically. Adding an article for an existing view requires no website code.
 
-## Add an article example
+## Create an article example
 
-The [website authoring guide](https://github.com/MatthewGarner/website/blob/v5/site/TOOL-ARTICLES.md)
-owns article frontmatter, Obsidian publishing, Markdown syntax and local preview.
-From the Tools checkout:
-
-1. Copy the website’s `content/tool-examples/flow-queues-v1.json` to a new filename
-   such as `slack-and-speed-v1.json`. Keep `tool: "flow"`, `version: 1` and
-   `view: "waiting-time"`; change `params`, `controls`, title and local image path.
-2. Generate a matching static fallback directly from that manifest:
-
-   ```sh
-   node dev/generate-embed-poster.mjs \
-     --example /path/to/website/content/tool-examples/slack-and-speed-v1.json \
-     --output /path/to/website/content/images/demonstrations/slack-and-speed-v1.svg
-   ```
-
-   Both paths are filesystem paths; the manifest’s `image` is the website path
-   `/images/demonstrations/slack-and-speed-v1.svg`. The output directory must exist.
-   Copy the printed suggested `alt` and `summary` into the manifest; edit the
-   summary for the article’s argument while keeping the model facts accurate.
-   The generator rejects unsupported tools/views and invalid settings before
-   touching output. It handles unstable queues without inventing a waiting estimate.
-   Without arguments it regenerates the shipped default `v1/flow/poster.svg`.
-3. Run `npm run check:tool-examples` from the website’s `site` directory, then
-   insert the named example between paragraphs in the article:
-
-   ````markdown
-   ```tool
-   example: slack-and-speed-v1
-   caption: Increase demand while capacity stays fixed. What happens to waiting?
-   ```
-   ````
-
-   Omit `caption` to use the manifest summary. Add `mode: figure` for only the
-   image and link. Obsidian shows source; the website renders the demonstration.
-4. Preview the actual article on desktop and phone in both themes. Exercise
-   Explore, demand, Reset, full-tool handoff and print; check fallback alt/caption
-   against the model. The full tool may evolve, but the article’s model stays pinned.
-
-For a new example, regenerate its image whenever its inputs change. Do not reuse
-the default poster for different parameters. Keep a published example ID, its
-manifest and image stable; create a new ID/image when revising an article’s example.
-The embed `version` selects a computation contract, not an article revision.
-
-## URL and input contract
-
-The URL fragment is `encodeURIComponent(JSON.stringify(state))`:
-
-```json
-{"params":{"demandPerWeek":8,"itemDays":2,"team":4,"wipLimit":4,"cov":"med"},"seed":61709,"controls":["demand"]}
-```
-
-Omitted fields in a direct embed use these defaults; website manifests should
-state them explicitly. Unknown fields, invalid JSON and unsupported values produce
-a visible error. Demand is 0.5–10 in half steps, item size 1–15 whole working days,
-team 1–10 people, WIP 1–20 or 40 (full Flow’s “no limit” setting), and variability
-`low`, `med` or `high`. Seed must be 61709: full Flow cannot accept a queue seed,
-so permitting others would make the handoff misleading. At or above effective
-capacity there is no stable wait estimate. Full Flow receives current inputs
-through its existing hash codec, including the WIP-40 → slider-21 mapping.
-
-`v1/flow/model/provenance.json` records source commit and SHA-256 hashes for the
-frozen engine and its series dependency. Keep released computation immutable;
-publish changed model behaviour under a new version. `--write` below restores
-recorded bytes, never copies current Flow into an old article version.
+Use a linked Tools feature worktree. Install the browser harness once with `npm ci --prefix dev/pw` (and `npx --prefix dev/pw playwright install chromium` if Chromium is missing). Published definitions and model dependencies are frozen; list them with `node dev/embed-catalogue.mjs inspect` or inspect `embed/catalogue.json` for view/control IDs and initial state.
 
 ```sh
-node dev/freeze-embed-flow.mjs --check
-node --test embed/tests/*.mjs dev/headers.test.mjs dev/origins.test.mjs dev/weight.test.mjs
-npm run test:changed
+node dev/create-tool-example.mjs rank ranking-close-call-v1 \
+  --content /absolute/path/to/website/content \
+  --title "When the ranking is a close call"
 ```
 
-Use `npm run sync` after changing shipped shared assets, and follow the
-[release guide](../docs/agent/RELEASE.md) for preview, PR CI and publication.
-Deploy the Tools route before publishing a website article that references it.
+The command loads the released definition, validates its state including domain rules, runs its real browser view and writes:
 
-## Framing and local preview
+- `content/tool-examples/ranking-close-call-v1.json`
+- `content/assets/tool-examples/ranking-close-call-v1.png`
 
-Start Tools with `node dev/serve.mjs 8087`. In the website’s `site` directory, use
-`TOOL_EMBED_ORIGIN=http://127.0.0.1:8087 npm run dev -- --host 127.0.0.1 --port 4321`.
-The website override is local draft development only; published builds use Tools
-production. Production framing permits only `https://www.matthewgarner.me` and
-`https://matthewgarner.me`; arbitrary Vercel preview article origins are deliberately
-blocked. The local Tools server additionally permits localhost/127.0.0.1 article
-ports 4321 and 4335. Use the paired local preview for integration, or the approved
-website production origin; do not widen the production policy to preview wildcards.
+The manifest uses a root-relative image path, so the example works in nested articles. Title, summary and alt text default to the tool/view title and actual rendered description; edit them to explain the article’s argument accurately. The image captures the complete reading view, without interactive controls. PNG preserves the exact rendered fonts/layout and is suitable for no-JavaScript, print and failure fallback.
 
-The parent passes `?parent=` containing its exact origin; otherwise the child uses
-an allowed `document.referrer`. The explicit parameter is required when the parent
-uses `referrerpolicy="no-referrer"`. Messages are:
+For a different state, save the tool’s canonical JSON state to a file and pass `--state /path/state.json`. Use `--version 1`, `--view ranking`, `--controls value,wobble` (or `--controls none`), `--summary`, `--alt` and `--width 900` as needed. Width is 320–1600 pixels. See the catalogue or definition for exact available controls: names are not CSS selectors. State is complete, not a partial patch. The default is the latest released version, its initial state, default view and small default control set.
 
-- Child → parent: `{type:"mg-tool:ready",version:1}` after mounting, then
-  `{type:"mg-tool:resize",version:1,height:523}` when content height changes.
-- Parent → child: `{type:"mg-tool:theme",version:1,theme:"light"}` or `"dark"`.
-  The child checks sender window and exact origin. Theme stays in memory.
+The generator refuses to replace an existing manifest or image. Published examples are snapshots: changed state, model or illustration needs a new example ID. Do not edit a manifest’s state without regenerating its matching image. For new or changed DSL sources, always use the Tools generator: website builds validate portable structure and controls, while domain parsing/rendering stays with the frozen tool.
 
-Mutually exclusive CSP rules allow only `/embed/` routes to be framed; normal pages
-retain `frame-ancestors 'none'`. The parent supplies a title, static figure/caption,
-full-tool fallback and lazy user-initiated loading. Its sandbox needs scripts,
-same-origin (ES modules), popups and popups-to-escape-sandbox (full-tool handoff).
-The fallback covers failed loading, no JavaScript and print; the website currently
-publishes RSS descriptions and links, not full article bodies.
+In the website article:
 
-## Add another tool or view
+````markdown
+```tool
+example: ranking-close-call-v1
+caption: Change the value weight and watch which priorities remain settled.
+```
+````
 
-1. Choose one reading purpose, define bounded inputs and a reproducible seed/version
-   policy. Freeze its pure dependency graph and record provenance. Implement the
-   focused shell and current-state full-tool codec; reuse `v1/bridge.js`. Never
-   import the full app, which may own saved work or other workspace interactions.
-2. Register the bare-route redirect in `dev/origins.mjs` and `vercel.json`, and
-   the page’s load budget in `dev/weight.test.mjs`. Add model/input/handoff tests
-   and a matching static poster generator; retain existing version URLs.
-3. In the website, extend `site/src/lib/tool-embeds.ts`: its `ToolExample` type,
-   `views`, `validateExample` and `exampleURLs` currently implement Flow specifically.
-   A registry row alone does not add support: supply the new input validation and
-   full-tool state mapping, plus tests in `site/tests/tool-embeds.test.ts`.
-4. Add a website manifest and matching image, then test the real article across
-   both repos. Extend `site/scripts/check-tool-embed.mjs` or the browser suite for
-   the new adapter’s interactions, invalid input, themes, sizing and handoff.
+`mode: figure` shows the static illustration and full-tool link. Otherwise the reader chooses Explore to load an isolated iframe. Keep unfinished articles as drafts. The [website guide](https://github.com/MatthewGarner/website/blob/v5/site/TOOL-ARTICLES.md) owns frontmatter, asset handling, validation and publishing commands. Obsidian is a planning vault, not an automatic publishing source.
+
+## Add a tool or a focused view
+
+```sh
+node dev/new-tool.mjs my-tool "My tool"
+node dev/preview-embed.mjs my-tool
+node dev/serve.mjs 8089
+```
+
+The scaffold creates a runnable full app, pure model/view and `embed/definitions/my-tool.js`. Both `/my-tool/` and `/embed/current/my-tool/` already use the same definition. The full-app host imports validated article state and keeps the current state in its URL. The starter is deliberately unregistered and marked `draft: true`; replace its illustrative calculation with the approved product design before release.
+
+Follow [NEW_TOOL.md](../docs/agent/NEW_TOOL.md) for native design, navigation, PWA, numbering/family/origin registration and tests. Register the tool in the executable tool inventory, then remove the draft marker. CI derives the required embed definitions from that inventory and fails if a registered tool lacks one. A custom native app can consume the same pure modules instead of the supplied host.
+
+The [definition contract](CONTRACT.md) describes bounded state/schema, pure optional domain validation, views, controls, actions and full-tool encoding. Add a named view by rendering an appropriate slice of that same model and declaring supported/default controls. Reuse native calculation/renderers; never import app entry points, storage, relay or PWA code. A fragment or named view must be a deliberate reading surface, not a CSS crop of an app. Use fictional deterministic example state, escape authored text and provide a meaningful text summary. Expensive projections can opt into the host’s cancellable worker and two-result cache; Cycles is the reference.
+
+Check actual output at phone/desktop widths in both themes, keyboard access, empty/extreme inputs, current-state handoff and meaningful semantic tests. New model/view behavior requires a higher definition version after publication. Run the [release commands](RELEASE.md) to freeze model/view dependencies and required fonts. The common browser host remains patchable. Never change a frozen model to update an old article.
+
+## Preview and verify
+
+Serve Tools on 8089. In the website’s `site` directory:
+
+```sh
+npm run sync:tool-contract -- /absolute/path/to/tools/embed/portable
+TOOL_EMBED_ORIGIN=http://127.0.0.1:8089 npm run dev -- --host 127.0.0.1 --port 4335
+```
+
+The catalogue is checked in to the website: builds need neither a Tools checkout nor a network request. Sync when new versions become available. Local Tools links stay on the local Tools origin; Energy links retain their separate origin. Production framing permits only the two Matthew Garner website origins. Local framing additionally permits localhost/127.0.0.1 ports 4321/4335; arbitrary Vercel preview article origins are intentionally unsupported.
+
+```sh
+node --test embed/tests/*.mjs dev/embed-release.test.mjs dev/new-tool.test.mjs
+npm run embed:check
+npm run test:browser -- --suites standard-embeds.mjs,lab-article-origin.mjs
+```
+
+The browser suite covers every released tool on desktop/light and phone/dark, independent memory-only controls, reset, current-state links, malformed inputs and unsafe output. The website’s real-article harness adds both-browser iframe integration, theme/resize messaging, fallback, no-JavaScript and print. Payload gates count actual module graphs and fonts. Embeds do not register service workers or read saved work.
+
+Shared bridge messages use protocol version 1, exact parent window/origin checks, ready/resize and immediate error notifications. The parent owns click-to-load, its image/caption, loading timeout and retry. Fragment state is consumed when a new document loads; full-tool handoffs open a new document. Lab scaffold handoffs add separate work; model handoffs are transient and preserve existing saved experiments. Unsupported Lab handoff versions fail visibly without modifying saved data; their frozen article views remain playable. See [Lab handoff boundaries](../lab/docs/ARTICLE-EMBEDS.md).
+
+Deploy Tools first, verify the released routes, then sync/publish the website. Follow the repository [release guide](../docs/agent/RELEASE.md) and [model release guide](RELEASE.md). If a new version fails, retain older bundles and point a new article snapshot at the prior version while repairing the new release. `/embed/v1/flow/` and its original manifests remain byte-compatible; [legacy Flow documentation](LEGACY-FLOW.md) covers that format.

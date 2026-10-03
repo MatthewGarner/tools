@@ -4,7 +4,7 @@ import {wrapText} from '../assets/svg.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {cardTag, registerOutcomeGroups, betChain} from './cond-parts.js';
 import {resolveTypography} from '../assets/chapter-fonts.js';
-import {resolveVerdict} from '../assets/verdict.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
 
 export const CHAPTER_SLIDE = {width:1440, height:810};
 export const CHAPTER_TYPE = {item:24, note:18, meta:15, section:38};

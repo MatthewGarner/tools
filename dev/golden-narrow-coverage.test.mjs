@@ -55,6 +55,7 @@ const COVERED = {
 const EXCLUDED = {
   'alarm/render.js': 'SVG follows caller dimensions continuously; it has no distinct narrow composition.',
   'bets/render-presentation.js': 'Presentation export is intentionally fixed at 1920x1080.',
+  'rank/render.js': 'Extracted rank rows emit HTML; native and article browser journeys cover their responsive bars.',
   'duel/render.js': 'Renderer emits HTML, not SVG.',
   'energy/frequency/render.js': 'SVG export is intentionally fixed wide; the responsive live trace is canvas.',
   'energy/intraday/render-export.js': 'Composite day-and-stack export is intentionally a fixed 1200px artboard.',

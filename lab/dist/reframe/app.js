@@ -1,3 +1,4 @@
+import {receiveArticleWorkspace} from '../shared/article-import.js';
 import {resumeWorkspace,consumeWorkPointer} from '../shared/work-session.js?v=0.22.0';
 import {createTemplates} from '../shared/templates.js?v=0.23.0';
 import {copyDecisionNote} from '../shared/decision-note-ui.js?v=0.23.0';
@@ -5,7 +6,7 @@ import {decisionNote} from './decision-note.js?v=0.23.0';
 import {saveTrackedWork} from '../shared/work-storage.js?v=0.23.0';
 import {sourceDetails} from '../shared/ancestry-ui.js?v=0.21.0';
 import { mountShell } from '../shared/shell.js?v=0.22.0';
-import { escapeHtml as esc, downloadText } from '../shared/utils.js?v=0.21.0';
+import { escapeHtml as esc, downloadText } from '../shared/utils.js?v=0.24.0';
 import { ancestryOfFrame, STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js?v=0.21.0';
 import {attachCardDrag} from '../shared/drag.js?v=0.21.0';
 import {TYPES,QUESTION_STORAGE,readQuestionWorkspaces,parseQuestions} from './inquiry.js?v=0.21.0';
@@ -26,6 +27,7 @@ try {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) { try { state = normalizeState(JSON.parse(raw)); } catch { recoveryRaw = raw; storagePaused = true; storageIssue = 'Saved work could not be opened. Download a recovery copy before replacing it.'; } }
 } catch { storageIssue = 'This browser is blocking local saving. Export your work before closing this page.'; }
+const article=await receiveArticleWorkspace({route:'reframe',state,key:STORAGE_KEY,paused:storagePaused,append:(current,session,id)=>transition(current,{type:'import-session',id,session})});state=article.state;if(article.error)storagePaused=true;
 const resumed=resumeWorkspace(state,'sessions');state=resumed.state;consumeWorkPointer();
 const uid = () => globalThis.crypto?.randomUUID?.() || `r-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const icon = (name) => ({ arrow: '↗', plus: '+', close: '×', check: '✓', back: '↶', download: '↓' }[name] || '');
@@ -271,3 +273,5 @@ render();if(resumed.missing)toast('That workspace is no longer available here. Y
 if (!recoveryRaw) save();
 
 registerWorkbenchTools(document.modelContext || navigator.modelContext, createWorkbenchTools({read: () => state, edit: action => act(action)}));
+
+if(article.error)toast(article.error);else if(article.imported)toast('Article example imported as separate work.');

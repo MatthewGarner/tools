@@ -1,7 +1,7 @@
 /* Public Tree render API. The verdict stays here because the editor, exports
    and renderer all need the identical authored/derived decision sentence. */
 import {fmt} from '../assets/series.js';
-import {resolveVerdict} from '../assets/verdict.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
 import {renderDensity} from './render-density.js';
 
 export const TOKENS = {slideScale: 1.35};

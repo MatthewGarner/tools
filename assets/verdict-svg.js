@@ -8,7 +8,7 @@
    in an exported file. */
 
 import {esc, wrapText, btnAttrs} from './svg.js';
-import {markFigure, countsLine} from './verdict.js';
+import {markFigure, countsLine} from './verdict-core.js';
 
 /* A plain space, held by xml:space. NOT a non-breaking space: the export path
    reads the live SVG's outerHTML — HTML serialisation — and an NBSP comes back

@@ -1,11 +1,13 @@
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('knowledge','thinking-lab:knowledge:v1');
 import {mountShell} from '../shared/shell.js?v=0.22.0';
-import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.21.0';
+import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.24.0';
 import {PEOPLE,SKILLS,DEFAULT_TRAINING,workloadFor} from './engine.js?v=0.21.0';
 import {KEY,initial,validate,pin,replay,template,portable,parse,markdown} from './state.js?v=0.21.0';
 mountShell({active:'knowledge'});
 const $=s=>document.querySelector(s),clone=structuredClone,n=(v,d=1)=>Number(v).toFixed(d),uid=()=>crypto.randomUUID();
 let s=initial(),past=[],result,base,paused=false,recovery=null;
-try{const raw=localStorage.getItem(KEY);if(raw){recovery=raw;s=validate(JSON.parse(raw));recovery=null;}}catch{paused=true;}
+try{const raw=readArticleRaw(KEY);if(raw){recovery=raw;s=validate(JSON.parse(raw));recovery=null;}}catch{paused=true;}
 function status(message){$('#status').textContent=message;$('#recovery').hidden=!paused;}
 function save(){if(paused){status('Saving paused. Keep a recovery copy, or explicitly save this plan instead.');return;}if(!writeStore(KEY,s))status('Saving unavailable. Export this plan.');}
 function compute(){({current:result,baseline:base}=replay(s));}

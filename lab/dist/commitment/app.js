@@ -1,5 +1,7 @@
+import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
+await prepareArticleModel('commitment','thinking-lab:commitment:v1');
 import { mountShell } from '../shared/shell.js?v=0.22.0';
-import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.21.0';
+import { downloadText, escapeHtml, readStore, writeStore } from '../shared/utils.js?v=0.24.0';
 import { BASE_CAPACITY, DEFAULT_ASSUMPTIONS, HORIZON, SCENARIOS, createState, normalizeAssumptions, normalizePolicy, policyAt, schedulePolicy, simulate } from './engine.js?v=0.21.0';
 
 import {createStudy,validateStudy,compareTiming,timingMarkdown} from './timing.js?v=0.21.0';

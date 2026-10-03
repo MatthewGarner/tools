@@ -5,8 +5,8 @@ import {esc} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
 import {ranked, staleness, staleCount, isRisk, isScoreable, isOpportunity, modeOf} from './register.js';
 
-export function renderRegister(doc, exp, now = new Date()){
-  if(modeOf(doc) === 'success') return renderSuccessRegister(doc, now);
+export function renderRegister(doc, exp, now = new Date(), {interactive = true} = {}){
+  if(modeOf(doc) === 'success') return renderSuccessRegister(doc, now, interactive);
   const risks = (doc.entries || []).filter(isRisk);   // the register is risks only; board items live on the board
   const rows = ranked(risks, exp);
   const u = doc.unit ? ' ' + esc(doc.unit) : '';
@@ -53,14 +53,14 @@ export function renderRegister(doc, exp, now = new Date()){
       '] — the sum if every risk landed independently; correlated risks stack higher than this.</p>' +
     (stale ? '<p class="stalenag">' + stale + ' risk' + (stale === 1 ? '' : 's') +
       ' not reviewed in 90 days — a stale register lies. Review them or close them.</p>' : '') +
-    '<div class="actions">' +
+    (interactive ? '<div class="actions">' +
     '<button class="btn" data-act="copylink">Copy link</button>' +
     '<button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button>' +
     '<button class="btn" data-act="reviewall">Mark all reviewed today</button>' +
-    '<span class="method">Seeded Monte Carlo · the register lives in this browser; a link imports a copy</span></div>';
+    '<span class="method">Seeded Monte Carlo · the register lives in this browser; a link imports a copy</span></div>' : '');
 }
 
-function renderSuccessRegister(doc, now){
+function renderSuccessRegister(doc, now, interactive){
   const opportunities = (doc.entries || []).filter(isOpportunity).slice().sort((a, b) =>
     Number(b.essential) - Number(a.essential) ||
     b.actions.reduce((s, x) => s + (x.votes || 0), 0) - a.actions.reduce((s, x) => s + (x.votes || 0), 0));
@@ -79,5 +79,5 @@ function renderSuccessRegister(doc, now){
     '<p class="registernote">A pre-parade records conditions we choose to make true. It is not a forecast, and it carries no invented upside score.</p>' +
     '<div class="registerwrap"><table class="register successregister"><thead><tr><th></th><th>Opportunity</th><th>Actions</th><th>Votes</th><th>Status</th><th>Review</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
     (stale ? '<p class="stalenag">' + stale + ' ' + (stale === 1 ? 'opportunity' : 'opportunities') + ' not reviewed in 90 days — revisit the commitments or close them.</p>' : '') +
-    '<div class="actions"><button class="btn" data-act="copylink">Copy link</button><button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button><button class="btn" data-act="reviewall">Mark all reviewed today</button><span class="method">A deliberate success-condition register · this browser keeps the copy</span></div>';
+    (interactive ? '<div class="actions"><button class="btn" data-act="copylink">Copy link</button><button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button><button class="btn" data-act="reviewall">Mark all reviewed today</button><span class="method">A deliberate success-condition register · this browser keeps the copy</span></div>' : '');
 }

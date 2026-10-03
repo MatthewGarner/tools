@@ -8,7 +8,7 @@
 import {esc, txt, tint, wrapText, editTarget} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict, makeBase, above, N_BASE, DAYS} from './engine.js';
-import {resolveVerdict} from '../../assets/verdict.js';
+import {resolveVerdict} from '../../assets/verdict-core.js';
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const numStr = v => String(Number(Number(v).toPrecision(4)));

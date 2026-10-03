@@ -4,7 +4,7 @@
 import {esc, txt, tint, wrapText, editTarget, btnAttrs} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict, tradeFigure} from './engine.js';
-import {resolveVerdict} from '../../assets/verdict.js';
+import {resolveVerdict} from '../../assets/verdict-core.js';
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString();
