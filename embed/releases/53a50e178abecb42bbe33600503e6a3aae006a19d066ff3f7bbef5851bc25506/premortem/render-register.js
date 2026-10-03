@@ -1,0 +1,83 @@
+/* The living register table (HTML string): ranked by median exposure, an inline
+   P10–P90 band bar, staleness class + text marker, status pill, tag/cluster chips,
+   the portfolio line with its independence caveat, and a stale-count nag. */
+import {esc} from '../assets/svg.js';
+import {fmt} from '../assets/series.js';
+import {ranked, staleness, staleCount, isRisk, isScoreable, isOpportunity, modeOf} from './register.js';
+
+export function renderRegister(doc, exp, now = new Date(), {interactive = true} = {}){
+  if(modeOf(doc) === 'success') return renderSuccessRegister(doc, now, interactive);
+  const risks = (doc.entries || []).filter(isRisk);   // the register is risks only; board items live on the board
+  const rows = ranked(risks, exp);
+  const u = doc.unit ? ' ' + esc(doc.unit) : '';
+  const port = exp.portfolio || {p50: 0, p10: 0, p90: 0};
+  const stale = staleCount(risks, now);
+  const maxP90 = Math.max(1, ...rows.filter(isScoreable).map(e => (exp.get(e.id) || {}).p90 || 0));
+  const lead = rows.find(isScoreable);
+  const leadExposure = lead ? (exp.get(lead.id) || {}).p50 : null;
+  const review = lead
+    ? 'Review first: ' + esc(lead.text) + ' carries the highest median exposure' +
+      (leadExposure == null ? '.' : ' (' + fmt(leadExposure) + u + ').')
+    : 'No risk has a complete likelihood and impact range yet.';
+
+  const body = rows.map((e, i) => {
+    const sc = isScoreable(e);
+    const x = sc ? (exp.get(e.id) || {p50: 0, p10: 0, p90: 0}) : null;
+    const st = staleness(e, now);
+    const bandX = sc ? (x.p10 / maxP90 * 100).toFixed(1) : 0;
+    const bandW = sc ? Math.max(2, (x.p90 - x.p10) / maxP90 * 100).toFixed(1) : 0;
+    const acts = e.actions.length;
+    return '<tr class="rrow ' + st + '" data-id="' + e.id + '">' +
+      '<td class="rnum">' + (i + 1) + '</td>' +
+      '<td class="rtext">' + esc(e.text) +
+        (e.tag ? '<span class="tagchip ' + e.tag + '">' + esc(e.tag.replace('-', ' ')) + '</span>' : '') +
+        (e.cluster ? '<span class="clusterchip">' + esc(e.cluster) + '</span>' : '') +
+        (acts ? '<span class="actcount">' + acts + ' action' + (acts === 1 ? '' : 's') + '</span>' : '') + '</td>' +
+      '<td class="rexp">' + (sc
+        ? '<b>' + fmt(x.p50) + '</b><span class="band" title="P10–P90"><span class="bandfill" style="left:' +
+          bandX + '%;width:' + bandW + '%"></span></span><span class="bandtext">' + fmt(x.p10) + '–' + fmt(x.p90) + '</span>'
+        : '<span class="unscored">unscored</span>') + '</td>' +
+      '<td class="rp">' + (sc ? e.p[0] + '–' + e.p[1] + '%' : '—') + '</td>' +
+      '<td><span class="statuspill ' + e.status + '">' + esc(e.status) + '</span></td>' +
+      '<td class="rstale">' + st + (st !== 'fresh' ? ' <span class="stalemark">·</span>' : '') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="reghead" role="heading" aria-level="2" tabindex="-1"><span class="regplane">Risk register</span>' +
+    (doc.title ? '<span class="regsubject">' + esc(doc.title) + '</span>' : '') + '</div>' +
+    '<p class="register-conclusion"><span>Review first</span>' + review + '</p>' +
+    '<div class="registerwrap"><table class="register"><thead><tr>' +
+    '<th></th><th>Risk</th><th>Exposure' + u + '</th><th>Likely</th><th>Status</th><th>Age</th></tr></thead>' +
+    '<tbody>' + body + '</tbody></table></div>' +
+    '<p class="portfolio">Portfolio exposure <b>' + fmt(port.p50) + u + '</b> [' + fmt(port.p10) + '–' + fmt(port.p90) +
+      '] — the sum if every risk landed independently; correlated risks stack higher than this.</p>' +
+    (stale ? '<p class="stalenag">' + stale + ' risk' + (stale === 1 ? '' : 's') +
+      ' not reviewed in 90 days — a stale register lies. Review them or close them.</p>' : '') +
+    (interactive ? '<div class="actions">' +
+    '<button class="btn" data-act="copylink">Copy link</button>' +
+    '<button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button>' +
+    '<button class="btn" data-act="reviewall">Mark all reviewed today</button>' +
+    '<span class="method">Seeded Monte Carlo · the register lives in this browser; a link imports a copy</span></div>' : '');
+}
+
+function renderSuccessRegister(doc, now, interactive){
+  const opportunities = (doc.entries || []).filter(isOpportunity).slice().sort((a, b) =>
+    Number(b.essential) - Number(a.essential) ||
+    b.actions.reduce((s, x) => s + (x.votes || 0), 0) - a.actions.reduce((s, x) => s + (x.votes || 0), 0));
+  const stale = staleCount(opportunities, now);
+  const body = opportunities.map((e, i) => {
+    const votes = e.actions.reduce((s, a) => s + (a.votes || 0), 0);
+    const st = staleness(e, now);
+    return '<tr class="rrow ' + st + '" data-id="' + e.id + '"><td class="rnum">' + (i + 1) + '</td>' +
+      '<td class="rtext">' + esc(e.text) + (e.essential ? '<span class="commitpill">must make true</span>' : '<span class="supportpill">supporting</span>') +
+      (e.cluster ? '<span class="clusterchip">' + esc(e.cluster) + '</span>' : '') + '</td>' +
+      '<td>' + e.actions.length + ' action' + (e.actions.length === 1 ? '' : 's') + '</td><td>' + votes + ' vote' + (votes === 1 ? '' : 's') +
+      '</td><td><span class="statuspill ' + e.status + '">' + esc(e.status) + '</span></td><td class="rstale">' + st + '</td></tr>';
+  }).join('');
+  return '<div class="reghead" role="heading" aria-level="2" tabindex="-1"><span class="regplane">Success register</span>' +
+    (doc.title ? '<span class="regsubject">' + esc(doc.title) + '</span>' : '') + '</div>' +
+    '<p class="registernote">A pre-parade records conditions we choose to make true. It is not a forecast, and it carries no invented upside score.</p>' +
+    '<div class="registerwrap"><table class="register successregister"><thead><tr><th></th><th>Opportunity</th><th>Actions</th><th>Votes</th><th>Status</th><th>Review</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+    (stale ? '<p class="stalenag">' + stale + ' ' + (stale === 1 ? 'opportunity' : 'opportunities') + ' not reviewed in 90 days — revisit the commitments or close them.</p>' : '') +
+    (interactive ? '<div class="actions"><button class="btn" data-act="copylink">Copy link</button><button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button><button class="btn" data-act="reviewall">Mark all reviewed today</button><span class="method">A deliberate success-condition register · this browser keeps the copy</span></div>' : '');
+}
