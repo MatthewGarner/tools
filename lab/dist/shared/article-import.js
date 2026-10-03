@@ -7,7 +7,16 @@ const isArticle=hash=>String(hash).startsWith('#article:');
 async function example(route,hash){
  if(!/^[a-z][a-z-]*$/.test(route))throw Error('Unknown article tool.');
  const module=await import(`../../../embed/definitions/lab-${route}.js`);
- const state=validateState(module.definition,decodeArticleFragment(hash,{tool:'lab-'+route,version:module.definition.version}));
+ let decoded,matched=false,decodeError;
+ // A released older example may have an explicit native migration. Never
+ // accept unknown versions just because their state resembles the new shape.
+ for(const version of [module.definition.version,...Object.keys(module.articleMigrations||{}).map(Number)]){
+  try{decoded=decodeArticleFragment(hash,{tool:'lab-'+route,version});}catch(error){decodeError??=error;continue;}
+  if(version!==module.definition.version)decoded=module.articleMigrations[version](decoded);
+  matched=true;break;
+ }
+ if(!matched)throw decodeError;
+ const state=validateState(module.definition,decoded);
  return{module,state};
 }
 function notice(message,error=false){const el=document.createElement('aside');el.className='lab-archive-notice';el.dataset.articleExample='';el.textContent=message;if(error)el.setAttribute('role','alert');const header=document.querySelector('.mg-masthead');if(header)header.after(el);else document.body.prepend(el);}

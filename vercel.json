@@ -189,6 +189,30 @@
       "destination": "/home/"
     },
     {
+      "source": "/lab/authority/",
+      "destination": "/lab/dist/authority/"
+    },
+    {
+      "source": "/lab/context/",
+      "destination": "/lab/dist/context/"
+    },
+    {
+      "source": "/lab/consistency/",
+      "destination": "/lab/dist/consistency/"
+    },
+    {
+      "source": "/lab/alignment/",
+      "destination": "/lab/dist/alignment/"
+    },
+    {
+      "source": "/lab/possibilities/",
+      "destination": "/lab/dist/possibilities/"
+    },
+    {
+      "source": "/lab/clocks/",
+      "destination": "/lab/dist/clocks/"
+    },
+    {
       "source": "/lab/commitment/",
       "destination": "/lab/dist/commitment/"
     },
@@ -507,6 +531,36 @@
     {
       "source": "/backup",
       "destination": "/backup/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/authority",
+      "destination": "/lab/authority/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/context",
+      "destination": "/lab/context/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/consistency",
+      "destination": "/lab/consistency/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/alignment",
+      "destination": "/lab/alignment/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/possibilities",
+      "destination": "/lab/possibilities/",
+      "permanent": false
+    },
+    {
+      "source": "/lab/clocks",
+      "destination": "/lab/clocks/",
       "permanent": false
     },
     {

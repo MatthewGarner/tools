@@ -23,7 +23,8 @@ const articleEntries=['embed/core/codec.js','embed/core/schema.js',...experiment
 const articleGraph=frozenGraph(root,articleEntries);
 const standalonePath=file=>file.startsWith('lab/dist/')?file.slice('lab/dist/'.length):file;
 for(const [file,bytes]of articleGraph){
-  if(file.startsWith('lab/dist/'))continue; // Already copied, at the original Site route.
+  // Rebase pure native views too: they may import article drawing helpers.
+  // Copying them unchanged would leave ../../../embed outside the flat Site.
   let source=bytes;
   if(/\.m?js$/.test(file)){
     source=bytes.toString('utf8');
@@ -38,10 +39,16 @@ for(const [file,bytes]of articleGraph){
   }
   const target=join(destination,standalonePath(file));mkdirSync(dirname(target),{recursive:true});writeFileSync(target,source);
 }
-// The one finite dynamic loader stays live; it targets only the 24 copied Lab
+// The one finite dynamic loader stays live; it targets only the copied Lab
 // definitions. Use a valid relative path after flattening, including off-origin.
 const receiver=join(destination,'shared/article-import.js');
 writeFileSync(receiver,readFileSync(receiver,'utf8').replaceAll('../../../embed/','../embed/'));
+// Native session modules sit outside the pure graph but share its codecs and
+// definitions. Keep their literal imports valid under the same flattening.
+for(const file of ['model-kit/session.js','model-kit/session-state.js',...experiments.map(tool=>tool.route+'/app.js')]){
+  const target=join(destination,file);
+  writeFileSync(target,readFileSync(target,'utf8').replaceAll('../../../embed/','../embed/'));
+}
 function adapt(directory){
   for(const entry of readdirSync(directory,{withFileTypes:true})){
     const path=join(directory,entry.name);

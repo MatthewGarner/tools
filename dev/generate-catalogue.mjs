@@ -8,6 +8,7 @@ const check = process.argv.includes('--check');
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 const subjects={
+  authority:['teams','systems'],context:['teams','systems'],consistency:['teams','systems'],alignment:['teams','product'],possibilities:['teams','product'],clocks:['teams','systems'],
   commitment:['teams','systems'],teams:['teams'],exploration:['product','teams'],
   flexibility:['energy','systems'],delay:['systems'],exceptions:['teams','systems'],
   knowledge:['teams'],local:['teams','systems'],predictions:['systems'],accuracy:['energy','product'],

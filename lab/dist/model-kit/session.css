@@ -1,0 +1,17 @@
+.experiment-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-start;border-block:1px solid var(--line);padding:12px 0;margin:0 0 12px}
+.experiment-toolbar button,.experiment-files summary,.experiment-import{min-height:44px;font-size:16px}
+.experiment-files{margin:0 0 0 auto;border:0;padding:0;max-width:100%;position:relative}
+.experiment-files summary{padding:10px 14px;cursor:pointer;border:1px solid var(--line)}
+.experiment-files>div{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0;max-width:600px}
+.experiment-import{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px;border:1px solid var(--line)}
+.experiment-import input{max-width:240px;font-size:16px}
+.experiment-status{min-height:1.5em;margin:8px 0 16px;color:var(--muted);font-size:16px;overflow-wrap:anywhere}
+.experiment-status:empty{min-height:0;margin:0}
+.experiment-status textarea{display:block;width:100%;min-height:88px;font-size:16px}
+#experiment-body{min-width:0}
+#experiment-body input,#experiment-body select,#experiment-body button{font-size:16px;min-height:44px;max-width:100%}
+#experiment-body fieldset{min-width:0}
+#experiment-body svg{max-width:100%;height:auto}
+.experiment-board{min-width:0;overflow:auto;border-block:1px solid var(--line);padding:16px 0}
+.experiment-output{border-top:2px solid var(--ink);padding-top:16px;margin-top:20px}
+@media(max-width:650px){.experiment-files{margin-left:0;width:100%}.experiment-toolbar{gap:6px}.experiment-toolbar>button{flex:1 1 auto}.experiment-files>div{width:100%}.experiment-import{width:100%}.experiment-import input{max-width:100%}}

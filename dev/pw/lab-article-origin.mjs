@@ -37,6 +37,12 @@ try{
  await page.goto(origin+'/knowledge/#'+encodeArticleFragment({tool:knowledge.id,version:2,state:article}));await page.locator('[data-article-example][role=alert]').waitFor();assert.match(await page.locator('[data-article-example]').innerText(),/unsupported version/);assert.equal(await page.evaluate(()=>localStorage.getItem('thinking-lab:knowledge:v1')),original);assert.ok(new URL(page.url()).hash.startsWith('#article:'));
  // Unsupported scaffold versions must likewise retain the native collection.
  const saved=await page.evaluate(()=>localStorage.getItem('thinking-lab:reframe:v1'));await page.goto(origin+'/reframe/#'+encodeArticleFragment({tool:reframe.id,version:2,state:example}));await page.locator('#workbench').waitFor();assert.equal(await page.evaluate(()=>localStorage.getItem('thinking-lab:reframe:v1')),saved);assert.ok(new URL(page.url()).hash.startsWith('#article:'));
+ // New native views also import the shared article drawing helpers. These
+ // requests must stay inside the flattened package, just like the receiver.
+ for(const route of ['authority','context','consistency','alignment','possibilities','clocks']){
+  await page.goto(origin+'/'+route+'/');await page.locator('#app[data-experiment-ready=true]').waitFor();
+  await page.locator('#experiment-pin').click();assert.equal(await page.locator('#experiment-clear').isVisible(),true);
+ }
  assert.deepEqual(errors,[]);assert.deepEqual(missing,[]);await context.close();
  console.log('PASS original-origin native read, transient article editing, additive workspace/reload, unsupported-version preservation and complete packaged module requests');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));rmSync(temporary,{recursive:true,force:true});}
