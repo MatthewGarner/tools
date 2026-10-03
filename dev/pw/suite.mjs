@@ -1,9 +1,12 @@
 import {verifyRegularWork} from './regular-work.mjs';
+import {verifyWorkplaceModels} from './workplace-models.mjs';
+import {SUITE_CATALOG} from '../../assets/suite-catalog.js';
 import { chromium, devices } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {LAB_ROUTES} from '../suite-pages.mjs';
 const base=process.env.BASE||'http://localhost:8087';
+const currentCount=SUITE_CATALOG.filter(tool=>tool.status==='active').length;
 const out=process.env.SUITE_SCREENSHOTS;if(out)fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch();
 const errors=[];
@@ -14,8 +17,8 @@ try {
     await page.goto(base+'/');
     await page.locator('[data-explore-form]').waitFor({state:'visible'});
     await page.evaluate(()=>document.fonts.ready);
-    assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
-    assert.equal(await page.locator('[data-catalog-id]:visible').count(),40);
+    assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
+    assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     if(out)await page.screenshot({path:`${out}/${phone?'phone':'desktop'}-${colorScheme}.png`});
     const targets=await page.locator('.explore-filters button, .explore-filters input, .explore-filters select, .mg-nav a').evaluateAll(els=>els.filter(e=>{const r=e.getBoundingClientRect();return r.height<44 || r.width<44}).map(e=>({text:e.textContent,width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height})));
@@ -29,7 +32,7 @@ try {
       await page.getByLabel('Maturity',{exact:true}).selectOption('experimental');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),2);
       await page.goBack();assert.equal(page.url(),typedURL);assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
-      await page.goBack();assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
+      await page.goBack();assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
       await page.goForward();assert.equal(await page.locator('[data-explore-form]').getByRole('searchbox').inputValue(),'BÁTTÉRY');
       await page.reload();assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
       await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
@@ -39,7 +42,7 @@ try {
       assert.equal(await page.locator('[data-empty-results]').isVisible(),true);
       assert.equal(await page.locator('.explore img').count(),0);
       await page.locator('[data-empty-clear]').click();
-      assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
+      assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
       await page.getByLabel('Type',{exact:true}).selectOption('calculator');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),3);
     }
@@ -66,7 +69,7 @@ try {
     assert.deepEqual(broken,[], 'Lab routes, assets and CSP '+phone+' '+theme);
     await context.close();
   }
-  console.log('PASS all 24 Lab routes on desktop/phone in both themes, real assets and CSP');
+  console.log('PASS all '+LAB_ROUTES.length+' Lab routes on desktop/phone in both themes, real assets and CSP');
   const routes=await browser.newContext({serviceWorkers:'block'}),rp=await routes.newPage();
   const response=await rp.request.get(base+'/lab/knowledge?entry=old',{maxRedirects:0});
   assert.equal(response.status(),308);assert.equal(response.headers().location,'/lab/knowledge/?entry=old');
@@ -87,10 +90,11 @@ try {
   await routes.close();
   const context=await browser.newContext({javaScriptEnabled:false,serviceWorkers:'block'});const page=await context.newPage();
   await page.goto(base+'/?q=battery');
-  assert.equal(await page.locator('[data-catalog-id]:visible').count(),40);
+  assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
   assert.equal(await page.locator('[data-explore-form]').isVisible(),false);
-  await page.locator('[data-archive-list] summary').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),47);
+  await page.locator('[data-archive-list] summary').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),SUITE_CATALOG.length);
   await context.close();assert.deepEqual(errors,[]);
   await verifyRegularWork(browser,base,out);
+  await verifyWorkplaceModels(browser,base,out);
   console.log('PASS: light/dark desktop/phone; 44px targets; no horizontal overflow; search/filter/history/reload; archive and no-JS discovery; hostile query inert; no page errors.');
 } finally {await browser.close()}

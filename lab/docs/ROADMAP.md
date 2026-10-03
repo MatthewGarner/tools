@@ -2,6 +2,10 @@
 
 Updated 3 October 2026. This is the working plan for improving the suite, incorporating Matthew’s portfolio review and the subsequent cutting decisions. Update it as implementation and feedback change the plan; earlier delivery records describe what shipped at the time.
 
+## Workplace models
+
+Matthew approved shipping six new models and two Teams extensions on 3 October, starting from the latest main. Implementation and evidence are tracked in [Workplace models](WORKPLACE-MODELS.md). This authorisation supersedes the earlier pause on new experiments. The release includes the current article-view standard and personal saved-work integration.
+
 ## Regular personal use
 
 Matthew approved this next pass on 3 October, starting from the latest main. No new tools or cross-tool workflows are included.

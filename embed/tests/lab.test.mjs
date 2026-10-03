@@ -31,6 +31,15 @@ test('a model handoff never writes its current slot or intercepts a different ke
  assert.deepEqual(decodeArticleFragment(env.history.url.slice(env.history.url.indexOf('#')),{tool:d.id}),changed);
  assert.equal(env.values.get(key),'existing personal work');assert.deepEqual(env.calls,[]);assert.deepEqual(writeArticleStore('another-key',{}),{handled:false});
 });
+test('published Teams v1 handoffs migrate additively while unknown versions preserve personal work',async()=>{
+ const d=definitions.find(d=>d.id==='lab-teams'),legacy=structuredClone(d.initialState);delete legacy.relationships;delete legacy.baseline.relationships;legacy.layout.software='a';
+ const env=environment(d),key='teams-migration-test';env.location.hash='#'+encodeArticleFragment({tool:d.id,version:1,state:legacy});env.values.set(key,'personal');
+ assert.equal(await prepareArticleModel('teams',key,env),true);
+ const current=readArticleStore(key).value;assert.equal(current.layout.software,'a');assert.deepEqual(current.relationships,d.initialState.relationships);
+ assert.deepEqual(writeArticleStore(key,current),{handled:true,saved:true});assert.deepEqual(decodeArticleFragment(env.history.url.slice(env.history.url.indexOf('#')),{tool:d.id,version:2}),current);
+ assert.equal(env.values.get(key),'personal');assert.deepEqual(env.calls,[]);
+ env.location.hash='#'+encodeArticleFragment({tool:d.id,version:3,state:current});assert.equal(await prepareArticleModel('teams',key,env),false);assert.deepEqual(writeArticleStore(key,current),{handled:true,saved:false});assert.equal(env.values.get(key),'personal');
+});
 test('scaffold handoff preserves previous sessions and consumes only a successful import',async()=>{
  const d=definitions.find(d=>d.id==='lab-reframe'),env=environment(d),prior=initialState(),key='thinking-lab:reframe:v1';
  env.values.set(key,JSON.stringify(prior));const result=await receiveArticleWorkspace({route:'reframe',state:prior,key,append:(state,session,id)=>transition(state,{type:'import-session',session,id})},env);
@@ -39,7 +48,7 @@ test('scaffold handoff preserves previous sessions and consumes only a successfu
  assert.equal(rejected.imported,false);assert.equal(env.values.get(key),saved);assert.equal(env.history.url,null);
 });
 
-test('all 24 preserved Lab routes and their lifecycle states are represented',async()=>{
+test('all registered Lab routes and their lifecycle states are represented',async()=>{
  const {experiments}=await import('../../lab/dist/shared/catalog.js');
  assert.deepEqual(definitions.map(d=>d.id).sort(),experiments.map(x=>'lab-'+x.route).sort());
  for(const d of definitions){const route=experiments.find(x=>'lab-'+x.route===d.id);assert.equal(d.status,route.status||'active');}
