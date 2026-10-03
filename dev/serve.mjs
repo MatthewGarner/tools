@@ -1,15 +1,15 @@
-/* Static dev server that applies the SAME headers vercel.json ships (CSP
-   included), so the browser suites prove CSP compatibility locally.
+/* Static dev server that applies the headers vercel.json ships (CSP included),
+   adding only explicit local article origins to embed framing permission.
    Usage: node dev/serve.mjs [port]              (default 8087, prints "serving")
           node dev/serve.mjs [port] --origin=energy   serves the repo AS the
    energy origin: request paths map through origins.mjs exactly as vercel.json's
    host-conditioned rewrites do in production. */
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
-import {readFileSync} from 'node:fs';
 import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {toRepoPath, toToolsPath, energyRedirectSources, toolRedirectSources} from './origins.mjs';
+import {responseHeaders} from './response-headers.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = process.argv[2] === undefined ? 8087 : Number(process.argv[2]);
@@ -22,9 +22,6 @@ if(process.argv.includes('--exit-with-parent')){
   const parent = process.ppid;   // reparenting to ANYTHING (pid 1, or a subreaper on Linux/containers) means the launcher died
   setInterval(() => { if(process.ppid !== parent) process.exit(0); }, 2000).unref();
 }
-const HEADERS = Object.fromEntries(
-  JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'))
-    .headers[0].headers.map(h => [h.key, h.value]));
 const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.woff2':'font/woff2', '.json': 'application/json', '.webmanifest': 'application/manifest+json'};
@@ -34,6 +31,7 @@ const TOOL_REDIR = new Set(toolRedirectSources());       /* bare tool path → t
 const server = createServer(async (req, res) => {
   const requestURL=new URL(req.url,'http://x');
   let p = normalize(requestURL.pathname).replace(/^(\.\.[/\\])+/, '');
+  const HEADERS = responseHeaders(p, {local:true});
   if(ORIGIN_ENERGY && ENERGY_REDIR.has(p)){   /* emulate vercel.json's no-slash redirect */
     res.writeHead(308, {Location: p + '/' + requestURL.search, ...HEADERS});
     res.end();
@@ -58,6 +56,6 @@ const server = createServer(async (req, res) => {
 });
 server.listen(PORT, () => {
   const port = server.address().port;
-  console.log('serving ' + ROOT + ' on ' + port + (ORIGIN_ENERGY ? ' as energy origin' : '') + ' with production headers');
+  console.log('serving ' + ROOT + ' on ' + port + (ORIGIN_ENERGY ? ' as energy origin' : '') + ' with production headers and local embed parents');
   process.send?.({port});
 });

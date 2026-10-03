@@ -49,6 +49,7 @@ mutable inventories here. A parallel red needs the failed suite re-run serially 
 | Tool semantics, parser, or engine | that tool's `CONTEXT.md` when present; `ARCHITECTURE.md` | focused Node tests; golden verification when output changes |
 | Visual or interaction work | `docs/agent/VISUAL.md` | inspected desktop and phone renders in both themes |
 | Tests or Playwright harness | `docs/agent/TESTING.md` | focused passing result; regression tests detect the bug |
+| Article embeds or example posters | `embed/README.md`; `docs/agent/VISUAL.md` | matching figure/model; focused Node tests; real article preview |
 | New tool | `docs/agent/NEW_TOOL.md` | approved design/spec before implementation |
 | Preview, CI, or merge | `docs/agent/RELEASE.md` | focused checks, preview, branch CI, then approval |
 

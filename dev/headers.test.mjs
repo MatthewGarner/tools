@@ -13,6 +13,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {matchingHeaderRows, responseHeaders} from './response-headers.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8'));
@@ -24,10 +25,15 @@ const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inl
 const EXPECTED = [{
   source: '/(.*)',
   headers: [
-    {key: 'Content-Security-Policy', value: CSP},
     {key: 'X-Content-Type-Options', value: 'nosniff'},
     {key: 'Referrer-Policy', value: 'no-referrer'},
   ],
+}, {
+  source: '/((?!embed/).*)',
+  headers: [{key:'Content-Security-Policy', value:CSP}],
+}, {
+  source: '/embed/(.*)',
+  headers: [{key:'Content-Security-Policy', value:CSP.replace("frame-ancestors 'none'", 'frame-ancestors https://www.matthewgarner.me https://matthewgarner.me')}],
 }];
 
 /* The CSP as SHIPPED — read back out of the parsed file. The two tests below used to
@@ -36,13 +42,25 @@ const EXPECTED = [{
    vercel.json. Caught in review, and it is the exact defect this branch exists to
    remove — a check that reads as a named guarantee while asserting nothing. */
 const shippedCsp = () => {
-  const row = (vercel.headers || []).find(r => r.source === '/(.*)');
+  const row = (vercel.headers || []).find(r => r.source === '/((?!embed/).*)');
   return ((row && row.headers) || []).find(h => h.key === 'Content-Security-Policy')?.value || '';
 };
 const directives = () => shippedCsp().split(';').map(d => d.trim()).filter(Boolean);
 
 test('vercel.json ships exactly the expected headers, on every path', () => {
   assert.deepEqual(vercel.headers, EXPECTED);
+});
+
+test('embed CSP never intersects the default deny policy, including the redirect', () => {
+  for(const path of ['/flow/', '/', '/embed', '/embedded/', '/embed/v1/flow', '/embed/v1/flow/', '/embed/v1/flow/app.js']){
+    const policies = matchingHeaderRows(path).flatMap(row => row.headers.filter(header => header.key === 'Content-Security-Policy'));
+    assert.equal(policies.length, 1, path + ' has exactly one CSP');
+    assert.equal(policies[0].value.includes("frame-ancestors 'none'"), !path.startsWith('/embed/'), path);
+    assert.ok(!policies[0].value.includes('localhost'), 'production must not allow local framing');
+    assert.equal(responseHeaders(path)['X-Content-Type-Options'], 'nosniff');
+  }
+  assert.match(responseHeaders('/embed/v1/flow/', {local:true})['Content-Security-Policy'], /http:\/\/127\.0\.0\.1:4321/);
+  assert.equal(responseHeaders('/flow/', {local:true})['Content-Security-Policy'], CSP);
 });
 
 /* Pinning by value already catches a loosened policy, but only as an opaque diff.
