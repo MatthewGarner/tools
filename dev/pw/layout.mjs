@@ -1,15 +1,17 @@
 import {openExamples} from './_harness.mjs';
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
 import {chromium, devices} from 'playwright';
-import {trackErrors, report, tally, pickExample, until} from './_harness.mjs';
+import {trackErrors, tally, pickExample, until} from './_harness.mjs';
 import {EXAMPLES as PROXY_EXAMPLES} from '../../proxy/example.js';
+import {scopeFor} from './_scope.mjs';
+const scope = scopeFor('layout.mjs');
 
 const TWO_THEORIES = pickExample(PROXY_EXAMPLES, 'Two theories');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
 const results = [];
-const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+const check = (name, ok) => { scope.checked(); results.push((ok ? 'PASS ' : 'FAIL ') + name); };
 
 /* `deep` marks the three tools that walk the WHOLE workspace contract. The other
    ten keep only the parts that can differ per tool (2026-08-18).
@@ -88,6 +90,7 @@ const TOOLS = [
    arrive on the whole artefact, retain a shareable URL, then return to a real
    CodeMirror authoring surface without the reader reclaiming the rail. */
 for(const {path, reader} of TOOLS.filter(t => t.reader)){
+  if(!scope.wants(path)) continue;
   /* Bets exposes its reader through the Fit advisory at its normal authoring
      width, so exercise that named route where the guard honestly appears. */
   const page = await browser.newPage({viewport: reader === 'manual' ? {width:1280, height:900} : {width:1440, height:900}, reducedMotion:'reduce'});
@@ -198,7 +201,7 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
    stacked layout has no rail tab, so it must restore source rather than leave it
    hidden by a stale presentation state. One shared workspace instance proves the
    responsive transition; initial coarse arrivals are covered below for all four. */
-{
+if(scope.wants("proxy")){
   const page = await browser.newPage({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   await page.goto(BASE + '/proxy/', {waitUntil:'networkidle'});
   await until(() => page.evaluate(() => document.getElementById('workspace')?.dataset.workspaceView === 'reading'));
@@ -221,6 +224,7 @@ async function narrowStacks(page, path, narrowTab){
 }
 
 for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source, deep = false} of TOOLS){
+  if(!scope.wants(path)) continue;
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -349,7 +353,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
 }
 
 /* coarse pointers get the indent bar on the indented DSLs (tree/why) */
-{
+if(scope.wants("tree")){
   const ctx = await browser.newContext({...devices['iPhone 13'], colorScheme: 'light'});
   const page = await ctx.newPage();
   await page.goto(BASE + '/tree/', {waitUntil: 'networkidle'});
@@ -374,6 +378,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   for(const device of ['iPhone 13', 'Pixel 7']){
     const ctx = await browser.newContext({...devices[device], colorScheme:'light', reducedMotion:'reduce'});
     for(const {path} of TOOLS.filter(t => t.reader)){
+      if(!scope.wants(path)) continue;
       const page = await ctx.newPage();
       await page.goto(BASE + path, {waitUntil:'networkidle'});
       await page.waitForTimeout(450);
@@ -409,6 +414,7 @@ for(const [label, viewport, minFill] of [
   ['laptop', {width: 1440, height: 900}, 0.7],
 ]){
   for(const {path, chip, view} of TOOLS){
+    if(!scope.wants(path)) continue;
     const page = await browser.newPage({viewport});
     const errors = trackErrors(page);
     await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -430,6 +436,7 @@ for(const [label, viewport, minFill] of [
 /* Coverage: workspace behaviour is a promise made by every tool that imports the
    shared module, so membership is derived from the imports rather than remembered.
    The list had sat at 10 of 13 since case, paths and proxy shipped. */
+scope.unscoped();
 {
   const {readFileSync, existsSync} = await import('node:fs');
   const {TOOL_DIRS, ENERGY_TOOL_DIRS} = await import('../tool-dirs.mjs');
@@ -474,4 +481,4 @@ for(const [label, viewport, minFill] of [
 
 console.log(results.join('\n'));
 await browser.close();
-report('layout', {...tally(results), min: 146});   // ~90% of 162 measured 2026-08-18 (was 189 of 211; the shared-module walk narrowed to the deep three, and the review restored the round-trip and width floor to all thirteen)
+scope.report('layout', {...tally(results), min: 146});   // ~90% of 162 measured 2026-08-18 (was 189 of 211; the shared-module walk narrowed to the deep three, and the review restored the round-trip and width floor to all thirteen)

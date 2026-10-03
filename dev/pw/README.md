@@ -16,18 +16,20 @@ vercel.json's production headers (CSP included), so the suites prove CSP
 compatibility; a plain static server no longer exercises what production ships.
 
 ```bash
-# from repo root, in separate shells (both origins up for pwa/mobile):
-node dev/serve.mjs 8087                 # tools origin
-node dev/serve.mjs 8089 --origin=energy # energy origin
-
-# then, from dev/pw — the whole chain (npm run verify IS the list; don't count here):
-npm run verify
-# or a single suite:
-node smoke.mjs
-BASE=<url> node smoke.mjs               # or against a preview deploy
+# From the repository root; each invocation owns its servers and evidence:
+npm run test:changed -- --plan
+npm run test:changed
+npm run test:browser -- --tool rank
+npm run test:browser -- --tool map --suites smoke.mjs --jobs 1
+npm run gate
 ```
 
-`npm run verify` is the single source for "the full suite" — add a new suite there,
-not to a prose list. Suites read `BASE`
-(tools origin) and `EBASE`/`EPORT` (energy origin) env knobs; defaults are
-:8087 / :8089.
+Use a comma-separated tool list for a focused integration investigation. The runner
+prints its selection, owned origins, per-suite timings and retained log directory.
+Unknown tool/suite names fail. Full gates clear inherited debug filters; focused
+checks never claim complete coverage. `--ports A B` is available when fixed local
+ports are explicitly needed; a bind conflict fails instead of reusing a server.
+
+`npm run verify` remains the canonical complete browser-suite list. Direct scripts
+accept `BASE` and `EBASE` for intentional testing against existing origins; prefer
+the root runner for local work so concurrent worktrees cannot share server state.

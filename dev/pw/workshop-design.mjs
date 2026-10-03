@@ -1,15 +1,14 @@
 /* Design-bar regressions. Uses a separate local, ephemeral Gauge relay. */
 import {chromium} from 'playwright';
-import {spawn} from 'node:child_process';
+import {startServer, evidenceDirectory} from './session.mjs';
 import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const OUT = process.env.WORKSHOP_CAPTURE || '/tmp/workshop-design-evidence';
-const PORT = 8096, BASE = 'http://localhost:' + PORT;
+const OUT = process.env.WORKSHOP_CAPTURE || evidenceDirectory('workshop-design');
+const server = await startServer('dev/gauge-dev.mjs');
+const BASE = server.base;
 await mkdir(OUT, {recursive:true});
-const server = spawn('node', ['../../dev/gauge-dev.mjs', String(PORT)], {stdio:['ignore','pipe','inherit']});
 let browser;
 try{
-  await new Promise((resolve,reject)=>{server.stdout.on('data',d=>{if(String(d).includes('listening')) resolve();});server.once('error',reject);server.once('exit',()=>reject(new Error('relay server exited')));});
   browser = await chromium.launch();
   for(const width of [1440,390]) for(const colorScheme of ['light','dark']){
     const ctx=await browser.newContext({viewport:{width,height:width===390?844:1000},isMobile:width===390,hasTouch:width===390,colorScheme,reducedMotion:'reduce',acceptDownloads:true});
@@ -67,4 +66,4 @@ try{
     console.log('PASS workshop design '+width+' '+colorScheme);
     await ctx.close();
   }
-}finally{await browser?.close();server.kill();}
+}finally{await browser?.close();server.stop();}

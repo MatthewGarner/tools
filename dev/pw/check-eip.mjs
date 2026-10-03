@@ -3,13 +3,14 @@ import {openExamples, openExportMenu} from './_harness.mjs';
 import {chromium, devices} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {decodeHash} from '../../assets/series.js';
-import {trackErrors, report, tally, until, untilValue, openRoadmapSource} from './_harness.mjs';
+import {trackErrors, tally, until, untilValue, openRoadmapSource} from './_harness.mjs';
+import {scopeFor} from './_scope.mjs';
+const scope = scopeFor('check-eip.mjs');
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
-const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
-const errors = trackErrors(page);
 const results = [];
 const check = (name, ok) => {
+  scope.checked();
   const result = (ok ? 'PASS ' : 'FAIL ') + name;
   results.push(result);
   if(!ok) console.error(result); // keep actionable failures visible in long CI logs
@@ -117,6 +118,9 @@ async function tapCardMenu(p, box, line = null){
 }
 
 
+if(scope.wants('tree')){
+  const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errors = trackErrors(page);
 await page.goto(BASE, {waitUntil: 'networkidle'});
 await page.getByRole('button', {name: 'Bid or no bid'}).click();
 await page.waitForTimeout(500);
@@ -432,6 +436,7 @@ check('label rename lands in text and diagram', await until(async () => ((await 
 }
 
 check('no console/page errors', errors.length === 0);
+}
 
 /* ---- tree: cardmenu-decision "Edit value…" on a node with NO value yet
    (the unset-edit fix batch, Part 2) — a decision node's own line carries no
@@ -440,7 +445,7 @@ check('no console/page errors', errors.length === 0);
    the row must fall back to opening the same interaction anchored at the
    card-menu trigger (assets/edit-in-place.js's opens-row fallback, Part 1),
    landing in a fresh empty input rather than doing nothing. ---- */
-{
+if(scope.wants("tree")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE, {waitUntil: 'networkidle'});
@@ -483,7 +488,7 @@ check('no console/page errors', errors.length === 0);
    target here, the fallback never engages. The sibling under test carries a
    colon INSIDE ITS LABEL ("Note: sub label") specifically to lock the P1 fix
    (applies.prob must anchor on the true value colon, not the label's own). ---- */
-{
+if(scope.wants("tree")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE, {waitUntil: 'networkidle'});
@@ -513,7 +518,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- why: popover status + cycle assumption ---- */
-{
+if(scope.wants("why")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
@@ -749,7 +754,7 @@ check('no console/page errors', errors.length === 0);
    Click a wrapped solution's SECOND painted label line and its visible state
    word — not a transparent corner rect — and prove each opens its intended
    non-writing control. ---- */
-{
+if(scope.wants("why")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const source = 'title: Hit geometry\noutcome: Retention\n  Losing your place\n    A deliberately long solution label that wraps across the Field rail for direct hit testing [testing]';
   const seed = {t: source, v: 'ost', e: 1};
@@ -776,7 +781,7 @@ check('no console/page errors', errors.length === 0);
 /* ---- why: Delivery Lens keeps the Causal Field's truthful per-kind menus.
    A solution carries Rename/Status/Add-assumption; an unaddressed opportunity
    carries Rename/Add-solution and never a false solution-status picker. ---- */
-{
+if(scope.wants("why")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
@@ -847,7 +852,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- roadmap: title edit + status popover ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1003,7 +1008,7 @@ check('no console/page errors', errors.length === 0);
    so both rows used to resolve to nothing. They now fall back to the shared
    card-menu trigger (assets/edit-in-place.js's opens-row fallback) and open
    the real picker/input instead. ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1063,7 +1068,7 @@ check('no console/page errors', errors.length === 0);
    ONLY on a time axis and only when there's more than one column to choose
    from — on a now/next/later doc it must not appear at all. Cards resolved
    by TITLE, never by data-line (see the desktop block above). ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1139,7 +1144,7 @@ check('no console/page errors', errors.length === 0);
    plan" is its [unless] rider (drops once the bet WINS), "Depends on it" is
    its [if] rider, "Unrelated item" carries no bet/cond (the Condition… target
    for a fresh set). Cards resolved by TITLE (see the desktop block above). ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1257,7 +1262,7 @@ check('no console/page errors', errors.length === 0);
    Resolve…/What-if… on an item that carries no bet of its own). Same doc
    shape as the block above, but with a SECOND bet so the chip's multi-
    preview listing has something real to list. ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1395,7 +1400,7 @@ check('no console/page errors', errors.length === 0);
    block above). Each action gets its own round trip: commit, assert, ONE
    Meta+z, assert full revert to the pre-menu baseline before the next action
    starts clean. ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1572,7 +1577,7 @@ check('no console/page errors', errors.length === 0);
    resolved by TITLE, never data-line. Each action gets its own round trip:
    commit, assert, ONE Meta+z, assert full revert to the pre-action baseline
    before the next action starts clean. ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1681,7 +1686,7 @@ check('no console/page errors', errors.length === 0);
    Rows/cards resolved by TITLE, never data-line. Each action gets its own
    round trip: commit, assert, ONE Meta+z, assert full revert to the
    pre-action baseline before the next action starts clean. ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1848,7 +1853,7 @@ check('no console/page errors', errors.length === 0);
    nothing (A10's negative case). This also guards the default: board-live's
    Lane… row must NOT leak onto a plain doc — it appears only on explicit
    style:board. ---- */
-{
+if(scope.wants("roadmap")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -1870,7 +1875,7 @@ check('no console/page errors', errors.length === 0);
 /* ---- roadmap: narrow Register preserves its own editing surface. It no
    longer falls back to the generic chart: its lane target remains real, while
    the card menu provides the same action for a concise resting artifact. ---- */
-{
+if(scope.wants("roadmap")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const p = await mctx.newPage();
   const errs = trackErrors(p);
@@ -1913,7 +1918,7 @@ check('no console/page errors', errors.length === 0);
 /* ---- roadmap narrow (mobile-emulated): card menu away-listener leak proof —
    tap a card, open Rename, then tap INTO the input itself; the popover's
    away-pointerdown listener must not treat that as an outside click ---- */
-{
+if(scope.wants("roadmap")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -1968,7 +1973,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- map: card menu (tap card body → menu; rename/field/remove; real drag
    suppresses the menu) ---- */
-{
+if(scope.wants("map")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
@@ -2119,7 +2124,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- map narrow (mobile-emulated): card menu away-listener leak proof ---- */
-{
+if(scope.wants("map")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -2187,7 +2192,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- why narrow (mobile-emulated): coarse menu-first redirect ---- */
-{
+if(scope.wants("why")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -2215,7 +2220,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- risk (energy) ---- */
-{
+if(scope.wants("risk")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/risk/', {waitUntil: 'networkidle'});
@@ -2241,7 +2246,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- cycles (energy) ---- */
-{
+if(scope.wants("cycles")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/cycles/', {waitUntil: 'networkidle'});
@@ -2264,7 +2269,7 @@ check('no console/page errors', errors.length === 0);
 }
 
 /* ---- wardley: name edit, stage cycle, drag writes text, vertical no-op ---- */
-{
+if(scope.wants("wardley")){
   const wpage = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const werrors = trackErrors(wpage);
   await wpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
@@ -2406,152 +2411,164 @@ check('no console/page errors', errors.length === 0);
 /* ---- wardley narrow (mobile-emulated): add-card, focus opt-out, tap-to-place,
    remove — a 430px DESKTOP viewport (above) still reports pointer:fine, so the
    focus-opt-out assertion needs a real touch-emulated context. ---- */
-{
+if(scope.wants("wardley", "timeline", "bets")){
+  scope.unscoped();
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
-  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
-  await mpage.waitForTimeout(600);
+  // Sharing browser setup does not make these separate navigations a handoff.
+  const touchUndo = async () => {
+    await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+    await mpage.waitForTimeout(600);
+  };
 
-  /* The narrow ledger's evolution strip is a precise direct manipulation
-     target; the row title and its contextual menu are different controls.
-     Keep this as a real coarse-pointer event-topology check: either tap must
-     open its intended EIP route without moving the ruler or writing source. */
-  const sourceBeforePhoneControl = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
-  const titleBeforePhoneControl = await sourceBeforePhoneControl();
-  await settledTap(mpage, mpage.locator('[data-title-hit][data-edit="name"][data-raw="Library"]').first());
-  check('wardley narrow: visible title opens Rename without placing the ruler', await until(async () =>
-    (await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === 'Library')));
-  await new Promise(r => setTimeout(r, 250));
-  check('wardley narrow: title tap writes nothing', (await sourceBeforePhoneControl()) === titleBeforePhoneControl);
-  await mpage.keyboard.press('Escape');
-  const menuBeforePhoneControl = await sourceBeforePhoneControl();
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
-  check('wardley narrow: visible menu opens without placing the ruler', await until(async () =>
-    (await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1)));
-  await new Promise(r => setTimeout(r, 250));
-  check('wardley narrow: menu tap writes nothing', (await sourceBeforePhoneControl()) === menuBeforePhoneControl);
-  await mpage.keyboard.press('Escape');
-
-  // tap the "+ Add component" card (no data-stage on narrow) → type Inbox → Enter
-  await settledTap(mpage, mpage.locator('[data-edit="additem"]').first());
-  await mpage.locator('.eip-input').fill('Inbox');
-  await mpage.keyboard.press('Enter');
-  const msrc = await untilValue(() => mpage.evaluate(() => localStorage.getItem('wardley-src')),
-    msrc => (/^Inbox$/m.test(msrc)));
-  check('wardley narrow: add-card inserts Inbox as an unplaced ghost (no stage)', /^Inbox$/m.test(msrc));
-  check('wardley narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
-    !document.activeElement || !document.activeElement.closest('.cm-editor')));
-
-  // tap Inbox's ghost strip at ~70% along its track
-  const inboxTrack = mpage.locator('#preview svg g[data-strip=""][data-name="Inbox"] [data-track]');
-  await inboxTrack.scrollIntoViewIfNeeded();
-  await mpage.waitForTimeout(300);
-  const itb = await inboxTrack.boundingBox();
-  await mpage.mouse.click(itb.x + itb.width * 0.7, itb.y + itb.height / 2);
-  const msrc2 = await untilValue(() => mpage.evaluate(() => localStorage.getItem('wardley-src')),
-    msrc2 => (/Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2)));
-  check('wardley narrow: tap-to-place at ~70% writes @ 0.68-0.71', /Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2));
-
-  // remove Inbox via the card's ⋯ menu
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Inbox"]').first());
-  await mpage.waitForTimeout(200);
-  await settledTap(mpage, mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}));
-  await mpage.waitForTimeout(600);
-  const msrc3 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
-  check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
-
-  /* ---- mobile-input wardley stage: EDGES become phone-editable. The ⋯ menu
-     grows a Needs… submenu — every OTHER component as a marked toggle row
-     (on = "this -> that" exists); a tap toggles the edge via addEdge/removeEdge,
-     the chain-splitting rewrite. State here is the pristine Lantern example
-     (the Inbox add/place/remove round-tripped). ---- */
-  const wSrc = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
-  // open Library's ⋯ → the menu carries Needs… above the danger Remove
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
-  check('wardley needs: the ⋯ menu shows a keyboard evolution operation, Needs… and Remove', await until(async () => (await mpage.locator('.eip-pop button', {hasText: 'Evolution…'}).count() === 1 &&
-    await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
-    await mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).count() === 1)));
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Evolution…'}));
-  check('wardley evolution: menu offers every named ruler position', await until(async () =>
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Genesis|Custom|Product|Commodity'));
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Custom'}));
-  check('wardley evolution: keyboard/menu choice writes the selected evolution claim', await until(async () =>
-    (await wSrc()).includes('Library @ custom')));
-  await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
-  check('wardley evolution: one touch undo restores the selected evolution claim', await until(async () => (await wSrc()) === msrc3));
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
-  // open the checklist: 6 other components, existing deps marked, anchor + self absent
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
-  check('wardley needs: checklist lists every OTHER component (anchor + self absent)', await until(async () => (await mpage.locator('.eip-pop button').count() === 6 &&
-    await mpage.locator('.eip-pop button', {hasText: 'Library'}).count() === 0 &&
-    await mpage.locator('.eip-pop button', {hasText: 'Reading'}).count() === 0)));
-  check('wardley needs: exactly the existing deps are marked on',
-    (await mpage.locator('.eip-pop button.on').allInnerTexts()).sort().join('|') ===
-    'Notification service|Recommendations');
-  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
-  await new Promise(r => setTimeout(r, 250));
-  check('wardley needs: opening menu + checklist commits NOTHING (no silent commit)',
-    (await wSrc()) === msrc3);
-  check('wardley needs: no page h-scroll with the checklist open', await mpage.evaluate(() =>
-    document.documentElement.scrollWidth <= innerWidth + 1));
-
-  // toggle OFF the MID-CHAIN pair: Library -> Recommendations sits in the
-  // middle of "Reading -> Library -> Recommendations -> Catalogue DB" —
-  // the split must leave both halves as their own chains
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Recommendations'}));
-  const wsrc1 = await untilValue(() => wSrc(),
-    wsrc1 => (/^Reading -> Library$/m.test(wsrc1) &&
-    /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
-    !/Library\s*->\s*Recommendations/.test(wsrc1)));
-  check('wardley needs: mid-chain toggle OFF splits the chain into two 2-node chains',
-    /^Reading -> Library$/m.test(wsrc1) &&
-    /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
-    !/Library\s*->\s*Recommendations/.test(wsrc1));
-  /* Phone is a source-order ledger, not the wide Field's metric header. Prove
-     the redraw through the factual dependency rows it is designed to expose. */
-  check('wardley needs: the phone ledger redraws the removed dependency facts',
-    await until(async () => {
-      const library = await mpage.locator('#preview svg g[data-drag][data-name="Library"]').textContent();
-      const recommendations = await mpage.locator('#preview svg g[data-drag][data-name="Recommendations"]').textContent();
-      return library.includes('NEEDS · Notification service') && !library.includes('Recommendations') &&
-        recommendations.includes('NEEDED BY · Book clubs');
-    }));
-  check('wardley needs: coarse toggle does NOT focus the editor', await mpage.evaluate(() =>
-    !document.activeElement || !document.activeElement.closest('.cm-editor')));
-  await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
-  check('wardley needs: ONE ↶ Undo restores the split chain (single dispatch)', await until(async () => ((await wSrc()) === msrc3)));
-
-  // toggle ON: Book clubs gains "needs Catalogue DB" — a fresh 2-node line appends
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
-  await mpage.waitForTimeout(200);
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
-  await mpage.waitForTimeout(200);
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
-  const wsrc2 = await untilValue(() => wSrc(),
-    wsrc2 => (/^Book clubs -> Catalogue DB$/m.test(wsrc2)));
-  check('wardley needs: toggle ON appends the edge as its own line',
-    /^Book clubs -> Catalogue DB$/m.test(wsrc2));
-  check('wardley needs: the phone ledger redraws the added dependency fact',
-    await until(async () => {
-      const bookClubs = await mpage.locator('#preview svg g[data-drag][data-name="Book clubs"]').textContent();
-      return /NEEDS · [\s\S]*Catalogue DB(?=NEEDED BY ·)/.test(bookClubs) && !bookClubs.includes('NEEDED BY · Catalogue DB');
-    }));
-
-  // WIDE map, still coarse (tablet-shaped): the added edge is a drawn arrow,
-  // and the same menu path removes it — the single-edge-line case in browser
-  await mpage.setViewportSize({width: 1194, height: 834});
-  check('wardley needs: the wide map draws the added edge (10 arrows)', await until(async () => (await mpage.locator('#preview svg .edge').count() === 10)));
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
-  await mpage.waitForTimeout(200);
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
-  check('wardley needs: wide checklist marks the just-added dep on', await until(async () => (await mpage.locator('.eip-pop button.on', {hasText: 'Catalogue DB'}).count() === 1)));
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
-  check('wardley needs: wide toggle OFF deletes the whole single-edge line (back to baseline)', await until(async () => ((await wSrc()) === msrc3 &&
-    await mpage.locator('#preview svg .edge').count() === 9)));
-  await mpage.setViewportSize({width: 390, height: 844});   // back to phone for the blocks below
-  await mpage.waitForTimeout(600);
-  check('wardley narrow: no console/page errors', merrors.length === 0);
+  if(scope.wants("wardley")){
+    await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
+    await mpage.waitForTimeout(600);
+  
+    /* The narrow ledger's evolution strip is a precise direct manipulation
+       target; the row title and its contextual menu are different controls.
+       Keep this as a real coarse-pointer event-topology check: either tap must
+       open its intended EIP route without moving the ruler or writing source. */
+    const sourceBeforePhoneControl = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
+    const titleBeforePhoneControl = await sourceBeforePhoneControl();
+    await settledTap(mpage, mpage.locator('[data-title-hit][data-edit="name"][data-raw="Library"]').first());
+    check('wardley narrow: visible title opens Rename without placing the ruler', await until(async () =>
+      (await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === 'Library')));
+    await new Promise(r => setTimeout(r, 250));
+    check('wardley narrow: title tap writes nothing', (await sourceBeforePhoneControl()) === titleBeforePhoneControl);
+    await mpage.keyboard.press('Escape');
+    const menuBeforePhoneControl = await sourceBeforePhoneControl();
+    await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
+    check('wardley narrow: visible menu opens without placing the ruler', await until(async () =>
+      (await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1)));
+    await new Promise(r => setTimeout(r, 250));
+    check('wardley narrow: menu tap writes nothing', (await sourceBeforePhoneControl()) === menuBeforePhoneControl);
+    await mpage.keyboard.press('Escape');
+  
+    // tap the "+ Add component" card (no data-stage on narrow) → type Inbox → Enter
+    await settledTap(mpage, mpage.locator('[data-edit="additem"]').first());
+    await mpage.locator('.eip-input').fill('Inbox');
+    await mpage.keyboard.press('Enter');
+    const msrc = await untilValue(() => mpage.evaluate(() => localStorage.getItem('wardley-src')),
+      msrc => (/^Inbox$/m.test(msrc)));
+    check('wardley narrow: add-card inserts Inbox as an unplaced ghost (no stage)', /^Inbox$/m.test(msrc));
+    check('wardley narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+      !document.activeElement || !document.activeElement.closest('.cm-editor')));
+  
+    // tap Inbox's ghost strip at ~70% along its track
+    const inboxTrack = mpage.locator('#preview svg g[data-strip=""][data-name="Inbox"] [data-track]');
+    await inboxTrack.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const itb = await inboxTrack.boundingBox();
+    await mpage.mouse.click(itb.x + itb.width * 0.7, itb.y + itb.height / 2);
+    const msrc2 = await untilValue(() => mpage.evaluate(() => localStorage.getItem('wardley-src')),
+      msrc2 => (/Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2)));
+    check('wardley narrow: tap-to-place at ~70% writes @ 0.68-0.71', /Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2));
+  
+    // remove Inbox via the card's ⋯ menu
+    await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Inbox"]').first());
+    await mpage.waitForTimeout(200);
+    await settledTap(mpage, mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}));
+    await mpage.waitForTimeout(600);
+    const msrc3 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
+    check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
+  
+    /* ---- mobile-input wardley stage: EDGES become phone-editable. The ⋯ menu
+       grows a Needs… submenu — every OTHER component as a marked toggle row
+       (on = "this -> that" exists); a tap toggles the edge via addEdge/removeEdge,
+       the chain-splitting rewrite. State here is the pristine Lantern example
+       (the Inbox add/place/remove round-tripped). ---- */
+    const wSrc = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
+    // open Library's ⋯ → the menu carries Needs… above the danger Remove
+    await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
+    check('wardley needs: the ⋯ menu shows a keyboard evolution operation, Needs… and Remove', await until(async () => (await mpage.locator('.eip-pop button', {hasText: 'Evolution…'}).count() === 1 &&
+      await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
+      await mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).count() === 1)));
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Evolution…'}));
+    check('wardley evolution: menu offers every named ruler position', await until(async () =>
+      (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Genesis|Custom|Product|Commodity'));
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Custom'}));
+    check('wardley evolution: keyboard/menu choice writes the selected evolution claim', await until(async () =>
+      (await wSrc()).includes('Library @ custom')));
+    await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+    check('wardley evolution: one touch undo restores the selected evolution claim', await until(async () => (await wSrc()) === msrc3));
+    await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
+    // open the checklist: 6 other components, existing deps marked, anchor + self absent
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
+    check('wardley needs: checklist lists every OTHER component (anchor + self absent)', await until(async () => (await mpage.locator('.eip-pop button').count() === 6 &&
+      await mpage.locator('.eip-pop button', {hasText: 'Library'}).count() === 0 &&
+      await mpage.locator('.eip-pop button', {hasText: 'Reading'}).count() === 0)));
+    check('wardley needs: exactly the existing deps are marked on',
+      (await mpage.locator('.eip-pop button.on').allInnerTexts()).sort().join('|') ===
+      'Notification service|Recommendations');
+    /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+    await new Promise(r => setTimeout(r, 250));
+    check('wardley needs: opening menu + checklist commits NOTHING (no silent commit)',
+      (await wSrc()) === msrc3);
+    check('wardley needs: no page h-scroll with the checklist open', await mpage.evaluate(() =>
+      document.documentElement.scrollWidth <= innerWidth + 1));
+  
+    // toggle OFF the MID-CHAIN pair: Library -> Recommendations sits in the
+    // middle of "Reading -> Library -> Recommendations -> Catalogue DB" —
+    // the split must leave both halves as their own chains
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Recommendations'}));
+    const wsrc1 = await untilValue(() => wSrc(),
+      wsrc1 => (/^Reading -> Library$/m.test(wsrc1) &&
+      /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
+      !/Library\s*->\s*Recommendations/.test(wsrc1)));
+    check('wardley needs: mid-chain toggle OFF splits the chain into two 2-node chains',
+      /^Reading -> Library$/m.test(wsrc1) &&
+      /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
+      !/Library\s*->\s*Recommendations/.test(wsrc1));
+    /* Phone is a source-order ledger, not the wide Field's metric header. Prove
+       the redraw through the factual dependency rows it is designed to expose. */
+    check('wardley needs: the phone ledger redraws the removed dependency facts',
+      await until(async () => {
+        const library = await mpage.locator('#preview svg g[data-drag][data-name="Library"]').textContent();
+        const recommendations = await mpage.locator('#preview svg g[data-drag][data-name="Recommendations"]').textContent();
+        return library.includes('NEEDS · Notification service') && !library.includes('Recommendations') &&
+          recommendations.includes('NEEDED BY · Book clubs');
+      }));
+    check('wardley needs: coarse toggle does NOT focus the editor', await mpage.evaluate(() =>
+      !document.activeElement || !document.activeElement.closest('.cm-editor')));
+    await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+    check('wardley needs: ONE ↶ Undo restores the split chain (single dispatch)', await until(async () => ((await wSrc()) === msrc3)));
+  
+    // toggle ON: Book clubs gains "needs Catalogue DB" — a fresh 2-node line appends
+    await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
+    await mpage.waitForTimeout(200);
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
+    await mpage.waitForTimeout(200);
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
+    const wsrc2 = await untilValue(() => wSrc(),
+      wsrc2 => (/^Book clubs -> Catalogue DB$/m.test(wsrc2)));
+    check('wardley needs: toggle ON appends the edge as its own line',
+      /^Book clubs -> Catalogue DB$/m.test(wsrc2));
+    check('wardley needs: the phone ledger redraws the added dependency fact',
+      await until(async () => {
+        const bookClubs = await mpage.locator('#preview svg g[data-drag][data-name="Book clubs"]').textContent();
+        return /NEEDS · [\s\S]*Catalogue DB(?=NEEDED BY ·)/.test(bookClubs) && !bookClubs.includes('NEEDED BY · Catalogue DB');
+      }));
+  
+    // WIDE map, still coarse (tablet-shaped): the added edge is a drawn arrow,
+    // and the same menu path removes it — the single-edge-line case in browser
+    await mpage.setViewportSize({width: 1194, height: 834});
+    check('wardley needs: the wide map draws the added edge (10 arrows)', await until(async () => (await mpage.locator('#preview svg .edge').count() === 10)));
+    await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
+    await mpage.waitForTimeout(200);
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
+    check('wardley needs: wide checklist marks the just-added dep on', await until(async () => (await mpage.locator('.eip-pop button.on', {hasText: 'Catalogue DB'}).count() === 1)));
+    await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
+    check('wardley needs: wide toggle OFF deletes the whole single-edge line (back to baseline)', await until(async () => ((await wSrc()) === msrc3 &&
+      await mpage.locator('#preview svg .edge').count() === 9)));
+    await mpage.setViewportSize({width: 390, height: 844});   // back to phone for the blocks below
+    await mpage.waitForTimeout(600);
+    check('wardley narrow: no console/page errors', merrors.length === 0);
+  } else {
+    // Timeline and Bets used the phone size restored after Wardley's tablet pass.
+    await mpage.setViewportSize({width: 390, height: 844});
+  }
 
   /* ---- mobile-input PILOT: /timeline's narrow relayout is now fully phone-
      editable ("the card is the control"). Every milestone row is a data-menu
@@ -2561,215 +2578,215 @@ check('no console/page errors', errors.length === 0);
      touch-Undo, assert full revert to the pre-menu baseline before the next
      action starts clean. ---- */
   // Pin the editing fixture: the public example and source visibility can evolve.
-  const tlFixture = 'title: Editing programme\nApp: Feature freeze 2026-09 .. 2026-10\nApp: Store review 2026-10 .. 2026-11\nMarketing: Landing page 2026-09 .. 2026-10\nMarketing: Campaign 2026-10 .. 2026-11\nCompliance: Privacy audit 2026-10 .. 2026-12\nCompliance: Terms 2026-09 .. 2026-11\nApp: Launch 2026-11 .. 2026-12';
-  const tlHash = Buffer.from(JSON.stringify({t:tlFixture,e:0})).toString('base64');
-  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + tlHash, {waitUntil: 'networkidle'});
-  /* This settle stays a sleep. The poll that replaced it waited for the narrow
-     relayout to RENDER, which happens before the example's text reaches
-     localStorage through the editor's debounce — so the baseline below captured
-     the PREVIOUS document, and every "commits NOTHING" and one-Undo check that
-     compares against it failed. Same class as tlTapCard's box: the poll's
-     condition was true earlier than the state the assertions depend on. */
-  await mpage.waitForTimeout(800);
-  const tlNarrow = await untilValue(() => mpage.evaluate(() => {
-    const svg = document.querySelector('#preview svg');
-    return {narrow: !!(svg && svg.hasAttribute('data-narrow')),
-      menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length};
-  }),
-    /* poll for the FULL assertion, not just `narrow`: data-narrow can land before the
-       cardmenu groups do, and the counts below are read from this same snapshot. */
-    tlNarrow => (tlNarrow.narrow && tlNarrow.menus === 7));
-  check('timeline narrow: the phone preview is the narrow relayout (data-narrow)', tlNarrow.narrow);
-  check('timeline narrow: every milestone row is now a data-menu cardmenu (the pilot landed)', tlNarrow.menus === 7);
-
-  const tlHit = line => mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
-  const tlTapCard = async line => {
-    const h = tlHit(line);
-    await h.scrollIntoViewIfNeeded();
-    /* This sleep stays. A box that EXISTS is not a box that has STOPPED MOVING:
-       scrollIntoViewIfNeeded returns before the scroll settles, so polling for the
-       box's existence succeeds immediately at stale coordinates and the raw
-       mouse.click below lands on a neighbouring card — which commits an edit, breaks
-       "a coarse card tap commits NOTHING", and corrupts the baseline every following
-       Undo check compares against. Cost 11 failures during the 2026-08-17 conversion:
-       the poll's condition was already true before the action, the one case the
-       conversion rules say to leave alone. */
-    await mpage.waitForTimeout(300);
-    const b = await h.boundingBox();
-    await mpage.mouse.click(b.x + 24, b.y + b.height / 2);   // left of the diamonds — the title/sub band
-    await mpage.waitForTimeout(300);
-  };
-  const tlUndo = async () => {
-    await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+  if(scope.wants("timeline")){
+    const tlFixture = 'title: Editing programme\nApp: Feature freeze 2026-09 .. 2026-10\nApp: Store review 2026-10 .. 2026-11\nMarketing: Landing page 2026-09 .. 2026-10\nMarketing: Campaign 2026-10 .. 2026-11\nCompliance: Privacy audit 2026-10 .. 2026-12\nCompliance: Terms 2026-09 .. 2026-11\nApp: Launch 2026-11 .. 2026-12';
+    const tlHash = Buffer.from(JSON.stringify({t:tlFixture,e:0})).toString('base64');
+    await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + tlHash, {waitUntil: 'networkidle'});
+    /* This settle stays a sleep. The poll that replaced it waited for the narrow
+       relayout to RENDER, which happens before the example's text reaches
+       localStorage through the editor's debounce — so the baseline below captured
+       the PREVIOUS document, and every "commits NOTHING" and one-Undo check that
+       compares against it failed. Same class as tlTapCard's box: the poll's
+       condition was true earlier than the state the assertions depend on. */
+    await mpage.waitForTimeout(800);
+    const tlNarrow = await untilValue(() => mpage.evaluate(() => {
+      const svg = document.querySelector('#preview svg');
+      return {narrow: !!(svg && svg.hasAttribute('data-narrow')),
+        menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length};
+    }),
+      /* poll for the FULL assertion, not just `narrow`: data-narrow can land before the
+         cardmenu groups do, and the counts below are read from this same snapshot. */
+      tlNarrow => (tlNarrow.narrow && tlNarrow.menus === 7));
+    check('timeline narrow: the phone preview is the narrow relayout (data-narrow)', tlNarrow.narrow);
+    check('timeline narrow: every milestone row is now a data-menu cardmenu (the pilot landed)', tlNarrow.menus === 7);
+  
+    const tlHit = line => mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+    const tlTapCard = async line => {
+      const h = tlHit(line);
+      await h.scrollIntoViewIfNeeded();
+      /* This sleep stays. A box that EXISTS is not a box that has STOPPED MOVING:
+         scrollIntoViewIfNeeded returns before the scroll settles, so polling for the
+         box's existence succeeds immediately at stale coordinates and the raw
+         mouse.click below lands on a neighbouring card — which commits an edit, breaks
+         "a coarse card tap commits NOTHING", and corrupts the baseline every following
+         Undo check compares against. Cost 11 failures during the 2026-08-17 conversion:
+         the poll's condition was already true before the action, the one case the
+         conversion rules say to leave alone. */
+      await mpage.waitForTimeout(300);
+      const b = await h.boundingBox();
+      await mpage.mouse.click(b.x + 24, b.y + b.height / 2);   // left of the diamonds — the title/sub band
+      await mpage.waitForTimeout(300);
+    };
+    const tlSrc = () => mpage.evaluate(() => localStorage.getItem('timeline-src'));
+    const tlBase = await tlSrc();
+  
+    // Feature freeze (App, srcLine 1): the full menu, no silent commit
+    await tlTapCard(1);
+    check('timeline narrow: milestone tap opens the card menu with the expected rows (one popover)',
+      (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Add actual start…|Status…|Lane…|Add note…|Remove milestone' &&
+      await mpage.locator('.eip-pop').count() === 1);
+    /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+    await new Promise(r => setTimeout(r, 250));
+    check('timeline narrow: a coarse card tap commits NOTHING on its own (menu-first, no silent step)',
+      (await tlSrc()) === tlBase);
+  
+    // Status… → marked picker (none/done/risk); pick risk — a real rewrite, no bare-tap step
+    await mpage.locator('.eip-pop button', {hasText: 'Status…'}).click();
+    check('timeline narrow: Status… opens a marked picker (none current), not a blind step', await until(async () => ((await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
+      (await mpage.locator('.eip-pop button.on').innerText()) === 'none')));
+    await mpage.locator('.eip-pop button', {hasText: 'risk'}).click();
+    check('timeline narrow: Status pick commits [risk]', await until(async () => (/App: Feature freeze [^\n]*\[risk\]/.test(await tlSrc()))));
+    await touchUndo();
+    check('timeline narrow: one Undo reverts the status', (await tlSrc()) === tlBase);
+  
+    // Lane… → submenu (existing lanes + New lane…); pick Marketing → rewrites the prefix
+    await tlTapCard(1);
+    await mpage.locator('.eip-pop button', {hasText: 'Lane…'}).click();
+    check('timeline narrow: Lane… lists the model’s lanes (current marked) + New lane…', await until(async () => ((await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'App|Marketing|Compliance|New lane…' &&
+      (await mpage.locator('.eip-pop button.on').innerText()) === 'App')));
+    await mpage.locator('.eip-pop button', {hasText: 'Marketing'}).click();
+    check('timeline narrow: Lane… pick rewrites the lane prefix', await until(async () => (/^Marketing: Feature freeze\b/m.test(await tlSrc()))));
+    await touchUndo();
+    check('timeline narrow: one Undo reverts the lane', (await tlSrc()) === tlBase);
+  
+    // ＋ Add to App capsule → inserts a lane-prefixed milestone; coarse add opts OUT of editor focus
+    await settledTap(mpage, mpage.locator('#preview svg g[data-edit="additem"][data-lane="App"]'));
+    await mpage.locator('.eip-input').fill('Pen test');
+    await mpage.keyboard.press('Enter');
+    check('timeline narrow: ＋ Add to App inserts a lane-prefixed dated milestone', await until(async () => (/^App: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(await tlSrc()))));
+    check('timeline narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+      !document.activeElement || !document.activeElement.closest('.cm-editor')));
+    await touchUndo();
+    check('timeline narrow: one Undo removes the added milestone', (await tlSrc()) === tlBase);
+  
+    // Remove milestone → danger action drops the line; Undo restores it
+    await tlTapCard(1);
+    await mpage.locator('.eip-pop button.danger', {hasText: 'Remove milestone'}).click();
     await mpage.waitForTimeout(600);
-  };
-  const tlSrc = () => mpage.evaluate(() => localStorage.getItem('timeline-src'));
-  const tlBase = await tlSrc();
-
-  // Feature freeze (App, srcLine 1): the full menu, no silent commit
-  await tlTapCard(1);
-  check('timeline narrow: milestone tap opens the card menu with the expected rows (one popover)',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Add actual start…|Status…|Lane…|Add note…|Remove milestone' &&
-    await mpage.locator('.eip-pop').count() === 1);
-  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
-  await new Promise(r => setTimeout(r, 250));
-  check('timeline narrow: a coarse card tap commits NOTHING on its own (menu-first, no silent step)',
-    (await tlSrc()) === tlBase);
-
-  // Status… → marked picker (none/done/risk); pick risk — a real rewrite, no bare-tap step
-  await mpage.locator('.eip-pop button', {hasText: 'Status…'}).click();
-  check('timeline narrow: Status… opens a marked picker (none current), not a blind step', await until(async () => ((await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
-    (await mpage.locator('.eip-pop button.on').innerText()) === 'none')));
-  await mpage.locator('.eip-pop button', {hasText: 'risk'}).click();
-  check('timeline narrow: Status pick commits [risk]', await until(async () => (/App: Feature freeze [^\n]*\[risk\]/.test(await tlSrc()))));
-  await tlUndo();
-  check('timeline narrow: one Undo reverts the status', (await tlSrc()) === tlBase);
-
-  // Lane… → submenu (existing lanes + New lane…); pick Marketing → rewrites the prefix
-  await tlTapCard(1);
-  await mpage.locator('.eip-pop button', {hasText: 'Lane…'}).click();
-  check('timeline narrow: Lane… lists the model’s lanes (current marked) + New lane…', await until(async () => ((await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'App|Marketing|Compliance|New lane…' &&
-    (await mpage.locator('.eip-pop button.on').innerText()) === 'App')));
-  await mpage.locator('.eip-pop button', {hasText: 'Marketing'}).click();
-  check('timeline narrow: Lane… pick rewrites the lane prefix', await until(async () => (/^Marketing: Feature freeze\b/m.test(await tlSrc()))));
-  await tlUndo();
-  check('timeline narrow: one Undo reverts the lane', (await tlSrc()) === tlBase);
-
-  // ＋ Add to App capsule → inserts a lane-prefixed milestone; coarse add opts OUT of editor focus
-  await settledTap(mpage, mpage.locator('#preview svg g[data-edit="additem"][data-lane="App"]'));
-  await mpage.locator('.eip-input').fill('Pen test');
-  await mpage.keyboard.press('Enter');
-  check('timeline narrow: ＋ Add to App inserts a lane-prefixed dated milestone', await until(async () => (/^App: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(await tlSrc()))));
-  check('timeline narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
-    !document.activeElement || !document.activeElement.closest('.cm-editor')));
-  await tlUndo();
-  check('timeline narrow: one Undo removes the added milestone', (await tlSrc()) === tlBase);
-
-  // Remove milestone → danger action drops the line; Undo restores it
-  await tlTapCard(1);
-  await mpage.locator('.eip-pop button.danger', {hasText: 'Remove milestone'}).click();
-  await mpage.waitForTimeout(600);
-  check('timeline narrow: Remove milestone drops the row', !/Feature freeze/.test(await tlSrc()));
-  await tlUndo();
-  check('timeline narrow: one Undo restores the removed milestone', (await tlSrc()) === tlBase);
-
-  check('timeline narrow: no h-scroll with the edit targets added', await mpage.evaluate(() => {
-    const pv = document.getElementById('preview');
-    return pv.scrollWidth <= pv.clientWidth + 1;
-  }));
-  check('timeline narrow: no console/page errors', merrors.length === 0);
+    check('timeline narrow: Remove milestone drops the row', !/Feature freeze/.test(await tlSrc()));
+    await touchUndo();
+    check('timeline narrow: one Undo restores the removed milestone', (await tlSrc()) === tlBase);
+  
+    check('timeline narrow: no h-scroll with the edit targets added', await mpage.evaluate(() => {
+      const pv = document.getElementById('preview');
+      return pv.scrollWidth <= pv.clientWidth + 1;
+    }));
+    check('timeline narrow: no console/page errors', merrors.length === 0);
+  }
 
   /* ---- mobile-input STAGE (bets): the narrow board's cards are the control.
      Tap a card → Rename/values/kill/Remove menu (no silent commit); ＋ Add bet
      capsules close each group and ＋ Add group closes the board. Same
      round-trip contract as the timeline pilot block above: commit, assert,
      ONE touch-Undo, assert full revert before the next action. ---- */
-  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-  await mpage.getByRole('button', {name: 'Lantern portfolio'}).click();
-  await mpage.waitForTimeout(800);   // stays — see the timeline block: render precedes the localStorage write
-  const btNarrow = await untilValue(() => mpage.evaluate(() => ({
-    narrow: !!document.querySelector('#preview svg [data-narrow]'),
-    menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length,
-    addbets: document.querySelectorAll('#preview svg [data-edit="addbet"]').length,
-    addgroups: document.querySelectorAll('#preview svg [data-edit="addgroup"]').length,
-  })),
-    /* poll for the FULL assertion — see the timeline block: data-narrow can precede
-       the cardmenus, and menus/addbets/addgroups are read from this snapshot. */
-    btNarrow => (btNarrow.narrow && btNarrow.menus === 5 && btNarrow.addbets === 2 && btNarrow.addgroups === 1));
-  check('bets narrow: the phone preview is the narrow relayout (data-narrow)', btNarrow.narrow);
-  check('bets narrow: every bet card is a data-menu cardmenu', btNarrow.menus === 5);
-  check('bets narrow: a ＋ Add bet capsule per group + one ＋ Add group at the foot',
-    btNarrow.addbets === 2 && btNarrow.addgroups === 1);
-
-  const btHit = line => mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
-  const btTapCard = async line => {
-    const h = btHit(line);
-    await h.scrollIntoViewIfNeeded();
-    await mpage.waitForTimeout(300);   // stays — see tlTapCard: existence is not stability
-    const b = await h.boundingBox();
-    await mpage.mouse.click(b.x + 10, b.y + 6);   // the card's top padding sliver
-    await mpage.waitForTimeout(300);
-  };
-  const btSrc = () => mpage.evaluate(() => localStorage.getItem('bets-src'));
-  const btBase = await btSrc();
-
-  /* The visible odds glyph itself—not the hidden menu plane—must route to
-     the coarse row menu. This guards the 44px menu-first contract against a
-     later direct-value target or SVG hit-order regression. */
-  await settledTap(mpage, mpage.locator('#preview svg g[data-row="bet"]').filter({hasText: 'Referral flow v2'}).getByText('40–60%', {exact: true}));
-  check('bets narrow: visible odds tap opens the coarse menu, not a direct field',
-    await mpage.locator('.eip-pop').count() === 1 && await mpage.locator('.eip-input').count() === 0);
-  await new Promise(r => setTimeout(r, 250));
-  check('bets narrow: visible odds tap commits NOTHING on its own', (await btSrc()) === btBase);
-  await mpage.keyboard.press('Escape');
-
-  // Referral flow v2 (srcLine 5): the full six-row menu, no silent commit
-  await btTapCard(5);
-  check('bets narrow: card tap opens the menu with the expected rows (one popover)',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit stake…|Edit odds…|Edit payoff…|Edit kill criterion…|Remove bet' &&
-    await mpage.locator('.eip-pop').count() === 1);
-  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
-  await new Promise(r => setTimeout(r, 250));
-  check('bets narrow: a coarse card tap commits NOTHING on its own (menu-first)', (await btSrc()) === btBase);
-
-  // Rename… routes to the name target's input, prefilled; commit rewrites only the name
-  await mpage.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  check('bets narrow: Rename… opens prefilled with the bet name', await until(async () => (await mpage.locator('.eip-input').inputValue() === 'Referral flow v2')));
-  await mpage.locator('.eip-input').fill('Referral spine');
-  await mpage.keyboard.press('Enter');
-  check('bets narrow: Rename commits — attrs survive the rewrite', await until(async () => (/^  Referral spine: stake 80, odds 40-60%, payoff 300-500$/m.test(await btSrc()))));
-  await tlUndo();
-  check('bets narrow: one Undo reverts the rename', (await btSrc()) === btBase);
-
-  // ＋ Add bet into Growth bets (the capsule carries the GROUP's srcLine, 4):
-  // lands after the group's last bet block, typed name replaces the placeholder
-  await settledTap(mpage, mpage.locator('#preview svg g[data-edit="addbet"][data-line="4"]'));
-  await mpage.locator('.eip-input').fill('Pen test');
-  await mpage.keyboard.press('Enter');
-  check('bets narrow: ＋ Add bet inserts a parseable placeholder into the group', await until(async () => ((await btSrc()).split(/\r?\n/)[8] === '  Pen test: stake 50, odds 40-60%, payoff 100-200')));
-  check('bets narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
-    !document.activeElement || !document.activeElement.closest('.cm-editor')));
-  check('bets narrow: focus lands on the fresh bet\'s own 44px menu route (positive assertion)',
-    await until(() => mpage.evaluate(() => {
-      const el = document.activeElement;
-      return !!el && el.dataset && el.dataset.edit === 'cardmenu' && el.dataset.line === '9';
-    })));
-  await tlUndo();
-  check('bets narrow: one Undo removes the added bet', (await btSrc()) === btBase);
-
-  // ＋ Add group closes the board
-  await settledTap(mpage, mpage.locator('#preview svg g[data-edit="addgroup"]'));
-  await mpage.locator('.eip-input').fill('Ops bets');
-  await mpage.keyboard.press('Enter');
-  check('bets narrow: ＋ Add group appends a heading at the foot', await until(async () => (/\nOps bets\s*$/.test(await btSrc()))));
-  await tlUndo();
-  check('bets narrow: one Undo removes the added group', (await btSrc()) === btBase);
-
-  // Remove bet: the danger action deletes the bet line AND its kill child
-  await btTapCard(5);
-  await mpage.locator('.eip-pop button.danger', {hasText: 'Remove bet'}).click();
-  await mpage.waitForTimeout(600);
-  const btRemoved = await btSrc();
-  check('bets narrow: Remove bet drops the line and its kill child',
-    !/Referral flow v2/.test(btRemoved) && !/Signups per referral/.test(btRemoved));
-  await tlUndo();
-  check('bets narrow: one Undo restores the removed bet', (await btSrc()) === btBase);
-
-  // a value edit still works through the menu (the stage didn't regress values)
-  await btTapCard(5);
-  await mpage.locator('.eip-pop button', {hasText: 'Edit odds…'}).click();
-  await mpage.locator('.eip-input').fill('35-55');
-  await mpage.keyboard.press('Enter');
-  check('bets narrow: menu value edit still commits', await until(async () => ((await btSrc()).includes('odds 35-55%'))));
-  await tlUndo();
-  check('bets narrow: one Undo reverts the value edit', (await btSrc()) === btBase);
-
-  check('bets narrow: no h-scroll with the capsules + targets added', await mpage.evaluate(() => {
-    const pv = document.getElementById('preview');
-    return pv.scrollWidth <= pv.clientWidth + 1;
-  }));
-  check('bets narrow: no console/page errors', merrors.length === 0);
+  if(scope.wants("bets")){
+    await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
+    await mpage.getByRole('button', {name: 'Lantern portfolio'}).click();
+    await mpage.waitForTimeout(800);   // stays — see the timeline block: render precedes the localStorage write
+    const btNarrow = await untilValue(() => mpage.evaluate(() => ({
+      narrow: !!document.querySelector('#preview svg [data-narrow]'),
+      menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length,
+      addbets: document.querySelectorAll('#preview svg [data-edit="addbet"]').length,
+      addgroups: document.querySelectorAll('#preview svg [data-edit="addgroup"]').length,
+    })),
+      /* poll for the FULL assertion — see the timeline block: data-narrow can precede
+         the cardmenus, and menus/addbets/addgroups are read from this snapshot. */
+      btNarrow => (btNarrow.narrow && btNarrow.menus === 5 && btNarrow.addbets === 2 && btNarrow.addgroups === 1));
+    check('bets narrow: the phone preview is the narrow relayout (data-narrow)', btNarrow.narrow);
+    check('bets narrow: every bet card is a data-menu cardmenu', btNarrow.menus === 5);
+    check('bets narrow: a ＋ Add bet capsule per group + one ＋ Add group at the foot',
+      btNarrow.addbets === 2 && btNarrow.addgroups === 1);
+  
+    const btHit = line => mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+    const btTapCard = async line => {
+      const h = btHit(line);
+      await h.scrollIntoViewIfNeeded();
+      await mpage.waitForTimeout(300);   // stays — see tlTapCard: existence is not stability
+      const b = await h.boundingBox();
+      await mpage.mouse.click(b.x + 10, b.y + 6);   // the card's top padding sliver
+      await mpage.waitForTimeout(300);
+    };
+    const btSrc = () => mpage.evaluate(() => localStorage.getItem('bets-src'));
+    const btBase = await btSrc();
+  
+    /* The visible odds glyph itself—not the hidden menu plane—must route to
+       the coarse row menu. This guards the 44px menu-first contract against a
+       later direct-value target or SVG hit-order regression. */
+    await settledTap(mpage, mpage.locator('#preview svg g[data-row="bet"]').filter({hasText: 'Referral flow v2'}).getByText('40–60%', {exact: true}));
+    check('bets narrow: visible odds tap opens the coarse menu, not a direct field',
+      await mpage.locator('.eip-pop').count() === 1 && await mpage.locator('.eip-input').count() === 0);
+    await new Promise(r => setTimeout(r, 250));
+    check('bets narrow: visible odds tap commits NOTHING on its own', (await btSrc()) === btBase);
+    await mpage.keyboard.press('Escape');
+  
+    // Referral flow v2 (srcLine 5): the full six-row menu, no silent commit
+    await btTapCard(5);
+    check('bets narrow: card tap opens the menu with the expected rows (one popover)',
+      (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') ===
+        'Rename…|Edit stake…|Edit odds…|Edit payoff…|Edit kill criterion…|Remove bet' &&
+      await mpage.locator('.eip-pop').count() === 1);
+    /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+    await new Promise(r => setTimeout(r, 250));
+    check('bets narrow: a coarse card tap commits NOTHING on its own (menu-first)', (await btSrc()) === btBase);
+  
+    // Rename… routes to the name target's input, prefilled; commit rewrites only the name
+    await mpage.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+    check('bets narrow: Rename… opens prefilled with the bet name', await until(async () => (await mpage.locator('.eip-input').inputValue() === 'Referral flow v2')));
+    await mpage.locator('.eip-input').fill('Referral spine');
+    await mpage.keyboard.press('Enter');
+    check('bets narrow: Rename commits — attrs survive the rewrite', await until(async () => (/^  Referral spine: stake 80, odds 40-60%, payoff 300-500$/m.test(await btSrc()))));
+    await touchUndo();
+    check('bets narrow: one Undo reverts the rename', (await btSrc()) === btBase);
+  
+    // ＋ Add bet into Growth bets (the capsule carries the GROUP's srcLine, 4):
+    // lands after the group's last bet block, typed name replaces the placeholder
+    await settledTap(mpage, mpage.locator('#preview svg g[data-edit="addbet"][data-line="4"]'));
+    await mpage.locator('.eip-input').fill('Pen test');
+    await mpage.keyboard.press('Enter');
+    check('bets narrow: ＋ Add bet inserts a parseable placeholder into the group', await until(async () => ((await btSrc()).split(/\r?\n/)[8] === '  Pen test: stake 50, odds 40-60%, payoff 100-200')));
+    check('bets narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+      !document.activeElement || !document.activeElement.closest('.cm-editor')));
+    check('bets narrow: focus lands on the fresh bet\'s own 44px menu route (positive assertion)',
+      await until(() => mpage.evaluate(() => {
+        const el = document.activeElement;
+        return !!el && el.dataset && el.dataset.edit === 'cardmenu' && el.dataset.line === '9';
+      })));
+    await touchUndo();
+    check('bets narrow: one Undo removes the added bet', (await btSrc()) === btBase);
+  
+    // ＋ Add group closes the board
+    await settledTap(mpage, mpage.locator('#preview svg g[data-edit="addgroup"]'));
+    await mpage.locator('.eip-input').fill('Ops bets');
+    await mpage.keyboard.press('Enter');
+    check('bets narrow: ＋ Add group appends a heading at the foot', await until(async () => (/\nOps bets\s*$/.test(await btSrc()))));
+    await touchUndo();
+    check('bets narrow: one Undo removes the added group', (await btSrc()) === btBase);
+  
+    // Remove bet: the danger action deletes the bet line AND its kill child
+    await btTapCard(5);
+    await mpage.locator('.eip-pop button.danger', {hasText: 'Remove bet'}).click();
+    await mpage.waitForTimeout(600);
+    const btRemoved = await btSrc();
+    check('bets narrow: Remove bet drops the line and its kill child',
+      !/Referral flow v2/.test(btRemoved) && !/Signups per referral/.test(btRemoved));
+    await touchUndo();
+    check('bets narrow: one Undo restores the removed bet', (await btSrc()) === btBase);
+  
+    // a value edit still works through the menu (the stage didn't regress values)
+    await btTapCard(5);
+    await mpage.locator('.eip-pop button', {hasText: 'Edit odds…'}).click();
+    await mpage.locator('.eip-input').fill('35-55');
+    await mpage.keyboard.press('Enter');
+    check('bets narrow: menu value edit still commits', await until(async () => ((await btSrc()).includes('odds 35-55%'))));
+    await touchUndo();
+    check('bets narrow: one Undo reverts the value edit', (await btSrc()) === btBase);
+  
+    check('bets narrow: no h-scroll with the capsules + targets added', await mpage.evaluate(() => {
+      const pv = document.getElementById('preview');
+      return pv.scrollWidth <= pv.clientWidth + 1;
+    }));
+    check('bets narrow: no console/page errors', merrors.length === 0);
+  }
   await mctx.close();
 }
 
@@ -2783,7 +2800,7 @@ check('no console/page errors', errors.length === 0);
    round-trip contract as the timeline pilot: commit, assert, ONE touch-Undo,
    assert full revert before the next action. Served on the tools origin at
    /energy/cycles/ (files sit physically there). ---- */
-{
+if(scope.wants("cycles")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -2900,7 +2917,7 @@ check('no console/page errors', errors.length === 0);
    Also proves the editField append fix (editing a share/fee a floor omitted was a
    silent no-op). Tap via scroll-to-centre + mouse.click (see the cycles block).
    Same commit/assert/ONE-Undo/revert contract. Served at /energy/risk/. ---- */
-{
+if(scope.wants("risk")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -3006,7 +3023,7 @@ insure: premium 6 attach 65 limit 30`;
    renders a share pill (100%) whose edit used to be a silent no-op. editField
    now appends the clause. Isolated context so no prior focus/scroll state can
    deflect the pill tap. ---- */
-{
+if(scope.wants("risk")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -3028,7 +3045,7 @@ insure: premium 6 attach 65 limit 30`;
 
 /* ---- timeline desktop: per-lane add zone opens empty, typed value replaces
    the dated placeholder (not "New milestone" — that would test nothing) ---- */
-{
+if(scope.wants("timeline")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   /* Three milestones exercise the live board composition. Sparse timelines use
@@ -3062,7 +3079,7 @@ insure: premium 6 attach 65 limit 30`;
    or inserts a fresh child line for a bet with none) — mirrors roadmap's
    card-menu shape (tap the row's data-hit rect, ONE undo per action, back
    to a captured baseline before the next action starts clean). ---- */
-{
+if(scope.wants("bets")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
@@ -3179,7 +3196,7 @@ insure: premium 6 attach 65 limit 30`;
    touch device attached. Also the positive focus assertion: after add,
    document.activeElement IS the fresh bet's own rendered name field, not
    merely "something outside CodeMirror". ---- */
-{
+if(scope.wants("bets")){
   const dp = await browser.newPage({viewport: {width: 420, height: 900}});
   const derrs = trackErrors(dp);
   await dp.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
@@ -3210,7 +3227,8 @@ insure: premium 6 attach 65 limit 30`;
    caught the original /why silent [testing]→[holds] rewrite. Fine-pointer
    behaviour is locked by the desktop blocks above (they click cycle targets
    and expect the INSTANT step). ---- */
-{
+if(scope.wants("why", "map", "roadmap")){
+  scope.unscoped();
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const sliverTap = async (p, loc) => {   // top-left padding sliver — same dodge-the-text trick as the desktop blocks
     await loc.scrollIntoViewIfNeeded();
@@ -3220,7 +3238,7 @@ insure: premium 6 attach 65 limit 30`;
   };
 
   /* why: the astatus multi-value cycle (the original trap) */
-  {
+  if(scope.wants("why")){
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
@@ -3266,7 +3284,7 @@ insure: premium 6 attach 65 limit 30`;
      artefact you're editing in place. why adds through the SHARED insertAndSelect
      default (unlike wardley, which opts out explicitly), so it's the honest guard for
      the shared path. The wardley coarse block above only proves wardley's own opt-out. */
-  {
+  if(scope.wants("why")){
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
@@ -3289,7 +3307,7 @@ insure: premium 6 attach 65 limit 30`;
      A coarse item tap opens its one contextual menu; the menu owns Remove and Undo
      restores the authored line. The standalone ['×'] cycle-popover is proved on
      timeline-tablet below. */
-  {
+  if(scope.wants("map")){
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
@@ -3373,7 +3391,7 @@ insure: premium 6 attach 65 limit 30`;
 
   /* roadmap at 390: the narrow chart's card menu opens (a sample of the
      narrow-relayout tools keeping their tap-to-edit entry point) */
-  {
+  if(scope.wants("roadmap")){
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -3404,7 +3422,9 @@ insure: premium 6 attach 65 limit 30`;
   /* Rule 3 mechanism: a kind may declare inputmode and it lands on the input.
      No tool opts in yet, so drive the shared module directly with a synthetic
      kind — this guards the plumbing until the first real opt-in. */
-  {
+  if(!scope.focused){
+    // This synthetic shared-module probe is not a witness for a tool journey.
+    scope.unscoped();
     const p = await mctx.newPage();
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
     const im = await p.evaluate(async () => {
@@ -3426,7 +3446,7 @@ insure: premium 6 attach 65 limit 30`;
 
 /* ---- Timeline tablet: the visible menu owns a 44px target. Status and
    removal remain explicit, undoable source edits. ---- */
-{
+if(scope.wants("timeline")){
   const tctx = await browser.newContext({...devices['iPad Pro 11 landscape'], reducedMotion: 'reduce'});
   const p = await tctx.newPage();
   const errs = trackErrors(p);
@@ -3469,7 +3489,7 @@ insure: premium 6 attach 65 limit 30`;
    first. Same commit/assert/ONE-Undo/revert contract as the other tails. Also
    asserts the shared .eip-input 16px coarse floor (the phone bar's iOS-zoom rule,
    assets/workspace.css — global, so proving it here guards every tool). ---- */
-{
+if(scope.wants("gauge")){
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
@@ -3608,7 +3628,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
 /* ---- paths overview receipt + Focus lens + explicit Tree inspector: Overview
    uses the evaluator-backed impact receipt while Tree retains its editable
    legacy receipt and source-rewrite behavior during the staged migration. ---- */
-{
+if(scope.wants("paths")){
   const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
   // This fixture asserts the pre-deadline announcement. Freeze wall time so
@@ -3969,4 +3989,4 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
 
 console.log(results.join('\n'));
 await browser.close();
-report('check-eip', {...tally(results), min: 537});   // ~90% of 598 measured 2026-08-16; the old 480 was ~90% of 536 and the suite has grown since
+scope.report('check-eip', {...tally(results), min: 537});   // ~90% of 598 measured 2026-08-16; the old 480 was ~90% of 536 and the suite has grown since

@@ -31,14 +31,16 @@ Run commands from the repository root:
 
 ```bash
 npm run test:node
+npm run test:changed
 npm run gate
 npm run gate:serial
 npm run worktree -- create <name>
 ```
 
-`npm run gate` is the pre-merge gate. Its executable implementation, including
-current suite list and parallelism, is `dev/pw/run.mjs`; do not duplicate those facts
-here. A parallel red needs the failed suite re-run serially before it is classified.
+`npm run test:changed` is the usual local check; PR CI is the authoritative
+pre-merge verification. `npm run gate` retains full local coverage. Selection and
+execution live in `dev/test-plan.mjs` and `dev/pw/run.mjs`; do not duplicate their
+mutable inventories here. A parallel red needs the failed suite re-run serially before it is classified.
 
 ## Route by the work you are doing
 
@@ -48,7 +50,7 @@ here. A parallel red needs the failed suite re-run serially before it is classif
 | Visual or interaction work | `docs/agent/VISUAL.md` | inspected desktop and phone renders in both themes |
 | Tests or Playwright harness | `docs/agent/TESTING.md` | focused passing result; regression tests detect the bug |
 | New tool | `docs/agent/NEW_TOOL.md` | approved design/spec before implementation |
-| Preview, CI, or merge | `docs/agent/RELEASE.md` | gate, preview, branch CI, then approval |
+| Preview, CI, or merge | `docs/agent/RELEASE.md` | focused checks, preview, branch CI, then approval |
 
 Use `dev/tool-dirs.mjs` and `lab/dist/shared/catalog.js` for tool inventories,
 `dev/suite-pages.mjs` for shared pages, `dev/origins.mjs` for origin routing,

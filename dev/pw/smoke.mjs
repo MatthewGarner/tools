@@ -5,15 +5,17 @@ import {openExamples} from './_harness.mjs';
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS} from '../tool-dirs.mjs';
-import {trackErrors, report, tally, emptyPaint, pickExample, openRoadmapSource} from './_harness.mjs';
+import {trackErrors, tally, emptyPaint, pickExample, openRoadmapSource} from './_harness.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
+import {scopeFor} from './_scope.mjs';
+const scope = scopeFor('smoke.mjs');
 
 const OPS_INFRA_BACKLOG = pickExample(RANK_EXAMPLES, 'Ops & infra backlog');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
 const results = [];
-const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+const check = (name, ok) => { scope.checked(); results.push((ok ? 'PASS ' : 'FAIL ') + name); };
 
 async function freshPage(path, theme = 'light'){
   const page = await browser.newPage({colorScheme: theme, reducedMotion: 'reduce'});
@@ -154,7 +156,8 @@ async function copyPngRefuses(page){
 const FLOW_THEMES = ['light'];
 
 /* ---- landing ---- */
-{
+if(!scope.focused){
+  scope.unscoped();
   const {page, errors} = await freshPage('/product/');
   const instruments = TOOL_DIRS.filter(d => !BINDERS.includes(d));
   check('landing: one card per instrument', await page.locator('a.tool').count() === instruments.length);
@@ -170,7 +173,8 @@ const FLOW_THEMES = ['light'];
 }
 
 /* ---- energy landing + risk ---- */
-{
+if(!scope.focused){
+  scope.unscoped();
   const {page, errors} = await freshPage('/energy/');
   check('energy landing: five tool cards', await page.locator('a.tool').count() === ENERGY_TOOL_DIRS.length);
   for(const d of ENERGY_TOOL_DIRS)
@@ -179,6 +183,7 @@ const FLOW_THEMES = ['light'];
   await page.close();
 }
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("risk")) continue;
   const {page, errors} = await freshPage('/energy/risk/', theme);
   await showSourceIfReading(page);
   await openExamples(page); await page.getByRole('button', {name: 'Route to market'}).click();
@@ -195,7 +200,7 @@ for(const theme of FLOW_THEMES){
 
 /* Copy PNG admits one complete 16:9 Field or clearly declines it. The native
    SVG remains the exhaustive path; this is deliberately not a selection test. */
-{
+if(scope.wants("timeline")){
   const dense = 'title: Dense Field\n' + Array.from({length:40}, (_, i) =>
     `Lane ${i % 4}: A deliberately descriptive forecast ${i} 202${6 + Math.floor(i / 12)}-0${i % 8 + 1} .. 202${6 + Math.floor(i / 12)}-1${i % 2 + 1} // a note that must remain present in export`).join('\n');
   const {page, errors} = await freshPage('/timeline/');
@@ -215,6 +220,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- proxy hunt: selected theory and full/scoped export scopes ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("proxy")) continue;
   const {page, errors} = await freshPage('/proxy/', theme);
   await page.waitForTimeout(700);
   const theory = page.locator('[data-select-theory][data-theory-id]').first();
@@ -252,6 +258,7 @@ for(const theme of FLOW_THEMES){
 }
 
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("cycles")) continue;
   const {page, errors} = await freshPage('/energy/cycles/', theme);
   await showSourceIfReading(page);
   await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
@@ -266,7 +273,7 @@ for(const theme of FLOW_THEMES){
 
 /* cycles: sim memoisation (perf fix Task 1 — theme/rotation/no-op edits
    must NOT re-run the ~472ms Monte Carlo; only a sim-input edit should). */
-{
+if(scope.wants("cycles")){
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
   await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
@@ -309,7 +316,7 @@ for(const theme of FLOW_THEMES){
    runs in a module Worker; a real sim takes ~450-500ms for the heaviest
    example (dual policy + augment resim), which is the window these tests
    race against). */
-{
+if(scope.wants("cycles")){
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
@@ -338,7 +345,7 @@ for(const theme of FLOW_THEMES){
    committed key, or leave actions stuck disabled. abandonInFlight() (bump
    seq + terminate/respawn the worker) on the revert path is what makes this
    structurally impossible — this test is where that's proven. */
-{
+if(scope.wants("cycles")){
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
@@ -372,7 +379,7 @@ for(const theme of FLOW_THEMES){
    500ms (globalThis.__cyclesSimTimeoutMs), fire an edit→revert abandon, then
    wait PAST the shrunk window with no activity: with the leak the timer fires
    and kills the (healthy, respawned) worker; with the fix nothing fires. */
-{
+if(scope.wants("cycles")){
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
@@ -409,7 +416,7 @@ for(const theme of FLOW_THEMES){
    window to 10ms so it always fires before the ~500ms real response; the
    fallback routes through dispatch (bumps seq) so a post-terminate late message
    can't commit lastKey=null. */
-{
+if(scope.wants("cycles")){
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
@@ -446,6 +453,7 @@ for(const theme of FLOW_THEMES){
 }
 
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("frequency")) continue;
   const {page, errors} = await freshPage('/energy/frequency/', theme);
   await page.getByRole('button', {name: 'Battery stack'}).click();
   await page.waitForTimeout(2500);
@@ -459,6 +467,7 @@ for(const theme of FLOW_THEMES){
 }
 
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("merit-order")) continue;
   const {page, errors} = await freshPage('/energy/merit-order/', theme);
   await page.getByRole('button', {name: 'Gas spike'}).click();
   await page.waitForTimeout(1200);
@@ -507,6 +516,7 @@ for(const theme of FLOW_THEMES){
 }
 
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("intraday")) continue;
   const {page, errors} = await freshPage('/energy/intraday/', theme);
   check('intraday(' + theme + '): stack renders', await page.locator('#stackwrap svg').count() === 1);
   check('intraday(' + theme + '): price shape renders', await page.locator('#pricewrap svg').count() === 1);
@@ -552,8 +562,9 @@ for(const theme of FLOW_THEMES){
                  ...ENERGY_TOOL_DIRS.map(d => ['/energy/' + d + '/', '../'])];
   const paintedInLight = new Map();
   for(const theme of ['light', 'dark']){
-    const {page, errors} = await freshPage(PAGES[0][0], theme);
+    const {page, errors} = await freshPage(PAGES.find(([path]) => scope.wants(path))[0], theme);
     for(const [path, home] of PAGES){
+      if(!scope.wants(path)) continue;
       const errorsBefore = errors.length;
       await page.goto(BASE + path, {waitUntil: 'domcontentloaded'});
       if(theme === 'light'){        // the crumb is markup, and markup does not have a theme
@@ -588,6 +599,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- premortem (fresh context each time — localStorage-backed, no cross-run state) ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("premortem")) continue;
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(400);
   check('premortem(' + theme + '): first-run seeds the framed example (no premature nag)',
@@ -629,6 +641,7 @@ for(const theme of FLOW_THEMES){
 }
 /* ---- pre-parade: inverse planning without invented success arithmetic ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("premortem")) continue;
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(350);
   await page.reload(); await page.waitForTimeout(250);
@@ -659,6 +672,7 @@ for(const theme of FLOW_THEMES){
 }
 /* ---- premortem FAB board (Stage 2): three columns, promote → register ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("premortem")) continue;
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(400);
   await page.click('[data-view="board"]'); await page.waitForTimeout(150);
@@ -692,6 +706,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- duel (pairwise showdown) ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("duel")) continue;
   const {page, errors} = await freshPage('/duel/', theme);
   await page.waitForTimeout(400);
   await page.locator('#start').click();          // starts on the prefilled example
@@ -735,7 +750,7 @@ for(const theme of FLOW_THEMES){
    clipboard permission dance needed), then a second page loads that captured
    URL and its own duel count must reflect the pick just made, not the state
    from before it. */
-{
+if(scope.wants("duel")){
   const {page, errors} = await freshPage('/duel/', 'light');
   await page.waitForTimeout(400);
   await page.locator('#start').click();
@@ -770,6 +785,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- alarm (base-rate playground) ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("alarm")) continue;
   const {page, errors} = await freshPage('/alarm/', theme);
   await page.waitForTimeout(500);
   check('alarm(' + theme + '): distribution renders', await page.locator('#distwrap svg').count() === 1);
@@ -824,6 +840,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- signal vs noise: state changes must tell users where they landed ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("signal-vs-noise")) continue;
   const {page, errors} = await freshPage('/signal-vs-noise/', theme);
   await page.waitForTimeout(250);
   await page.locator('#next').click();
@@ -842,6 +859,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- fermi ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("fermi")) continue;
   const {page, errors} = await freshPage('/fermi/', theme);
   await page.waitForTimeout(500);
   // opens alive on the first example, hash-safe (autoload; no URL write until interaction)
@@ -960,6 +978,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- rank ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("rank")) continue;
   const {page, errors} = await freshPage('/rank/', theme);
   await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
   await page.waitForTimeout(600);
@@ -993,6 +1012,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- tree ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("tree")) continue;
   const {page, errors} = await freshPage('/tree/', theme);
   await page.getByRole('button', {name: 'Bid or no bid'}).click();
   await page.waitForTimeout(600);
@@ -1020,6 +1040,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- why ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("why")) continue;
   const {page, errors} = await freshPage('/why/', theme);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
   await openExamples(page); await page.getByRole('button', {name: 'Reading retention'}).click();
@@ -1062,6 +1083,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- map ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("map", "gauge")) continue;
   const {page, errors} = await freshPage('/map/', theme);
   await page.getByRole('button', {name: 'Edit map source'}).click();
   await openExamples(page); await page.getByRole('button', {name: 'Assumption map'}).click();
@@ -1134,6 +1156,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- gauge (solo mode; the relay flow lives in gauge.mjs) ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("gauge")) continue;
   const {page, errors} = await freshPage('/gauge/', theme);
   await page.waitForTimeout(600);
   // New default: opens alive on the sample reveal of the first example (hash-safe autoload).
@@ -1172,6 +1195,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- flow ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("flow")) continue;
   const {page, errors} = await freshPage('/flow/', theme);
   await page.getByRole('button', {name: 'Overloaded team'}).click();
   await page.waitForTimeout(700);
@@ -1228,6 +1252,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- wardley ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("wardley")) continue;
   const {page, errors} = await freshPage('/wardley/', theme);
   await page.waitForTimeout(500);
   check('wardley(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
@@ -1248,7 +1273,7 @@ for(const theme of FLOW_THEMES){
    must not write a clipboard image or mutate the authored text, while native
    SVG remains the exhaustive handoff. The pure renderer contract cannot prove
    this wiring path. */
-{
+if(scope.wants("wardley")){
   const dense = 'title: Dense strategic field\nanchor: Need\n' + Array.from({length:30}, (_, i) =>
     'Capability with a deliberately long strategic source claim ' + (i + 1) + ' @ custom').join('\n');
   const {page, errors} = await freshPage('/wardley/');
@@ -1276,6 +1301,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- bets ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("bets")) continue;
   const {page, errors} = await freshPage('/bets/', theme);
   await page.waitForTimeout(500);
   check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
@@ -1315,6 +1341,7 @@ for(const theme of FLOW_THEMES){
 
 /* ---- timeline ---- */
 for(const theme of FLOW_THEMES){
+  if(!scope.wants("timeline")) continue;
   const {page, errors} = await freshPage('/timeline/', theme);
   await showSourceIfReading(page);
   await page.waitForTimeout(500);
@@ -1379,7 +1406,7 @@ for(const theme of FLOW_THEMES){
 /* An empty Timeline is still a real Field: it can be exported and its quiet
    keyboard add route starts the first milestone. This uses the app, rather than
    a pure renderer, because a placeholder would otherwise bypass both paths. */
-{
+if(scope.wants("timeline")){
   const {page, errors} = await freshPage('/timeline/');
   await showSourceIfReading(page);
   await page.locator('.cm-content').click();
@@ -1397,7 +1424,7 @@ for(const theme of FLOW_THEMES){
 }
 
 /* ---- roadmap (smoke only; deep suite is check.mjs) ---- */
-{
+if(scope.wants("roadmap")){
   const {page, errors} = await freshPage('/roadmap/');
   await openRoadmapSource(page);
   await page.locator('#examples summary').click(); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
@@ -1592,7 +1619,7 @@ for(const theme of FLOW_THEMES){
 /* ---------- compressed-hash formats in a real browser (2026-08-02) ----------
    Both wire formats restore state end-to-end: a legacy plain-btoa link (every
    URL shared before the z: format) and a freshly-encoded z: link. */
-{
+if(scope.wants("flow")){
   const legacy = Buffer.from(JSON.stringify({d: 9, s: 5, t: 6, w: 4})).toString('base64');
   const {page, errors} = await freshPage('/flow/#' + legacy);
   check('flow: a LEGACY plain-base64 link still restores its state',
@@ -1621,6 +1648,7 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
     ['/tree/', 'Your decision'], ['/bets/', 'Your bets'], ['/paths/', 'Your plan'],
     ['/proxy/', 'Your hunt'], ['/gauge/', 'Your session'], ['/case/', 'Your decision'],
     ['/energy/cycles/', 'Your cycle budget'], ['/energy/risk/', 'Your route to market']]){
+  if(!scope.wants(tool)) continue;
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);
   /* half these tools open with the source rail collapsed (the chips live in it) */
@@ -1642,7 +1670,7 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 
 /* rank's grid is a table, not an SVG, and its chip row is hand-rolled — same
    on-ramp, checked in its own shape. */
-{
+if(scope.wants("rank")){
   const {page, errors} = await freshPage('/rank/');
   await page.waitForTimeout(500);
   const chip = page.getByRole('button', {name: 'Start your own'});
@@ -1658,4 +1686,4 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 
 console.log(results.join('\n'));
 await browser.close();
-report('smoke', {...tally(results), min: 461});   // ~90% of 512 measured 2026-08-18 (478 after the Batch C trim; +34 when the review restored the artefact-decode probe to both themes)
+scope.report('smoke', {...tally(results), min: 461});   // ~90% of 512 measured 2026-08-18 (478 after the Batch C trim; +34 when the review restored the artefact-decode probe to both themes)

@@ -9,15 +9,15 @@
    energy), same BASE/EBASE knobs as the siblings. Needs the webkit browser:
    `npx playwright install webkit` once. SHOTS=1 dumps screenshots for eyeballing. */
 import {webkit, devices} from 'playwright';
-import {report} from './_harness.mjs';
-import {mkdirSync} from 'node:fs';
+import {evidenceDirectory} from './session.mjs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {END_STATES, measureEndState, assertEndState} from './end-states.mjs';
+import {scopeFor} from './_scope.mjs';
+const scope = scopeFor('webkit.mjs');
 
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
-const SHOTS = process.env.SHOTS ? '/tmp/wk-shots' : null;
-if(SHOTS) mkdirSync(SHOTS, {recursive: true});
+const SHOTS = process.env.SHOTS ? evidenceDirectory('webkit') : null;
 
 // DERIVED from tool-dirs.mjs (+ the two landing pages) so a new tool can never be
 // silently skipped by this real-Safari gate — see mobile.mjs for the same pattern.
@@ -27,7 +27,7 @@ const TOOLS = [
 ];
 
 let pass = 0, fail = 0;
-const ok = (c, m) => { if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
+const ok = (c, m) => { scope.checked(); if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
 
 let browser = await webkit.launch();
 console.log('real WebKit', browser.version(), '\n');
@@ -36,6 +36,12 @@ for(const theme of ['light', 'dark']){
   const ctx = await browser.newContext({...devices['iPhone 13'],
     colorScheme: theme === 'dark' ? 'dark' : 'light', reducedMotion: 'reduce'});
   for(const [base, path] of TOOLS){
+    if(path){
+      if(!scope.wants((base === E ? 'energy/' : '') + path)) continue;
+    } else {
+      scope.unscoped();
+      if(scope.focused) continue;
+    }
     const page = await ctx.newPage();
     const errs = [], csp = [];
     page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
@@ -73,7 +79,7 @@ for(const theme of ['light', 'dark']){
    the platform's usual slash redirect. That leaves relative `app.js`/CSS URLs
    rooted at `/`, so this must enter through the same direct URL a shared link
    uses, not only through the canonical links used by the generic sweep. */
-{
+if(scope.wants("paths")){
   const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const page = await ctx.newPage();
   const errs = [];
@@ -103,6 +109,7 @@ for(const theme of ['light', 'dark']){
 {
   const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   for(const es of END_STATES){
+    if(!scope.wants((es.origin === 'E' ? 'energy/' : '') + es.name)) continue;
     const base = es.origin === 'E' ? E : T;
     const page = await ctx.newPage();
     const loaded = await page.goto(base + es.path, {waitUntil: 'networkidle', timeout: 20000}).then(() => true).catch(() => false);
@@ -118,7 +125,7 @@ for(const theme of ['light', 'dark']){
    stroke-dashoffset/getTotalLength reveal path is otherwise only exercised on
    Blink (motion.mjs). Confirm the curves actually draw on the REAL Safari engine
    — the "renders on Blink, breaks on Safari" class that shipped twice. */
-{
+if(scope.wants("alarm")){
   const ctx = await browser.newContext({...devices['iPhone 13']});   // motion ON
   const page = await ctx.newPage();
   const errs = [];
@@ -145,7 +152,7 @@ for(const theme of ['light', 'dark']){
    Safari-only layout break. Engage the same path here and confirm the
    fixed-position bar renders without blowing out the page on the actual
    WebKit engine at phone width. */
-{
+if(scope.wants("tree")){
   const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const page = await ctx.newPage();
   try{
@@ -191,7 +198,7 @@ for(const theme of ['light', 'dark']){
 /* Compressed-hash round-trip on the REAL engine: CompressionStream('deflate-raw')
    support is a distinct question from the API existing (Safari added the API before
    every format string), and Blink emulation proves nothing here. */
-{
+if(scope.wants("flow")){
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   try{
@@ -219,7 +226,7 @@ for(const theme of ['light', 'dark']){
    click-target/pointer-events wiring (style.css gates data-whatif to
    pointer:fine) is exactly the class of thing that renders differently on
    real WebKit than Blink emulation. */
-{
+if(scope.wants("roadmap")){
   const ctx = await browser.newContext({...devices['iPhone 13'], hasTouch: false, isMobile: false, reducedMotion: 'reduce'});
   const page = await ctx.newPage();
   try{
@@ -254,6 +261,7 @@ for(const theme of ['light', 'dark']){
    interaction rather than inheriting that test-runner lifetime cost. */
 // Observatory keeps source behind an explicit action in both themes on Safari.
 for(const theme of ['light','dark']){
+  if(!scope.wants('timeline')) continue;
   const ctx=await browser.newContext({...devices['iPhone 13'],colorScheme:theme,reducedMotion:'reduce'});
   const page=await ctx.newPage();
   try{
@@ -276,6 +284,7 @@ for(const theme of ['light', 'dark']){
   const ctx = await browser.newContext({viewport:{width:1440, height:900}, hasTouch:false, isMobile:false,
     colorScheme:theme, reducedMotion:'reduce'});
   for(const [base, path, name] of [[E, '/risk/', 'risk'], [E, '/cycles/', 'cycles'], [T, '/proxy/', 'proxy']]){
+    if(!scope.wants(name)) continue;
     const page = await ctx.newPage();
     const errs = [], csp = [];
     page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
@@ -317,7 +326,7 @@ for(const theme of ['light', 'dark']){
 }
 /* Frequency is Canvas live but exports SVG. Run the real action and native
    image decode in Safari's engine so the two media do not only agree on Blink. */
-{
+if(scope.wants("frequency")){
   const ctx = await browser.newContext({viewport:{width:1200, height:820}, reducedMotion:'reduce'});
   const page = await ctx.newPage();
   const errs = [];
@@ -350,6 +359,7 @@ for(const theme of ['light', 'dark']){
 }
 // Observatory keeps source behind an explicit action in both themes on Safari.
 for(const theme of ['light','dark']){
+  if(!scope.wants('timeline')) continue;
   const ctx=await browser.newContext({...devices['iPhone 13'],colorScheme:theme,reducedMotion:'reduce'});
   const page=await ctx.newPage();
   try{
@@ -367,4 +377,4 @@ await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
 /* As mobile: the per-tool expression rises with the tool list, the absolute is ~90% of
    the 274 measured 2026-08-16. Alone it was 50 against 274 actual — 82% slack. */
-report('webkit', {pass, fail, min: Math.max(TOOLS.length * 2, 246)});
+scope.report('webkit', {pass, fail, min: Math.max(TOOLS.length * 2, 246)});

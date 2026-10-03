@@ -4,12 +4,14 @@
    reduced-motion yields the final frame. Run from dev/pw with a server up
    (BASE knob; energy tools via /energy/<tool>/ on the same base, like smoke). */
 import {chromium} from 'playwright';
-import {trackErrors, report, tally} from './_harness.mjs';
+import {trackErrors, tally} from './_harness.mjs';
+import {scopeFor} from './_scope.mjs';
+const scope = scopeFor('motion.mjs');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
 const results = [];
-const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+const check = (name, ok) => { scope.checked(); results.push((ok ? 'PASS ' : 'FAIL ') + name); };
 const $count = (page, sel) => page.evaluate(s => document.querySelectorAll(s).length, sel);
 const hasGo = (page, sel) => page.$eval(sel, el => el.classList.contains('mo-go')).catch(() => false);
 
@@ -38,6 +40,7 @@ async function reveal(page, sel){
 
 /* ---- draw showcases: the curves draw once the element is in view ---- */
 for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow', '/flow/', '#verdictwrap']]){
+  if(!scope.wants(name)) continue;
   const {page, errors} = await open(path, {viewport: {width: 1100, height: 700}});
   await reveal(page, container);
   const probe = await page.evaluate(() => window.__motionProbe);
@@ -53,7 +56,7 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
 
 /* ---- A below-the-fold trace waits to animate, while the authored labels and
    verdict remain readable immediately. ---- */
-{
+if(scope.wants("flow")){
   const {page, errors} = await open('/flow/', {viewport: {width: 900, height: 480}});   // small → readout below fold
   await page.waitForTimeout(200);
   check('only-when-seen: flow readout is below the fold at load',
@@ -80,7 +83,7 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
 }
 
 /* ---- merit-order: immediate first paint + FLIP glide on a stack change ---- */
-{
+if(scope.wants("merit-order")){
   const {page, errors} = await open('/energy/merit-order/', {viewport: {width: 1100, height: 820}});
   await reveal(page, '#chartwrap');
   check('merit-order: first paint settles immediately (.mo-go)', await hasGo(page, '#chartwrap'));
@@ -98,7 +101,7 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
 }
 
 /* ---- timeline: immediate first paint + NO re-reveal on theme toggle ---- */
-{
+if(scope.wants("timeline")){
   const {page, errors} = await open('/timeline/', {viewport: {width: 1200, height: 820}});
   await reveal(page, '#preview');
   await page.waitForTimeout(1300);
@@ -110,7 +113,7 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
 }
 
 /* ---- reduced-motion yields the final frame (a11y + screenshot determinism) ---- */
-{
+if(scope.wants("alarm")){
   const {page, errors} = await open('/alarm/', {reducedMotion: 'reduce'});
   await page.waitForTimeout(120);
   check('reduced-motion: no reveal classes ever', await $count(page, '#distwrap .mo-draw') === 0);
@@ -133,6 +136,7 @@ const ROLLOUT = [
    draw tools (tree/why) trace briefly; all other content is immediate; no errors.
    (energy tools reached via /energy/<tool>/ on the same base, like smoke.) */
 for(const [tool, path, container, draws] of ROLLOUT){
+  if(!scope.wants(tool)) continue;
   const {page, errors} = await open(path, {viewport: {width: 1200, height: 800}});
   await page.$eval(container, el => el.scrollIntoView({block: 'center'})).catch(() => {});
   await page.waitForFunction(s => document.querySelector(s)?.classList.contains('mo-go'), container, {timeout: 3000}).catch(() => {});
@@ -193,9 +197,14 @@ for(const [label, viewport] of [
   ['phone', {width: 390, height: 844}],
 ]){
   for(const [tool, path, container] of ROLLOUT){
+    if(!scope.wants(tool)) continue;
     const {page, errors} = await open(path, {viewport});
     await drawn(page, container);
     await settle(page, container);                          // no scrolling at all
+    // A focused subset may honestly start below the fold in every viewport.
+    // Positive geometry guards selector rot without inventing a subset count floor.
+    if(scope.focused) check(`${label} ${tool}: initial container has measurable geometry`,
+      await page.$eval(container, el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).catch(() => false));
     if(await onScreen(page, container)){
       onLoadChecks++;
       check(`${label} ${tool}: visible on load ⇒ not blank (no scroll)`, await hiddenKids(page, container) === 0);
@@ -210,12 +219,13 @@ for(const [label, viewport] of [
 /* onScreen() skips the load check for a container below the fold — fine, but if a
    selector ever rots, EVERY load check would skip and the suite would go green on
    nothing. Pin that the checks actually ran. */
-check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} times)`, onLoadChecks >= 12);
+scope.unscoped();
+if(!scope.focused) check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} times)`, onLoadChecks >= 12);
 
 /* --- Field first paint: a forecast is a calibrated instrument, so authored timing
    facts must be there immediately. Unlike the retired chart, Field has no decorative
    verdict figure to animate: its semantic root and every item are the contract. */
-{
+if(scope.wants("timeline")){
   const {page, errors} = await open('/timeline/', {viewport: {width: 1440, height: 900}});
   const field = page.locator('#preview svg[data-field="timeline"]');
   await field.waitFor({state: 'visible', timeout: 8000});
@@ -243,7 +253,7 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
    a cross-fade actually ran (a fixed sleep would race the two-rAF window).
    prefers-reduced-motion -> motionStill() bails before ever touching style, so
    the same probe must stay silent there (hard cut, no transition at all). ---- */
-{
+if(scope.wants("roadmap")){
   const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
     'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
   const hash = Buffer.from(doc, 'utf8').toString('base64');
@@ -271,7 +281,7 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
   check('what-if: no console errors', errors.length === 0);
   await page.close();
 }
-{
+if(scope.wants("roadmap")){
   const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
     'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
   const hash = Buffer.from(doc, 'utf8').toString('base64');
@@ -302,4 +312,4 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
 
 for(const r of results) console.log(r);
 await browser.close();
-report('motion', {...tally(results), min: 150});   // ~90% of the 166 measured 2026-08-16 (was 60, stale since before the what-if motion cases)
+scope.report('motion', {...tally(results), min: 150});   // ~90% of the 166 measured 2026-08-16 (was 60, stale since before the what-if motion cases)
