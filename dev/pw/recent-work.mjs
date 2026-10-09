@@ -53,7 +53,7 @@ try{
  await wp.goto(base+'/lab/objections/');await wp.locator('#problem').fill('Which support change should we try?');
  await wp.waitForFunction(()=>document.querySelector('#save-status')?.textContent==='Saved in this browser');
  const saved=await wp.evaluate(()=>localStorage.getItem('thinking-lab:objections:v1'));
- await wp.goto(base+'/');await wp.getByRole('link',{name:/Which support change should we try/}).waitFor();
+ await wp.goto(base+'/');await wp.locator('.work-disclosure-summary').click();await wp.getByRole('link',{name:/Which support change should we try/}).waitFor();
  const workRow=wp.locator('.work-list li').filter({hasText:'Which support change should we try?'});
  assert.match(await workRow.textContent(),/Updated/);
  await workRow.getByLabel('Manage Which support change should we try?',{exact:true}).click();await workRow.getByRole('button',{name:'Pin Which support change should we try?',exact:true}).click();
@@ -77,17 +77,23 @@ try{
  await sp.goto(base+'/signal-vs-noise/');await sp.locator('.recent-save').waitFor();await sp.locator('#next').click();const run=await save(sp,'In progress');await sp.goto(base+'/');await sp.goto(base+'/signal-vs-noise/#'+run.hash);await sp.locator('.recent-save').waitFor();assert.equal(await sp.locator('#reveal').isVisible(),true);assert.match(await sp.locator('#next').textContent(),/Go to quarter 2/);await special.close();console.log('PASS Recent work unfinished Duel and Signal sessions');
  // Installed-app contract: a never-visited instrument can open from the shelf offline.
  for(const [origin,tool] of [[base,'flow'],[energy,'frequency']]){
-  const offline=await browser.newContext({...contextOptions,serviceWorkers:'allow'}),op=await offline.newPage();await op.goto(origin+'/'+tool+'/');await op.locator('.recent-save').waitFor();await save(op,'Offline model');await op.evaluate(()=>navigator.serviceWorker.ready);await op.goto(origin+'/');await op.locator('.recent-open').waitFor();await offline.setOffline(true);await op.locator('.recent-open').click();await op.locator('.recent-save').waitFor();assert.equal(new URL(op.url()).pathname,'/'+tool+'/');await save(op,'Offline revision');assert.equal((await records(op)).length,2);await offline.close();
+  const offline=await browser.newContext({...contextOptions,serviceWorkers:'allow'}),op=await offline.newPage();await op.goto(origin+'/'+tool+'/');await op.locator('.recent-save').waitFor();await save(op,'Offline model');await op.evaluate(()=>navigator.serviceWorker.ready);await op.goto(origin+'/');if(origin===base)await op.locator('.work-disclosure-summary').click();await op.locator('.recent-open').waitFor();await offline.setOffline(true);await op.locator('.recent-open').click();await op.locator('.recent-save').waitFor();assert.equal(new URL(op.url()).pathname,'/'+tool+'/');await save(op,'Offline revision');assert.equal((await records(op)).length,2);await offline.close();
  }
  console.log('PASS Recent work offline on both installed-app origins');
  if(process.env.RECENT_SCREENSHOTS)await mkdir(process.env.RECENT_SCREENSHOTS,{recursive:true});
  for(const [label,origin] of [['tools',base],['energy',energy]])for(const width of [390,1280])for(const theme of ['light','dark']){
-  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+(label==='tools'?'/product/':'/'));await vp.evaluate(()=>document.fonts.ready);
+  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+'/');await vp.evaluate(()=>document.fonts.ready);
   assert.equal(await vp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   if(process.env.RECENT_SCREENSHOTS)await vp.screenshot({path:process.env.RECENT_SCREENSHOTS+'/'+label+'-'+width+'-'+theme+'-empty.png'});
   await vp.evaluate(async scope=>{const {recentStore}=await import('/assets/recent-store.js');const tool=scope==='tools'?'flow':'frequency';const names=scope==='tools'?['Team capacity review','Launch plan — October','Support queue scenarios']:['Winter battery scenario','Low-inertia grid','Morning dispatch'];for(let i=0;i<names.length;i++)recentStore(localStorage,scope).add({id:'visual'+i,tool,name:names[i],hash:btoa('{}'),savedAt:Date.now()+i});},label);await vp.reload();await vp.evaluate(()=>document.fonts.ready);
-  const boxes=await vp.locator('.recent-open,.recent-manage summary').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return [r.width,r.height,r.left,r.right];}));assert.ok(boxes.every(([w,h,l,r])=>w>=44&&h>=44&&l>=0&&r<=width));assert.equal(await vp.locator('.catalogue-row').count(),label==='tools'?17:5);
-  if(process.env.RECENT_SCREENSHOTS)await vp.screenshot({path:process.env.RECENT_SCREENSHOTS+'/'+label+'-'+width+'-'+theme+'-saved.png'});await visual.close();
+  if(label==='tools'){
+   const summary=vp.locator('.work-disclosure-summary');assert.equal(await summary.isVisible(),true);assert.equal(await vp.locator('.work-disclosure').evaluate(node=>node.open),false);
+   assert.equal(Math.round(await summary.evaluate(node=>node.getBoundingClientRect().height)),48);
+   if(process.env.RECENT_SCREENSHOTS)await vp.screenshot({path:process.env.RECENT_SCREENSHOTS+'/'+label+'-'+width+'-'+theme+'-saved.png'});
+   await summary.click();
+  }
+  const boxes=await vp.locator('.recent-open,.recent-manage summary').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return [r.width,r.height,r.left,r.right];}));assert.ok(boxes.every(([w,h,l,r])=>w>=44&&h>=44&&l>=0&&r<=width));assert.equal(await vp.locator(label==='tools'?'.explore-list[aria-label="Current tools"] .explore-row':'.catalogue-row').count(),label==='tools'?46:5);
+  await visual.close();
  }
  console.log('PASS Recent work/catalogues: complete inventory, phone targets and both themes');
 }finally{await browser.close();}

@@ -5,8 +5,8 @@ import {mountWorkActions} from './work-actions.js';
 
 const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text)el.textContent=text;if(cls)el.className=cls;return el;};
 // Native models stay in their own stores; catalogue organisation is separate.
-export function mountWorkLibrary(shelf,scope,onFilter){
-  const heading=node('h2','Your work'), intro=node('p','Saved in this browser at this website address. Open an item to continue in its tool.','recent-note');
+export function mountWorkLibrary(shelf,scope,onFilter,headingText='Your work'){
+  const heading=node('h2',headingText), intro=node('p','Saved in this browser at this website address. Open an item to continue in its tool.','recent-note');
   const controls=node('div',null,'work-filters'), searchLabel=node('label','Find saved work'), search=node('input');
   search.type='search';search.maxLength=200;searchLabel.append(search);
   const kindLabel=node('label','Work type'), kind=node('select');
@@ -45,5 +45,5 @@ export function mountWorkLibrary(shelf,scope,onFilter){
   }
   for(const input of [search,kind,view])input.addEventListener(input===search?'input':'change',()=>{render();onFilter(filters());});
   more.addEventListener('click',()=>{expanded=!expanded;render();});
-  return {refresh,filters,hasWork:()=>records.length>0,hasIssue:()=>Boolean(issue),hasMatches:()=>matches().length>0,setCompact:value=>{controls.hidden=Boolean(value);}};
+  return {refresh,filters,count:()=>records.length,hasWork:()=>records.length>0,hasIssue:()=>Boolean(issue),hasMatches:()=>matches().length>0,setCompact:value=>{controls.hidden=Boolean(value);}};
 }

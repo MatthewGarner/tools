@@ -65,10 +65,13 @@ try {
   await workPage.goto(base+'/');await workPage.locator('#recent-work .work-filters').waitFor({state:'attached'});
   assert.equal(await workPage.locator('#recent-work').isVisible(),false);
   await workPage.evaluate(async()=>{const {recentStore}=await import('/assets/recent-store.js');recentStore(localStorage,'tools').add({id:'catalogue-preview',tool:'flow',name:'Saved work example',hash:btoa('{}'),savedAt:Date.now()});});
-  await workPage.reload();await workPage.locator('.recent-open').waitFor();
+  await workPage.reload();await workPage.locator('#recent-work .work-disclosure-summary').waitFor({state:'visible'});
   assert.equal(await workPage.locator('#recent-work').isVisible(),true,'work shelf appears when there is saved work');
   assert.equal(await workPage.locator('#recent-work .work-filters').isVisible(),false,'single saved copy does not need work filters');
+  assert.equal(await workPage.locator('.work-disclosure').evaluate(node=>node.open),false,'saved work is collapsed by default');
+  assert.equal(await workPage.locator('.recent-open').isVisible(),false,'saved rows stay out of the catalogue until requested');
   if(out)await workPage.screenshot({path:`${out}/desktop-work-present.png`});
+  await workPage.locator('.work-disclosure-summary').click();await workPage.locator('.recent-open').waitFor({state:'visible'});
   await workContext.close();
   // Every original Lab route still runs under the consolidated CSP and prefix.
   // No model is replaced or silently omitted merely because it was archived.
