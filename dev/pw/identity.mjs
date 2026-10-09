@@ -14,8 +14,9 @@ try{
     assert.equal(await page.locator('[data-mg-theme-reset]').isVisible(),false,'system default stays quiet');
     const mast=page.locator('.mg-masthead');
     assert.equal(await mast.locator('button').count(),1,'tool actions stay outside global navigation');
-    assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing','Tools Lab','Now']);
-    assert.ok(await mast.locator('a[aria-current]').count());
+    const isHome=url===base+'/';
+    assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing',isHome?'Tools Lab':'All tools','Now']);
+    assert.equal(await mast.locator('a[aria-current]').count(),isHome?1:0);
     const geometry=await mast.locator('a,button').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return [r.width,r.height,r.left,r.right];}));
     assert.ok(geometry.every(([w,h,left,right])=>w>=44&&h>=44&&left>=0&&right<=390),url+' masthead targets and reflow');
     // Wait for the existing model persistence queue before testing the appearance
