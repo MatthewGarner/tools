@@ -21,6 +21,8 @@ if(shelf){
     records=records.map(r=>{const key=`mg:recent:v1:${scope}:${r.id}`;return {...r,key,copyId:r.id,id:workId(key),kind:'copy',toolName:RECENT_TOOLS[scope][r.tool]};});
     const organised=decorateWork(localStorage,records);
     if(organised.unreadable.length)status.textContent='Some work organisation needs recovery. Use Backup & restore.';
+    library.setCompact(!library.hasWork()&&records.length<=3);
+    shelf.hidden=!records.length&&!library.hasWork()&&!library.hasIssue()&&!organised.unreadable.length;
     records=filterWork(organised.records,query,kind).filter(r=>view==='archived'?r.archived:!r.archived&&(view!=='pinned'||r.pinned));
     heading.hidden=!records.length;list.hidden=!records.length;
     if(!records.length&&!library.hasMatches())status.textContent=query||kind||view!=='active'?'No saved work matches these filters.':'No saved work yet. Workspaces and drafts appear here as you use your tools; Save a copy keeps a separate version.';

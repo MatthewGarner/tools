@@ -20,6 +20,10 @@ try {
     assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
     assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    assert.equal(await page.locator('#recent-work .work-filters').count(),1);
+    assert.equal(await page.locator('#recent-work').isVisible(),false,'empty work shelf stays out of the catalogue');
+    const columns=await page.locator('.explore-list').first().evaluate(list=>getComputedStyle(list).gridTemplateColumns.split(' ').length);
+    assert.equal(columns,phone?1:3);
     if(out)await page.screenshot({path:`${out}/${phone?'phone':'desktop'}-${colorScheme}.png`});
     const targets=await page.locator('.explore-filters button, .explore-filters input, .explore-filters select, .mg-nav a').evaluateAll(els=>els.filter(e=>{const r=e.getBoundingClientRect();return r.height<44 || r.width<44}).map(e=>({text:e.textContent,width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height})));
     assert.deepEqual(targets,[]);
@@ -48,6 +52,21 @@ try {
     }
     await context.close();
   }
+  const tablet=await browser.newContext({viewport:{width:900,height:1000},colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
+  const tabletPage=await tablet.newPage();await tabletPage.goto(base+'/');await tabletPage.locator('[data-explore-form]').waitFor({state:'visible'});
+  assert.equal(await tabletPage.locator('.explore-list').first().evaluate(list=>getComputedStyle(list).gridTemplateColumns.split(' ').length),2);
+  assert.equal(await tabletPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  if(out)await tabletPage.screenshot({path:`${out}/tablet-light.png`});
+  await tablet.close();
+  const workContext=await browser.newContext({serviceWorkers:'block'}),workPage=await workContext.newPage();
+  await workPage.goto(base+'/');await workPage.locator('#recent-work .work-filters').waitFor({state:'attached'});
+  assert.equal(await workPage.locator('#recent-work').isVisible(),false);
+  await workPage.evaluate(async()=>{const {recentStore}=await import('/assets/recent-store.js');recentStore(localStorage,'tools').add({id:'catalogue-preview',tool:'flow',name:'Saved work example',hash:btoa('{}'),savedAt:Date.now()});});
+  await workPage.reload();await workPage.locator('.recent-open').waitFor();
+  assert.equal(await workPage.locator('#recent-work').isVisible(),true,'work shelf appears when there is saved work');
+  assert.equal(await workPage.locator('#recent-work .work-filters').isVisible(),false,'single saved copy does not need work filters');
+  if(out)await workPage.screenshot({path:`${out}/desktop-work-present.png`});
+  await workContext.close();
   // Every original Lab route still runs under the consolidated CSP and prefix.
   // No model is replaced or silently omitted merely because it was archived.
   for(const phone of [false,true])for(const theme of ['light','dark']){

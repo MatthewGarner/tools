@@ -45,5 +45,5 @@ export function mountWorkLibrary(shelf,scope,onFilter){
   }
   for(const input of [search,kind,view])input.addEventListener(input===search?'input':'change',()=>{render();onFilter(filters());});
   more.addEventListener('click',()=>{expanded=!expanded;render();});
-  return {refresh,filters,hasWork:()=>records.length>0,hasMatches:()=>matches().length>0};
+  return {refresh,filters,hasWork:()=>records.length>0,hasIssue:()=>Boolean(issue),hasMatches:()=>matches().length>0,setCompact:value=>{controls.hidden=Boolean(value);}};
 }

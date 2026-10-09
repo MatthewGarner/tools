@@ -42,7 +42,7 @@ function showFavouriteStatus(message = '') {
   favouriteStatus.textContent = temporaryChanges.size
     ? 'Favourite changes could not be saved. They apply only in this tab.'
     : readFailed ? 'Saved favourites could not be read. They may be unavailable in this tab.'
-    : message || 'Favourites stay in this browser.';
+    : message;
 }
 
 for (const tool of SUITE_CATALOG) {
