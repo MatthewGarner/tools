@@ -51,15 +51,16 @@ for(const theme of ['light', 'dark']){
     try{
       await page.goto(base + '/' + (path ? path + '/' : ''), {waitUntil: 'networkidle', timeout: 20000});
       await page.waitForTimeout(200);
-      const m = await page.evaluate(path => {
+      const expectedNavigation = `Writing|${base === T && !path ? 'Tools Lab' : 'All tools'}|Now`;
+      const m = await page.evaluate(expectedNavigation => {
         const de = document.scrollingElement || document.documentElement;
         return {sw: de.scrollWidth, cw: de.clientWidth,
           bg: getComputedStyle(document.body).backgroundColor,
           // Shared shell typography must load even when artefacts choose their own font.
           serif: getComputedStyle(document.querySelector('h1') || document.body).fontFamily.includes('Oswald Variable'),
-          navigation: [...document.querySelectorAll('.mg-nav a')].map(a=>a.textContent).join('|') === 'Writing|Tools Lab|Now',
+          navigation: [...document.querySelectorAll('.mg-nav a')].map(a=>a.textContent).join('|') === expectedNavigation,
           targets: [...document.querySelectorAll('.mg-nav a,.mg-appearance')].every(a=>{const r=a.getBoundingClientRect();return r.width>=44&&r.height>=44;})};
-      },path);
+      },expectedNavigation);
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');
       ok(m.bg && m.bg !== 'rgba(0, 0, 0, 0)', label + ': body background styled (' + m.bg + ')');
       ok(m.serif, label + ': display font stack applied (stylesheet loaded)');

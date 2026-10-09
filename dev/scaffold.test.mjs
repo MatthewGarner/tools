@@ -105,7 +105,7 @@ test('every energy page has shared navigation; instruments retain their ordered 
     const html = anyEnergyPage(dir);
     const who = 'energy/' + (dir || 'index.html');
     assert.match(html, /<div class="mg-masthead" role="banner">/, who + ': no shared masthead');
-    assert.match(html, /<a data-suite-link="explore" href="https:\/\/tools\.matthewgarner\.me\/" aria-current="true">Tools Lab<\/a>/, who + ': the shared masthead must link the common Tools Lab');
+    assert.match(html, /<a data-suite-link="explore" href="https:\/\/tools\.matthewgarner\.me\/">All tools<\/a>/, who + ': the shared masthead must link back to all tools');
     /* every page lists every instrument, numbered, in the canonical order */
     const nav = (html.match(/<nav class="series"[\s\S]*?<\/nav>/) || [''])[0];
     if(!dir){ assert.equal(nav, '', 'catalogue rows replace the duplicate series nav'); continue; }

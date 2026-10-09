@@ -16,6 +16,9 @@ try {
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto(base+'/');
     await page.locator('[data-explore-form]').waitFor({state:'visible'});
+    const catalogueLink=page.locator('.mg-nav [data-suite-link="explore"]');
+    assert.equal(await catalogueLink.textContent(),'Tools Lab');
+    assert.equal(await catalogueLink.getAttribute('aria-current'),'page');
     await page.evaluate(()=>document.fonts.ready);
     assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
     assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
@@ -81,6 +84,10 @@ try {
       await page.evaluate(()=>document.fonts.ready);
       assert.equal(await page.locator('#lab-experiment').inputValue(),route);
       assert.equal(await page.locator('.mg-masthead').count(),1);
+      const homeLink=page.locator('.mg-nav [data-suite-link="explore"]');
+      assert.equal(await homeLink.textContent(),'All tools',route+' home link label');
+      assert.equal(await homeLink.getAttribute('aria-current'),null,route+' home link is not the current page');
+      assert.equal(new URL(await homeLink.getAttribute('href'),page.url()).pathname,'/',route+' home link target');
       assert.equal(await page.locator('.lab-header').count(),0,'no duplicate shell');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' '+phone+' '+theme+' page overflow');
       if(out&&['knowledge','reframe','flexibility','accuracy'].includes(route))await page.screenshot({path:`${out}/lab-${route}-${phone?'phone':'desktop'}-${theme}.png`});
@@ -90,11 +97,19 @@ try {
   }
   console.log('PASS all '+LAB_ROUTES.length+' Lab routes on desktop/phone in both themes, real assets and CSP');
   const routes=await browser.newContext({serviceWorkers:'block'}),rp=await routes.newPage();
+  await rp.goto(base+'/lab/');
+  const labHomeLink=rp.locator('.mg-nav [data-suite-link="explore"]');
+  assert.equal(await labHomeLink.textContent(),'All tools');
+  assert.equal(await labHomeLink.getAttribute('aria-current'),null);
+  await labHomeLink.click();
+  assert.equal(new URL(rp.url()).pathname,'/');
+  await rp.locator('[data-explore-form]').waitFor({state:'visible'});
+  assert.equal(await rp.locator('.mg-nav [data-suite-link="explore"]').textContent(),'Tools Lab');
   const response=await rp.request.get(base+'/lab/knowledge?entry=old',{maxRedirects:0});
   assert.equal(response.status(),308);assert.equal(response.headers().location,'/lab/knowledge/?entry=old');
   await rp.goto(base+'/lab/dist/knowledge/?entry=old#saved');
   assert.equal(new URL(rp.url()).pathname,'/lab/knowledge/');assert.equal(new URL(rp.url()).hash,'#saved');assert.equal(new URL(rp.url()).search,'?entry=old');
-  await rp.locator('.mg-nav').getByRole('link',{name:'Tools Lab',exact:true}).click();
+  await rp.locator('.mg-nav').getByRole('link',{name:'All tools',exact:true}).click();
   assert.equal(new URL(rp.url()).pathname,'/');
   await rp.getByLabel('Domain',{exact:true}).selectOption('energy');
   assert.equal(new URL(rp.url()).search,'?domain=energy');
@@ -104,7 +119,7 @@ try {
   assert.equal(await rp.locator('[data-catalog-id="lab:flexibility"]').isVisible(),false);
   const missing=await rp.goto(base+'/a-tool-that-does-not-exist/');
   assert.equal(missing.status(),404);await rp.getByRole('heading',{name:'This page isn’t here'}).waitFor();
-  await rp.locator('.mg-nav').getByRole('link',{name:'Tools Lab',exact:true}).click();
+  await rp.locator('.mg-nav').getByRole('link',{name:'All tools',exact:true}).click();
   assert.equal(new URL(rp.url()).pathname,'/');
   await routes.close();
   const context=await browser.newContext({javaScriptEnabled:false,serviceWorkers:'block'});const page=await context.newPage();
