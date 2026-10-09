@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 
+async function openToolsWork(page){
+ const disclosure=page.locator('.work-disclosure');
+ if(await disclosure.count()&&!await disclosure.evaluate(node=>node.open))await disclosure.locator(':scope > summary').click();
+}
+
 export async function verifyLabWorkspaceLinks(browser,base,out){
  // Each bespoke workbench must consume the catalogue pointer, as the shared kits do.
  for(const route of ['constraints','analogy']){
@@ -11,7 +16,7 @@ export async function verifyLabWorkspaceLinks(browser,base,out){
    await page.getByRole('button',{name:'New',exact:true}).click();await page.locator('#problem').fill(second);
    await page.waitForFunction(({key,second})=>JSON.parse(localStorage.getItem(key))?.workspaces.some(w=>w.problem===second),{key,second});
    const before=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
-   await page.goto(base+'/');await page.getByLabel('Find saved work',{exact:true}).fill(first);
+   await page.goto(base+'/');await openToolsWork(page);await page.getByLabel('Find saved work',{exact:true}).fill(first);
    await page.locator('[data-work-kind=workspace]').filter({hasText:first}).click();
    assert.equal(await page.locator('#problem').inputValue(),first,route+' catalogue link resumes the selected workspace');
    assert.equal(new URL(page.url()).search,'',route+' workspace pointer is consumed');
@@ -57,7 +62,7 @@ export async function verifyRegularWork(browser,base,out){
   await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).waitFor();await other.close();
   await page.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError');};});
   await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).click();assert.match(await page.locator('[data-favourite-status]').textContent(),/only in this tab/);
-  await page.reload();await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).waitFor();
+  await page.reload();await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).waitFor();await openToolsWork(page);
   await page.getByLabel('Find saved work',{exact:true}).fill('weekly intake');
   const link=page.locator('[data-work-kind=workspace]').filter({hasText:'Review the weekly intake'});await link.click();
   assert.equal(await page.locator('#problem').inputValue(),'Review the weekly intake');assert.equal(new URL(page.url()).search,'');
@@ -69,13 +74,13 @@ export async function verifyRegularWork(browser,base,out){
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('roadmap-snaps'))[0]);
   const currentSource=saved.src.replace(/^title:.*$/m,'title: Revised plan after baseline');
   // Seed only after leaving the autosaving tool, so pagehide cannot overwrite it.
-  await page.goto(base+'/');await page.evaluate(src=>localStorage.setItem('roadmap-src',src),currentSource);await page.reload();
+  await page.goto(base+'/');await page.evaluate(src=>localStorage.setItem('roadmap-src',src),currentSource);await page.reload();await openToolsWork(page);
   await page.getByRole('combobox',{name:'Work type',exact:true}).selectOption('baseline');await page.locator('[data-work-kind=baseline]').click();
   await page.waitForFunction(()=>document.querySelector('#snapsel')?.value==='0');
   assert.equal(await page.evaluate(()=>localStorage.getItem('roadmap-src')),currentSource);
   assert.equal(new URL(page.url()).search,'');
   // Native Premortem is continued; saved-copy URL imports still mint a separate ID.
-  await page.goto(base+'/premortem/');await page.locator('.recent-save').waitFor();await page.goto(base+'/');
+  await page.goto(base+'/premortem/');await page.locator('.recent-save').waitFor();await page.goto(base+'/');await openToolsWork(page);
   await page.getByLabel('Find saved work',{exact:true}).fill('Premortem');await page.locator('[data-work-kind=workspace]').click();
   await page.locator('#workspace').waitFor();
   assert.equal(await page.locator('#importstrip').isVisible(),false);
@@ -83,7 +88,7 @@ export async function verifyRegularWork(browser,base,out){
   await page.goto(base+'/');
   const gaugeDraft='title: Current draft\nWill the launch be ready? :: prob';
   await page.evaluate(draft=>{localStorage.setItem('gauge-src',draft);localStorage.setItem('gauge-saved',JSON.stringify([{name:'Weekly question set',src:'title: Weekly questions\nWill requests arrive on time? :: prob'}]));},gaugeDraft);
-  await page.reload();await page.getByLabel('Find saved work',{exact:true}).fill('Weekly question set');await page.locator('[data-work-kind=workspace]').click();
+  await page.reload();await openToolsWork(page);await page.getByLabel('Find saved work',{exact:true}).fill('Weekly question set');await page.locator('[data-work-kind=workspace]').click();
   await page.getByRole('button',{name:'Edit question source',exact:true}).click();
   await page.locator('.saved-disclosure summary').click();await page.locator('.saved-disclosure button[aria-current=true]').waitFor();await page.locator('.saved-disclosure summary').click();
   await page.locator('#cmhost .cm-content').click();await page.keyboard.press('ControlOrMeta+a');await page.keyboard.insertText('title: Edited weekly questions\nWill requests arrive on time? :: prob');
