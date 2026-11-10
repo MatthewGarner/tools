@@ -10,13 +10,22 @@ import {checkInjectedModelLink} from './model-link-check.mjs';
 import {SOURCE_TOOLS} from '../../assets/saved-work-keys.js';
 import {scopeFor} from './_scope.mjs';
 import {until, trackErrors, openFileMenu, fileItem} from './_harness.mjs';
-const scope = scopeFor('tool-shell.mjs');
+/* Two kinds of run, split so they shard: "core" drives the three pilot pages through every shared
+   behaviour (dialog, focus, storage trouble, stalled state, offline, templates, popovers) once;
+   "pages-N" runs the short per-page table on its group (tool-shell-pages-N.mjs sets SHELL_SUITE). */
+const MODE = process.env.SHELL_SUITE || 'core';
+const PILOT = ['fermi', 'roadmap', 'alarm'];
+const GROUPS = {
+  'pages-1': ['why', 'tree', 'map', 'wardley', 'bets'],
+  'pages-2': ['paths', 'proxy', 'rank', 'duel', 'flow'],
+};
+const scope = scopeFor(MODE === 'core' ? 'tool-shell.mjs' : `tool-shell-${MODE}.mjs`);
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { scope.checked(); if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
-const SHELLS = Object.entries(SHELL_MANIFEST).filter(([, e]) => e.shell).map(([dir]) => dir);
+const SHELLS = (MODE === 'core' ? PILOT : GROUPS[MODE]).filter(dir => SHELL_MANIFEST[dir]?.shell);
 
 /* What File must offer, from the manifest alone. */
 const menuNames = e => [
@@ -134,6 +143,102 @@ for(const dir of SHELLS){
   if(!scope.wants(dir)) continue;
   const entry = SHELL_MANIFEST[dir], names = menuNames(entry), model = MODEL[dir];
   ok(!!model, `${dir}: the suite knows how to edit and read this page's model`);
+
+  if(MODE !== 'core'){
+    /* ---- the per-page table: only what differs from page to page ---- */
+    const {context, page, errors} = await open(dir, laptopOpts);
+    const reload = async () => { await page.waitForLoadState('networkidle'); await ready(page); };
+    const panelName = 'Your work in ' + entry.name, panel = () => page.getByRole('dialog', {name: panelName});
+    const off = await page.evaluate(() => [...document.querySelectorAll('[data-shell-row] button[data-act]')].filter(b => b.disabled).map(b => b.dataset.act));
+    ok(off.length === 0, `${dir}: every stamped control is enabled once the header is ready (disabled: [${off}])`);
+    await page.locator('[data-shell-file] summary').click();
+    const shown = await page.locator('[data-shell-file] .tool-menu').locator('button, a').evaluateAll(els => els.filter(el => el.checkVisibility()).map(el => el.textContent.trim()));
+    ok(JSON.stringify(shown) === JSON.stringify(names), `${dir}: File lists exactly [${names.join(' | ')}] (got [${shown.join(' | ')}])`);
+    await page.keyboard.press('Escape');
+
+    /* Save a copy, then Your work lists it and opens it */
+    await model.edit(page, 1);
+    ok(await model.read(page) === 'one', `${dir}: the page can be put in a known state`);
+    await fileItem(page, 'Save a copy…');
+    const save = page.locator('.recent-dialog');
+    await save.waitFor();
+    await save.getByLabel('Copy name').fill(`${dir} saved copy`);
+    await save.getByRole('button', {name: 'Save copy', exact: true}).click();
+    await save.waitFor({state: 'detached'});
+    ok((await copies(page)).length === 1 && (await copies(page))[0].tool === dir, `${dir}: Save a copy writes one record for ${dir}`);
+    await model.edit(page, 2);
+    await fileItem(page, 'Your work…');
+    const d = panel(); await d.waitFor();
+    ok(await d.getByRole('link', {name: new RegExp(`${dir} saved copy`)}).count() === 1, `${dir}: Your work lists the saved copy`);
+    await d.getByRole('link', {name: new RegExp(`${dir} saved copy`)}).click();
+    await reload();
+    ok(await until(async () => await model.read(page) === 'one', {timeout: 8000}), `${dir}: opening the saved copy restores its model`);
+
+    /* New, or New from template… where the page has no blank start */
+    if(entry.new){
+      await model.edit(page, 2);
+      await fileItem(page, 'New');
+      ok(await until(async () => model.isBlank ? await model.isBlank(page) : await model.read(page) === 'other', {timeout: 6000}), `${dir}: New starts the page's own blank model`);
+    } else if(entry.templates){
+      await fileItem(page, 'New from template…');
+      const w = panel(); await w.waitFor();
+      ok(JSON.stringify(await w.locator('h3').allTextContents()).includes('Templates') && (await w.textContent()).includes('No templates yet. Choose Save as template… in the File menu') && !(await page.locator('.mg-template-dialog').count()), `${dir}: with no template, New from template… opens Your work at Templates`);
+      await page.keyboard.press('Escape');
+    } else ok(!(await page.locator('[data-act=new], [data-act=new-template]').count()), `${dir}: no New where the manifest grants no blank start and no templates`);
+
+    /* Examples */
+    if(entry.examples){
+      const wanted = EXAMPLE_NAMES[dir], label = n => ['', 'one', 'two', 'three'][n];
+      await fileItem(page, 'Examples');
+      const names2 = await page.locator('[data-shell-examples-list] button').allTextContents();
+      ok(JSON.stringify([...names2].sort()) === JSON.stringify([...wanted].sort()), `${dir}: Examples lists exactly [${wanted.join(' | ')}] (got [${names2.join(' | ')}])`);
+      await page.keyboard.press('Escape');
+      for(const example of wanted){
+        await model.edit(page, 1);
+        await fileItem(page, 'Examples');
+        await page.getByRole('button', {name: example, exact: true}).click();
+        ok(await until(async () => await model.read(page) !== label(1), {timeout: 6000}) && !(await page.locator('[data-shell-file] .tool-menu').isVisible()), `${dir}: choosing "${example}" replaces the model and closes File`);
+      }
+    }
+    ok(errors.length === 0, `${dir}: no console errors (${errors.join(' | ').slice(0, 120)})`);
+    await context.close();
+
+    /* Share: the link reopens the exact current model in a fresh page */
+    {
+      const s2 = await open(dir, laptopOpts);
+      await s2.page.evaluate(() => history.replaceState(null, '', '#stale-garbage'));
+      await model.edit(s2.page, 1);
+      await s2.page.locator('[data-act=share]').click();
+      await until(async () => (await status(s2.page).textContent()).length > 0);
+      const link = await s2.page.evaluate(() => navigator.clipboard.readText());
+      ok(link.startsWith(T + '/' + dir + '/#') && !link.includes('stale-garbage'), `${dir}: Share copies a link built from the model, not location.hash`);
+      const fresh = await open(dir, laptopOpts, link);
+      ok(await until(async () => await model.read(fresh.page) === 'one', {timeout: 8000}), `${dir}: the shared link reopens the same model in a fresh browser`);
+      await fresh.context.close(); await s2.context.close();
+    }
+
+    /* a seeded legacy store lists, opens and removes */
+    if(LEGACY[dir]){
+      const legacy = LEGACY[dir];
+      const lc = await browser.newContext(laptopOpts), lp = await lc.newPage();
+      await lc.addInitScript(({items, key}) => { if(!localStorage.getItem('__seeded')){ localStorage.setItem('__seeded', '1'); localStorage.setItem(key, JSON.stringify(items)); } }, {items: legacy.items, key: legacy.key});
+      await lp.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(lp);
+      await fileItem(lp, 'Your work…');
+      const ld = lp.getByRole('dialog', {name: panelName}); await ld.waitFor();
+      ok(JSON.stringify(await ld.locator('section[data-sec=copies] .recent-name').allTextContents()) === JSON.stringify(legacy.names), `${dir}: legacy ${legacy.key} copies are listed (${legacy.names.join(', ')})`);
+      await ld.getByLabel('Manage ' + legacy.names[0], {exact: true}).click();
+      await ld.getByRole('button', {name: 'Remove ' + legacy.names[0], exact: true}).click();
+      await lp.locator('.recent-dialog:not(.tool-work)').getByRole('button', {name: 'Remove copy', exact: true}).click();
+      await lp.locator('.recent-dialog:not(.tool-work)').waitFor({state: 'detached'});
+      const left = await lp.evaluate(k => JSON.parse(localStorage.getItem(k)), legacy.key);
+      ok(left.length === 1 && left[0].name === legacy.names[1], `${dir}: removing a legacy ${legacy.key} copy rewrites the store (left: ${left.map(l => l.name)})`);
+      await ld.getByRole('link', {name: new RegExp(legacy.names[1])}).click();
+      await lp.waitForLoadState('networkidle'); await ready(lp);
+      ok(await until(async () => await model.read(lp) === 'legacy-two', {timeout: 8000}), `${dir}: a legacy ${legacy.key} copy opens from Your work with its source`);
+      await lc.close();
+    }
+    continue;
+  }
 
   /* ---- anatomy and the File menu, by touch on a phone and by mouse on a laptop ---- */
   for(const [vp, opts] of [['phone', phoneOpts], ['laptop', laptopOpts]]){
@@ -705,7 +810,7 @@ for(const dir of SHELLS){
 }
 
 /* ---- hand-off from the three mount functions, on a page that is not migrated ---- */
-if(!scope.focused){
+if(!scope.focused && MODE === 'core'){
   scope.unscoped();
   {
     /* an unmigrated page still injects its own controls */
@@ -793,4 +898,4 @@ window.returned = [mountDocumentStart(document.getElementById('chips')), mountMo
 
 await browser.close();
 /* Floor: per page, 4 anatomy x 2 sizes + keyboard + flows + share; plus the hand-off block. */
-scope.report('tool-shell', {pass, fail, min: SHELLS.length * 55});
+scope.report('tool-shell' + (MODE === 'core' ? '' : '-' + MODE), {pass, fail, min: SHELLS.length * (MODE === 'core' ? 55 : 10)});

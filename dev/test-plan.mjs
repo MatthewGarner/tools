@@ -22,7 +22,9 @@ export const FILTER_TOOLS = {
   'layout.mjs': ['roadmap','tree','why','map','wardley','bets','gauge','timeline','case','paths','proxy','energy/risk','energy/cycles'],
   'check-eip.mjs': ['tree','why','roadmap','map','wardley','timeline','bets','gauge','paths','energy/risk','energy/cycles'],
   'first-screen.mjs': CORE_TOOLS,
-  'tool-shell.mjs': ['fermi','roadmap','alarm','why','tree','map','wardley','bets','paths','proxy','rank','duel','flow'],
+  'tool-shell.mjs': ['fermi','roadmap','alarm'],
+  'tool-shell-pages-1.mjs': ['why','tree','map','wardley','bets'],
+  'tool-shell-pages-2.mjs': ['paths','proxy','rank','duel','flow'],
   'motion.mjs': ['alarm','flow','energy/merit-order','timeline','tree','why','roadmap','map','bets','gauge','wardley','energy/risk','energy/cycles','energy/intraday'],
 };
 const all = TOOL_ROOTS;
