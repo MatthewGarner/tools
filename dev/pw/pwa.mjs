@@ -77,7 +77,7 @@ async function installAndWait(page){
        counts equal, this degrades to a 4s wait and a correct pass — never a false
        green.) */
     ['/rank/', async p => { const was = await p.locator('.rankbar').count(); await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await until(() => p.locator('.rankbar').count().then(n => n !== was)); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
-    ['/roadmap/', async p => { await openRoadmapSource(p); await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/roadmap/', async p => { await openRoadmapSource(p); await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],

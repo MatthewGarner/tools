@@ -27,15 +27,17 @@ function resolveRef(fromDir, ref){
   }
   return out.join('/');
 }
-function moduleGraph(entry, seen = new Set()){
-  return walkModules(new URL('../', import.meta.url), entry, seen);
+function moduleGraph(entry, seen = new Set(), skip = new Set()){
+  return walkModules(new URL('../', import.meta.url), entry, seen, skip);
 }
-function pageLoad(page){
+// Fetched on first use, not at load: the Your work panel. Budgets measure first paint; the chunk has its own cap.
+const LAZY = new Set(['assets/tool-work.js']);
+function pageLoad(page, skip = LAZY){
   const dir = page.split('/').slice(0, -1).join('/');
   const html = read(page);
   const files = new Set([page]);
   for(const m of html.matchAll(/<script[^>]*src="([^"]+)"/g))
-    moduleGraph(resolveRef(dir, m[1]), files);
+    moduleGraph(resolveRef(dir, m[1]), files, skip);
   for(const m of html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g))
     files.add(resolveRef(dir, m[1]));
   // Count CSS-local font files too: the shared identity must not hide its
@@ -577,14 +579,34 @@ test('per-page load stays under budget', () => {
     // Personal work: ~8k for durable organisation/change dates, ~10k for the
     // template store/editor. Catalogue pages deliberately exclude that editor.
     const personal = (files.has('assets/work-metadata.js') ? 8_000 : 0) + (files.has('assets/template-ui.js') ? 10_000 : 0);
-    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal;
+    // Shared tool header (2026-11): what a stamped page loads at first paint that it did not
+    // before. Measured against the pre-shell pages: Alarm +15.7k (tool-shell.js 5.4k + .css 5.7k +
+    // model-link and popover focus it lacked 6.1k, less ~1.5k its header and Copy link handler lost), Roadmap
+    // +8.2k, Fermi +4.6k (both already carried model-link and popover focus). 17k = Alarm's cost
+    // plus 1.3k. The Your work panel (tool-work.js and its imports) is LAZY, fetched on first use,
+    // and is capped separately below. Paid by every stamped page, so Phase 2 needs no per-page raises.
+    // Pages not yet stamped still load the hand-off code the shell added to the shared save, share,
+    // template and popover modules: +1.84k measured (recent-ui 470, model-link 452, recent-work 339,
+    // template-ui 308, popover-focus 226, the two stores 43). Merged with the 2026-11 CodeMirror
+    // update (+2.5k on main) that put Tree, Map, Wardley and Bets 28-1,334 bytes over. Transitional:
+    // delete this line when Phase 2 stamps the last page and the 17k above covers every one.
+    const shell = files.has('assets/tool-shell.js') ? 17_000 : files.has('assets/recent-work.js') ? 2_000 : 0;
+    const limit =budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal + shell;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }
 });
 
+test('the Your work panel chunk stays small', () => {
+  const chunk = [...moduleGraph('assets/tool-work.js')].filter(f => !pageLoad('alarm/index.html').has(f));
+  const bytes = chunk.reduce((a, f) => a + size(f), 0);
+  // tool-work.js 13.3k + work-store 7.3k + work-metadata 6.2k + work-actions 2.8k + saved-work-keys and
+  // work-reference 2k = 31.6k; recent-ui, template-store and series are already in first paint.
+  assert.ok(bytes <= 33_000, 'Your work chunk is ' + bytes + ' bytes (' + chunk.join(', ') + ')');
+});
+
 test('no orphaned shipped modules', () => {
   const reachable = new Set();
-  for(const page of Object.keys(PAGES)) for(const f of pageLoad(page)) reachable.add(f);
+  for(const page of Object.keys(PAGES)) for(const f of pageLoad(page, new Set())) reachable.add(f);
   ['home/sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
   for(const file of COMPATIBILITY_MODULES) moduleGraph(file, reachable);
   // Explicit authoring and portable-export roots are consumed by the release

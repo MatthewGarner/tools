@@ -4,7 +4,7 @@ const scope = document.documentElement.dataset.recentScope || document.documentE
 const tool = location.pathname.split('/').filter(part=>part && part!=='index.html').at(-1);
 const el = (tag, text, cls) => {const node=document.createElement(tag);if(text)node.textContent=text;if(cls)node.className=cls;return node;};
 const button = text => {const b=el('button',text);b.type='button';return b;};
-const store = () => recentStore(localStorage,scope);
+const store = () => recentStore(localStorage,scope,document.querySelector('[data-shell-row]')?'in Your work':undefined);
 const failure = error => error?.name === 'QuotaExceededError'
   ? 'Device storage is full. Nothing was saved. Remove an older copy or free some browser storage.'
   : error?.name === 'SecurityError' ? 'Browser storage is unavailable. Allow site storage to use Your work.'
@@ -25,4 +25,9 @@ function nameField(form, before, value){
   label.append(input);form.insertBefore(label,before);return input;
 }
 
-export {scope,tool,el,button,store,failure,modal,nameField};
+// A page with a stamped shell row hands its capabilities to assets/tool-shell.js
+// instead of injecting buttons; the shell drains the queue whenever it loads.
+const shellRow = () => document.querySelector('[data-shell-row]');
+const offer = caps => {const row=shellRow();if(!row)return false;(row.shellOffers??=[]).push(caps);row.dispatchEvent(new Event('shell-offer'));return true;};
+
+export {scope,tool,el,button,store,failure,modal,nameField,shellRow,offer};

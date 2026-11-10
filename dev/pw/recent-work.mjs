@@ -3,11 +3,12 @@ import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {TOOL_DIRS,ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {decodeHash,encodeHash} from '../../assets/series.js';
+import {recentReady,openSaveCopy} from './_harness.mjs';
 const base=process.env.BASE||'http://localhost:8087', energy=process.env.EBASE||process.env.ENERGY_BASE||'http://localhost:'+(process.env.EPORT||8089);
 const browser=await chromium.launch();
 const records=page=>page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('mg:recent:v1:')).map(k=>JSON.parse(localStorage.getItem(k))).sort((a,b)=>a.savedAt-b.savedAt));
 async function save(page,name){
- await page.locator('.recent-save').click();const dialog=page.locator('.recent-dialog');await dialog.waitFor();
+ await openSaveCopy(page);const dialog=page.locator('.recent-dialog');await dialog.waitFor();
  await dialog.getByLabel('Copy name').fill(name);await dialog.getByRole('button',{name:'Save copy',exact:true}).click();await dialog.waitFor({state:'detached'});
  return (await records(page)).at(-1);
 }
@@ -16,14 +17,14 @@ try{
  // Every shipped tool's real capture callback must produce a restorable model.
  for(const [origin,tools] of [[base,TOOL_DIRS],[energy,ENERGY_TOOL_DIRS]])for(const tool of tools){
   const ctx=await browser.newContext(contextOptions),page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(origin+'/'+tool+'/');await page.locator('.recent-save').waitFor();await page.evaluate(()=>document.fonts.ready);
+  await page.goto(origin+'/'+tool+'/');await recentReady(page);await page.evaluate(()=>document.fonts.ready);
   assert.equal((await records(page)).length,0,tool+' visits/examples never populate Recent work');
   const first=await save(page,tool+' original'),state=await decodeHash(first.hash);assert.ok(state&&typeof state==='object',tool+' encoded state');
   if(tool==='gauge'){assert.equal(state.id,undefined);assert.equal(state.key,undefined);assert.equal(typeof state.t,'string');}
   // Leave the instrument first: hash-only navigation does not rerun its boot.
   await page.getByRole('link',{name:'Your work',exact:true}).click();
   assert.equal(new URL(page.url()).origin,origin,'Recent work stays with its browser storage');
-  await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await page.locator('.recent-save').waitFor();
+  await page.getByRole('link',{name:new RegExp(tool+' original')}).click();await recentReady(page);
   const second=await save(page,tool+' reopened'),restored=await decodeHash(second.hash);
   // Premortem deliberately mints new identifiers and normalises optional fields.
   if(tool==='premortem'){assert.equal(restored.title,state.title);assert.equal(restored.entries.length,state.entries.length);assert.notEqual(restored.id,state.id);assert.ok(await page.locator('#importstrip').isVisible());}

@@ -7,7 +7,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {INSTRUMENTS, ENERGY_INSTRUMENTS, BINDERS} from './tool-dirs.mjs';
+import {INSTRUMENTS, ENERGY_INSTRUMENTS, BINDERS, TOOL_DIRS} from './tool-dirs.mjs';
+import {SUITE_CATALOG} from '../assets/suite-catalog.js';
+import {SHELL_MANIFEST} from './shell-manifest.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -65,4 +67,16 @@ test('Paths, Roadmap and Timeline name their different planning claims at the en
     'Timeline must not make a timing forecast look like a decision or delivery plan');
   assert.match(timeline, /<a href="\/paths\/">Paths<\/a> and <a href="\/roadmap\/">Roadmap<\/a>/,
     'Timeline must route decision and delivery concerns back to their distinct instruments');
+});
+
+test('a shell page\'s h1 is its catalogue title', () => {
+  const shells = Object.entries(SHELL_MANIFEST).filter(([, entry]) => entry.shell);
+  assert.ok(shells.length >= 3, 'no shell pages to check');
+  for(const [dir, entry] of shells){
+    const source = TOOL_DIRS.includes(dir) ? 'product' : 'energy';
+    const catalogue = SUITE_CATALOG.find(tool => tool.source === source && tool.route === dir);
+    const html = read((source === 'energy' ? 'energy/' : '') + dir + '/index.html');
+    const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+    assert.deepEqual(h1s, [catalogue.title], dir + ': the page must carry exactly one h1, equal to the catalogue title');
+  }
 });

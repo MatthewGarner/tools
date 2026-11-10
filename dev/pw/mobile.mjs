@@ -1,4 +1,4 @@
-import {openExamples} from './_harness.mjs';
+import {openExamples, openFileMenu} from './_harness.mjs';
 /* Mobile foundations gate: phone-width first-run behaviour for in-scope tools.
    Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
@@ -836,7 +836,7 @@ if(scope.wants("roadmap")){
   const page = await ctx.newPage();
   await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
-  await page.locator('#examples summary').click();
+  await openExamples(page);
   const chip = page.getByRole('button', {name: 'Reading app roadmap'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1301,10 +1301,12 @@ if(scope.wants("why")){
       await page.locator('#railtab').click().catch(() => {});
       await page.waitForTimeout(400);
     }
-    const chip = page.getByRole('button', {name: name === 'roadmap' ? 'New roadmap' : 'Start your own'});
+    /* Roadmap's start lives in the shell's File menu as "New"; the others keep the source-rail chip */
+    if(name === 'roadmap') await openFileMenu(page);
+    const chip = name === 'roadmap' ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true}) : page.getByRole('button', {name: 'Start your own'});
     const box = await chip.count() ? await chip.boundingBox() : null;
     ok(!!box && box.height >= 44,
-      `${name}: phone "Start your own" is reachable and >=44px${box ? ' (' + Math.round(box.height) + 'px)' : ' (missing)'}`);
+      `${name}: phone ${name === 'roadmap' ? 'File > New' : '"Start your own"'} is reachable and >=44px${box ? ' (' + Math.round(box.height) + 'px)' : ' (missing)'}`);
     if(box){
       await chip.click();
       await page.waitForTimeout(800);

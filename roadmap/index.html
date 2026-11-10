@@ -31,6 +31,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="chapter-app mg-site">
 <!-- identity:header:start -->
@@ -42,20 +46,30 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Roadmap <span class="chapter-wordmark">Chapter</span></h1>
-    <p class="tagline">A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
-    <aside class="planning-boundary" aria-label="When to use Roadmap">
-      <span>Delivery roadmap · committed work</span>
-      <p>Use Roadmap for work you are prepared to carry. If an open question can stop, pivot or expand investment, design the decision plan in <a href="/paths/">Paths</a> first.</p>
-    </aside>
-    <div class="model-actions actions" id="modelactions">
-      <button class="btn" id="newroadmap" type="button">New roadmap</button>
-      <details class="action-disclosure" id="examples"><summary class="btn">Examples</summary><div class="action-menu chips" id="chips"></div></details>
-      <details class="action-disclosure"><summary class="btn">Saved on this device</summary><div class="action-menu chips" id="savedrow"></div></details>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Roadmap</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <button type="button" data-act="item" data-item="import-markdown" disabled>Import markdown</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
     </div>
+    <!-- shell:end -->
   </header>
 </div>
 
@@ -218,6 +232,8 @@
   <section class="about">
     <h2>Why text?</h2>
     <div class="prose">
+    <p>A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
+    <p><strong>Delivery roadmap · committed work.</strong> Use Roadmap for work you are prepared to carry. If an open question can stop, pivot or expand investment, design the decision plan in <a href="/paths/">Paths</a> first.</p>
     <p>Roadmaps decay because updating them is friction: the truth changes in minutes, but the diagram lives in a slide nobody wants to reflow. Making the source plain text removes the friction — an update is one line, the layout is the tool's problem, and the diagram is always regenerable. Text also diffs: paste versions into git or a doc and you can see exactly what moved between planning cycles, which slides will never tell you.</p>
     <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty. See <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">Janna Bastow on inventing now/next/later</a>, and her <a href="https://www.prodpad.com/blog/timeline-roadmap-issues/" target="_blank" rel="noopener">case against timeline roadmaps</a>. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>).</p>
     <p>The snapshot/compare feature exists because the most useful roadmap artefact isn't the roadmap — it's <em>what changed since last time</em>. Snapshot before each planning cycle; the comparison renders new, moved, and dropped items as an exportable slide.</p>

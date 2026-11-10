@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import {evidenceDirectory} from './session.mjs';
 const OUT = evidenceDirectory('check');
-import {trackErrors, report, tally, until, untilValue, openRoadmapSource} from './_harness.mjs';
+import {trackErrors, report, tally, until, untilValue, openRoadmapSource, openExamples, fileItem} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 
@@ -85,7 +85,7 @@ check('page loads with editor mounted', await page.locator('.cm-editor').count()
 
 // load example via chip
 await openRoadmapSource(page);
-await page.locator('#examples summary').click(); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
+await openExamples(page); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
 await page.locator('#stylepicker [data-style="grid"]').click();
 await seeded(page);
 check('example renders SVG preview', await page.locator('#preview svg').count() === 1);
@@ -275,8 +275,7 @@ check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTM
 if(await page2.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))
   await page2.locator('#railtab').click();
 await openRoadmapSource(page2);
-await page2.locator('#examples summary').click();
-await page2.getByRole('button', {name: 'Import markdown'}).click();
+await fileItem(page2, 'Import markdown');
 await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
 await until(() => page2.locator('#preview svg').innerHTML().then(h => h.includes('Imported item')));
@@ -293,7 +292,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const dragPage = await browser.newPage({viewport: DRAG_VIEWPORT});
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
   await openRoadmapSource(dragPage);
-await dragPage.locator('#examples summary').click(); await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
+await openExamples(dragPage); await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
 await dragPage.locator('#stylepicker [data-style="grid"]').click();
   await seeded(dragPage);
   /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a render settle.
@@ -346,7 +345,7 @@ await dragPage.locator('#stylepicker [data-style="grid"]').click();
   const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height + 160}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
   await openRoadmapSource(p);
-await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
 await p.locator('#stylepicker [data-style="grid"]').click();
   await seeded(p);
   await p.getByRole('button', {name: 'Register'}).click();

@@ -163,10 +163,46 @@ export async function openRoadmapSource(page){
   await page.locator('.cm-content').waitFor({state:'visible'});
 }
 
+/* Stamped-shell pages keep New, Examples, Your work, Save a copy and the rest in
+   the File menu of the header; every other page injects its own controls. */
+import {SHELL_MANIFEST} from '../shell-manifest.mjs';
+export const isShellPage = page => page.locator('[data-tool-header] [data-shell-row]').count().then(n => n > 0);
+export async function openFileMenu(page){
+  const file = page.locator('[data-shell-file]');
+  if(!(await file.evaluate(el => el.open))) await file.locator('summary').click();
+  await page.locator('[data-shell-file] .tool-menu').waitFor();
+}
+/* Click a File menu item by its visible name (the menu closes after the action). */
+export async function fileItem(page, name){
+  await openFileMenu(page);
+  await page.locator('[data-shell-file]').getByRole('button', {name, exact: true}).click();
+}
+/* Page-ready signal for the saved-copy and share controls: the stamped shell sets
+   data-shell-ready once wired, other pages mount .recent-save. */
+export const recentReady = page => page.locator('.recent-save, [data-tool-header][data-shell-ready]').first().waitFor({state: 'attached'});
+export async function openSaveCopy(page){
+  if(await isShellPage(page)) await fileItem(page, 'Save a copy…');
+  else await page.locator('.recent-save').click();
+}
+
 /* Examples live independently of source on document tools. Exercise their
    disclosure instead of exposing source or clicking hidden example buttons.
-   Some tools use #examples for an always-visible row, so match details only. */
+   Some tools use #examples for an always-visible row, so match details only.
+   On a shell page the list is inside File > Examples and picking one closes File. */
 export async function openExamples(page){
+  if(await isShellPage(page)){
+    /* The manifest decides whether File carries Examples; a page that grants them
+       but lacks the item must fail here, not skip. */
+    const tool = new URL(page.url()).pathname.split('/').filter(Boolean).at(-1);
+    const toggle = page.locator('[data-shell-file] [data-act=examples]');
+    if(!SHELL_MANIFEST[tool]?.examples){
+      if(await toggle.count()) throw new Error(`openExamples: ${tool} stamps Examples but its manifest says examples:false`);
+      return;
+    }
+    await openFileMenu(page);
+    if(await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+    return;
+  }
   const disclosure=page.locator('details.document-examples, details#examples').first();
   if(await disclosure.count() && !(await disclosure.evaluate(el=>el.open)))
     await disclosure.locator('summary').first().click();

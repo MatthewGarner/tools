@@ -3,9 +3,9 @@ const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text)el.text
 const button=(text,action)=>{const el=node('button',text);el.type='button';el.addEventListener('click',action);return el;};
 const failure=error=>error?.name==='QuotaExceededError'?'Browser storage is full. Nothing was saved. Export work or free some space.':error?.name==='SecurityError'?'Browser storage is unavailable. Export work to keep it.':error.message||'Could not use templates.';
 
-export function createTemplates({scope,tool,format,capture,restore,blank,examples,name=()=>'',notice=()=>{},beforeStart,description=''}) {
-  const store=()=>templateStore(localStorage,scope,tool);
-  let dialog,opener;
+export function createTemplates({scope,tool,format,capture,restore,blank:initialBlank,examples,name=()=>'',notice=()=>{},beforeStart,description='',place='Templates',manager}) {
+  const store=()=>templateStore(localStorage,scope,tool,place);
+  let dialog,opener,blank=initialBlank;
   const stylesheet=new URL('./template-ui.css',import.meta.url).href;
   if(!document.querySelector('link[data-template-styles]')){const link=node('link');link.rel='stylesheet';link.href=stylesheet;link.dataset.templateStyles='';document.head.append(link);}
   function close(){dialog?.close();}
@@ -14,20 +14,22 @@ export function createTemplates({scope,tool,format,capture,restore,blank,example
     try{const latest=store().read(record.id);if(!latest)throw Error('This template was deleted in another tab.');if(latest.format!==format)throw Error('This template uses a different format. Its saved data is unchanged.');await beforeStart?.();if(await restore(latest.content)===false)return;close();notice(`Started from ${latest.name}.`);}
     catch(error){fail(error);}
   }
-  async function newWork(){try{const record=store().getDefault();if(record)return await start(record);if(blank)await blank();else open();}catch(error){notice(failure(error));}}
+  async function newWork(){try{const record=store().getDefault();if(record)return await start(record);if(blank)await blank();else open();}catch(error){if(manager)manager();else notice(failure(error));}}
   function form(title,value,submit){
     const body=node('form'),heading=node('h3',title),label=node('label','Template name'),input=node('input');input.type='text';input.required=true;input.maxLength=120;input.value=value;label.append(input);
     const actions=node('div',null,'mg-template-actions'),cancel=button('Cancel',draw),save=node('button','Save template');save.type='submit';actions.append(cancel,save);body.append(heading,label,actions);
     body.addEventListener('submit',async event=>{event.preventDefault();if(!input.value.trim()){input.setCustomValidity('Give this template a name.');input.reportValidity();return;}save.disabled=true;try{await submit(input.value);draw();}catch(error){fail(error);save.disabled=false;}});
     input.addEventListener('input',()=>input.setCustomValidity(''));dialog.querySelector('.mg-template-body').replaceChildren(body);input.focus();input.select();
   }
+  async function addNamed(label){const content=await capture();store().add({id:crypto.randomUUID(),name:label,format,content,savedAt:Date.now()});notice(place==='Your work'?'Template saved in Your work.':'Template saved in this browser.');}
+  const saveForm=()=>form('Save a template',name().slice(0,120),addNamed);
   function draw(){
     const body=dialog.querySelector('.mg-template-body');body.replaceChildren();dialog.querySelector('[role=alert]').textContent='';
     try{
       const collection=store(),{items,issues}=collection.list();let selected=null;try{selected=collection.getDefault();}catch(error){fail(error);}
       const summary=node('p',selected?`New starts from “${selected.name}”.`:blank?'New starts blank.':'Choose a template to start a new model.','mg-template-note');body.append(summary);
       const actions=node('div',null,'mg-template-actions');
-      actions.append(button('Save current as template',()=>form('Save a template',name().slice(0,120),async label=>{const content=await capture();collection.add({id:crypto.randomUUID(),name:label,format,content,savedAt:Date.now()});notice('Template saved in this browser.');})));
+      actions.append(button('Save current as template',saveForm));
       if(blank)actions.append(button('Start blank',async()=>{try{if(await blank()!==false)close();}catch(error){fail(error);}}));
       if(examples)actions.append(button('Browse examples',()=>{close();examples();}));
       actions.append(button(blank?'Use blank as default':'Clear default',()=>{try{collection.clearDefault();draw();}catch(error){fail(error);}}));body.append(actions);
@@ -41,10 +43,11 @@ export function createTemplates({scope,tool,format,capture,restore,blank,example
     }catch(error){fail(error);}
   }
   function open(){
+    if(manager)return manager();
     opener=document.activeElement;dialog=node('dialog',null,'mg-template-dialog');const heading=node('h2','Your templates'),intro=node('p','Saved in this browser. Each start makes a separate copy; later edits leave the template unchanged.'+(description?' '+description:''),'mg-template-note'),error=node('p'),body=node('div',null,'mg-template-body');
     heading.id=`${tool}-templates-title`;dialog.setAttribute('aria-labelledby',heading.id);error.setAttribute('role','alert');dialog.append(heading,intro,error,body,button('Close',close));
     dialog.addEventListener('close',()=>{dialog.remove();dialog=null;if(opener?.isConnected)opener.focus();});document.body.append(dialog);draw();dialog.showModal();
   }
   document.addEventListener('click',event=>{if(event.target.closest('[data-personal-templates]'))open();else if(event.target.closest('[data-template-new]'))newWork();});
-  return {open,newWork};
+  return {open,newWork,start,setBlank:fn=>{blank=fn;},setManager:fn=>{manager=fn;},addNamed,suggest:name};
 }

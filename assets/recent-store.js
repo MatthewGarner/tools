@@ -24,7 +24,7 @@ export function snapshotName(state, fallback){
   const title = state?.title || state?.q || state?.question || (typeof state?.t === 'string' && state.t.match(/^title:\s*(.+)$/im)?.[1]);
   return (typeof title === 'string' && title.trim() || fallback).slice(0,120);
 }
-export function recentStore(storage, scope){
+export function recentStore(storage, scope, where = 'from the catalogue'){
   if(!Object.hasOwn(RECENT_TOOLS,scope)) throw new Error('Unknown catalogue.');
   const prefix = PREFIX + scope + ':';
   const key = id => {if(!idPattern.test(id)) throw new Error('Invalid saved copy.');return prefix+id;};
@@ -45,7 +45,7 @@ export function recentStore(storage, scope){
   const write = r => {if(!validRecord(r,scope))throw new Error('This copy cannot be saved.');storage.setItem(key(r.id),JSON.stringify(r));return r;};
   return {list,
     add({id,tool,name,hash,savedAt}){
-      if(list().length >= RECENT_LIMIT) throw new Error('Your work holds 20 saved copies. Remove one from the catalogue before saving another.');
+      if(list().length >= RECENT_LIMIT) throw new Error('Your work holds 20 saved copies. Remove one ' + where + ' before saving another.');
       if(storage.getItem(key(id)) !== null) throw new Error('This copy already exists. Try again.');
       return write({v:1,scope,id,tool,name:name.trim(),hash,savedAt});
     },

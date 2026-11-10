@@ -10,7 +10,6 @@ import {confess, asciiNum} from './solve.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
@@ -1263,50 +1262,6 @@ $('png').addEventListener('click', async () => {
   c.toBlob(blob => {if(blob) download('estimate.png',blob);},'image/png');
 });
 
-/* ---------- saved models (localStorage) ---------- */
-const SAVED_KEY = 'fermi-models';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    title: m => m.q || m.f,
-    deleteLabel: m => 'Delete saved model ' + m.name,
-    onLoad: m => {
-      syncExampleButtons(estimateExampleButtons);
-      $('formula').value = m.f;
-      varState.clear();
-      const restored = unpackEstimateScenario(m);
-      $('estimatequestion').value = restored.question;
-      $('estimateunit').value = restored.unit;
-      for(const [k, state] of restored.vars) varState.set(k, state);
-      threshStr = restored.thresh;
-      $('tin').value = threshStr;
-      varRowsSig = '';
-      lint();
-    },
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY);
-      l.splice(i, 1);
-      storeSaved(SAVED_KEY, l);
-      renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = '＋ Save on this device';
-  save.addEventListener('click', () => {
-    ensureFreshEstimate();
-    const f = $('formula').value.trim();
-    if(!f) return;
-    const saved = packEstimateScenario(snapshot());
-    const list = loadSaved(SAVED_KEY);
-    const name = saved.q || f;
-    list.push({name: name.length > 26 ? name.slice(0, 24) + '…' : name, ...saved});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
-renderSaved();
 
 $('formula').addEventListener('input', () => schedule(180));
 for(const id of ['estimatequestion','estimateunit']) $(id).addEventListener('input', () => schedule(180));

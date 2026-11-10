@@ -34,11 +34,12 @@ async function note(value, target=card()){
 try{
   await page.goto(base+'/roadmap/');
   await checkModelLink(page);
-  await page.locator('#examples summary').tap();
-  const menu = await page.locator('#chips').boundingBox();
-  assert.ok(menu.y >= 0 && menu.x >= 0 && menu.x + menu.width <= 390, 'Examples opens inside the phone viewport');
+  await page.locator('[data-shell-file] summary').tap();
+  await page.locator('[data-shell-file] [data-act=examples]').tap();
+  const menu = await page.locator('[data-shell-file] .tool-menu').boundingBox();
+  assert.ok(menu.y >= 0 && menu.x >= 0 && menu.x + menu.width <= 390, 'File menu with Examples open sits inside the phone viewport');
   await page.getByRole('button', {name:'Reading app roadmap',exact:true}).tap();
-  assert.equal(await page.locator('#examples').getAttribute('open'), null, 'choosing an example closes the menu');
+  assert.equal(await page.locator('[data-shell-file]').getAttribute('open'), null, 'choosing an example closes the File menu');
   await page.waitForFunction(()=>document.querySelector('#fontstatus').hidden);
   for(const style of ['focus','board','grid','register']){
     const src=`title: Touch review\nstyle: ${style}\nfont: Chapter\naccent: #254C3D\nNOW\nCore: Resume your reading [doing] -- Original commentary\nNEXT\nPlatform: Offline downloads\nLATER\nCore: Book clubs`;
