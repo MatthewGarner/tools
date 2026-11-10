@@ -123,10 +123,11 @@ export function openWork({name, caps, opener, status, section: wanted}){
     let items = [], issues = [], current = null, broken = false;
     try{ ({items, issues} = shelf.list()); }catch(error){ problems.add(failure(error)); return; }
     /* a storage failure reads like any other; only a missing default is "broken" */
-    try{ current = shelf.getDefault(); }catch(error){ if(/^(?:SecurityError|QuotaExceededError)$/.test(error.name)) problems.add(failure(error)); else { broken = true; problems.add(error.message); } }
+    try{ current = shelf.getDefault(); }catch(error){ if(/^(?:SecurityError|QuotaExceededError)$/.test(error.name)) problems.add(failure(error)); else { broken = error.message; } }
     if(!items.length && !issues.length && !current && !broken && wanted !== 'templates') return;
     const act = fn => () => { try{ fn(); refresh(); }catch(error){ alert.textContent = failure(error); } };
     const nodes = [];
+    if(broken) nodes.push(el('p', broken, 'recent-note'));
     if(issues.length) nodes.push(el('p', `${issues.length} unreadable template${issues.length === 1 ? '' : 's'} kept for recovery. Export a browser backup before replacing any data.`, 'recent-note'));
     if(!items.length && !broken) nodes.push(el('p', 'No templates yet. Choose Save as template… in the File menu to keep this model as one.', 'recent-note'));
     if(current || broken){
