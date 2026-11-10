@@ -122,7 +122,8 @@ export function openWork({name, caps, opener, status, section: wanted}){
     const shelf = templateStore(localStorage, scope, tool, 'Your work');
     let items = [], issues = [], current = null, broken = false;
     try{ ({items, issues} = shelf.list()); }catch(error){ problems.add(failure(error)); return; }
-    try{ current = shelf.getDefault(); }catch(error){ broken = true; problems.add(error.message); }
+    /* a storage failure reads like any other; only a missing default is "broken" */
+    try{ current = shelf.getDefault(); }catch(error){ if(/^(?:SecurityError|QuotaExceededError)$/.test(error.name)) problems.add(failure(error)); else { broken = true; problems.add(error.message); } }
     if(!items.length && !issues.length && !current && !broken && wanted !== 'templates') return;
     const act = fn => () => { try{ fn(); refresh(); }catch(error){ alert.textContent = failure(error); } };
     const nodes = [];

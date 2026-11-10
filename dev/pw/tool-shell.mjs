@@ -413,9 +413,12 @@ for(const dir of SHELLS){
     const d = page.getByRole('dialog', {name: 'Your work in ' + entry.name}); await d.waitFor();
     const m = await page.evaluate(() => {
       const dlg = document.querySelector('dialog.tool-work'), body = dlg.querySelector('.tool-work-body'), close = [...dlg.querySelectorAll('button')].find(b => b.textContent === 'Close').getBoundingClientRect();
-      return {top: close.top, bottom: close.bottom, vh: innerHeight, scrolls: body.scrollHeight > body.clientHeight + 20, pageScroll: scrollY, dh: dlg.getBoundingClientRect().height};
+      /* the body, not the page or the dialog, is what scrolls: it takes a scroll offset and Close does not move */
+      const before = close.top; body.scrollTop = 400;
+      const after = [...dlg.querySelectorAll('button')].find(b => b.textContent === 'Close').getBoundingClientRect().top;
+      return {top: close.top, bottom: close.bottom, vh: innerHeight, scrolls: body.scrollTop > 0 && getComputedStyle(body).overflowY === 'auto', pinned: before === after, pageScroll: scrollY, dh: dlg.getBoundingClientRect().height};
     });
-    ok(m.top >= 0 && m.bottom <= m.vh && m.scrolls, `${dir} @${width}x568: Close is on screen without scrolling (${Math.round(m.top)}-${Math.round(m.bottom)} of ${m.vh}) and the body scrolls`);
+    ok(m.top >= 0 && m.bottom <= m.vh && m.scrolls && m.pinned, `${dir} @${width}x568: Close is on screen without scrolling (${Math.round(m.top)}-${Math.round(m.bottom)} of ${m.vh}), stays put while the body scrolls`);
     await page.touchscreen.tap(3, 3);
     ok(await d.count() === 0, `${dir} @${width}x568: tapping the backdrop closes Your work`);
     await page.locator('[data-shell-file] summary').tap(); await page.locator('[data-act=work]').tap(); await d.waitFor();
