@@ -271,8 +271,8 @@ exampleChips($('chips'), EXAMPLES, ex => { focusIdx = null; editor.setText(ex.sr
 mountDocumentStart($('chips'));
 
 const shareLink = () => modelLink('risk', {t: editor.getText(), e: 0, ...(focusIdx !== null ? {f: focusIdx} : {})});
-wireModelLink($('copylink'), shareLink);
-const updateAssumptions = mountTargetPicker(document.querySelector('.document-actions'), {
+wireModelLink(shareLink);
+const updateAssumptions = mountTargetPicker($('assumptionrow'), {
   label: 'Edit assumption',
   getTargets: () => [...$('preview').querySelectorAll('[data-edit="num"]')].map(el => ({name: el.getAttribute('aria-label') || el.textContent, el})),
   open: ({el}) => el.dispatchEvent(new MouseEvent('click', {bubbles:true})),

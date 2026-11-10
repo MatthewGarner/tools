@@ -32,7 +32,7 @@ async function boot(){
   const controls = () => Object.fromEntries(IDS.map(id => [id, +$(id).value]));
 
   const shareLink = () => { const v=controls(); return modelLink('frequency', {i:v.inertia,tr:v.trip,dr:v.dr,dm:v.dm,dc:v.dc,g:v.gfm}); };
-  wireModelLink($('copylink'), shareLink);
+  wireModelLink(shareLink);
   const outcome = document.createElement('p'); outcome.className='energy-outcome'; outcome.setAttribute('aria-live','polite');
   document.querySelector('.controls-card').prepend(outcome);
   function syncOutputs(v){

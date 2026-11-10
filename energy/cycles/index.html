@@ -32,6 +32,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -43,22 +47,41 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <nav class="series" aria-label="The ember series">
-    <a href="../cycles/" aria-current="page"><span class="enum">E1</span>Cycles</a>
-    <a href="../risk/"><span class="enum">E2</span>Risk</a>
-    <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
-    <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
-    <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
-  </nav>
-  <header data-tool-header>
-    <a class="crumb" href="../">← All energy tools</a>
+  <header data-tool-header data-shell>
+    <nav class="series" aria-label="The ember series">
+      <a href="../cycles/" aria-current="page"><span class="enum">E1</span>Cycles</a>
+      <a href="../risk/"><span class="enum">E2</span>Risk</a>
+      <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
+      <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
+      <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
+    </nav>
     <p class="kicker" id="kicker"></p>
-    <h1>Cycle budget</h1>
-    <p class="tagline">A battery's warranty is a budget and every cycle spends it. One set of beliefs — spreads, fade, calendar ageing — priced at three horizons: what a cycle is worth today, whether the second cycle pays this year, and when augmentation stops being early and starts being late.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Cycle budget</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
 <main id="main" tabindex="-1">
+<div class="tool-stage-row" id="assumptionrow"></div>
 <div class="workspace" id="workspace">
     <aside class="rail">
       <div class="chips" id="chips"><span class="lead">Or try:</span></div>
@@ -107,7 +130,6 @@
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
       </div>
       <div class="actions">
-      <button class="btn" id="copylink">Copy model link</button>
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="copypng">Copy PNG</button>
         <details class="action-disclosure">
@@ -127,6 +149,7 @@
   <section class="about">
     <h2>What a cycle is worth</h2>
     <div class="prose">
+    <p>A battery's warranty is a budget and every cycle spends it. One set of beliefs — spreads, fade, calendar ageing — priced at three horizons: what a cycle is worth today, whether the second cycle pays this year, and when augmentation stops being early and starts being late.</p>
     <p>Desks argue "should we cycle for this spread?" with instinct; warranty managers answer with a cap; this tool answers with a price. A cycle destroys a little capacity forever — that has a value. And it spends one unit of a finite warranty budget — that has a shadow price whenever the budget rations you below the days worth cycling. The dispatch threshold is whichever is higher, and the tool says which one is doing the work: "cycles are worth £41 each; it's the warranty doing the rationing, not the wear." The second cycle and the augmentation window are the same beliefs read at the year and asset-life horizons — a policy difference and a re-simulated remainder, never a partial formula.</p>
     <p>Named simplifications, so the tool can't oversell itself: <em>spread</em> is the achieved spread — market depth and dispatch quality are your problem, not the model's. Degradation is linear in cycles and time on the ranges you state — a belief container, not electrochemistry; bring your OEM's curve as a range, not a point. The charge-price leg is a level, not a shape. Augmentation restores nameplate and inherits the remaining warranty budget. And spreads stay flat over the life unless you say otherwise with <code>drift:</code> — omitting it flatters augmentation, and the tool warns you so.</p>
     <p>The tool prices your stated beliefs; it never claims the market will look like your ranges, and it isn't a dispatch optimiser. Sources: Douglas Hubbard on calibrated 90% intervals (<em>How to Measure Anything</em>).</p>

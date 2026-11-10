@@ -32,6 +32,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -43,22 +47,41 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <nav class="series" aria-label="The ember series">
-    <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
-    <a href="../risk/" aria-current="page"><span class="enum">E2</span>Risk</a>
-    <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
-    <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
-    <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
-  </nav>
-  <header data-tool-header>
-    <a class="crumb" href="../">← All energy tools</a>
+  <header data-tool-header data-shell>
+    <nav class="series" aria-label="The ember series">
+      <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
+      <a href="../risk/" aria-current="page"><span class="enum">E2</span>Risk</a>
+      <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
+      <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
+      <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
+    </nav>
     <p class="kicker" id="kicker"></p>
-    <h1>Risk transfer</h1>
-    <p class="tagline">Merchant, floor+share, toll or insure — the route-to-market argument, with every structure drawn as what it is: a payoff transform on the same uncertain year. What upside you sold, what protection you bought, what the fees really were.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Risk transfer</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
 <main id="main" tabindex="-1">
+<div class="tool-stage-row" id="assumptionrow"></div>
 <div class="workspace" id="workspace">
     <aside class="rail">
       <div class="chips" id="chips"><span class="lead">Or try:</span></div>
@@ -97,7 +120,6 @@
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
       </div>
       <div class="actions">
-      <button class="btn" id="copylink">Copy model link</button>
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="copypng">Copy PNG</button>
         <details class="action-disclosure">
@@ -117,6 +139,7 @@
   <section class="about">
     <h2>Why distributions, not offers?</h2>
     <div class="prose">
+    <p>Merchant, floor+share, toll or insure — the route-to-market argument, with every structure drawn as what it is: a payoff transform on the same uncertain year. What upside you sold, what protection you bought, what the fees really were.</p>
     <p>Route-to-market gets argued with adjectives — "safe", "leaves money on the table", "market risk" — when every structure on the table is just a payoff transform on the same uncertain year. Draw them on one axis and the argument changes: the floor is a put you paid for in upside share, the toll is certainty priced at the whole distribution. The quotable numbers fall out — what upside you sold on average, what protection you bought, what the fees were once separated from the risk terms. Binding probabilities get an honesty check: two numbers don't pin down a left tail, so when the lognormal and normal fits disagree materially, the verdict says "12–22% depending on tail shape" instead of pretending.</p>
     <p>Named simplifications, so the tool can't oversell itself: the toll is modelled as a fully fixed payment — availability incentives and performance obligations are out of scope. Insure is a clean indemnity with an attachment point and a limit — no deductibles, no basis risk. Every structure is evaluated on the same merchant year, so counterparty credit risk — a floor is only as good as whoever wrote it — is explicitly not priced. And it's one representative year: multi-year sequencing, debt covenants and path-dependence belong to a cashflow model, not this comparison.</p>
     <p>The tool prices the trade; it never says "choose the toll" — that depends on a risk appetite no simulation should claim to know. Sources: the real-options framing of revenue floors as puts; Douglas Hubbard on calibrated 90% intervals (<em>How to Measure Anything</em>).</p>
