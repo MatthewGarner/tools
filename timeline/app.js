@@ -1,6 +1,7 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
+import {paintKicker} from '../assets/verdict.js';
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineVerdict, timelineReadout} from './render.js';
@@ -366,6 +367,7 @@ new ResizeObserver(()=>{
 }).observe($('preview'));
 
 /* ---------- boot ---------- */
+paintKicker($('kicker'), '02', 'Ranges, not promises');
 (async function(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';

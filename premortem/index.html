@@ -21,6 +21,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -39,11 +43,26 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Premortem</h1>
-    <p class="tagline">Use a premortem to name failure before it is costly, or a pre-parade to name the conditions you will deliberately make true. The workshop is the front door; the kept register makes the uncertainty honest.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row data-workspaces="Registers">
+      <h1>Premortem</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 
   <main id="main" tabindex="-1">
@@ -60,6 +79,11 @@
   </div>
 
   <div id="workspace" data-capabilities="views.workshop views.board views.register" hidden>
+    <div class="toolbar tool-stage-row">
+      <div class="viewtoggle segmented" id="viewtoggle" role="group" aria-label="View"></div>
+      <button class="btn" id="undo" title="Undo (⌘Z)" aria-label="Undo">↶<span class="ulabel"> Undo</span></button>
+      <button class="btn" id="homebtn" type="button">← Registers</button>
+    </div>
     <div class="importstrip" id="importstrip" role="status" aria-live="polite" hidden>
       <p><strong id="importsource">From a shared link</strong> · This is a separate draft. Saving or editing it does not update the source.</p>
       <div class="importactions">
@@ -67,11 +91,6 @@
         <a class="btn" id="returntosource" href="/timeline/" hidden>Return to Timeline</a>
         <button class="btn" id="returnfromimport" type="button">Return to registers</button>
       </div>
-    </div>
-    <div class="toolbar">
-      <div class="viewtoggle segmented" id="viewtoggle" role="group" aria-label="View"></div>
-      <button class="btn" id="undo" title="Undo (⌘Z)" aria-label="Undo">↶<span class="ulabel"> Undo</span></button>
-      <button class="btn" id="homebtn" type="button">← Registers</button>
     </div>
     <div class="metrics" id="metrics" hidden></div>
     <div id="wizardview">
@@ -97,6 +116,7 @@
   <div class="about">
     <h2>Why rehearse both sides deliberately</h2>
     <div class="prose">
+    <p>Use a premortem to name failure before it is costly, or a pre-parade to name the conditions you will deliberately make true. The workshop is the front door; the kept register makes the uncertainty honest.</p>
     <p>A premortem — Gary Klein's move, sharpened by Kahneman — flips the risk conversation. Instead of asking "what could go wrong?" (which invites polite, hedged answers), it asserts the project has already failed, months from now, and asks the room to explain why. Prospective hindsight loosens tongues: naming a concrete failure that <em>has happened</em> is socially far cheaper than raising a doubt about a plan everyone's committed to, and it surfaces the risks the optimism of a kickoff buries. Silent writing before any discussion keeps the first confident voice from anchoring everyone else — the wisdom of the room only shows up when its guesses start independent.</p>
     <p>A pre-parade uses the same independence in the opposite direction: assume the effort became a runaway success, then name the conditions the team deliberately made true. Those conditions are commitments, not a probability-weighted upside forecast. Keeping them separate from the risk register is the point: optimism becomes concrete work rather than a green version of certainty.</p>
     <p>The output is where most premortems fail: a flip-chart photo nobody looks at again. This one lands each risk in a register with two honest ranges — how likely, and how much it costs — sampled as 90% intervals, not a false 3×3 red/amber/green. Exposure is likelihood × impact run as a Monte Carlo, so the ranking reflects genuine uncertainty and a portfolio line shows the sum (with the honest caveat that correlated risks stack higher than independent ones). Every risk carries owned actions, dot-voted so the room's attention goes to the mitigations worth doing first.</p>

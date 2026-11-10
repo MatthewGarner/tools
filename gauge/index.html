@@ -31,6 +31,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body data-mode="compose" class="mg-site">
 <!-- identity:header:start -->
@@ -42,11 +46,28 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Gauge</h1>
-    <p class="tagline">Once the pitch is on screen, every spoken estimate is anchored and dissent is a social act. Write the questions, share a link, everyone answers privately — probabilities and 90% ranges — then reveal the whole room's spread at once.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row data-workspaces="Question sets">
+      <h1>Gauge</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
@@ -54,7 +75,6 @@
 <div id="compose">
   <div class="workspace" id="workspace">
     <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
       <div id="cmhost" aria-label="Question source editor"></div>
       <div class="chips" id="savedrow"></div>
       <p class="errline" id="saveerror" role="status" aria-live="polite"></p>
@@ -182,6 +202,7 @@
   <section class="about">
     <h2>Why estimate privately first?</h2>
     <div class="prose">
+    <p>Once the pitch is on screen, every spoken estimate is anchored and dissent is a social act. Write the questions, share a link, everyone answers privately — probabilities and 90% ranges — then reveal the whole room's spread at once.</p>
     <p>Group estimates go wrong in a well-documented way: the first number spoken anchors every number after it (Tversky &amp; Kahneman, <em>Judgment under Uncertainty</em>, 1974), and disagreeing with the room is socially expensive. The crowd is only wise when its guesses are independent (Surowiecki, <em>The Wisdom of Crowds</em>) — which is why structured methods like Delphi collect estimates before discussion. Gauge runs that loop live: silent submissions, one simultaneous reveal, the spread itself as the artefact. When the room splits, a Delphi second round: discuss what the spread shows, silently re-estimate, and see how far the room converged. If everyone's intervals overlap, commit and move on; if the room splits into camps, that's the discussion — found <em>before</em> anyone anchored it.</p>
     <p>Probability questions are answered on a 0–100% slider with verbal anchors; quantity questions as a 90% interval, so people can be honest about uncertainty instead of faking a point estimate. The reveal shows every interval, the zone everyone believes (or its absence), medians, and camps — with one quotable headline per question. A pooled room range is an elicited judgement, not automatically a calibrated forecast or evidence: Fermi can receive it only as a review-needed input to restate or adopt.</p>
     <p><strong>Privacy:</strong> your questions never leave the link — the server sees only numbers, for 24 hours. The session definition travels in the URL fragment; the relay stores anonymous numbers (plus display names only if you switch <code>names: on</code>) and deletes everything 24 hours after the session's last activity — or immediately, when the facilitator ends the session after the reveal.</p>

@@ -1,5 +1,6 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountRecentSave} from '../assets/recent-work.js';
+import {offer as provide} from '../assets/recent-ui.js';
 /* Source owns the review. Inspection and export preview never change it. */
 import {parse, classifyReference, CONFIG_KEYS} from './parse.js';
 import {project, inspectReview, inspectReference} from './review-model.js';
@@ -155,9 +156,7 @@ $('adoptreference').addEventListener('click',()=>{
   editor.setText(source);$('replacedialog').close();status('Reference adopted. The previous reference is preserved in Reviews.');
 });
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',()=>$(b.dataset.close).close());
-$('chips').innerHTML=EXAMPLES.map((ex,i)=>`<button data-example="${i}">${e(ex.name)}</button>`).join('');
-$('newcase').addEventListener('click',()=>editor.setText(STARTER));
-for(const b of $('chips').querySelectorAll('[data-example]'))b.addEventListener('click',()=>{selected='';editor.setText(EXAMPLES[+b.dataset.example].text);$('examples').open=false;});
+provide({shareMax: 24000, blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => { selected = ''; editor.setText(ex.text); }}))});
 $('savesource').addEventListener('click',()=>download(slug()+'.case.txt',new Blob([editor.getText()],{type:'text/plain;charset=utf-8'})));
 $('opensource').addEventListener('change',async()=>{const file=$('opensource').files[0];if(!file)return;if(file.size>1000000){status('Source files can be up to 1 MB.');return;}editor.setText(await file.text());$('opensource').value='';status('Source opened.');});
 function markdown(){
@@ -167,7 +166,6 @@ function markdown(){
   return out.join('\n');
 }
 $('copymd').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(markdown());status('Review copied as Markdown.');}catch{download(slug()+'.md',new Blob([markdown()],{type:'text/markdown'}));status('Clipboard unavailable; Markdown downloaded.');}});
-$('sharecase').addEventListener('click',async()=>{if(!await writeHash()){status('This Case is too large for a link. Save source to keep every reference.');return;}try{await navigator.clipboard.writeText(location.href);status('Case link copied.');}catch{status('Copy the complete URL from the address bar.');}});
 function png(svg){return new Promise((resolve,reject)=>{const plan=pngRasterPlan(svg);if(!plan.ok)return reject(new Error(plan.detail));svgToCanvas(svg,canvas=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG encoding failed')),'image/png'),error=>reject(new Error(error.detail)));});}
 async function makeDeck(){const source=editor.getText(),snapshot=await inspectReview(parse(source));const result=buildCaseDeck(snapshot,{dark:snapshot.theme==='dark'||(snapshot.theme!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches),measure});deckSource=source;deckSlug=slugify(snapshot.title||'case');if(!result.complete)throw new Error('Some content cannot fit safely. Save source before exporting.');return result.pages.map(p=>({...p,svg:embedChapterFonts(p.svg)}));}
 function showPage(index){pageIndex=Math.max(0,Math.min(index,deck.length-1));$('deckcanvas').innerHTML=deck[pageIndex].svg.replace(/<style\b[^>]*data-chapter-fonts="embedded"[^>]*>[\s\S]*?<\/style>/g,'');$('deckposition').textContent=`${pageIndex+1} / ${deck.length} · ${deck[pageIndex].title}`;$('deckprev').disabled=pageIndex===0;$('decknext').disabled=pageIndex===deck.length-1;}

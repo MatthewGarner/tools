@@ -105,11 +105,6 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
    already 16px+44px at every width; the share link only needs the phone bump. */
 @media (max-width:700px){.linkrow input{font-size:16px}}
 
-/* participants and the live console land on the session, not the pitch */
-body[data-mode="participant"] header .tagline,
-body[data-mode="console"] header .tagline{display:none}
-body[data-mode="participant"] header h1,
-body[data-mode="console"] header h1{font-size:22px}
 
 /* ---- compose-mode question authoring (editable form only) ----
    Every affordance is an edit-in-place target (assets/edit-in-place.js); the

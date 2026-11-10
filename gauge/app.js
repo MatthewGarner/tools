@@ -1,6 +1,7 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
 import {workToken} from '../assets/work-reference.js';
 import {mountRecentSave} from '../assets/recent-work.js';
+import {offer as provide, withdraw} from '../assets/recent-ui.js';
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
 import {resolveVerdict} from '../assets/verdict-core.js';   // the composer headline is a verdict mirror too
@@ -15,7 +16,7 @@ import {sampleResponses} from './sample.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, themeColors, onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
+import {measure, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {initWorkspace, mountTouchUndo} from '../assets/workspace.js';
@@ -297,7 +298,7 @@ async function initCompose(hash){
   wireFormEvents($('preview'));
 
   /* examples */
-  exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+  provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
 
   function leaveImport(text){
     transient = false;
@@ -424,6 +425,7 @@ async function initCompose(hash){
   $('participant').hidden = mode !== 'participant';
   $('console').hidden = mode !== 'console';
   if(mode === 'compose') return initCompose(hash);
+  withdraw();   // participants and the console see the title alone: no File, no Share
   const {initConsole, initParticipant} = await import('./session.js');
   const deps = {model: parse(hash.t || ''), text: hash.t || '', relay, ctx, $, wireFormEvents};
   if(mode === 'console') initConsole({...deps, id: hash.id, key: hash.key});

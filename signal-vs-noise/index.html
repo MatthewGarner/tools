@@ -21,6 +21,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -40,12 +44,27 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Signal vs noise</h1>
-    <p class="tagline">Manage a team through eight quarters of noisy results. You'll be quietly trained to chase noise — then shown, at the end, how little of it was ever yours to manage.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Signal vs noise</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
+
+  <main id="main" tabindex="-1">
 
   <section class="card">
     <div class="metrics" id="metrics"></div>
@@ -90,12 +109,14 @@
   <section class="about">
     <h2>Why this fools you</h2>
     <div class="prose">
+      <p>Manage a team through eight quarters of noisy results. You'll be quietly trained to chase noise — then shown, at the end, how little of it was ever yours to manage.</p>
       <p>A quarter of anyone's output is one noisy sample from a person-in-system process whose baseline the <em>system</em> sets — scope, dependencies, luck, drag. Deming's claim was that the system dwarfs the individual as a source of variance. React to each swing as a <em>special cause</em> — a real, assignable signal — when it's just this month's draw, and you're <em>tampering</em>: adding variance, not removing it.</p>
       <p>And regression to the mean makes the tampering feel vindicated. Praise your best quarter and it falls back — "praise breeds complacency". Warn your worst and it bounces — "tough love works". Both are pure regression; you learn to manage exactly wrong. This is the flight-instructor illusion, and here it happens to <em>you</em>.</p>
       <p>The routine-variation band is an oracle — you only get it in a simulation; your real team doesn't come with one. What transfers isn't the band, it's the question every swing deserves: <strong>spike, or shift?</strong> A single point outside the band can be luck; only a sustained walk out of it is a signal worth a conversation.</p>
     </div>
   </section>
 
+  </main>
 </div>
 
 <script type="module" src="./app.js"></script>
