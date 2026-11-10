@@ -263,7 +263,7 @@ for(const dir of SHELLS){
       const d = await openPanel();
       ok(JSON.stringify(await sections(d)) === JSON.stringify(['Saved copies']), `${dir}: Your work shows a Saved copies section and omits the empty ones`);
       ok(await d.getByRole('link', {name: new RegExp(name)}).count() === 1, `${dir}: the saved copy is listed in Your work (panel opened in ${Date.now() - t0}ms including its first load)`);
-      ok(JSON.stringify(await geometry(page)) === JSON.stringify(before), `${dir}: opening Your work for the first time shifts nothing on the page`);
+      { const after = await geometry(page); ok(JSON.stringify(after) === JSON.stringify(before), `${dir}: opening Your work for the first time shifts nothing on the page (${JSON.stringify(before)} -> ${JSON.stringify(after)})`); }
       ok((await d.boundingBox()).width <= size.width, `${dir}: the panel fits the viewport`);
       ok(await d.getByRole('link', {name: 'See all your work'}).getAttribute('href') === '/#recent-work', `${dir}: the panel links on to the catalogue's Your work`);
       await d.getByRole('link', {name: new RegExp(name)}).click();
