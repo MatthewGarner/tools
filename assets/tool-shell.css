@@ -10,6 +10,10 @@ body.mg-site [data-tool-header][data-shell] .kicker{box-sizing:border-box;height
 .tool-titlerow{position:relative;display:flex;align-items:center;gap:8px;height:48px}
 body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:0;font-family:var(--mg-display);font-size:28px;line-height:48px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(min-width:1024px){body.mg-site [data-tool-header][data-shell] h1{font-size:32px}}
+/* phones: "07 — Choices priced…" so the whole epithet fits (Rank's, the longest, with ~27px to spare at 375;
+   11px is the floor); the word stays for screen readers. At 320 the ellipsis is the fallback. */
+@media(max-width:519px){body.mg-site [data-tool-header][data-shell] .kicker{font-size:11px;letter-spacing:.02em}
+  body.mg-site [data-tool-header][data-shell] .kicker .kw{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 .tool-file summary,.tool-share{box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;min-width:44px;min-height:44px;padding:0 14px;border:1px solid var(--mg-line);border-radius:0;background:transparent;color:var(--mg-ink);font:500 15px/1 var(--mg-sans);letter-spacing:0;text-transform:none;cursor:pointer;list-style:none}
 .tool-file summary::-webkit-details-marker{display:none}
 .tool-file summary::after{content:"";width:6px;height:6px;margin:-3px 0 0 2px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}

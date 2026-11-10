@@ -103,6 +103,8 @@ function installProbe(){
       controls, regionFound, controlTags: all.length,
       strays: shown.filter(el => !inRegion(el)).map(label).sort(),
       title: header?.querySelector('h1')?.textContent.trim() ?? null,
+      kickerOver: (() => { const k = header?.querySelector('.kicker'); return k ? k.scrollWidth - k.clientWidth : 0; })(),
+      kickerText: header?.querySelector('.kicker')?.textContent ?? null,
       h1Over: (() => { const h = header?.querySelector('h1'); return h ? h.scrollWidth - h.clientWidth : 0; })(),
       strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, button')].filter(el => el.matches('.model-link, .recent-save, #copylink') || /save on this device/i.test(el.textContent)).length,
       shellReady: !!header && header.hasAttribute('data-shell-ready'),
@@ -225,6 +227,8 @@ for(const [dir] of PAGES){
       const stamped = stampedProblems(entry, m.atDcl, m);
       ok(!stamped.length, `${where}: stamped controls${stamped.length ? ' — ' + stamped.join('; ') : ''}`);
       ok(m.strayActions === 0, `${where}: one verb each — ${m.strayActions ? m.strayActions + ' stray model-link, recent-save, #copylink or "Save on this device" control(s) on the page' : 'no stray share or save controls outside File and Share'}`);
+      if(vp === 'phone') ok(m.kickerOver <= 0, `${where}: the whole kicker fits on one line${m.kickerOver > 0 ? ' — ' + m.kickerOver + 'px wider than its box (' + m.kickerText + ')' : ''}`);
+      if(vp === 'phone') ok(/^Instrument \d\d — \S/.test(m.kickerText ?? ''), `${where}: the kicker still reads "Instrument NN — …" to assistive tech (${JSON.stringify((m.kickerText ?? '').slice(0, 28))})`);
       if(vp === 'phone') ok(m.h1Over <= 0, `${where}: the h1 is not cut off${m.h1Over > 0 ? ' — ' + m.h1Over + 'px wider than its box' : ''}`);
       const title = titleProblems(entry, m);
       ok(!title.length, `${where}: title${title.length ? ' — ' + title.join('; ') : ' — h1 is ' + JSON.stringify(entry.name)}`);
@@ -328,6 +332,7 @@ if(!scope.focused){
     cut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1 style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long title indeed</h1></header><main>m</main>',
     stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button></main>',
     clean: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main>m</main>',
+    kickerCut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><p class="kicker" style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">07 — A long epithet that cannot fit</p><h1>Fixture</h1></header><main>m</main>',
   })){
     const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
     await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
@@ -338,6 +343,7 @@ if(!scope.focused){
     await context.close();
   }
   ok(probe.cut.h1Over > 0 && probe.clean.h1Over <= 0, 'fixture: a truncated h1 is measured as wider than its box; an untruncated one is not');
+  ok(probe.kickerCut.kickerOver > 0 && probe.clean.kickerOver <= 0, 'fixture: a truncated kicker is measured as wider than its box; a missing one is not');
   ok(probe.stray.strayActions === 3 && probe.clean.strayActions === 0, 'fixture: .recent-save, "Save on this device" and #copylink are each counted as stray controls');
 }
 
