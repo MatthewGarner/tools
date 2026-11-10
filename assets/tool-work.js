@@ -169,6 +169,7 @@ export function openWork({name, caps, opener, status, section: wanted}){
   }
 
   paint();
+  document.body.style.paddingBottom = '40px';
   dialog.showModal();
   if(wanted === 'templates') body.querySelector('section[data-sec=templates] h3')?.scrollIntoView({block: 'start'});
 }

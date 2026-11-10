@@ -258,6 +258,7 @@ for(const dir of SHELLS){
     await model.edit(page, 2);
     ok(await model.read(page) === 'two', `${dir}: the model moved on after saving`);
     {
+      await stable(page);   // the edit above can still be settling (Flow's readouts); only the panel may move anything from here
       const t0 = Date.now(), before = await geometry(page);
       const d = await openPanel();
       ok(JSON.stringify(await sections(d)) === JSON.stringify(['Saved copies']), `${dir}: Your work shows a Saved copies section and omits the empty ones`);
