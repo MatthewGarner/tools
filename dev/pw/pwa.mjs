@@ -81,7 +81,7 @@ async function installAndWait(page){
     ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await openExamples(p); await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
-    ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await persisted(p, 'gauge-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/gauge/', async p => { await openExamples(p); await p.locator('[data-shell-examples-list]').getByRole('button', {name: 'Q3 commitment review'}).click(); await persisted(p, 'gauge-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await shown(p, '#verdictwrap svg'); return await p.locator('#verdictwrap svg').count() === 1; }],
     ['/timeline/', async p => { await showSourceIfReading(p); await openExamples(p); await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Lantern platform'}).click(); await persisted(p, 'wardley-src'); return await p.locator('#preview svg').count() === 1; }],
@@ -95,7 +95,7 @@ async function installAndWait(page){
        shipped, and paths is the largest page in the suite. The coverage assertion
        below is what stops it falling behind a fourth time. */
     ['/signal-vs-noise/', async p => { await shown(p, 'svg'); return await p.locator('svg').count() >= 1; }],
-    ['/case/', async p => { await p.getByRole('button', {name: 'Edit source', exact: true}).click(); await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Morrow · paid tier', exact: true}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/case/', async p => { await openExamples(p); await p.locator('[data-shell-examples-list]').getByRole('button', {name: 'Morrow · paid tier', exact: true}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
     /* paths keeps its rail collapsed, so the chip row is in the DOM but not clickable
        until the railtab is opened — the same shape smoke.mjs handles for wardley/map.
        KEPT SLEEP (2026-08-18): the branch below turns on isVisible(), and during the

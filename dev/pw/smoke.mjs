@@ -1166,8 +1166,8 @@ for(const theme of FLOW_THEMES){
   await page.waitForTimeout(600);
   // New default: opens alive on the sample reveal of the first example (hash-safe autoload).
   check('gauge(' + theme + '): opens alive on the sample reveal', await page.locator('#viewreveal.on').count() === 1 && await page.locator('#preview svg').count() === 1);
-  await page.locator('#railtab').click();
-  await page.getByRole('button', {name: 'Q3 commitment review'}).click();
+  await openExamples(page);
+  await page.locator('[data-shell-examples-list]').getByRole('button', {name: 'Q3 commitment review'}).click();
   await page.locator('#viewform').click();
   await page.waitForTimeout(600);
   check('gauge(' + theme + '): form preview renders 3 questions', await page.locator('#preview .gform .q').count() === 3);

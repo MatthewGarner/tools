@@ -18,6 +18,7 @@ const PILOT = ['fermi', 'roadmap', 'alarm'];
 const GROUPS = {
   'pages-1': ['why', 'tree', 'map', 'wardley', 'bets'],
   'pages-2': ['paths', 'proxy', 'rank', 'duel', 'flow'],
+  'pages-3': ['timeline', 'case', 'premortem', 'gauge', 'signal-vs-noise'],
 };
 const scope = scopeFor(MODE === 'core' ? 'tool-shell.mjs' : `tool-shell-${MODE}.mjs`);
 const T = process.env.BASE || 'http://localhost:8087';
@@ -92,6 +93,9 @@ const EXAMPLE_NAMES = {
   wardley: ['Lantern platform', 'Online tea shop'], bets: ['Lantern portfolio', 'Quick gut check'], paths: ['Lantern'],
   proxy: ['Monitor a measure', 'Trade-off pending', 'Two theories'], rank: ['Classic product backlog', 'Lantern feature backlog', 'Ops & infra backlog'],
   roadmap: ['Reading app roadmap', 'Quarterly view', 'Simple (no lanes)'],
+  timeline: ['App launch programme', 'Six-quarter programme', 'Office move'],
+  case: ['Morrow · paid tier', 'Lantern · invitations', 'Fieldnote · search', 'Morrow · decision review'],
+  gauge: ['Q3 commitment review', 'App launch readiness', 'Confidence auction', 'What does “likely” mean?'],
 };
 /* old stores: <tool>-saved copies and <tool>-snaps baselines are read by readNativeWork */
 const legacyDsl = (key, baseline) => ({key, baseline, names: ['Legacy plan one', 'Legacy plan two'],
@@ -100,6 +104,21 @@ const LEGACY = {
   roadmap: legacyDsl('roadmap-saved', 'roadmap-snaps'), why: legacyDsl('why-saved', 'why-snaps'), tree: legacyDsl('tree-saved'),
   map: legacyDsl('map-saved', 'map-snaps'), bets: legacyDsl('bets-saved', 'bets-snaps'), paths: legacyDsl('paths-saved'), proxy: legacyDsl('proxy-saved'),
 };
+/* Premortem: the Frame step's first field is the effort's name; Signal vs noise: the noise slider (2, 4, 6) */
+const framed = '#phasepanel input';
+const noiseLevels = ['', '2', '4', '6'];
+Object.assign(MODEL, {
+  timeline: dsl, case: dsl, gauge: dsl,
+  premortem: {
+    async edit(p, n){ await p.locator(framed).first().fill(['', 'shell-one', 'shell-two', 'shell-three'][n]); },
+    read: async p => { const v = await p.locator(framed).first().inputValue(); return v === 'shell-one' ? 'one' : v === 'shell-two' ? 'two' : /^legacy-/.test(v) ? v : 'other'; },
+    isBlank: async p => (await p.locator(framed).first().inputValue()) === '',
+  },
+  'signal-vs-noise': {
+    async edit(p, n){ await p.locator('#noise').evaluate((el, v) => { el.value = v; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }, noiseLevels[n]); },
+    read: async p => { const v = await p.locator('#noise').inputValue(); return v === '2' ? 'one' : v === '4' ? 'two' : 'other'; },
+  },
+});
 Object.assign(MODEL, {why: dsl, tree: dsl, map: dsl, wardley: dsl, bets: dsl, paths: dsl, proxy: dsl,
   rank: inputModel('#rows input.iname', ['', 'shell-one', 'shell-two', 'shell-three']),
   duel: inputModel('#question', ['', 'shell-one', 'shell-two', 'shell-three']),
@@ -200,11 +219,12 @@ for(const dir of SHELLS){
         ok(await until(async () => await model.read(page) !== label(1), {timeout: 6000}) && !(await page.locator('[data-shell-file] .tool-menu').isVisible()), `${dir}: choosing "${example}" replaces the model and closes File`);
       }
     }
+    if(!entry.share) ok(!(await page.locator('[data-act=share]').count()), `${dir}: no Share where the manifest grants none`);
     ok(errors.length === 0, `${dir}: no console errors (${errors.join(' | ').slice(0, 120)})`);
     await context.close();
 
-    /* Share: the link reopens the exact current model in a fresh page */
-    {
+    /* Share: the link reopens the exact current model in a fresh page (Gauge offers none: a live room is not a model link) */
+    if(entry.share){
       const s2 = await open(dir, laptopOpts);
       await s2.page.evaluate(() => history.replaceState(null, '', '#stale-garbage'));
       await model.edit(s2.page, 1);
@@ -236,6 +256,63 @@ for(const dir of SHELLS){
       await lp.waitForLoadState('networkidle'); await ready(lp);
       ok(await until(async () => await model.read(lp) === 'legacy-two', {timeout: 8000}), `${dir}: a legacy ${legacy.key} copy opens from Your work with its source`);
       await lc.close();
+    }
+
+    /* Case files carry long reference URLs: Share keeps the page's own 24000-character link limit, not the 6000 default */
+    if(dir === 'case'){
+      const long = await open(dir, laptopOpts);
+      await long.page.evaluate(() => {   // a document whose link is well past 6000 characters and well inside 24000
+        const view = document.querySelector('.cm-content').cmTile.view, noise = Array.from(crypto.getRandomValues(new Uint8Array(9000)), b => String.fromCharCode(33 + b % 90)).join('');
+        view.dispatch({changes: {from: 0, insert: '// ' + noise + '\n'}});
+      });
+      await long.page.waitForTimeout(500);
+      await long.page.locator('[data-act=share]').click();
+      await until(async () => (await status(long.page).textContent()).length > 0);
+      const said = await status(long.page).textContent(), link = await long.page.evaluate(() => navigator.clipboard.readText());
+      ok(/link copied/i.test(said) && link.length > 6000, `${dir}: Share copies a link longer than the 6000 default, up to the page's own 24000 limit (${link.length} chars; said ${JSON.stringify(said)})`);
+      await long.context.close();
+    }
+
+    /* Premortem supplies its own link builder, which throws on an oversize register: Share must keep that guard */
+    if(dir === 'premortem'){
+      const big = await open(dir, laptopOpts);
+      await big.page.evaluate(() => navigator.clipboard.writeText('sentinel'));
+      await big.page.evaluate(() => {
+        const field = document.querySelector('#phasepanel input'), noise = Array.from(crypto.getRandomValues(new Uint8Array(40000)), b => String.fromCharCode(33 + b % 90)).join('');
+        field.removeAttribute('maxlength'); field.value = noise; field.dispatchEvent(new Event('input', {bubbles: true}));
+      });
+      await big.page.locator('[data-act=share]').click();
+      await until(async () => (await status(big.page).textContent()).length > 0);
+      const said = await status(big.page).textContent(), clip = await big.page.evaluate(() => navigator.clipboard.readText());
+      ok(/Could not create the link/.test(said) && clip === 'sentinel', `${dir}: an oversize register is refused by Premortem's own link builder and nothing is copied (said ${JSON.stringify(said)})`);
+      await big.context.close();
+    }
+
+    /* the page's own live records (Gauge question sets, Premortem registers) lead Your work, under the manifest's word for them */
+    if(entry.workspaces){
+      const wc = await browser.newContext(laptopOpts), wp = await wc.newPage();
+      if(dir === 'gauge') await wc.addInitScript(() => { if(!localStorage.getItem('__seeded')){ localStorage.setItem('__seeded', '1'); localStorage.setItem('gauge-saved', JSON.stringify([{name: 'Weekly question set', src: 'title: Weekly questions\nWill requests arrive on time? :: prob'}])); } });
+      await wp.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(wp);
+      await fileItem(wp, 'Your work…');
+      const wd = wp.getByRole('dialog', {name: panelName}); await wd.waitFor();
+      const titles = await sectionTitles(wd), row = wd.locator('section[data-sec=workspaces] li').first();
+      ok(titles[0] === entry.workspaces, `${dir}: Your work opens with a "${entry.workspaces}" section, titled from the manifest (sections: [${titles}])`);
+      const wname = (await row.locator('.recent-name').textContent()).trim(), href = await row.locator('a.recent-open').getAttribute('href');
+      ok(/[?&]work=/.test(href), `${dir}: the ${JSON.stringify(wname)} row opens through the record's own href (${href.slice(0, 40)})`);
+      await row.getByLabel('Manage ' + wname, {exact: true}).click();
+      const acts = await row.locator('.recent-row-actions button').allTextContents();
+      ok(JSON.stringify(acts) === JSON.stringify(['Pin', 'Rename', 'Archive']), `${dir}: a workspace row offers only the actions that work without touching its store (got [${acts}])`);
+      await row.getByRole('button', {name: 'Archive ' + wname, exact: true}).click();
+      const after = await sectionTitles(wd);
+      ok(!after.includes(entry.workspaces) && after.at(-1) === 'Archived', `${dir}: archiving a ${entry.workspaces.toLowerCase()} record moves it to Archived (sections: [${after}])`);
+      await wd.locator('section[data-sec=archived] li').first().getByLabel('Manage ' + wname, {exact: true}).click();
+      await wd.getByRole('button', {name: 'Restore ' + wname, exact: true}).click();
+      ok((await sectionTitles(wd))[0] === entry.workspaces, `${dir}: restoring it returns it to the head of the dialog`);
+      await wd.locator('section[data-sec=workspaces] a.recent-open').first().click();
+      await wp.waitForLoadState('networkidle'); await ready(wp);
+      const opened = dir === 'gauge' ? (await docOf(wp)).includes('Weekly questions') : (await wp.locator(framed).first().inputValue()) === 'Lantern 2.0 launch';
+      ok(opened, `${dir}: opening a ${entry.workspaces.toLowerCase()} record from Your work loads that record`);
+      await wc.close();
     }
     continue;
   }
@@ -814,10 +891,10 @@ if(!scope.focused && MODE === 'core'){
   scope.unscoped();
   {
     /* an unmigrated page still injects its own controls */
-    const {context, page} = await (async () => { const context = await browser.newContext(laptopOpts), page = await context.newPage(); await page.goto(T + '/timeline/', {waitUntil: 'networkidle'}); return {context, page}; })();
+    const {context, page} = await (async () => { const context = await browser.newContext(laptopOpts), page = await context.newPage(); await page.goto(E + '/cycles/', {waitUntil: 'networkidle'}); return {context, page}; })();
     await page.locator('.recent-save').waitFor();
-    ok(!(await page.locator('[data-shell-row]').count()) && await page.locator('[data-tool-header] .recent-save').count() === 1 && await page.locator('[data-tool-header] button.model-link').count() === 1,
-      'unmigrated timeline: still injects Save a copy and Copy model link into its header');
+    ok(!(await page.locator('[data-shell-row]').count()) && await page.locator('[data-tool-header] .recent-save').count() === 1,
+      'unmigrated cycles (an Energy page, stamped in batch 3): still injects Save a copy into its header');
     await context.close();
   }
   {
@@ -859,11 +936,11 @@ window.returned = [mountDocumentStart(document.getElementById('chips')), mountMo
   {
     /* the injected "Copy model link" button, on a page that is not migrated */
     const context = await browser.newContext(laptopOpts), page = await context.newPage();
-    await page.goto(T + '/timeline/', {waitUntil: 'networkidle'});
+    await page.goto(E + '/cycles/', {waitUntil: 'networkidle'});
     await page.locator('.recent-save').waitFor();
     let problem = '';
     try{ await checkInjectedModelLink(page); }catch(error){ problem = error.message.split('\n')[0]; }
-    ok(!problem, 'unmigrated timeline: mountModelLink still injects a working Copy model link button' + (problem ? ' — ' + problem : ''));
+    ok(!problem, 'unmigrated cycles: mountModelLink still injects a working Copy model link button' + (problem ? ' — ' + problem : ''));
     await context.close();
   }
   {

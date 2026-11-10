@@ -34,7 +34,7 @@
    The last six apply only to entries with shell:true; the synthetic fixtures at
    the end of this file prove each of them can fail. */
 import {chromium} from 'playwright';
-import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS as BINDER_DIRS} from '../tool-dirs.mjs';
 import {SHELL_MANIFEST, HEADER_BUDGET, ANCHOR_BUDGET, HEADER_CONTROLS_MAX, ANCHOR_MIN_SIZE, VIEWPORTS} from '../shell-manifest.mjs';
 import {scopeFor} from './_scope.mjs';
 import {until} from './_harness.mjs';
@@ -47,10 +47,10 @@ const E = process.env.EBASE || 'http://localhost:8089';
    laptop 201-448 against 215 / 180). Delete a page's entry in the phase that
    brings it under budget; the gate then holds it there. Phase 1 cleared fermi,
    roadmap and alarm; Phase 2 batch 1 cleared why, tree, map, wardley, bets, paths,
-   proxy, rank, duel and flow. */
+   proxy, rank, duel and flow; batch 2 cleared timeline, case, premortem, gauge and
+   signal-vs-noise. */
 const BOTH = ['phone', 'laptop'];
 const EXPECTED_HEADER_FAILURES = {
-  gauge: BOTH, timeline: BOTH, premortem: BOTH, 'signal-vs-noise': BOTH, case: BOTH,
   cycles: BOTH, risk: BOTH, frequency: BOTH, 'merit-order': BOTH, intraday: BOTH,
 };
 
@@ -106,6 +106,7 @@ function installProbe(){
       kickerOver: (() => { const k = header?.querySelector('.kicker'); return k ? k.scrollWidth - k.clientWidth : 0; })(),
       kickerText: header?.querySelector('.kicker')?.textContent ?? null,
       h1Over: (() => { const h = header?.querySelector('h1'); return h ? h.scrollWidth - h.clientWidth : 0; })(),
+      ownLinks: document.querySelectorAll('#copylink').length,
       strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, button')].filter(el => el.matches('.model-link, .recent-save, #copylink') || /save on this device/i.test(el.textContent)).length,
       shellReady: !!header && header.hasAttribute('data-shell-ready'),
       /* a worker or async render still owns the layout: Cycles marks its stage
@@ -226,9 +227,10 @@ for(const [dir] of PAGES){
     if(entry.shell){
       const stamped = stampedProblems(entry, m.atDcl, m);
       ok(!stamped.length, `${where}: stamped controls${stamped.length ? ' — ' + stamped.join('; ') : ''}`);
-      ok(m.strayActions === 0, `${where}: one verb each — ${m.strayActions ? m.strayActions + ' stray model-link, recent-save, #copylink or "Save on this device" control(s) on the page' : 'no stray share or save controls outside File and Share'}`);
+      const stray = m.strayActions - (entry.ownLink ? m.ownLinks : 0);
+      ok(stray === 0, `${where}: one verb each — ${stray ? stray + ' stray model-link, recent-save, #copylink or "Save on this device" control(s) on the page' : 'no stray share or save controls outside File and Share'}`);
       if(vp === 'phone') ok(m.kickerOver <= 0, `${where}: the whole kicker fits on one line${m.kickerOver > 0 ? ' — ' + m.kickerOver + 'px wider than its box (' + m.kickerText + ')' : ''}`);
-      if(vp === 'phone') ok(/^Instrument \d\d — \S/.test(m.kickerText ?? ''), `${where}: the kicker still reads "Instrument NN — …" to assistive tech (${JSON.stringify((m.kickerText ?? '').slice(0, 28))})`);
+      if(vp === 'phone') ok((BINDER_DIRS.includes(dir) ? /^Case file — \S/ : /^Instrument \d\d — \S/).test(m.kickerText ?? ''), `${where}: the kicker still reads "${BINDER_DIRS.includes(dir) ? 'Case file' : 'Instrument NN'} — …" to assistive tech (${JSON.stringify((m.kickerText ?? '').slice(0, 28))})`);
       if(vp === 'phone') ok(m.h1Over <= 0, `${where}: the h1 is not cut off${m.h1Over > 0 ? ' — ' + m.h1Over + 'px wider than its box' : ''}`);
       const title = titleProblems(entry, m);
       ok(!title.length, `${where}: title${title.length ? ' — ' + title.join('; ') : ' — h1 is ' + JSON.stringify(entry.name)}`);
@@ -244,10 +246,11 @@ for(const [dir] of PAGES){
 const LAYOUT_SIZES = [[320, 568], [390, 844], [1280, 900], [1440, 900], [1920, 1080]];
 const probeLayout = () => {
   const header = document.querySelector('[data-tool-header]'), main = document.querySelector('main');
+  if(!header || !main) return {header: header ? Math.round(header.getBoundingClientRect().height * 10) / 10 : null, gap: null, missing: !header ? 'header' : '<main>'};
   const h = header.getBoundingClientRect(), m = main.getBoundingClientRect();
   return {header: Math.round(h.height * 10) / 10, gap: Math.round((m.top - h.bottom) * 10) / 10};
 };
-const layoutProblems = m => [
+const layoutProblems = m => m.missing ? [`the page has no ${m.missing}`] : [
   ...(m.header === 96 ? [] : [`header is ${m.header}px tall, not 96`]),
   ...(m.gap === 0 ? [] : [`<main> starts ${m.gap}px from the header's bottom edge, not 0`]),
 ];

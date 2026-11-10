@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {recentReady} from './_harness.mjs';
 
 async function openToolsWork(page){
  const disclosure=page.locator('.work-disclosure');
@@ -80,7 +81,7 @@ export async function verifyRegularWork(browser,base,out){
   assert.equal(await page.evaluate(()=>localStorage.getItem('roadmap-src')),currentSource);
   assert.equal(new URL(page.url()).search,'');
   // Native Premortem is continued; saved-copy URL imports still mint a separate ID.
-  await page.goto(base+'/premortem/');await page.locator('.recent-save').waitFor();await page.goto(base+'/');await openToolsWork(page);
+  await page.goto(base+'/premortem/');await recentReady(page);await page.goto(base+'/');await openToolsWork(page);
   await page.getByLabel('Find saved work',{exact:true}).fill('Premortem');await page.locator('[data-work-kind=workspace]').click();
   await page.locator('#workspace').waitFor();
   assert.equal(await page.locator('#importstrip').isVisible(),false);
