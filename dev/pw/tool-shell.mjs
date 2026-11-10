@@ -4,7 +4,7 @@
    control is found by the name a person reads, so a missing or renamed item, an
    unwired action or a layout that shifts when the menu opens turns a line red. */
 import {chromium} from 'playwright';
-import {SHELL_MANIFEST, VIEWPORTS} from '../shell-manifest.mjs';
+import {SHELL_MANIFEST, VIEWPORTS, isEnergy} from '../shell-manifest.mjs';
 import {shellRegion, headBlock} from '../sync-shell.mjs';
 import {checkInjectedModelLink} from './model-link-check.mjs';
 import {SOURCE_TOOLS} from '../../assets/saved-work-keys.js';
@@ -19,10 +19,13 @@ const GROUPS = {
   'pages-1': ['why', 'tree', 'map', 'wardley', 'bets'],
   'pages-2': ['paths', 'proxy', 'rank', 'duel', 'flow'],
   'pages-3': ['timeline', 'case', 'premortem', 'gauge', 'signal-vs-noise'],
+  'pages-4': ['cycles', 'risk', 'frequency', 'merit-order', 'intraday'],
 };
 const scope = scopeFor(MODE === 'core' ? 'tool-shell.mjs' : `tool-shell-${MODE}.mjs`);
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
+/* Energy pages live on their own origin, with their own storage scope and service worker */
+const originOf = dir => isEnergy(dir) ? E : T;
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { scope.checked(); if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
@@ -94,6 +97,7 @@ const EXAMPLE_NAMES = {
   proxy: ['Monitor a measure', 'Trade-off pending', 'Two theories'], rank: ['Classic product backlog', 'Lantern feature backlog', 'Ops & infra backlog'],
   roadmap: ['Reading app roadmap', 'Quarterly view', 'Simple (no lanes)'],
   timeline: ['App launch programme', 'Six-quarter programme', 'Office move'],
+  cycles: ['Wexcombe base case', 'Tight warranty', 'Optimistic OEM'], risk: ['Route to market', 'Optimiser fees', 'Wind PPA floor'],
   case: ['Morrow · paid tier', 'Lantern · invitations', 'Fieldnote · search', 'Morrow · decision review'],
   gauge: ['Q3 commitment review', 'App launch readiness', 'Confidence auction', 'What does “likely” mean?'],
 };
@@ -107,7 +111,14 @@ const LEGACY = {
 /* Premortem: the Frame step's first field is the effort's name; Signal vs noise: the noise slider (2, 4, 6) */
 const framed = '#phasepanel input';
 const noiseLevels = ['', '2', '4', '6'];
+/* Energy: cycles and risk are DSL documents; the other three are driven by one range input each */
+const rangeModel = (selector, values) => ({
+  async edit(p, n){ await p.locator(selector).evaluate((el, v) => { el.value = v; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); }, values[n]); },
+  read: async p => { const v = await p.locator(selector).inputValue(); const i = values.indexOf(v); return i > 0 ? ['', 'one', 'two', 'three'][i] : 'other'; },
+});
 Object.assign(MODEL, {
+  cycles: dsl, risk: dsl, frequency: rangeModel('#inertia', ['', '100', '150', '200']),
+  'merit-order': rangeModel('#demand', ['', '20', '30', '50']), intraday: rangeModel('#trough', ['', '20', '25', '30']),
   timeline: dsl, case: dsl, gauge: dsl,
   premortem: {
     async edit(p, n){ await p.locator(framed).first().fill(['', 'shell-one', 'shell-two', 'shell-three'][n]); },
@@ -141,9 +152,9 @@ const focusHeld = async p => {
 const browser = await chromium.launch();
 const phoneOpts = {viewport: VIEWPORTS.phone, hasTouch: true, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block'};
 const laptopOpts = {viewport: VIEWPORTS.laptop, deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block'};
-async function open(dir, opts, url = T + '/' + dir + '/'){
+async function open(dir, opts, url = originOf(dir) + '/' + dir + '/'){
   const context = await browser.newContext(opts), page = await context.newPage(), errors = trackErrors(page);
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: T}).catch(() => {});
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(url).origin}).catch(() => {});
   await page.goto(url, {waitUntil: 'networkidle'});
   await ready(page);
   return {context, page, errors};
@@ -231,7 +242,7 @@ for(const dir of SHELLS){
       await s2.page.locator('[data-act=share]').click();
       await until(async () => (await status(s2.page).textContent()).length > 0);
       const link = await s2.page.evaluate(() => navigator.clipboard.readText());
-      ok(link.startsWith(T + '/' + dir + '/#') && !link.includes('stale-garbage'), `${dir}: Share copies a link built from the model, not location.hash`);
+      ok(link.startsWith(originOf(dir) + '/' + dir + '/#') && !link.includes('stale-garbage'), `${dir}: Share copies a link built from the model, not location.hash`);
       const fresh = await open(dir, laptopOpts, link);
       ok(await until(async () => await model.read(fresh.page) === 'one', {timeout: 8000}), `${dir}: the shared link reopens the same model in a fresh browser`);
       await fresh.context.close(); await s2.context.close();
@@ -242,7 +253,7 @@ for(const dir of SHELLS){
       const legacy = LEGACY[dir];
       const lc = await browser.newContext(laptopOpts), lp = await lc.newPage();
       await lc.addInitScript(({items, key}) => { if(!localStorage.getItem('__seeded')){ localStorage.setItem('__seeded', '1'); localStorage.setItem(key, JSON.stringify(items)); } }, {items: legacy.items, key: legacy.key});
-      await lp.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(lp);
+      await lp.goto(originOf(dir) + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(lp);
       await fileItem(lp, 'Your work…');
       const ld = lp.getByRole('dialog', {name: panelName}); await ld.waitFor();
       ok(JSON.stringify(await ld.locator('section[data-sec=copies] .recent-name').allTextContents()) === JSON.stringify(legacy.names), `${dir}: legacy ${legacy.key} copies are listed (${legacy.names.join(', ')})`);
@@ -292,7 +303,7 @@ for(const dir of SHELLS){
     if(entry.workspaces){
       const wc = await browser.newContext(laptopOpts), wp = await wc.newPage();
       if(dir === 'gauge') await wc.addInitScript(() => { if(!localStorage.getItem('__seeded')){ localStorage.setItem('__seeded', '1'); localStorage.setItem('gauge-saved', JSON.stringify([{name: 'Weekly question set', src: 'title: Weekly questions\nWill requests arrive on time? :: prob'}])); } });
-      await wp.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(wp);
+      await wp.goto(originOf(dir) + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(wp);
       await fileItem(wp, 'Your work…');
       const wd = wp.getByRole('dialog', {name: panelName}); await wd.waitFor();
       const titles = await sectionTitles(wd), row = wd.locator('section[data-sec=workspaces] li').first();
@@ -313,6 +324,47 @@ for(const dir of SHELLS){
       const opened = dir === 'gauge' ? (await docOf(wp)).includes('Weekly questions') : (await wp.locator(framed).first().inputValue()) === 'Lantern 2.0 launch';
       ok(opened, `${dir}: opening a ${entry.workspaces.toLowerCase()} record from Your work loads that record`);
       await wc.close();
+    }
+
+    /* Energy: its own origin, its own storage scope, its own catalogue, and its own service worker */
+    if(isEnergy(dir)){
+      const ec = await open(dir, laptopOpts), ep = ec.page;
+      await model.edit(ep, 1);
+      await fileItem(ep, 'Save a copy…');
+      const dlg = ep.locator('.recent-dialog'); await dlg.waitFor();
+      await dlg.getByLabel('Copy name').fill(`${dir} energy copy`); await dlg.getByRole('button', {name: 'Save copy', exact: true}).click(); await dlg.waitFor({state: 'detached'});
+      const keys = await ep.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('mg:recent:v1:')));
+      ok(keys.length === 1 && keys[0].startsWith('mg:recent:v1:energy:'), `${dir}: the saved copy lives in the Energy storage scope (${keys})`);
+      if(entry.templates){
+        await fileItem(ep, 'Save as template…');
+        const tp = ep.locator('.mg-template-dialog'); await tp.waitFor();
+        await tp.getByLabel('Template name').fill('Energy shape'); await tp.getByRole('button', {name: 'Save template', exact: true}).click(); await tp.waitFor({state: 'detached'});
+        const tkeys = await ep.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('mg:template:v1:')));
+        ok(tkeys.length === 1 && tkeys[0].includes(':energy:'), `${dir}: the template lives in the Energy storage scope (${tkeys})`);
+      }
+      await fileItem(ep, 'Your work…');
+      const ed = ep.getByRole('dialog', {name: panelName}); await ed.waitFor();
+      const all = new URL(await ed.locator('a.tool-work-all').evaluate(a => a.href));
+      ok(all.origin === E && all.hash === '#recent-work', `${dir}: "See all your work" goes to the Energy catalogue (${all.origin}${all.pathname}${all.hash})`);
+      await ep.keyboard.press('Escape');
+      await ep.goto(E + '/', {waitUntil: 'networkidle'});
+      ok(await ep.locator('.recent-open').filter({hasText: `${dir} energy copy`}).count() === 1, `${dir}: the Energy catalogue lists the copy`);
+      await ec.context.close();
+    }
+    /* the Your work module must open offline from energy/sw.js's own precache (once: every Energy page shares the worker) */
+    if(dir === 'frequency'){
+      const context = await browser.newContext({...laptopOpts, serviceWorkers: 'allow'}), page = await context.newPage();
+      await page.goto(E + '/frequency/', {waitUntil: 'networkidle'}); await ready(page);
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      await page.reload({waitUntil: 'networkidle'});
+      await until(() => page.evaluate(() => !!navigator.serviceWorker.controller), {timeout: 15000});
+      await context.setOffline(true);
+      await page.reload({waitUntil: 'domcontentloaded'}); await ready(page);
+      await fileItem(page, 'Your work…');
+      const panel = page.getByRole('dialog', {name: 'Your work in ' + entry.name});
+      await panel.waitFor({timeout: 8000});
+      ok(await panel.isVisible() && (await panel.textContent()).includes('Nothing saved'), `${dir}: Your work opens offline from the Energy service worker's precache`);
+      await context.close();
     }
     continue;
   }

@@ -192,8 +192,8 @@ for(const theme of FLOW_THEMES){
   check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
   check('risk(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
   check('risk(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('risk(' + theme + '): crumb points at energy landing',
-    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('risk(' + theme + '): the E1-E5 strip marks this page and reaches the other four',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/risk/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 5);
   check('risk(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -460,8 +460,8 @@ for(const theme of FLOW_THEMES){
   check('frequency(' + theme + '): trace canvas exists', await page.locator('#trace').count() === 1);
   const verdict = (await page.locator('#verdict').innerText()).trim();
   check('frequency(' + theme + '): verdict non-empty', verdict.length > 20);
-  check('frequency(' + theme + '): crumb points at energy landing',
-    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('frequency(' + theme + '): the E1-E5 strip marks this page and reaches the other four',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/frequency/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 5);
   check('frequency(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -509,8 +509,8 @@ for(const theme of FLOW_THEMES){
     await page.locator("svg g[data-plant='Hydrogen']").count() === 1 && await page.locator('svg g[data-tex]').count() >= 2);
   check('merit-order(' + theme + '): world demand max grows (>64)',
     Number(await page.locator('#demand').getAttribute('max')) > 64);
-  check('merit-order(' + theme + '): crumb points at energy landing',
-    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('merit-order(' + theme + '): the E1-E5 strip marks this page and reaches the other four',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/merit-order/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 5);
   check('merit-order(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -572,7 +572,7 @@ for(const theme of FLOW_THEMES){
         /* a stamped shell header drops the (hidden) crumb; the masthead's Tools Lab link is the way home */
         if(await page.locator('[data-shell-row]').count())
           check(path + ': shell header has no crumb; the masthead Tools Lab link goes home',
-            await crumb.count() === 0 && await page.locator('a[data-suite-link="explore"]').getAttribute('href') === home);
+            await crumb.count() === 0 && await page.locator('a[data-suite-link="explore"]').getAttribute('href') === (path.startsWith('/energy/') ? '/explore/' : home));
         else
           check(path + ': carries the home crumb',
             await crumb.count() === 1 && await crumb.getAttribute('href') === home);

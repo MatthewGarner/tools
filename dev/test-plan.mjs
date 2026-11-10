@@ -26,6 +26,7 @@ export const FILTER_TOOLS = {
   'tool-shell-pages-1.mjs': ['why','tree','map','wardley','bets'],
   'tool-shell-pages-2.mjs': ['paths','proxy','rank','duel','flow'],
   'tool-shell-pages-3.mjs': ['timeline','case','premortem','gauge','signal-vs-noise'],
+  'tool-shell-pages-4.mjs': ['energy/cycles','energy/risk','energy/frequency','energy/merit-order','energy/intraday'],
   'motion.mjs': ['alarm','flow','energy/merit-order','timeline','tree','why','roadmap','map','bets','gauge','wardley','energy/risk','energy/cycles','energy/intraday'],
 };
 const all = TOOL_ROOTS;

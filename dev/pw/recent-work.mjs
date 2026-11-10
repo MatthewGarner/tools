@@ -33,9 +33,9 @@ try{
   assert.deepEqual(errors,[],tool);console.log('PASS Recent work capture and reopen: '+tool);await ctx.close();
  }
  const ctx=await browser.newContext(contextOptions),page=await ctx.newPage();
- await page.goto(energy+'/frequency/');await page.locator('.recent-save').waitFor();
+ await page.goto(energy+'/frequency/');await recentReady(page);
  // Same event turn as the edit: a debounced location.hash would still be stale.
- await page.evaluate(()=>{const i=document.querySelector('#inertia');i.value='155';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.recent-save').click();});
+ await page.evaluate(()=>{const i=document.querySelector('#inertia');i.value='155';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-act=save]').click();});
  await page.locator('.recent-dialog').waitFor();await page.getByLabel('Copy name').fill('Fresh edit');await page.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();
  await page.locator('.recent-dialog').waitFor({state:'detached'});assert.equal((await decodeHash((await records(page))[0].hash)).i,155);
  for(let i=2;i<=4;i++)await save(page,'Grid '+i);
