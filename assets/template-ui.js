@@ -3,9 +3,9 @@ const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text)el.text
 const button=(text,action)=>{const el=node('button',text);el.type='button';el.addEventListener('click',action);return el;};
 const failure=error=>error?.name==='QuotaExceededError'?'Browser storage is full. Nothing was saved. Export work or free some space.':error?.name==='SecurityError'?'Browser storage is unavailable. Export work to keep it.':error.message||'Could not use templates.';
 
-export function createTemplates({scope,tool,format,capture,restore,blank,examples,name=()=>'',notice=()=>{},beforeStart,description=''}) {
+export function createTemplates({scope,tool,format,capture,restore,blank:initialBlank,examples,name=()=>'',notice=()=>{},beforeStart,description=''}) {
   const store=()=>templateStore(localStorage,scope,tool);
-  let dialog,opener;
+  let dialog,opener,blank=initialBlank;
   const stylesheet=new URL('./template-ui.css',import.meta.url).href;
   if(!document.querySelector('link[data-template-styles]')){const link=node('link');link.rel='stylesheet';link.href=stylesheet;link.dataset.templateStyles='';document.head.append(link);}
   function close(){dialog?.close();}
@@ -21,13 +21,14 @@ export function createTemplates({scope,tool,format,capture,restore,blank,example
     body.addEventListener('submit',async event=>{event.preventDefault();if(!input.value.trim()){input.setCustomValidity('Give this template a name.');input.reportValidity();return;}save.disabled=true;try{await submit(input.value);draw();}catch(error){fail(error);save.disabled=false;}});
     input.addEventListener('input',()=>input.setCustomValidity(''));dialog.querySelector('.mg-template-body').replaceChildren(body);input.focus();input.select();
   }
+  const saveForm=()=>form('Save a template',name().slice(0,120),async label=>{const content=await capture();store().add({id:crypto.randomUUID(),name:label,format,content,savedAt:Date.now()});notice('Template saved in this browser.');});
   function draw(){
     const body=dialog.querySelector('.mg-template-body');body.replaceChildren();dialog.querySelector('[role=alert]').textContent='';
     try{
       const collection=store(),{items,issues}=collection.list();let selected=null;try{selected=collection.getDefault();}catch(error){fail(error);}
       const summary=node('p',selected?`New starts from “${selected.name}”.`:blank?'New starts blank.':'Choose a template to start a new model.','mg-template-note');body.append(summary);
       const actions=node('div',null,'mg-template-actions');
-      actions.append(button('Save current as template',()=>form('Save a template',name().slice(0,120),async label=>{const content=await capture();collection.add({id:crypto.randomUUID(),name:label,format,content,savedAt:Date.now()});notice('Template saved in this browser.');})));
+      actions.append(button('Save current as template',saveForm));
       if(blank)actions.append(button('Start blank',async()=>{try{if(await blank()!==false)close();}catch(error){fail(error);}}));
       if(examples)actions.append(button('Browse examples',()=>{close();examples();}));
       actions.append(button(blank?'Use blank as default':'Clear default',()=>{try{collection.clearDefault();draw();}catch(error){fail(error);}}));body.append(actions);
@@ -46,5 +47,5 @@ export function createTemplates({scope,tool,format,capture,restore,blank,example
     dialog.addEventListener('close',()=>{dialog.remove();dialog=null;if(opener?.isConnected)opener.focus();});document.body.append(dialog);draw();dialog.showModal();
   }
   document.addEventListener('click',event=>{if(event.target.closest('[data-personal-templates]'))open();else if(event.target.closest('[data-template-new]'))newWork();});
-  return {open,newWork};
+  return {open,newWork,start,setBlank:fn=>{blank=fn;},saveCurrent:()=>{open();saveForm();}};
 }

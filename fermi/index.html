@@ -21,6 +21,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -37,7 +41,6 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/handoff.css">
 <style>  .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
-  header{max-width:720px}
   h1{
     font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;
     font-size:34px;font-weight:700;letter-spacing:-.03em;margin:0;text-wrap:balance;
@@ -257,11 +260,25 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Fermi estimator</h1>
-    <p class="tagline">Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a range; the answer is a distribution, not a number.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Fermi</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <button type="button" data-act="new-template">New from template…</button>
+          <button type="button" data-act="work">Your work…</button>
+          <button type="button" data-act="save">Save a copy…</button>
+          <button type="button" data-act="template">Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share">Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 
   <main class="fermi-sheet" id="fermisheet">
@@ -400,6 +417,7 @@
   <section class="about">
     <h2>How the maths works</h2>
     <div class="prose">
+    <p>Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a range; the answer is a distribution, not a number.</p>
     <p>This is Fermi estimation — named for Enrico Fermi's habit of decomposing impossible questions into factors you can bound — with the uncertainty kept honest instead of rounded away. Each range you give is read as a 90% confidence interval: you'd be surprised, but not shocked, to see the truth outside it. The tool fits a log-normal distribution to each range (real-world quantities are usually products of other quantities, and multiplying uncertain factors produces the skewed, long-tailed log-normal — a normal fit is used when a range touches zero or goes negative), then simulates the whole formula 20,000 times. The percentiles of those runs are the answer.</p>
     <p>"What's worth researching" is the value-of-information idea from Douglas Hubbard: re-run the simulation with one input pinned at its median and measure how much of the spread disappears. The input whose ignorance costs you the most spread is the one worth researching — it's usually not the one people argue about. The driver-tree view draws the same formula as a tree — your ranged inputs as leaves, that value-of-information share on every edge.</p>
     <p>Cashflow mode runs the same samplers over per-period ranges, 10,000 times: NPV and IRR are discounted at your (also ranged) rate, while payback and the cumulative band stay undiscounted so they read in plain cash terms.</p>

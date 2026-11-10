@@ -33,14 +33,6 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 }
 .narrow-composition-note{display:none;margin:0;flex-basis:100%;color:var(--muted);font-size:12px;line-height:1.4}
 @media (max-width:900px){.narrow-composition-note{display:block}}
-.planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
-  margin:16px 0 0;padding:10px 12px;border-left:3px solid var(--accent);
-  background:color-mix(in srgb,var(--accent) 5%,var(--card))}
-.planning-boundary span{color:var(--accent-ink);font-size:9px;font-weight:750;
-  letter-spacing:.13em;text-transform:uppercase}
-.planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
-.planning-boundary a{color:var(--accent-ink);font-weight:700}
-@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
 select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);border-radius:0;
   background:var(--card);color:var(--ink);font-family:inherit;max-width:210px}
 .board-window[hidden]{display:none}
@@ -245,12 +237,8 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* Chapter lets the artifact own the page. Authoring remains available on demand. */
 .chapter-app {font-family:'DM Sans',sans-serif}
-.chapter-app > .wrap {max-width:none;padding:20px 32px 0}
-.chapter-app > .wrap header {display:flex;align-items:center;gap:24px;padding:0;margin:0}
-.chapter-app > .wrap h1 {font:600 20px/1.2 'DM Sans',sans-serif;margin:0}
-.chapter-wordmark {font:400 24px 'Instrument Serif',serif;margin-left:16px;color:var(--muted)}
-.chapter-app > .wrap .kicker,.chapter-app > .wrap .tagline,.chapter-app > .wrap .planning-boundary {display:none}
-.chapter-app .workspace {margin-top:20px;max-width:none}
+.chapter-app > .wrap {max-width:none;padding:0 32px}
+.chapter-app .workspace {margin-top:0;max-width:none}
 .chapter-app .stage {background:transparent;border:0;padding:14px 24px 24px}
 .chapter-app .stage-head {min-height:54px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .chapter-app .stage-head .metrics {display:none}
@@ -273,7 +261,7 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .chapter-app #fontstatus {padding:20px;border:1px solid var(--border)}
 .chapter-app svg [data-edit]:focus-visible,.chapter-app svg [data-lens]:focus-visible {outline:2px solid var(--accent);outline-offset:5px}
 @media(max-width:900px){
- .chapter-app > .wrap{padding:18px 20px 0}
+ .chapter-app > .wrap{padding:0 20px}
  .chapter-app .stage{padding:8px 12px 20px}
  .chapter-app .stage-head,.chapter-app .workspace.collapsed .stage-head{padding-left:0;padding-top:50px}
  .chapter-app .composition-bar {justify-content:flex-start}
@@ -295,8 +283,6 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 @media (pointer:coarse){.preview [data-add-control]{opacity:.75}}
 
-.chapter-app .model-actions{margin-top:16px;flex-wrap:wrap;gap:8px}
-.chapter-app .model-actions .action-menu{min-width:240px;max-width:min(340px,calc(100vw - 40px));flex-wrap:wrap}
 .chapter-app #appearance .action-menu{min-width:220px;padding:12px;gap:12px}
 .chapter-app #appearance .chapter-setting{justify-content:space-between}
 .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab{width:auto;min-height:44px;padding:0 12px;transform:none;writing-mode:horizontal-tb}
@@ -305,13 +291,5 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab::after{content:none}
 .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .stage-head{padding-top:54px}
 @media(max-width:900px){
- .chapter-app > .wrap header{flex-wrap:wrap;gap:12px}
- .chapter-app .model-actions{flex-basis:100%;margin-top:0}
  .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab{left:12px}
-}
-
-@media(max-width:900px){
- .chapter-app .model-actions{position:relative}
- .chapter-app .model-actions .action-disclosure{position:static}
- .chapter-app .model-actions .action-menu{left:0;right:auto;top:calc(100% + 6px);bottom:auto}
 }

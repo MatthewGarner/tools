@@ -1,9 +1,14 @@
 /* Keep personal authoring independent of the optional source rail. Relocating
    the existing controls preserves the tool's own start/example semantics. */
+import {offer} from './recent-ui.js';
 export function mountDocumentStart(chips){
   // A global masthead must never receive New/Examples actions.
   const header = document.querySelector('[data-tool-header]');
   if(!header || !chips) return null;
+  /* Stamped shell: File shows New and Examples; the source rail's row goes quiet. */
+  const chipStart = chips.querySelector('.start');
+  const picks = [...chips.querySelectorAll('.chip:not(.start)')].map(b => ({name: b.textContent, pick: () => b.click()}));
+  if(offer({blank: chipStart ? () => chipStart.click() : undefined, examples: picks})){ chips.hidden = true; return null; }
   let actions = header.querySelector('.instrument-actions');
   if(!actions){ actions = document.createElement('div'); actions.className = 'instrument-actions'; header.append(actions); }
   actions.classList.add('document-actions');

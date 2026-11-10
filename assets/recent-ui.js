@@ -25,4 +25,9 @@ function nameField(form, before, value){
   label.append(input);form.insertBefore(label,before);return input;
 }
 
-export {scope,tool,el,button,store,failure,modal,nameField};
+// A page with a stamped shell row hands its capabilities to assets/tool-shell.js
+// instead of injecting buttons; the shell drains the queue whenever it loads.
+const shellRow = () => document.querySelector('[data-shell-row]');
+const offer = caps => {const row=shellRow();if(!row)return false;(row.shellOffers??=[]).push(caps);row.dispatchEvent(new Event('shell-offer'));return true;};
+
+export {scope,tool,el,button,store,failure,modal,nameField,shellRow,offer};

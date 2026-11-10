@@ -21,6 +21,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -40,11 +44,23 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Base-rate playground</h1>
-    <p class="tagline">"99% accurate" means nothing until the base rate has had its say. A thousand cases flow through a detector; drag the threshold and watch the alarm bin fill up with the wrong ones.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Alarm</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <button type="button" data-act="work">Your work…</button>
+          <button type="button" data-act="save">Save a copy…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share">Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 
   <main id="main" tabindex="-1">
@@ -107,6 +123,7 @@
   <div class="about">
     <h2>Why good detectors still cry wolf</h2>
     <div class="prose">
+    <p>"99% accurate" means nothing until the base rate has had its say. A thousand cases flow through a detector; drag the threshold and watch the alarm bin fill up with the wrong ones.</p>
     <p>Base-rate neglect is the most durable statistical blind spot there is: we judge an alarm by how good the detector is and forget how rare the thing it's hunting for actually is. A test that's "99% accurate" sounds unimpeachable — but if one case in a thousand is real, then out of a thousand you catch the one real case and raise about ten false alarms alongside it. About nine of every ten alarms are wrong in that example. Better specificity can improve precision even at the same base rate; raising the threshold also reduces false alarms, but misses more real cases. A higher base rate changes the mix too. This is the maths behind alert fatigue, vendor detection claims, medical screening, and fraud flags.</p>
     <p>The picture makes it concrete. Two bell curves are the detector's score for benign cases and for real ones; the more they overlap, the worse the detector (that's d′, and its AUC). The threshold you drag is the line above which the detector shouts "alarm". Move it left and you catch more real issues but flood the alarm bin with false ones; move it right and the bin goes quiet but real issues sail through. The thousand dots below carry the base rate the curves can't show — that's the number doing the damage.</p>
     <p>So the useful move on your own alert channel isn't "buy a better detector". It's: know your base rate first, then set the threshold for the precision you can actually live with — and if nine in ten alarms are false, expect people to stop looking, because they will. Pin a vendor's claimed sensitivity and specificity, then drag the base rate down to yours and watch the promised precision collapse. Sources: Kahneman on base-rate neglect; Gigerenzer's natural-frequency framing (<i>Reckoning with Risk</i>); signal-detection theory.</p>

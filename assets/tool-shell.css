@@ -1,0 +1,37 @@
+/* Shared tool header: kicker 20px, title row 48px, 16px above and 12px below,
+   so the header is 96px at any width and never moves when fonts or scripts arrive. */
+body.mg-site .wrap:has(> [data-tool-header][data-shell]){margin-top:0;gap:0}
+body.mg-site .wrap > [data-tool-header][data-shell] + * ~ *{margin-top:20px}
+body.mg-site [data-tool-header][data-shell]{box-sizing:border-box;height:96px;max-width:none;margin:0;padding:16px 0 12px}
+body.mg-site [data-tool-header][data-shell] .kicker{display:block;box-sizing:border-box;height:20px;margin:0;font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool-titlerow{position:relative;display:flex;align-items:center;gap:8px;height:48px}
+body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:0;font-family:var(--mg-display);font-size:28px;line-height:48px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:1024px){body.mg-site [data-tool-header][data-shell] h1{font-size:32px}}
+.tool-file summary,.tool-share{box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;min-width:44px;min-height:44px;padding:0 14px;border:1px solid var(--mg-line);border-radius:0;background:transparent;color:var(--mg-ink);font:500 15px/1 var(--mg-sans);letter-spacing:0;text-transform:none;cursor:pointer;list-style:none}
+.tool-file summary::-webkit-details-marker{display:none}
+.tool-file summary::after{content:"";width:6px;height:6px;margin:-3px 0 0 2px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.tool-file[open] summary{border-color:var(--mg-ink)}
+.tool-share{background:var(--mg-ink);border-color:var(--mg-ink);color:var(--mg-paper)}
+.tool-share:disabled{opacity:.55;cursor:default}
+.tool-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:60;box-sizing:border-box;display:flex;flex-direction:column;width:min(300px,calc(100vw - 32px));max-height:min(70vh,34rem);overflow-y:auto;padding:4px;border:1px solid var(--mg-line);background:var(--mg-paper);color:var(--mg-ink);box-shadow:0 10px 28px rgb(0 0 0 / .14)}
+.tool-menu :is(button,a){box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:0;background:none;color:var(--mg-ink);font:400 15px/1.3 var(--mg-sans);letter-spacing:0;text-align:left;text-transform:none;text-decoration:none;cursor:pointer}
+.tool-menu :is(button,a):hover{background:color-mix(in srgb,var(--mg-ink) 8%,transparent)}
+.tool-menu :is(button,a):disabled{opacity:.5;cursor:default}
+.tool-menu [data-act=examples]::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.tool-menu [data-act=examples][aria-expanded=true]::after{margin-top:3px;transform:rotate(-135deg)}
+.tool-menu a[data-act=backup]{border-top:1px solid var(--mg-line);margin-top:4px}
+.tool-note{margin:0;padding:10px 12px 6px;color:var(--mg-muted);font:400 13px/1.4 var(--mg-sans)}
+.tool-examples{display:flex;flex-direction:column;margin:0 0 4px 12px;border-left:2px solid var(--mg-line)}
+.tool-examples[hidden]{display:none}
+.tool-status{position:absolute;right:0;top:calc(100% + 4px);z-index:70;box-sizing:border-box;max-width:min(320px,calc(100vw - 32px));margin:0;padding:8px 12px;border:1px solid var(--mg-line);background:var(--mg-paper);color:var(--mg-ink);font:400 13px/1.4 var(--mg-sans);pointer-events:none;box-shadow:0 10px 28px rgb(0 0 0 / .14)}
+.tool-status:empty{display:none}
+.tool-titlerow :focus-visible,.tool-work :focus-visible{outline:2px solid var(--mg-accent);outline-offset:2px}
+.tool-menu :focus-visible{outline-offset:-2px}
+/* Your work panel */
+.tool-work{max-height:calc(100dvh - 2rem)}
+.tool-work h3{margin:1.25rem 0 .5rem;font:500 1.25rem/1.3 var(--mg-display)}
+.tool-templates{list-style:none;margin:0;padding:0;border-top:1px solid var(--mg-line)}
+.tool-templates li{display:flex;flex-direction:column;gap:.25rem;padding:.5rem 0;border-bottom:1px solid var(--mg-line)}
+.tool-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.tool-work-all{display:inline-flex;align-items:center;min-height:44px;padding:0 .75rem;color:var(--mg-ink)}
+@media print{.tool-titlerow .tool-file,.tool-share,.tool-status{display:none}}

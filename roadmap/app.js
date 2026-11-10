@@ -1,14 +1,14 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {createSlideZip} from '../assets/export-zip.js';
 import {renderChapter, renderChapterPages} from './chapter-svg.js';
 import {chapterHero as focusHeroIndex, chapterNativeWidth} from './chapter-layout.js';
 import {stripEmbeddedFonts} from '../assets/chapter-fonts.js';
 import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {provide} from '../assets/tool-shell.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics, applyWorld} from './parse.js';
@@ -807,21 +807,16 @@ attachEditInPlace($('verdict').parentElement, {
 });
 
 /* ---------- example + import chips ---------- */
-$('newroadmap').addEventListener('click', () => { editor.setText(STARTER); ws.setCollapsed(true); });
-mountModelLink($('modelactions'), {getState: modelLinkState});
-exampleChips($('chips'), EXAMPLES, ex => { editor.setText(ex.src); $('examples').open = false; });
-{
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = 'Import markdown';
-  b.addEventListener('click', () => {
-    $('examples').open = false;
+mountModelLink(null, {getState: modelLinkState});
+provide({
+  blank: () => { editor.setText(STARTER); ws.setCollapsed(true); },
+  examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)})),
+  items: {'import-markdown': () => {
     ws.setCollapsed(false);
     $('importbox').classList.toggle('open');
     if($('importbox').classList.contains('open')) $('importarea').focus();
-  });
-  $('chips').appendChild(b);
-}
+  }},
+});
 
 /* ---------- exports ---------- */
 /* Download SVG/PNG = the current STYLE's plain, content-sized artefact (WYSIWYG),
@@ -1025,30 +1020,6 @@ snaps = wireSnapshots({
   canSnap: () => model && model.items.length,
   onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
-
-/* ---------- saved roadmaps ---------- */
-const SAVED_KEY = 'roadmap-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved roadmap ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!model || !model.items.length) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Roadmap ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 /* ---------- markdown import ---------- */
 function mdToDsl(md){
@@ -1417,7 +1388,6 @@ prepareTypography();
     try{ text = localStorage.getItem('roadmap-src') || ''; }catch(e){}
   }
   snaps.refresh();
-  renderSaved();
   sourceReady = true;
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();

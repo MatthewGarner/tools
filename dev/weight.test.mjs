@@ -577,7 +577,11 @@ test('per-page load stays under budget', () => {
     // Personal work: ~8k for durable organisation/change dates, ~10k for the
     // template store/editor. Catalogue pages deliberately exclude that editor.
     const personal = (files.has('assets/work-metadata.js') ? 8_000 : 0) + (files.has('assets/template-ui.js') ? 10_000 : 0);
-    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal;
+    // Shared tool header (2026-11, shell Phase 1): tool-shell.js + css 16.5k, the Your work
+    // panel's discovery and actions ~12k, model-link/popover focus ~6k where a page lacks
+    // them. Paid by every stamped page, so Phase 2 needs no per-page raises.
+    const shell = files.has('assets/tool-shell.js') ? 34_000 : 0;
+    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal + shell;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }
 });
