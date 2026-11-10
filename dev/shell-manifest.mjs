@@ -23,8 +23,18 @@
    dev/shell-manifest.test.mjs asserts it. Today's page h1s differ on several
    tools; stamping the header from this field is what fixes that. */
 
+import {ENERGY_TOOL_DIRS} from './tool-dirs.mjs';
+
 /* Spec section 2. Positions are CSS px from the top of the document. */
 export const HEADER_BUDGET = Object.freeze({phone: 215, laptop: 180});
+/* Energy pages carry the E1-E5 strip as the header's first row (one 44px row, no kicker), so their
+   header is 120px and their limit is the Product budget plus that row. */
+export const STRIP_HEIGHT = 44;
+export const HEADER_BUDGET_ENERGY = Object.freeze({phone: HEADER_BUDGET.phone + STRIP_HEIGHT, laptop: HEADER_BUDGET.laptop + STRIP_HEIGHT});
+export const HEADER_HEIGHT = Object.freeze({product: 96, energy: 96 + STRIP_HEIGHT - 20});
+export const isEnergy = dir => ENERGY_TOOL_DIRS.includes(dir);
+export const headerBudget = dir => isEnergy(dir) ? HEADER_BUDGET_ENERGY : HEADER_BUDGET;
+export const headerHeight = dir => isEnergy(dir) ? HEADER_HEIGHT.energy : HEADER_HEIGHT.product;
 export const ANCHOR_BUDGET = Object.freeze({phone: 280, laptop: 240});
 export const HEADER_CONTROLS_MAX = 2;
 /* An anchor must be a real surface, not a sliver or an empty container. */
@@ -39,9 +49,11 @@ export const VIEWPORTS = Object.freeze({
    Premortem's registers), listed first in the dialog; null where there are none.
    ownLink: the page has a #copylink that copies something other than the model's link, so the
    gate's one-verb check does not count it (Gauge's console copies the live room's join link,
-   which is not the question set). It is the one exemption and it is by id, not by loosened check. */
-const page = (name, anchor, {new: fresh, examples, templates, share, items = [], workspaces = null, ownLink = false}) =>
-  Object.freeze({name, anchor, new: fresh, examples, templates, share, items: Object.freeze(items), workspaces, ownLink, anchorBudget: false, shell: false});
+   which is not the question set). It is the one exemption and it is by id, not by loosened check.
+   longName: the title is too long for the phone title row at full size, so the stamped row steps it
+   down (data-long-name; a rule keyed on the flag, never on the page's path). */
+const page = (name, anchor, {new: fresh, examples, templates, share, items = [], workspaces = null, ownLink = false, longName = false}) =>
+  Object.freeze({name, anchor, new: fresh, examples, templates, share, items: Object.freeze(items), workspaces, ownLink, longName, anchorBudget: false, shell: false});
 
 export const SHELL_MANIFEST = Object.freeze(Object.fromEntries(Object.entries({
   fermi: {...page('Fermi', '#results', {new: false, examples: false, templates: true, share: true}), shell: true},
@@ -62,9 +74,9 @@ export const SHELL_MANIFEST = Object.freeze(Object.fromEntries(Object.entries({
   case: {...page('Case file', '#preview', {new: true, examples: true, templates: false, share: true}), shell: true},
   paths: {...page('Paths', '#preview', {new: true, examples: true, templates: false, share: true}), shell: true},
   proxy: {...page('Proxy Hunt', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
-  cycles: page('Cycle budget', '#preview', {new: true, examples: true, templates: true, share: true}),
-  risk: page('Risk transfer', '#preview', {new: true, examples: true, templates: true, share: true}),
-  frequency: page('Frequency & inertia', '#trace', {new: false, examples: true, templates: false, share: true}),
-  'merit-order': page('Merit order', '#chartwrap', {new: true, examples: true, templates: true, share: true}),
-  intraday: page('A day through the stack', '#stackwrap', {new: true, examples: true, templates: true, share: true}),
+  cycles: {...page('Cycle budget', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
+  risk: {...page('Risk transfer', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
+  frequency: {...page('Frequency & inertia', '#trace', {new: false, examples: false, templates: false, share: true, longName: true}), shell: true},
+  'merit-order': {...page('Merit order', '#chartwrap', {new: false, examples: false, templates: true, share: true}), shell: true},
+  intraday: {...page('A day through the stack', '#stackwrap', {new: false, examples: false, templates: true, share: true, longName: true}), shell: true},
 }).map(([dir, entry]) => [dir, Object.freeze(entry)])));

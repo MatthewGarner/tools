@@ -18,6 +18,8 @@ function init(row){
   const menu = file.querySelector('.tool-menu'), status = row.querySelector('[role=status]');
   const list = row.querySelector('[data-shell-examples-list]'), toggle = row.querySelector('[data-act=examples]');
   const name = row.querySelector('h1').textContent, caps = {};
+  const strip = header.querySelector(':scope > .series');
+  if(strip) initStrip(strip);
   const need = {
     save: () => caps.save, new: () => caps.blank, 'new-template': () => caps.templates, template: () => caps.templates,
     share: () => caps.getState || caps.getHash, examples: () => caps.examples, item: b => caps.items?.[b.dataset.item],
@@ -107,4 +109,25 @@ function init(row){
   let timer;
   new MutationObserver(() => { clearTimeout(timer); if(status.textContent) timer = setTimeout(() => { status.textContent = ''; }, 8000); })
     .observe(status, {childList: true, characterData: true, subtree: true});
+}
+
+/* Energy's E1-E5 strip: bring the current item on screen by moving the strip itself (never the page), keep an
+   edge fade honest about which sides still hide something, and leave the reader's own scrolling alone. */
+function initStrip(strip){
+  let touched = false;
+  const fade = () => {
+    const max = strip.scrollWidth - strip.clientWidth;
+    if(max <= 1) strip.removeAttribute('data-fade');
+    else strip.dataset.fade = strip.scrollLeft <= 1 ? 'end' : strip.scrollLeft >= max - 1 ? 'start' : 'both';
+  };
+  const centre = () => {
+    const current = strip.querySelector('[aria-current]');
+    if(current && !touched) strip.scrollLeft = Math.max(0, current.offsetLeft - (strip.clientWidth - current.offsetWidth) / 2);
+    fade();
+  };
+  for(const type of ['pointerdown', 'wheel', 'keydown']) strip.addEventListener(type, () => { touched = true; }, {passive: true});
+  strip.addEventListener('scroll', fade, {passive: true});
+  new ResizeObserver(centre).observe(strip);
+  centre();
+  document.fonts?.ready.then(centre);
 }

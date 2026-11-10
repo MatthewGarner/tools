@@ -1,12 +1,9 @@
 /* Small DOM affordances shared by the Energy instruments. */
 import {mountRecentSave} from './recent-work.js';
-export function wireModelLink(button, getLink){
+/* The page's own link builder is what Share copies and Save a copy stores, so a link reopens
+   exactly the model the page shows, including what it pins or selects. */
+export function wireModelLink(getLink){
   mountRecentSave({getHash:getLink});
-  button.addEventListener('click', async () => {
-    try{ await navigator.clipboard.writeText(getLink()); button.textContent = 'Copied model link'; }
-    catch{ button.textContent = 'Copy blocked — use browser URL'; }
-    setTimeout(() => { button.textContent = 'Copy model link'; }, 2000);
-  });
 }
 export function mountTargetPicker(host, {label, getTargets, open}){
   const group = document.createElement('div'); group.className = 'energy-target-picker';

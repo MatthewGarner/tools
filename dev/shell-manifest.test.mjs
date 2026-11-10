@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from './tool-dirs.mjs';
 import {SUITE_CATALOG} from '../assets/suite-catalog.js';
-import {SHELL_MANIFEST, HEADER_BUDGET, ANCHOR_BUDGET, HEADER_CONTROLS_MAX} from './shell-manifest.mjs';
+import {SHELL_MANIFEST, HEADER_BUDGET, HEADER_BUDGET_ENERGY, headerHeight, headerBudget, ANCHOR_BUDGET, HEADER_CONTROLS_MAX} from './shell-manifest.mjs';
 
 const dirs = [...TOOL_DIRS, ...ENERGY_TOOL_DIRS];
 
@@ -31,7 +31,7 @@ test('every anchor is a non-empty selector and every flag is a boolean', () => {
   for(const [dir, entry] of Object.entries(SHELL_MANIFEST)){
     assert.equal(typeof entry.anchor, 'string', dir + ': anchor is not a string');
     assert.ok(entry.anchor.length > 0 && entry.anchor === entry.anchor.trim(), dir + ': anchor is empty or padded');
-    for(const flag of ['new', 'examples', 'templates', 'share', 'anchorBudget', 'shell', 'ownLink'])
+    for(const flag of ['new', 'examples', 'templates', 'share', 'anchorBudget', 'shell', 'ownLink', 'longName'])
       assert.equal(typeof entry[flag], 'boolean', dir + ': ' + flag + ' must be a boolean');
   }
 });
@@ -40,4 +40,12 @@ test('the budgets are the spec section 2 numbers', () => {
   assert.deepEqual({...HEADER_BUDGET}, {phone: 215, laptop: 180});
   assert.deepEqual({...ANCHOR_BUDGET}, {phone: 280, laptop: 240});
   assert.equal(HEADER_CONTROLS_MAX, 2);
+});
+
+test('Energy pages add the 44px strip row to the Product budget and header height', () => {
+  assert.deepEqual({...HEADER_BUDGET_ENERGY}, {phone: 259, laptop: 224});
+  assert.equal(headerHeight('fermi'), 96);
+  assert.equal(headerHeight('cycles'), 120);
+  assert.deepEqual({...headerBudget('risk')}, {phone: 259, laptop: 224});
+  assert.deepEqual({...headerBudget('rank')}, {phone: 215, laptop: 180});
 });

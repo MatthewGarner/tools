@@ -10,7 +10,7 @@ export const TOOL_DIRS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gau
 
 /* Binders sit APART from the instrument numbering (Matt, 2026-08-02): /case is
    an optional layer that BINDS instruments rather than being one — its kicker
-   reads "CASE FILE — {status}", home shows it as a distinct binder band below
+   reads "BINDER — {epithet}", home shows it as a distinct binder band below
    the numbered index, and scaffold/kicker-index treat it as the documented
    exception (INSTRUMENTS == TOOL_DIRS minus BINDERS). */
 export const BINDERS = ['case'];

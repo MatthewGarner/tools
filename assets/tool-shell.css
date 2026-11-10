@@ -62,3 +62,20 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
 .tool-stage-row + .workspace{margin-top:0}
 /* a page whose first block wraps its workspace (Gauge's #compose) sits flush too */
 .wrap:has(> [data-tool-header][data-shell]) + main > :first-child > .workspace:first-child{margin-top:0}
+/* a page's action row at the top of main keeps the header's 16px gutter on phones, both sides */
+@media(max-width:519px){main > .tool-stage-row{box-sizing:border-box;padding-inline:16px}}
+/* Energy pages: the E1-E5 strip is the first row of the header (the kicker stays hidden there, so no empty line).
+   16px above + 44px strip + 48px title row + 12px below = 120px. One row that never wraps; it scrolls sideways
+   when it does not fit, with an edge fade as the cue (tool-shell.js sets data-fade and centres the current item). */
+:root[data-mg-section='energy'] body.mg-site [data-tool-header][data-shell]{height:120px}
+[data-tool-header][data-shell] > .series{position:relative;box-sizing:border-box;display:flex;flex-wrap:nowrap;gap:0 24px;height:44px;margin:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;box-shadow:inset 0 -1px 0 var(--border)}
+[data-tool-header][data-shell] > .series::-webkit-scrollbar{display:none}
+[data-tool-header][data-shell] > .series a{flex:none;box-sizing:border-box;height:44px;min-height:44px;padding:0;white-space:nowrap}
+[data-tool-header][data-shell] > .series a:focus-visible{outline:2px solid var(--accent);outline-offset:-4px}
+[data-tool-header][data-shell] > .series[data-fade=end]{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent)}
+[data-tool-header][data-shell] > .series[data-fade=start]{-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 32px),transparent)}
+[data-tool-header][data-shell] > .series[data-fade=both]{-webkit-mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
+/* a long title (manifest longName) steps down a size on phones and may take two lines inside the 48px row (nothing is
+   clipped: the glyph box is taller than the 24px line); below 360px a size further, so it is whole at 320 and 375 */
+@media(max-width:519px){body.mg-site .tool-titlerow[data-long-name] h1{max-height:48px;font-size:24px;line-height:24px;white-space:normal;overflow-wrap:break-word;overflow:visible}}
+@media(max-width:359px){body.mg-site .tool-titlerow[data-long-name] h1{font-size:20px;line-height:22px}}
