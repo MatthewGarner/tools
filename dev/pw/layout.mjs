@@ -357,7 +357,7 @@ if(scope.wants("tree")){
   const ctx = await browser.newContext({...devices['iPhone 13'], colorScheme: 'light'});
   const page = await ctx.newPage();
   await page.goto(BASE + '/tree/', {waitUntil: 'networkidle'});
-  await page.getByRole('button', {name: 'Bid or no bid'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Bid or no bid'}).click();
   await page.waitForTimeout(500);
   check('/tree/ coarse: indent bar visible', await page.locator('.cm-indentbar').isVisible());
   const before = await page.evaluate(() => localStorage.getItem('tree-src'));

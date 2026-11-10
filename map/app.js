@@ -13,7 +13,6 @@ import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -200,28 +199,6 @@ attachEditInPlace($('preview'), {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 mountDocumentStart($('chips'));
 
-const SAVED_KEY = 'map-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved map ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!hasContent()) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Map ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 paintKicker($('kicker'), '06', 'Two axes, named zones');
 
@@ -405,7 +382,6 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('map-src') || ''; }catch(e){}
   }
-  renderSaved();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

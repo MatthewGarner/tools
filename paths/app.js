@@ -35,7 +35,6 @@ import {download, measure, isDark, themeColors, onThemeChange, renderWarningList
 import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {paintKicker} from '../assets/verdict.js';
@@ -1555,31 +1554,6 @@ const ws = initWorkspace({
 exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src), {start: {src: STARTER}});
 mountDocumentStart($('chips'));
 
-const SAVED_KEY = 'paths-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel:item => 'Delete saved paths ' + item.name,
-    onLoad:item => editor.setText(item.src),
-    onDelete:(_item, index) => {
-      const list = loadSaved(SAVED_KEY);
-      list.splice(index, 1);
-      storeSaved(SAVED_KEY, list);
-      renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!model || (!model.items.length && !model.decisions.length)) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name:(model.title || `Paths ${list.length + 1}`).slice(0, 28), src:editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 function wideSvg(){
   if(!model || (!model.items.length && !model.decisions.length)) return null;
@@ -1738,7 +1712,6 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('paths-src') || ''; }catch(_){ }
   }
-  renderSaved();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(LANTERN))) refresh();
 })();

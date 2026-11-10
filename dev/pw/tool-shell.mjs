@@ -7,6 +7,7 @@ import {chromium} from 'playwright';
 import {SHELL_MANIFEST, VIEWPORTS} from '../shell-manifest.mjs';
 import {shellRegion, headBlock} from '../sync-shell.mjs';
 import {checkInjectedModelLink} from './model-link-check.mjs';
+import {SOURCE_TOOLS} from '../../assets/saved-work-keys.js';
 import {scopeFor} from './_scope.mjs';
 import {until, trackErrors, openFileMenu, fileItem} from './_harness.mjs';
 const scope = scopeFor('tool-shell.mjs');
@@ -30,8 +31,10 @@ const menuNames = e => [
 /* Per page: make the model distinctly "one" or "two", and read which it is. */
 const MODEL = {
   roadmap: {
+    exampleFor: {1: 'Quarterly view', 2: 'Simple (no lanes)', 3: 'Reading app roadmap'},
+    isBlank: async p => (await p.locator('.cm-content').textContent()).includes('title: Your roadmap'),
     async edit(p, n){ await fileItem(p, 'Examples'); await p.getByRole('button', {name: n === 1 ? 'Quarterly view' : n === 2 ? 'Simple (no lanes)' : 'Reading app roadmap', exact: true}).click(); },
-    read: async p => { const t = await p.locator('.cm-content').textContent(); return t.includes('Platform Delivery Plan') ? 'one' : t.includes('Team roadmap') ? 'two' : 'other'; },
+    read: async p => { const t = await p.locator('.cm-content').textContent(); return t.includes('Platform Delivery Plan') ? 'one' : t.includes('Team roadmap') ? 'two' : t.includes('Lantern / Product roadmap') ? 'three' : /title: (legacy-\w+)/.exec(t)?.[1] ?? 'other'; },
   },
   fermi: {
     async edit(p, n){
@@ -50,6 +53,50 @@ const MODEL = {
     read: async p => { const v = await p.locator('#baseRate').inputValue(); return v === '-1.2' ? 'one' : v === '-1.5' ? 'two' : 'other'; },
   },
 };
+
+/* The ten Phase 2 batch 1 pages. DSL pages are driven through the editor's document (the
+   CodeMirror view hangs off .cm-content), so the model is the title line: shell-one, shell-two,
+   shell-three, or a seeded legacy-… copy; anything else (a starter, an example) reads "other". */
+const docOf = p => p.evaluate(() => document.querySelector('.cm-content').cmTile.view.state.doc.toString());
+const titleLabel = text => { const m = /^title:\s*(.*)$/m.exec(text)?.[1] ?? ''; return /^shell-/.test(m) ? m.slice(6) : /^legacy-/.test(m) ? m : 'other'; };
+const dsl = {
+  async edit(p, n){
+    await p.evaluate(label => {
+      const view = document.querySelector('.cm-content').cmTile.view, now = view.state.doc.toString();
+      const next = /^title:/m.test(now) ? now.replace(/^title:.*$/m, 'title: ' + label) : 'title: ' + label + '\n' + now;
+      view.dispatch({changes: {from: 0, to: now.length, insert: next}});
+    }, ['', 'shell-one', 'shell-two', 'shell-three'][n]);
+  },
+  read: async p => titleLabel(await docOf(p)),
+  isBlank: async p => /^title:\s*Your /m.test(await docOf(p)),   // every starter is titled "Your …"
+};
+const LABELS = {one: 1, two: 2, three: 3};
+const inputModel = (selector, values) => ({
+  async edit(p, n){ await p.locator(selector).first().fill(values[n]); },
+  read: async p => { const v = await p.locator(selector).first().inputValue(); const i = values.indexOf(v); return i > 0 ? ['', 'one', 'two', 'three'][i] : 'other'; },
+  isBlank: async p => (await p.locator(selector).first().inputValue()).startsWith('Your '),
+});
+/* names the File > Examples list must offer, from each page's own example data */
+const EXAMPLE_NAMES = {
+  why: ['Reading retention', 'Two outcomes'], tree: ['Bid or no bid', 'Build vs buy'],
+  map: ['Assumption map', 'Futures matrix', 'RAG honesty', 'Risk grid', 'Skills coverage', 'Stakeholder grid'],
+  wardley: ['Lantern platform', 'Online tea shop'], bets: ['Lantern portfolio', 'Quick gut check'], paths: ['Lantern'],
+  proxy: ['Monitor a measure', 'Trade-off pending', 'Two theories'], rank: ['Classic product backlog', 'Lantern feature backlog', 'Ops & infra backlog'],
+  roadmap: ['Reading app roadmap', 'Quarterly view', 'Simple (no lanes)'],
+};
+/* old stores: <tool>-saved copies and <tool>-snaps baselines are read by readNativeWork */
+const legacyDsl = (key, baseline) => ({key, baseline, names: ['Legacy plan one', 'Legacy plan two'],
+  items: [{name: 'Legacy plan one', src: 'title: legacy-one\n'}, {name: 'Legacy plan two', src: 'title: legacy-two\n'}]});
+const LEGACY = {
+  roadmap: legacyDsl('roadmap-saved', 'roadmap-snaps'), why: legacyDsl('why-saved', 'why-snaps'), tree: legacyDsl('tree-saved'),
+  map: legacyDsl('map-saved', 'map-snaps'), bets: legacyDsl('bets-saved', 'bets-snaps'), paths: legacyDsl('paths-saved'), proxy: legacyDsl('proxy-saved'),
+};
+Object.assign(MODEL, {why: dsl, tree: dsl, map: dsl, wardley: dsl, bets: dsl, paths: dsl, proxy: dsl,
+  rank: inputModel('#rows input.iname', ['', 'shell-one', 'shell-two', 'shell-three']),
+  duel: inputModel('#question', ['', 'shell-one', 'shell-two', 'shell-three']),
+  flow: inputModel('#demand', ['', '3.5', '6', '8']),
+});
+
 const ready = p => p.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached', timeout: 15000});
 const copies = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('mg:recent:v1:')).map(k => JSON.parse(localStorage.getItem(k))));
 const templates = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('mg:template:v1:')).map(k => JSON.parse(localStorage.getItem(k))));
@@ -145,7 +192,7 @@ for(const dir of SHELLS){
       ok(lb.x >= mb2.x && lb.x + lb.width <= mb2.x + mb2.width + 1 && lb.y >= mb2.y && lb.y + lb.height <= mb2.y + mb2.height + 1,
         `${where}: the example list opens inside the menu`);
       const items = await list.locator('button').evaluateAll(els => els.map(el => [el.textContent.trim(), el.getBoundingClientRect().height]));
-      ok(items.length >= 2 && items.every(([, h]) => h >= 44), `${where}: examples are ${items.length} targets of at least 44px (${items.map(i => i[0]).join(', ')})`);
+      ok(items.length === (EXAMPLE_NAMES[dir]?.length ?? items.length) && items.length >= 1 && items.every(([, h]) => h >= 44), `${where}: examples are ${items.length} targets of at least 44px (${items.map(i => i[0]).join(', ')})`);
       ok((await geometry(page)).width <= size.width, `${where}: no horizontal overflow with Examples expanded`);
       await page.keyboard.press('Escape');
     }
@@ -295,21 +342,39 @@ for(const dir of SHELLS){
       if(entry.new){
         await model.edit(page, 2);
         await fileItem(page, 'New');
-        ok(await until(async () => await model.read(page) === 'other', {timeout: 6000}), `${dir}: with no default, New starts the page's own blank model`);
+        ok(await until(async () => model.isBlank ? await model.isBlank(page) : await model.read(page) === 'other', {timeout: 6000}), `${dir}: with no default, New starts the page's own blank model`);
       }
     } else {
       ok(!(await page.locator('[data-act=template]').count()), `${dir}: no Save as template… where the manifest grants no templates`);
-      ok(!(await page.locator('[data-act=new], [data-act=new-template]').count()), `${dir}: no New where the manifest grants neither a blank start nor templates`);
+      ok(!(await page.locator('[data-act=new-template]').count()), `${dir}: no New from template… where the manifest grants no templates`);
+      if(entry.new){
+        await model.edit(page, 2);
+        await fileItem(page, 'New');
+        ok(await until(async () => model.isBlank ? await model.isBlank(page) : await model.read(page) === 'other', {timeout: 6000}), `${dir}: New starts the page's own blank model`);
+      } else ok(!(await page.locator('[data-act=new]').count()), `${dir}: no New where the manifest grants no blank start`);
     }
 
-    /* Examples: choosing one loads it and closes the menu */
+    /* Examples: each one loads as it did from the old chip, and choosing it closes the menu */
     if(entry.examples){
+      const wanted = EXAMPLE_NAMES[dir];
+      await model.edit(page, 1);
       await fileItem(page, 'Examples');
       const names2 = await page.locator('[data-shell-examples-list] button').allTextContents();
-      ok(names2.includes('Quarterly view') && names2.includes('Simple (no lanes)') && names2.includes('Reading app roadmap'), `${dir}: Examples lists the tool's examples (${names2.join(', ')})`);
-      await page.getByRole('button', {name: 'Simple (no lanes)', exact: true}).click();
-      ok(await until(async () => await model.read(page) === 'two', {timeout: 6000}), `${dir}: choosing an example loads it`);
-      ok(!(await page.locator('[data-shell-file] .tool-menu').isVisible()), `${dir}: choosing an example closes the menu`);
+      ok(JSON.stringify([...names2].sort()) === JSON.stringify([...wanted].sort()), `${dir}: Examples lists exactly the tool's examples [${wanted.join(' | ')}] (got [${names2.join(' | ')}])`);
+      await page.keyboard.press('Escape');
+      const label = n => ['', 'one', 'two', 'three'][n];
+      for(const example of wanted){
+        /* start from a model that is not this example (Roadmap's edit() is itself an example) */
+        const from = [1, 2, 3].find(n => model.exampleFor?.[n] !== example) ?? 1;
+        await model.edit(page, from);
+        ok(await model.read(page) === label(from), `${dir}: before "${example}" the model is the one we set (${label(from)})`);
+        await fileItem(page, 'Examples');
+        await page.getByRole('button', {name: example, exact: true}).click();
+        /* where an example is also an edit() state, its label is known; elsewhere it must at least replace the model */
+        const known = model.exampleFor ? label(Object.keys(model.exampleFor).find(n => model.exampleFor[n] === example)) : null;
+        const loaded = await until(async () => known ? await model.read(page) === known : await model.read(page) !== label(from), {timeout: 6000});
+        ok(loaded && !(await page.locator('[data-shell-file] .tool-menu').isVisible()), `${dir}: choosing "${example}" replaces the model${known ? ' with ' + known : ''} and closes File`);
+      }
     }
     ok(errors.length === 0, `${dir}: no console errors through the item flows (${errors.join(' | ').slice(0, 160)})`);
     await context.close();
@@ -318,20 +383,17 @@ for(const dir of SHELLS){
   /* ---- Your work: rows, focus, order, legacy stores (laptop, seeded) ---- */
   {
     const context = await browser.newContext(laptopOpts), page = await context.newPage(), errors = trackErrors(page);
-    await context.addInitScript(({dir, legacy, withTemplate}) => {
+    await context.addInitScript(({dir, legacy, withTemplate, seed}) => {
       if(localStorage.getItem('__seeded')) return;
       localStorage.setItem('__seeded', '1');
       const rec = (id, name, ago) => localStorage.setItem('mg:recent:v1:tools:' + id, JSON.stringify({v: 1, scope: 'tools', id, tool: dir, name, hash: 'e30', savedAt: Date.now() - ago}));
       rec('alpha', 'Alpha copy', 3000); rec('beta', 'Beta copy', 2000); rec('gamma', 'Gamma copy', 1000);
       if(withTemplate) localStorage.setItem('mg:template:v1:tools:' + dir + ':t1', JSON.stringify({v: 1, scope: 'tools', tool: dir, id: 't1', name: 'Seeded shape', format: 'model-link', content: 'e30', savedAt: Date.now()}));
-      if(legacy === 'roadmap'){
-        localStorage.setItem('roadmap-saved', JSON.stringify([{name: 'Legacy plan one', src: 'title: One\nNOW\nA'}, {name: 'Legacy plan two', src: 'title: Two\nNOW\nB'}]));
-        localStorage.setItem('roadmap-snaps', JSON.stringify([{label: '2026-09-01 — Q3 baseline', src: 'title: Q3\nNOW\nA'}]));
-      }
+      for(const [key, value] of seed) localStorage.setItem(key, value);
       if(legacy === 'fermi') localStorage.setItem('fermi-models', JSON.stringify([
         {name: 'Legacy piano', f: 'a * b', v: {a: ['10', '20', 'auto'], b: ['3', '5', 'auto']}, q: 'Legacy question one'},
         {name: 'Legacy lamps', f: 'a * b', v: {a: ['5', '9', 'auto'], b: ['2', '4', 'auto']}, q: 'Legacy question two'}]));
-    }, {dir, legacy: dir === 'roadmap' || dir === 'fermi' ? dir : '', withTemplate: entry.templates});
+    }, {dir, legacy: dir === 'fermi' ? dir : '', withTemplate: entry.templates, seed: LEGACY[dir] ? [[LEGACY[dir].key, JSON.stringify(LEGACY[dir].items)], ...(LEGACY[dir].baseline ? [[LEGACY[dir].baseline, JSON.stringify([{label: '2026-09-01 — baseline', src: 'title: baseline-one\n'}])]] : [])] : []});
     await page.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(page);
     const panelName = 'Your work in ' + entry.name, panel = () => page.getByRole('dialog', {name: panelName});
     const openPanel = async () => { await fileItem(page, 'Your work…'); const d = panel(); await d.waitFor(); return d; };
@@ -339,7 +401,7 @@ for(const dir of SHELLS){
     const stored = () => copies(page);
     let d = await openPanel();
     const rowNames = () => d.locator('section[data-sec=copies] .recent-name').allTextContents();
-    const seededOrder = ['Gamma copy', 'Beta copy', 'Alpha copy', ...(dir === 'roadmap' ? ['Legacy plan one', 'Legacy plan two'] : []), ...(dir === 'fermi' ? ['Legacy lamps', 'Legacy piano'] : [])];
+    const seededOrder = ['Gamma copy', 'Beta copy', 'Alpha copy', ...(LEGACY[dir]?.names ?? []), ...(dir === 'fermi' ? ['Legacy lamps', 'Legacy piano'] : [])];
     ok(JSON.stringify(await rowNames()) === JSON.stringify(seededOrder), `${dir}: Your work lists the seeded and legacy copies, newest first, legacy after (${(await rowNames()).join(', ')})`);
 
     /* Pin keeps focus on the row's control */
@@ -352,7 +414,7 @@ for(const dir of SHELLS){
     ok(!(await sectionTitles(d)).includes('Archived') && await focusHeld(page), `${dir}: Restore brings it back`);
     await manage(d, 'Alpha copy', 'Archive');
     const order = await sectionTitles(d);
-    const wantOrder = ['Saved copies', ...(entry.templates ? ['Templates'] : []), ...(dir === 'roadmap' ? ['Comparison baselines'] : []), 'Archived'];
+    const wantOrder = ['Saved copies', ...(entry.templates ? ['Templates'] : []), ...(LEGACY[dir]?.baseline ? ['Comparison baselines'] : []), 'Archived'];
     ok(JSON.stringify(order) === JSON.stringify(wantOrder), `${dir}: sections read ${wantOrder.join(' > ')} (got ${order.join(' > ')})`);
     /* Rename: a nested dialog opens and closes; focus must come back inside */
     await d.getByLabel('Manage Gamma copy', {exact: true}).click();
@@ -368,14 +430,19 @@ for(const dir of SHELLS){
     await page.locator('.recent-dialog:not(.tool-work)').waitFor({state: 'detached'});
     ok(!(await stored()).some(r => r.name === 'Gamma renamed') && await focusHeld(page), `${dir}: Remove deletes the copy and focus stays in the dialog (${await page.evaluate(() => document.activeElement.getAttribute('aria-label') || document.activeElement.textContent.slice(0, 20))})`);
 
-    if(dir === 'roadmap'){
-      ok(await d.locator('section[data-sec=baselines] a').getAttribute('href').then(h => /\?baseline=/.test(h)), `${dir}: a comparison baseline opens in History by link`);
-      await d.getByLabel('Manage Legacy plan one', {exact: true}).click();
-      await d.getByRole('button', {name: 'Remove Legacy plan one', exact: true}).click();
+    if(LEGACY[dir]){
+      const legacy = LEGACY[dir];
+      if(legacy.baseline) ok(await d.locator('section[data-sec=baselines] a').getAttribute('href').then(h => /\?baseline=/.test(h)), `${dir}: a comparison baseline opens in History by link`);
+      await d.getByLabel('Manage ' + legacy.names[0], {exact: true}).click();
+      await d.getByRole('button', {name: 'Remove ' + legacy.names[0], exact: true}).click();
       await page.locator('.recent-dialog:not(.tool-work)').getByRole('button', {name: 'Remove copy', exact: true}).click();
       await page.locator('.recent-dialog:not(.tool-work)').waitFor({state: 'detached'});
-      const left = await page.evaluate(() => JSON.parse(localStorage.getItem('roadmap-saved')));
-      ok(left.length === 1 && left[0].name === 'Legacy plan two' && await focusHeld(page), `${dir}: removing a legacy roadmap-saved copy rewrites the store (left: ${left.map(l => l.name)})`);
+      const left = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), legacy.key);
+      ok(left.length === 1 && left[0].name === legacy.names[1] && await focusHeld(page), `${dir}: removing a legacy ${legacy.key} copy rewrites the store (left: ${left.map(l => l.name)})`);
+      /* the survivor opens: this page reloads on it */
+      await d.getByRole('link', {name: new RegExp(legacy.names[1])}).click();
+      await page.waitForLoadState('networkidle'); await ready(page);
+      ok(await until(async () => await model.read(page) === 'legacy-two', {timeout: 8000}), `${dir}: a legacy ${legacy.key} copy opens from Your work with its source (read ${await model.read(page)})`);
     }
     if(dir === 'fermi'){
       /* open a legacy estimate while the page is in cashflow mode: it reloads into the estimate */
@@ -451,13 +518,13 @@ for(const dir of SHELLS){
     ok(text.split('Browser storage is unavailable').length - 1 === 1, `${dir}: with storage unavailable the message appears once (${text.split('Browser storage is unavailable').length - 1} times)`);
     await context.close();
   }
-  if(dir === 'roadmap'){
+  if(SOURCE_TOOLS.includes(dir)){
     const context = await browser.newContext(laptopOpts), page = await context.newPage();
-    await context.addInitScript(() => { if(!localStorage.getItem('roadmap-src') && !localStorage.getItem('__seeded')){ localStorage.setItem('__seeded', '1'); localStorage.setItem('roadmap-src', 'title: Mine\nNOW\nA: thing'); } });
-    await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}); await ready(page);
+    await context.addInitScript(({dir}) => { if(!localStorage.getItem(dir + '-src') && !localStorage.getItem('__seeded')){ localStorage.setItem('__seeded', '1'); localStorage.setItem(dir + '-src', 'title: Mine\n'); } }, {dir});
+    await page.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'}); await ready(page);
     await fileItem(page, 'Your work…');
-    const d = page.getByRole('dialog', {name: 'Your work in Roadmap'}); await d.waitFor();
-    ok((await d.textContent()).includes('No saved copies of Roadmap yet. Your draft is kept in this browser as you work.'), `${dir}: with a draft but no copies, Your work says the draft is kept`);
+    const d = page.getByRole('dialog', {name: 'Your work in ' + entry.name}); await d.waitFor();
+    ok((await d.textContent()).includes(`No saved copies of ${entry.name} yet. Your draft is kept in this browser as you work.`), `${dir}: with a draft but no copies, Your work says the draft is kept`);
     await context.close();
   }
   {
@@ -641,10 +708,10 @@ if(!scope.focused){
   scope.unscoped();
   {
     /* an unmigrated page still injects its own controls */
-    const {context, page} = await (async () => { const context = await browser.newContext(laptopOpts), page = await context.newPage(); await page.goto(T + '/why/', {waitUntil: 'networkidle'}); return {context, page}; })();
+    const {context, page} = await (async () => { const context = await browser.newContext(laptopOpts), page = await context.newPage(); await page.goto(T + '/timeline/', {waitUntil: 'networkidle'}); return {context, page}; })();
     await page.locator('.recent-save').waitFor();
     ok(!(await page.locator('[data-shell-row]').count()) && await page.locator('[data-tool-header] .recent-save').count() === 1 && await page.locator('[data-tool-header] button.model-link').count() === 1,
-      'unmigrated why: still injects Save a copy and Copy model link into its header');
+      'unmigrated timeline: still injects Save a copy and Copy model link into its header');
     await context.close();
   }
   {
@@ -686,11 +753,11 @@ window.returned = [mountDocumentStart(document.getElementById('chips')), mountMo
   {
     /* the injected "Copy model link" button, on a page that is not migrated */
     const context = await browser.newContext(laptopOpts), page = await context.newPage();
-    await page.goto(T + '/why/', {waitUntil: 'networkidle'});
+    await page.goto(T + '/timeline/', {waitUntil: 'networkidle'});
     await page.locator('.recent-save').waitFor();
     let problem = '';
     try{ await checkInjectedModelLink(page); }catch(error){ problem = error.message.split('\n')[0]; }
-    ok(!problem, 'unmigrated why: mountModelLink still injects a working Copy model link button' + (problem ? ' — ' + problem : ''));
+    ok(!problem, 'unmigrated timeline: mountModelLink still injects a working Copy model link button' + (problem ? ' — ' + problem : ''));
     await context.close();
   }
   {

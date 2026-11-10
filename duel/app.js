@@ -185,11 +185,6 @@ $('copydoc').addEventListener('click', async () => {
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
-$('copylink').addEventListener('click', async () => {
-  await writeHashState(state);           // share the choice that was just made, not its previous hash
-  try{ await navigator.clipboard.writeText(location.href); flash('copylink', 'Copied'); }
-  catch(e){ prompt('Copy this link:', location.href); }
-});
 function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = msg; setTimeout(() => { b.textContent = was; }, 1500); }
 
 /* ---------- examples ---------- */

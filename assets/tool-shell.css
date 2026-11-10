@@ -2,6 +2,9 @@
    so the header is 96px at any width and never moves when fonts or scripts arrive. */
 body.mg-site .wrap:has(> [data-tool-header][data-shell]){margin-top:0;gap:0}
 body.mg-site .wrap > [data-tool-header][data-shell] + * ~ *{margin-top:20px}
+/* main starts at the header's bottom edge, whether it sits in the header's .wrap or follows it:
+   a margin on its first child (the workspace's 28px) would collapse through main and push it down */
+.wrap:has(> [data-tool-header][data-shell]) + main > :first-child,[data-tool-header][data-shell] + main > :first-child{margin-top:0}
 body.mg-site [data-tool-header][data-shell]{box-sizing:border-box;height:96px;max-width:none;margin:0;padding:16px 0 12px}
 body.mg-site [data-tool-header][data-shell] .kicker{box-sizing:border-box;height:20px;margin:0;font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool-titlerow{position:relative;display:flex;align-items:center;gap:8px;height:48px}

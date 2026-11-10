@@ -76,16 +76,16 @@ async function installAndWait(page){
        then asserts what it changed TO. (Should a future example edit make the two
        counts equal, this degrades to a 4s wait and a correct pass — never a false
        green.) */
-    ['/rank/', async p => { const was = await p.locator('.rankbar').count(); await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await until(() => p.locator('.rankbar').count().then(n => n !== was)); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
+    ['/rank/', async p => { const was = await p.locator('.rankbar').count(); await openExamples(p); await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await until(() => p.locator('.rankbar').count().then(n => n !== was)); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
     ['/roadmap/', async p => { await openRoadmapSource(p); await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
-    ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/tree/', async p => { await openExamples(p); await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await persisted(p, 'gauge-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await shown(p, '#verdictwrap svg'); return await p.locator('#verdictwrap svg').count() === 1; }],
     ['/timeline/', async p => { await showSourceIfReading(p); await openExamples(p); await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Lantern platform'}).click(); await persisted(p, 'wardley-src'); return await p.locator('#preview svg').count() === 1; }],
-    ['/bets/', async p => { await p.getByRole('button', {name: 'Lantern portfolio'}).click(); await persisted(p, 'bets-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/bets/', async p => { await openExamples(p); await p.getByRole('button', {name: 'Lantern portfolio'}).click(); await persisted(p, 'bets-src'); return await p.locator('#preview svg').count() === 1; }],
     /* the gate canvas is sized by the first paint, so width>100 is false until it runs */
     ['/alarm/', async p => { await until(() => p.locator('#gate').evaluate(c => c.width > 100)); return await p.locator('#distwrap svg').count() === 1 && await p.locator('#gate').evaluate(c => c.width > 100); }],
     ['/duel/', async p => { await p.locator('#start').click(); await shown(p, '#duelwrap [data-pick]'); return await p.locator('#duelwrap [data-pick]').count() === 2; }],

@@ -16,7 +16,6 @@ import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
@@ -205,26 +204,6 @@ onThemeChange(() => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg
 
 exampleChips($('chips'), EXAMPLES, example => { selectedTheoryId = null; editor.setText(example.src); }, {start: {src: STARTER}});
 mountDocumentStart($('chips'));
-const SAVED_KEY = 'proxy-saved';
-function renderSaved(){
-  const host = $('savedrow');
-  renderSavedChips(host, loadSaved(SAVED_KEY), {
-    deleteLabel:item => `Delete saved hunt ${item.name}`,
-    onLoad:item => { selectedTheoryId = item.selectedTheoryId || null; editor.setText(item.src); },
-    onDelete:(_item, index) => {
-      const list = loadSaved(SAVED_KEY); list.splice(index, 1); storeSaved(SAVED_KEY, list); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip'; save.type = 'button'; save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!hunt) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name:(hunt.title || `Hunt ${list.length + 1}`).slice(0, 32), src:editor.getText(), selectedTheoryId});
-    storeSaved(SAVED_KEY, list); renderSaved();
-  });
-  host.appendChild(save);
-}
 
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
@@ -251,7 +230,6 @@ $('receiptpng').addEventListener('click', () => {
   }, 'image/png'), () => flash(button, 'PNG unavailable — use SVG', original));
 });
 
-renderSaved();
 wireSyntaxTry(document.querySelector('details.syntax'), editor,
   ['title', 'date', 'outcome', 'proxy', 'action', 'mode', 'optimisation-pressure', 'trade-off', 'decision-rule',
     'verdict', 'palette', 'accent']);

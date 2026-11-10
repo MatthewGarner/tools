@@ -1,4 +1,4 @@
-import {openExamples, openFileMenu} from './_harness.mjs';
+import {openExamples, openFileMenu, isShellPage} from './_harness.mjs';
 /* Smoke checks for every tool + the landing page. The quality bar: each tool
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
@@ -749,15 +749,15 @@ for(const theme of FLOW_THEMES){
 }
 
 /* ---- duel: copy-link race regression (the un-awaited writeHashState bug) ----
-   #copylink is clicked with NO settle wait right after a pick, to stress the
-   exact race an un-awaited writeHashState would lose: navigator.clipboard.write
+   Share (it replaced the page's own Copy link) is clicked with NO settle wait right
+   after a pick, to stress the exact race an un-awaited writeHashState would lose: navigator.clipboard.write
    Text is stubbed to capture the argument directly (deterministic — no real
    clipboard permission dance needed), then a second page loads that captured
    URL and its own duel count must reflect the pick just made, not the state
    from before it. */
 if(scope.wants("duel")){
   const {page, errors} = await freshPage('/duel/', 'light');
-  await page.waitForTimeout(400);
+  await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
   await page.locator('#start').click();
   await page.waitForTimeout(300);
   await page.evaluate(() => {
@@ -773,10 +773,10 @@ if(scope.wants("duel")){
   };
   const beforeN = await readDuelCount(page);
   await page.locator('#duelwrap [data-pick]').first().click();   // the just-made pick
-  await page.locator('#copylink').click();                       // no settle wait — this is the race
-  await page.waitForTimeout(150);
+  await page.locator('[data-act=share]').click();                // no settle wait — this is the race
+  await page.waitForFunction(() => window.__copied);
   const copied = await page.evaluate(() => window.__copied);
-  check('duel: copylink captures a real URL with a hash', typeof copied === 'string' && copied.includes('#'));
+  check('duel: Share captures a real URL with a hash', typeof copied === 'string' && copied.includes('#'));
   const page2 = await browser.newPage();
   await page2.goto(copied);
   await page2.waitForTimeout(400);
@@ -985,7 +985,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   if(!scope.wants("rank")) continue;
   const {page, errors} = await freshPage('/rank/', theme);
-  await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
+  await openExamples(page); await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
   await page.waitForTimeout(600);
   const rows = await page.locator('#rows tr').count();
   check('rank(' + theme + '): table renders rows (' + rows + ')',
@@ -1019,7 +1019,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   if(!scope.wants("tree")) continue;
   const {page, errors} = await freshPage('/tree/', theme);
-  await page.getByRole('button', {name: 'Bid or no bid'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Bid or no bid'}).click();
   await page.waitForTimeout(600);
   check('tree(' + theme + '): example renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').evaluate(el => el.outerHTML);
@@ -1310,7 +1310,7 @@ for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/bets/', theme);
   await page.waitForTimeout(500);
   check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
-  await page.getByRole('button', {name: 'Lantern portfolio'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Lantern portfolio'}).click();
   await page.waitForTimeout(600);
   /* Allocation Field is a root-SVG contract; innerHTML cannot observe its
      data surface and would turn the regression into a false negative. */
@@ -1656,12 +1656,14 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
   if(!scope.wants(tool)) continue;
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);
-  /* half these tools open with the source rail collapsed (the chips live in it) */
-  if(!['/roadmap/','/case/'].includes(tool) && !await page.getByRole('button', {name:'Start your own',exact:true}).isVisible()) await page.locator('#railtab').click();
+  /* Stamped-shell pages start from File > New; the others keep a chip in the source rail
+     (half of which open with the rail collapsed) */
+  const shell = await isShellPage(page);
+  if(shell) await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
+  else if(!['/case/'].includes(tool) && !await page.getByRole('button', {name:'Start your own',exact:true}).isVisible()) await page.locator('#railtab').click();
   await page.waitForTimeout(300);
-  /* Roadmap's start is File > New in the stamped shell header */
-  if(tool === '/roadmap/') await openFileMenu(page);
-  const chip = tool === '/roadmap/' ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true})
+  if(shell) await openFileMenu(page);
+  const chip = shell ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true})
     : page.getByRole('button', {name: tool === '/case/' ? 'New case' : 'Start your own'});
   check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);
   await chip.click();
@@ -1681,8 +1683,10 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 if(scope.wants("rank")){
   const {page, errors} = await freshPage('/rank/');
   await page.waitForTimeout(500);
-  const chip = page.getByRole('button', {name: 'Start your own'});
-  check('/rank/ start: the chip is present and opens the row', await chip.count() === 1);
+  await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
+  await openFileMenu(page);
+  const chip = page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true});
+  check('/rank/ start: File > New is present', await chip.count() === 1);
   await chip.click();
   await page.waitForTimeout(600);
   const rows = await page.locator('#rows').innerHTML();

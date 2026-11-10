@@ -1,6 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {decodeHash} from '../../assets/series.js';
+import {isShellPage, fileItem, openExamples} from './_harness.mjs';
 const base = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
 const context = await browser.newContext({viewport:{width:1440,height:1000}, reducedMotion:'reduce', serviceWorkers:'block'});
@@ -58,19 +59,27 @@ await test('Document start and sharing actions are independent of source',async(
   for(const tool of ['timeline','map','why','wardley','paths','proxy']){
     await page.goto(base+'/'+tool+'/');
     await page.locator('#preview svg').waitFor();
-    await page.getByRole('button',{name:'Start your own',exact:true}).click();
+    // Stamped-shell pages keep New, Examples and Share in the header's File menu and Share button.
+    const shell=await isShellPage(page);
+    if(shell)await page.locator('[data-tool-header][data-shell-ready]').waitFor({state:'attached'});
+    if(shell)await fileItem(page,'New');else await page.getByRole('button',{name:'Start your own',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('#preview svg')?.textContent.includes('Your'));
-    await page.getByRole('button',{name:'Copy model link',exact:true}).click();
-    await page.getByRole('status').filter({hasText:'Model link copied'}).waitFor();
+    if(shell){await page.locator('[data-act=share]').click();await page.getByRole('status').filter({hasText:'Link copied. It opens as a separate copy.'}).waitFor();}
+    else{await page.getByRole('button',{name:'Copy model link',exact:true}).click();
+    await page.getByRole('status').filter({hasText:'Model link copied'}).waitFor();}
     const url=await page.evaluate(()=>navigator.clipboard.readText());
     const model=await decodeHash(new URL(url).hash.slice(1));
     assert.match(model.t,/Your/i,tool+' links the starter');
     const recipient=await context.newPage();await recipient.goto(url);
     await recipient.waitForFunction(()=>document.querySelector('#preview svg')?.textContent.includes('Your'));
     await recipient.close();
+    if(shell){
+      await openExamples(page);await page.locator('[data-shell-examples-list] button').first().click();
+      assert.equal(await page.locator('[data-shell-file]').evaluate(el=>el.open),false,tool+' choosing an example closes File');
+    }else{
     await page.locator('.document-examples summary').click();
     await page.locator('#chips button').first().click();
-    assert.equal(await page.locator('.document-examples').evaluate(el=>el.open),false);
+    assert.equal(await page.locator('.document-examples').evaluate(el=>el.open),false);}
   }
 });
 await test('Document example menus fit phones and keep every choice at least 44px',async()=>{
@@ -79,12 +88,15 @@ await test('Document example menus fit phones and keep every choice at least 44p
     const p=await phone.newPage();
     for(const tool of ['timeline','map','why','wardley','paths','proxy','energy/cycles','energy/risk']){
       await p.goto(base+'/'+tool+'/');await p.locator('#preview svg').waitFor();
-      await p.locator('.document-examples summary').click();
-      const geometry=await p.locator('#chips').evaluate(menu=>{
+      const shell=await isShellPage(p);
+      if(shell){await p.locator('[data-tool-header][data-shell-ready]').waitFor({state:'attached'});await openExamples(p);}
+      else await p.locator('.document-examples summary').click();
+      const geometry=await p.locator(shell?'[data-shell-file] .tool-menu':'#chips').evaluate((menu,shell)=>{
         const box=menu.getBoundingClientRect(),viewport=document.documentElement.clientWidth;
+        const buttons=shell?menu.querySelectorAll('[data-shell-examples-list] button'):menu.querySelectorAll('button');
         return {left:box.left,right:box.right,viewport,scroll:menu.scrollWidth,width:menu.clientWidth,
-          choices:[...menu.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {height:r.height,left:r.left,right:r.right};})};
-      });
+          choices:[...buttons].map(b=>{const r=b.getBoundingClientRect();return {height:r.height,left:r.left,right:r.right};})};
+      },shell);
       assert.ok(geometry.left>=0 && geometry.right<=geometry.viewport+1,tool+' menu fits viewport');
       assert.ok(geometry.scroll<=geometry.width+1,tool+' has no horizontal menu scrolling');
       assert.ok(geometry.choices.length>0,tool+' exposes examples');

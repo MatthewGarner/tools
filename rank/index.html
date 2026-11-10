@@ -21,6 +21,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -229,16 +233,32 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Rank stability</h1>
-    <p class="tagline">Weighted prioritisation scores are guesses wearing a suit. This runs your scoring thousands of times with the weights and scores wobbled, and tells you which ranks survive — and which are noise you shouldn't argue about.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Rank</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 
   <main id="main" tabindex="-1">
   <section class="card">
-    <div class="chips" id="chips"><span class="lead">Or try:</span></div>
     <div class="tblwrap">
       <table id="tbl" data-capability="views.assumptions">
         <thead><tr id="headrow"></tr></thead>
@@ -300,6 +320,7 @@
   <section class="about">
     <h2>Why wobble the weights?</h2>
     <div class="prose">
+    <p>Weighted prioritisation scores are guesses wearing a suit. This runs your scoring thousands of times with the weights and scores wobbled, and tells you which ranks survive — and which are noise you shouldn't argue about.</p>
     <p>Frameworks like RICE and WSJF produce a ranked list from scores nobody believes to one decimal place. The ranking inherits that false precision — and teams lose hours debating whether the weight on "time criticality" should be 2 or 3, when the honest question is whether the answer would change either way. This tool asks exactly that: it re-runs your scoring 4,000 times, wobbling every weight (±50% as a 90% interval — occasional draws go further) and every score (within ±1 point; both dials sit under the table), then reports how often each initiative lands where. Ranks that hold across the wobble are real signal; ranks that reshuffle are ties — decide those on strategy, sequencing, or gut, and stop pretending the spreadsheet decided.</p>
     <p>The idea is plain sensitivity analysis applied to decision frameworks — see Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on modelling what you're unsure about, and Itamar Gilad <a href="https://itamargilad.com/ice-scores/" target="_blank" rel="noopener">on ICE scores</a> — even scoring's defenders read the numbers as hints to be qualified by confidence, not answers.</p>
     </div>

@@ -29,6 +29,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -40,11 +44,29 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Proxy Hunt</h1>
-    <p class="tagline">Before a metric becomes a target, ask how pushing it could damage the outcome you actually want. Keep the intended story, failure theories, reported readings and causal limits visibly separate.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Proxy Hunt</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
@@ -53,7 +75,6 @@
   <aside class="rail">
     <div class="chips" id="chips"><span class="lead">Or try:</span></div>
     <div id="cmhost" aria-label="Proxy Hunt source editor"></div>
-    <div class="chips saved-row" id="savedrow"></div>
     <ul id="warns"></ul>
     <details class="syntax">
       <summary>Syntax reference</summary>
@@ -134,6 +155,7 @@
   <section class="about">
     <h2>Why hunt the proxy?</h2>
     <div class="prose">
+    <p>Before a metric becomes a target, ask how pushing it could damage the outcome you actually want. Keep the intended story, failure theories, reported readings and causal limits visibly separate.</p>
       <p>Operating measures are useful because they move sooner than the outcomes we care about. That same convenience makes them dangerous targets: a team can improve the number by changing behaviour in ways that do not improve the goal — or that quietly damage an outcome the product needs to protect.</p>
       <p>Proxy Hunt makes the challenge inspectable. The intended route and each failure route contain actions, mechanisms and outcomes only. The proxy and any reported readings sit outside those routes, so a visual connection cannot smuggle in a causal claim. A co-moving pattern can justify investigation; it cannot establish why the outcomes moved.</p>
       <p>The result is a guardrail decision, not an approval stamp. An unfinished hunt stays visibly unfinished. A speculative concern stays speculative. A reasoned mechanism still says what evidence would weaken it. Use <a href="/gauge/">Gauge</a> to elicit a room’s judgement, <a href="/fermi/">Fermi</a> to test a conditional calculation, and <a href="/paths/">Paths</a> when new knowledge changes what work should happen.</p>

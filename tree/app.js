@@ -1,4 +1,5 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
+import {offer as provide} from '../assets/recent-ui.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
@@ -9,9 +10,8 @@ import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
@@ -536,31 +536,8 @@ const treeEip = attachEditInPlace(preview, {
 });
 
 /* ---------- chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
 
-/* ---------- saved trees ---------- */
-const SAVED_KEY = 'tree-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved tree ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!model || !model.root) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Tree ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 /* ---------- header anatomy (Swiss 6b) ---------- */
 /* The VERDICT lives INSIDE the artefact (tree/render.js draws it), so the page
@@ -610,7 +587,6 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('tree-src') || ''; }catch(e){}
   }
-  renderSaved();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

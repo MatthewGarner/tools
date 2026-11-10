@@ -30,6 +30,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -41,20 +45,36 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Bet portfolio</h1>
-    <p class="tagline">Make each initiative an explicit bet: stake, odds, payoff and when to stop.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Bets</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
 <main id="main" tabindex="-1">
 <div class="workspace" id="workspace">
     <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
       <div id="cmhost" aria-label="Bets source editor"></div>
-      <div class="chips" id="savedrow" style="margin-top:12px"></div>
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
@@ -117,6 +137,7 @@
   <section class="about">
     <h2>Why state it as bets?</h2>
     <div class="prose">
+    <p>Make each initiative an explicit bet: stake, odds, payoff and when to stop.</p>
     <p>An initiative list is a place where claims go to hide. Every line reads as equally certain, nothing on it has a price for being wrong, and nothing on it is ever allowed to die — so the portfolio just grows until a re-org clears it. Restating each line as a bet forces the sentence a roadmap slide never makes you say out loud: "we're staking X at these odds for this payoff, and we fold when Y." A line that can't complete that sentence is the one worth questioning.</p>
     <p>Every stake, odds and payoff is a 90% range, run through 4,000 paired seeded simulations. The per-bet band asks <em>is this bet sound?</em> The two portfolio readings then expose a dependence assumption most plans bury: the <strong>independent baseline</strong> resolves every bet separately; the <strong>shared-outcome stress</strong> couples only realised wins and losses while stake, odds and payoff ranges remain independently sampled. It is a stress, not a forecast or a fake correlation estimate. The audits surface what slides usually hide: <strong>NO KILL CRITERION</strong>, <strong>ODDS IMPLY CERTAINTY</strong>, and <strong>LOSES AT P50</strong>.</p>
     </div>

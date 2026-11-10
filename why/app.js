@@ -17,7 +17,6 @@ import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -262,29 +261,6 @@ const whyEip = attachEditInPlace($('preview'), {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 mountDocumentStart($('chips'));
 
-/* ---------- saved ---------- */
-const SAVED_KEY = 'why-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved tree ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!model || !model.outcomes.length) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Tree ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 /* ---------- exports (active view) ---------- */
 function svgString(intent){
@@ -317,7 +293,6 @@ watchNarrowBucket(previewEl, rerender);
   if(!text){
     try{ text = localStorage.getItem('why-src') || ''; }catch(e){}
   }
-  renderSaved();
   syncViewToggle();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();

@@ -31,6 +31,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -42,11 +46,29 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Wardley map</h1>
-    <p class="tagline">A strategy map is a current claim, not a workshop artefact. This one is text: user needs, dependencies and evolution positions in a file, the picture derived — so the next review compares the claim instead of redrawing it.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Wardley</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
@@ -113,6 +135,7 @@
   <section class="about">
     <h2>Why a map, and why as code?</h2>
     <div class="prose">
+    <p>A strategy map is a current claim, not a workshop artefact. This one is text: user needs, dependencies and evolution positions in a file, the picture derived — so the next review compares the claim instead of redrawing it.</p>
         <p>A Wardley strategic field makes an inspectable claim about a value chain: what the user needs, what each thing needs, and where each component sits from genesis to commodity. The point is the argument: why are we hand-building something the market sells as a utility? What are we treating as settled that is still genuinely novel? Horizontal position is a claim, not a forecast, delivery schedule, or decision plan.</p>
     <p>Here the field is a projection of a text file. Vertical position is derived from the dependency chain — user needs above the things they need — rather than pretending the DSL contains a measured visibility value. Dragging a component along the evolution ruler writes its position back into the text as an ordinary undoable edit; the file stays the single source of truth.</p>
     <p>Snapshot compare keeps changes legible: moved positions, new and dropped components, and changed dependencies become factual receipts in the next review. Strategy drift becomes an artefact you can inspect, not a memory you argue about. Use <a href="/roadmap/">Roadmap</a> for delivery commitments, and <a href="/paths/">Paths</a> when different outcomes could stop, pivot, or expand the work. Source: Simon Wardley's mapping work, CC BY-SA.</p>

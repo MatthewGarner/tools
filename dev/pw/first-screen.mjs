@@ -46,12 +46,11 @@ const E = process.env.EBASE || 'http://localhost:8089';
 /* Every page was over its header budget on 2026-11-09 (phone main 346-699,
    laptop 201-448 against 215 / 180). Delete a page's entry in the phase that
    brings it under budget; the gate then holds it there. Phase 1 cleared fermi,
-   roadmap and alarm. */
+   roadmap and alarm; Phase 2 batch 1 cleared why, tree, map, wardley, bets, paths,
+   proxy, rank, duel and flow. */
 const BOTH = ['phone', 'laptop'];
 const EXPECTED_HEADER_FAILURES = {
-  rank: BOTH, why: BOTH, tree: BOTH, map: BOTH, gauge: BOTH,
-  flow: BOTH, timeline: BOTH, wardley: BOTH, duel: BOTH, premortem: BOTH,
-  bets: BOTH, 'signal-vs-noise': BOTH, case: BOTH, paths: BOTH, proxy: BOTH,
+  gauge: BOTH, timeline: BOTH, premortem: BOTH, 'signal-vs-noise': BOTH, case: BOTH,
   cycles: BOTH, risk: BOTH, frequency: BOTH, 'merit-order': BOTH, intraday: BOTH,
 };
 

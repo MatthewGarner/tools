@@ -1,4 +1,5 @@
 import {rankResultRows, pctStr} from './render.js';
+import {offer as provide} from '../assets/recent-ui.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale} from './engine.js';
@@ -509,20 +510,9 @@ const loadItems = (items, k) => {
   renderRows();
   schedule(50);
 };
-for(const ex of EXAMPLES){
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = ex.name;
-  b.addEventListener('click', () => loadItems(ex.items, ex.k));
-  $('chips').appendChild(b);
-}
-/* the on-ramp, ahead of the "Try:" lead: rank opens on a full example and the only
-   other route to your own list was deleting five rows one at a time. */
-const startBtn = document.createElement('button');
-startBtn.className = 'chip start';
-startBtn.textContent = 'Start your own';
-startBtn.addEventListener('click', () => loadItems(STARTER.items, STARTER.k));
-$('chips').insertBefore(startBtn, $('chips').firstChild);
+/* File > New and Examples; rank opens on a full example and the only other route to your own
+   list was deleting five rows one at a time. */
+provide({blank: () => loadItems(STARTER.items, STARTER.k), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => loadItems(ex.items, ex.k)}))});
 
 if(await readHash()){ syncCapacity(); $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
 else {
