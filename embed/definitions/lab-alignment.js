@@ -1,0 +1,6 @@
+import {create,validate,stateSchema,render,PRINCIPLES,DISTURBANCES} from '../../lab/dist/alignment/model.js';
+import {base,select,action} from './_lab.js';
+const controls={event:select('Disturbance',['event'],DISTURBANCES),reveal:action('Reveal responses','reveal'),principle:select('Shared principle',['principle'],PRINCIPLES),share:action('Share all scenario readings','share'),scope:select('Decision boundary',['scope'],{local:'Local decisions',joint:'Joint review when proposals differ'}),local:action('Try separate remits','local')};
+export const definition=base('alignment','We’re aligned—until something changes','Disturb a shared plan and trace how explicit beliefs and decision rules change proposed actions.',create(),validate,{responses:{title:'Beliefs, rules and responses',description:'Trace individual responses without treating agreement as inherently good.',controls:Object.keys(controls),defaultControls:['event','reveal'],render}},controls,{reveal:s=>({...structuredClone(s),revealed:true}),share:s=>({...structuredClone(s),shared:{demand:true,risk:true,delay:true}}),local:()=>create('local')},stateSchema);
+export const toToolState=state=>({state,pinned:null});
+export const fromToolState=raw=>raw.state;

@@ -1,6 +1,6 @@
 # How teams fit the work
 
-Gallery model 03; idea-bank ID M02.
+Idea-bank ID M02.
 
 Move six capability cards across three team boundaries using their drag handles or labelled **Move to** selectors. Team names are editable. Every move replays the same seeded workload from day 0, keeping the selected replay day. Pin a baseline, move capabilities, and compare the 30-day outcomes. Undo restores changes; reset restores the original layout while retaining workload, assumptions and baseline.
 
@@ -15,5 +15,9 @@ Three fictional presets include product delivery and battery-storage commissioni
 Four arrangement starters keep the same six specialists. Save up to six named arrangements alongside the current layout and pinned baseline. Saved designs freeze membership and names; active workload and shared coordination, boundary delay and receiving effort replay every design together. Requested effort versus full-period capacity ignores handoff effort and timing constraints; it is a bottleneck prompt, not a utilisation forecast.
 
 Browser storage remains `thinking-lab:teams:v1`; old sessions and baselines load unchanged. Undo includes custom workloads and saved arrangements. Validated editable JSON imports replace the session atomically and can be undone; Markdown records active routes, assumptions, comparisons and job outcomes. No external dependencies or services.
+
+Customer experience, technical ownership and funding maps sit alongside team membership. Trace the same work through all four. Their boundary crossings generate explicit coordination requests; assign translation, interface coordination, funding agreement and team handoffs to fictional liaisons with shared hour budgets. Time is divided proportionally across each liaison’s roles, never counted once per role. The coverage ledger includes all planned work and does not infer delivery penalties from an uncovered hour. Its budgets are separate from the FIFO engine’s specialist capacity.
+
+Pinned and saved arrangements retain maps and owners; comparisons use the current workload, hours per crossing and liaison budgets. Older records acquire the default maps without changing their original delivery projection. JSON and Markdown preserve these additions. The article definition publishes the original delivery view and a focused maps/coordination view.
 
 Run `node --test dist/teams/*.test.js` from the project root. Tests exercise accounting, deterministic preset conversion, custom and repeated routes, grouping tradeoffs, independent saved designs, portable round trips and invalid imports. Desktop and phone integration covers pointer/touch/keyboard movement, dialog edge scrolling, comparison panning, focus, persistence and actual exports. Drag handles alone suppress touch scrolling; the editor opts into dialog-local scrolling and ghost placement.

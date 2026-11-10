@@ -28,13 +28,16 @@ for(const {page,section,catalogue,file} of SUITE_PAGES){
   if(!existsSync(path)){if(check)throw Error('Missing suite page: '+page);continue;}
   let html=readFileSync(path,'utf8');
   const energy=section==='energy',lab=section==='lab';
+  const isCatalogueHome=page==='explore';
+  const toolsLink=isCatalogueHome?'Tools Lab':'All tools';
+  const toolsCurrent=isCatalogueHome?' aria-current="page"':'';
   const local=catalogue?'./':'../';
   const main=html.match(/<main\b[^>]*\bid="([^"]+)"/)?.[1]||'main';
   const header=`<!-- identity:header:start -->
 <a class="mg-skip" href="#${main}">Skip to content</a>
 <div class="mg-masthead" role="banner">
   <a class="mg-identity" href="${personal}/">Matthew Garner</a>
-  <nav class="mg-nav" aria-label="Main navigation"><a href="${personal}/writing">Writing</a><a data-suite-link="explore" href="${energy?'https://tools.matthewgarner.me/':'/'}" aria-current="${page==='explore'?'page':'true'}">Tools Lab</a><a href="${personal}/now">Now</a></nav>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="${personal}/writing">Writing</a><a data-suite-link="explore" href="${energy?'https://tools.matthewgarner.me/':'/'}"${toolsCurrent}>${toolsLink}</a><a href="${personal}/now">Now</a></nav>
   <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true">${icon}</span></button>
 </div>
 <!-- identity:header:end -->`;

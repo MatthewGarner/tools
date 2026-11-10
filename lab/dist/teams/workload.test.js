@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import {SCENARIOS,DEFAULT_LAYOUT,DEFAULT_ASSUMPTIONS,TEAM_NAMES,createWorkload,simulate} from './engine.js';
 import {workloadFromPreset,validateWorkload,generateWorkload,moveStage} from './workload.js';
 import {ARRANGEMENTS,validateDesign,extensions,portable,validatePortable,activeWorkload} from './library.js';
+import {DEFAULT_RELATIONSHIPS} from './relationships.js';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const session=()=>({layout:{...DEFAULT_LAYOUT},names:{...TEAM_NAMES},scenario:'rush',assumptions:{...DEFAULT_ASSUMPTIONS},day:10,trace:'work-01',baseline:{layout:{...DEFAULT_LAYOUT},names:{...TEAM_NAMES}},workloads:[],designs:[]});
 test('opening any built-in workload for editing preserves the exact seeded jobs',()=>{
   for(const id of Object.keys(SCENARIOS))assert.deepEqual(generateWorkload(workloadFromPreset(id)),createWorkload(id));
-  assert.deepEqual(extensions({}),{workloads:[],designs:[]});
+  assert.deepEqual(extensions({}),{workloads:[],designs:[],relationships:DEFAULT_RELATIONSHIPS});
 });
 test('custom workloads preserve accounting and repeated serial capabilities across all arrangements',()=>{
   const config=validateWorkload({...workloadFromPreset('battery'),id:'workload-custom',count:18,span:8,flows:[{id:'review',label:'Field review',short:'Review',share:100,stages:[{capability:'field',effort:.5},{capability:'controls',effort:1.2},{capability:'field',effort:.3},{capability:'test',effort:.8}]}]});
@@ -54,7 +55,10 @@ test('named arrangements freeze membership while shared workload changes replay 
 test('portable experiments retain multiple workloads, arrangements, baseline and trace; invalid imports are rejected',()=>{
   const s=session();s.workloads=[workloadFromPreset('battery'),workloadFromPreset('quiet')];s.scenario=s.workloads[0].id;
   s.designs=[validateDesign({id:'arrangement-one',title:'Field → test',layout:ARRANGEMENTS.battery.layout,names:ARRANGEMENTS.battery.names})];
-  const result=portable(s),restored=validatePortable(JSON.parse(JSON.stringify(result)));assert.deepEqual(restored,s);
+  const result=portable(s),restored=validatePortable(JSON.parse(JSON.stringify(result)));
+  // Earlier saves acquire only the explicit default maps; existing memberships,
+  // workloads and the delivery engine's outputs retain their original meaning.
+  assert.deepEqual(restored,{...s,relationships:DEFAULT_RELATIONSHIPS,baseline:{...s.baseline,relationships:DEFAULT_RELATIONSHIPS}});
   assert.deepEqual(simulate({layout:s.layout,scenario:activeWorkload(s)}).final,simulate({layout:restored.layout,scenario:activeWorkload(restored)}).final);
   for(const patch of [{scenario:'missing'},{day:10.1},{trace:'work-99'},{layout:{product:'a'}},{designs:[...s.designs,...s.designs]},{workloads:[{...s.workloads[0],id:'rush'}]}])assert.throws(()=>validatePortable({...result,session:{...s,...patch}}));
   assert.throws(()=>validateWorkload({...s.workloads[0],count:61}));assert.throws(()=>validateWorkload({...s.workloads[0],flows:s.workloads[0].flows.map(f=>({...f,share:0}))}));

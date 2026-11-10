@@ -3,6 +3,7 @@ export const SOURCE_TOOLS = ['bets', 'case', 'cycles', 'gauge', 'map', 'paths', 
 export const NAMED_TOOLS = ['bets', 'gauge', 'map', 'paths', 'proxy', 'roadmap', 'tree', 'why'];
 export const BASELINE_TOOLS = ['bets', 'map', 'roadmap', 'timeline', 'wardley', 'why'];
 export const LAB_TITLES = {
+  authority:'Who can actually decide?',context:'What survived the status update?',consistency:'How much consistency is enough?',alignment:'We’re aligned—until something changes',possibilities:'Making worthwhile work possible',clocks:'The organisation’s clocks',
   commitment:'The commitment spiral', teams:'How teams fit the work', exploration:'Exploration versus delivery',
   flexibility:'Where flexibility gets trapped', delay:'Steering through delay', exceptions:'How exceptions accumulate',
   knowledge:'Specialists and shared knowledge', local:'Local wins, collective losses', predictions:'When predictions change behaviour',

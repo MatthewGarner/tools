@@ -7,7 +7,9 @@ import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCEN
 
 import {workloadFromPreset,validateWorkload} from './workload.js?v=0.21.0';
 import {workloadEditor} from './workload-ui.js?v=0.21.0';
-import {ARRANGEMENTS,extensions,activeWorkload,validateDesign,validatePortable,portable,workloadSummary} from './library.js?v=0.21.0';
+import {ARRANGEMENTS,extensions,activeWorkload,validateDesign,validatePortable,portable,workloadSummary} from './library.js?v=0.25.0';
+import {validateRelationships} from './relationships.js';
+import {relationshipMarkup,relationshipMarkdown} from './relationships-ui.js';
 
 mountShell({ active: 'teams', label: 'MODEL 02', title: 'How teams fit the work' });
 const $ = selector => document.querySelector(selector);
@@ -18,7 +20,7 @@ const names = raw => Object.fromEntries(TEAM_IDS.map(id => [id, typeof raw?.[id]
 function normalizeSession(raw = {}) {
   raw = raw && typeof raw === 'object' ? raw : {};
   const extra=extensions(raw);
-  return { ...extra, layout: normalizeLayout(raw.layout), names: names(raw.names), scenario: (Object.hasOwn(SCENARIOS, raw.scenario)||extra.workloads.some(w=>w.id===raw.scenario)) ? raw.scenario : 'rush', assumptions: normalizeAssumptions(raw.assumptions), day: Number.isFinite(raw.day) ? Math.round(Math.max(0, Math.min(HORIZON, raw.day)) / TICK) * TICK : 10, trace: typeof raw.trace === 'string' ? raw.trace : null, baseline: raw.baseline && typeof raw.baseline === 'object' ? { layout: normalizeLayout(raw.baseline.layout), names: names(raw.baseline.names) } : null };
+  return { ...extra, layout: normalizeLayout(raw.layout), names: names(raw.names), scenario: (Object.hasOwn(SCENARIOS, raw.scenario)||extra.workloads.some(w=>w.id===raw.scenario)) ? raw.scenario : 'rush', assumptions: normalizeAssumptions(raw.assumptions), day: Number.isFinite(raw.day) ? Math.round(Math.max(0, Math.min(HORIZON, raw.day)) / TICK) * TICK : 10, trace: typeof raw.trace === 'string' ? raw.trace : null, baseline: raw.baseline && typeof raw.baseline === 'object' ? { layout: normalizeLayout(raw.baseline.layout), names: names(raw.baseline.names),relationships:validateRelationships(raw.baseline.relationships) } : null };
 }
 const loaded = readStore(KEY, {}) || {};
 let session,loadError='';
@@ -32,6 +34,7 @@ const workloadConfig=()=>typeof activeWorkload(session)==='string'?workloadFromP
 let playing = false;
 let timer;
 let overlayFrame;
+let removeRelationshipDrag=()=>{};
 const number = (value, digits = 1) => Number(value).toLocaleString('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const dayText = day => Number.isInteger(day) ? String(day) : number(day, 2);
 const frame = () => result.history[Math.round(session.day / TICK)];
@@ -222,7 +225,17 @@ function renderAll() {
   $('#undo').disabled = !undoStack.length;
   renderMap();
   $('#trace').innerHTML = result.workload.map(job => `<option value="${job.id}" ${job.id === session.trace ? 'selected' : ''}>${escapeHtml(job.label)} · arrives day ${dayText(job.arrival)}</option>`).join('');
-  renderOutcomes(); renderFrame(); renderAssumptionsDraft(); renderLibrary();
+  renderOutcomes(); renderFrame(); renderAssumptionsDraft(); renderLibrary();renderRelationships();
+}
+function renderRelationships(){
+ removeRelationshipDrag();
+ const root=$('#relationships');root.innerHTML=relationshipMarkup(session,activeWorkload(session),sourceJob());
+ const move=(cap,group)=>mutate(()=>{if(session.relationships.view==='team')session.layout[cap]=group;else session.relationships.maps[session.relationships.view][cap]=group;},'Map updated. The same work now crosses these groups.');
+ root.querySelector('#relationship-view').onchange=e=>mutate(()=>{session.relationships.view=e.target.value;},'Map view changed. Group memberships are retained.');
+ root.querySelectorAll('[data-relationship-cap]').forEach(el=>el.onchange=()=>move(el.dataset.relationshipCap,el.value));
+ root.querySelectorAll('[data-connector],[data-coordination-effort]').forEach(el=>el.onchange=()=>{if(!el.checkValidity()||el.value===''){el.reportValidity();return;}mutate(()=>{if(el.dataset.connector)session.relationships.hours[el.dataset.connector]=Number(el.value);else session.relationships.effort[el.dataset.coordinationEffort]=Number(el.value);},'Coordination coverage replayed with the new shared assumption.');});
+ root.querySelectorAll('[data-coordination-owner]').forEach(el=>el.onchange=()=>mutate(()=>{session.relationships.owners[el.dataset.coordinationOwner]=el.value;},'Coordination reassigned. Each liaison still has one shared time budget.'));
+ removeRelationshipDrag=attachCardDrag({root:root.querySelector('#relationship-map'),onDrop:({itemId,dropId})=>move(itemId,dropId)});
 }
 function tick() {
   if (!playing) return;
@@ -241,7 +254,7 @@ function exportExperiment() {
   const md=text=>String(text).replaceAll('|','\\|').replaceAll('\n',' ');
   // Routes must come from the active definition, including custom stage order.
   const lines = ['# How teams fit the work', '', `Workload: ${workloadName()}. Seed ${workloadConfig().seed}; ${result.workload.length} jobs; 30-day horizon. Replay shown at day ${dayText(session.day)}.`, '', '## Arrangement', '', '| Capability | Current team | Capacity / day | Baseline team |', '| --- | --- | ---: | --- |', ...CAPABILITIES.map(cap => `| ${cap.name} | ${md(session.names[session.layout[cap.id]])} | ${number(result.capacities[cap.id], 2)} | ${session.baseline ? md(session.baseline.names[session.baseline.layout[cap.id]]) : '—'} |`), '', '## Shared assumptions', '', `Each specialist has 1 nominal effort point per day. Coordination costs ${number(session.assumptions.coordination * 100, 0)}% of that capacity for each teammate. Each boundary crossing adds ${number(session.assumptions.handoffDelay, 2)} days of delay and ${number(session.assumptions.handoffEffort, 2)} receiving effort. FIFO queues, quarter-day steps, no borrowing capacity between capabilities. All arrangements use the same jobs and assumptions.`, '', '## At day 30', '', '| Measure | Current | Baseline |', '| --- | ---: | ---: |', `| Finished | ${row.completed} | ${baseline ? baseline.final.completed : '—'} |`, `| Unfinished | ${row.unfinished} | ${baseline ? baseline.final.unfinished : '—'} |`, `| Median lead time, finished only | ${row.medianLeadTime === null ? '—' : number(row.medianLeadTime)} | ${baseline?.final.medianLeadTime == null ? '—' : number(baseline.final.medianLeadTime)} |`, `| Boundary handoffs | ${row.handoffs} | ${baseline ? baseline.final.handoffs : '—'} |`, `| Queue time, accumulated work-days | ${number(row.queueTime)} | ${baseline ? number(baseline.final.queueTime) : '—'} |`, '', '## Work routes', '', ...workloadConfig().flows.map(flow => `- ${md(flow.label)}: ${routeFor(flow.stages, session.layout).map(stage => `${capById[stage.capability].name} (${md(session.names[stage.team])})`).join(' → ')}`), '', '## Limits', '', 'A fictional mechanism model, not staffing advice. Fixed specialist capabilities, divisible effort, serial stages and FIFO work; no learning, shared skills, rework, priorities or hierarchy. A move replays an alternative history without a reorganisation cost. Coefficients are illustrative.', '', '## Work items', '', '| Work | Arrival | Finished | Queue days | Transfer days |', '| --- | ---: | ---: | ---: | ---: |', ...row.jobs.map(job => `| ${md(job.label)} | ${dayText(job.arrival)} | ${job.completedAt === null ? 'unfinished' : dayText(job.completedAt)} | ${number(job.queueTime)} | ${number(job.transferTime)} |`)];
-  lines.push(...libraryMarkdown());
+  lines.push(...libraryMarkdown(),...relationshipMarkdown(session,activeWorkload(session)));
   downloadText(`teams-${session.scenario}.md`, lines.join('\n'), 'text/markdown;charset=utf-8');
   status('Experiment exported as Markdown.');
 }
@@ -268,8 +281,8 @@ const editor=workloadEditor($('#workload-editor'),{onSave:workload=>{
 $('#edit-workload').addEventListener('click',()=>{pause();editor.open(workloadConfig(),session.workloads.some(w=>w.id===session.scenario));});
 $('#layout-preset').innerHTML='<option value="">Try an arrangement…</option>'+Object.entries(ARRANGEMENTS).map(([id,p])=>`<option value="${id}">${p.label}</option>`).join('');
 $('#layout-preset').addEventListener('change',e=>{const p=ARRANGEMENTS[e.target.value];if(!p)return;mutate(()=>{session.layout={...p.layout};session.names={...p.names};},`${p.label} applied. Workload, saved alternatives and baseline remain. Undo restores your layout.`);e.target.value='';});
-$('#save-arrangement-form').addEventListener('submit',e=>{e.preventDefault();try{if(session.designs.length>=6)throw Error('Six arrangements are saved. Remove one to save another.');const d=validateDesign({id:'arrangement-'+crypto.randomUUID(),title:$('#arrangement-title').value,layout:session.layout,names:session.names});mutate(()=>session.designs.push(d),'Arrangement saved. Change the work or move capabilities to compare.');$('#arrangement-title').value='';}catch(error){status(error.message);}});
-$('#arrangement-table').addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;const id=button.dataset.loadDesign||button.dataset.deleteDesign,design=session.designs.find(d=>d.id===id);if(!design)return;if(button.dataset.loadDesign)mutate(()=>{session.layout={...design.layout};session.names={...design.names};},'Saved arrangement copied to the canvas. Its saved version stays intact.');else{mutate(()=>{session.designs=session.designs.filter(d=>d.id!==id);},'Saved arrangement removed. Undo restores it.');$('#arrangement-title').focus({preventScroll:true});}});
+$('#save-arrangement-form').addEventListener('submit',e=>{e.preventDefault();try{if(session.designs.length>=6)throw Error('Six arrangements are saved. Remove one to save another.');const d=validateDesign({id:'arrangement-'+crypto.randomUUID(),title:$('#arrangement-title').value,layout:session.layout,names:session.names,relationships:session.relationships});mutate(()=>session.designs.push(d),'Arrangement saved. Change the work or move capabilities to compare.');$('#arrangement-title').value='';}catch(error){status(error.message);}});
+$('#arrangement-table').addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;const id=button.dataset.loadDesign||button.dataset.deleteDesign,design=session.designs.find(d=>d.id===id);if(!design)return;if(button.dataset.loadDesign)mutate(()=>{session.layout={...design.layout};session.names={...design.names};session.relationships=validateRelationships(design.relationships);},'Saved arrangement copied to the canvas. Its saved version stays intact.');else{mutate(()=>{session.designs=session.designs.filter(d=>d.id!==id);},'Saved arrangement removed. Undo restores it.');$('#arrangement-title').focus({preventScroll:true});}});
 $('#export-json').addEventListener('click',()=>{downloadText('teams-experiment.json',JSON.stringify(portable(session),null,2),'application/json');status('Workloads, arrangements and the current experiment exported as JSON.');});
 $('#import-json').addEventListener('click',()=>$('#json-file').click());
 $('#json-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>1000000)throw Error('Choose a Teams export smaller than 1 MB.');const next=validatePortable(JSON.parse(await file.text()));mutate(()=>{session=next;},'Experiment imported. Undo restores your previous experiment.');}catch(error){status('Import left your work unchanged. '+error.message);}finally{e.target.value='';}});
@@ -285,14 +298,14 @@ $('#team-map').addEventListener('change', event => {
 $('#team-map').addEventListener('focusin', event => { if (event.target.matches('select,input')) pause(); });
 attachCardDrag({ root: $('#team-map'), onDrop: ({ itemId, dropId }) => { moveCapability(itemId, dropId); document.getElementById(`handle-${itemId}`)?.focus({ preventScroll: true }); } });
 $('#scenario').addEventListener('change', event => mutate(() => { session.scenario = event.target.value; session.trace = null; }, 'Workload changed for every arrangement. Team membership is unchanged.'));
-$('#pin').addEventListener('click', () => mutate(() => { session.baseline = { layout: { ...session.layout }, names: { ...session.names } }; }, 'Baseline pinned. Move a capability to compare layouts on the same work.'));
+$('#pin').addEventListener('click', () => mutate(() => { session.baseline = { layout: { ...session.layout }, names: { ...session.names },relationships:structuredClone(session.relationships) }; }, 'Baseline pinned. Move a capability to compare layouts on the same work.'));
 $('#reset').addEventListener('click', () => mutate(() => { session.layout = { ...DEFAULT_LAYOUT }; session.names = { ...TEAM_NAMES }; }, 'Original team layout restored. Workload, assumptions and pinned baseline are kept.'));
 $('#undo').addEventListener('click', () => {
   if (!undoStack.length) return;
   pause(); session = normalizeSession(undoStack.pop()); compute(); renderAll(); save(); status('Last change undone.');
   if ($('#undo').disabled) $('#pin').focus({ preventScroll: true });
 });
-$('#comparison-detail').addEventListener('click', event => { if (event.target.closest('#restore-baseline') && session.baseline) mutate(() => { session.layout = { ...session.baseline.layout }; session.names = { ...session.baseline.names }; }, 'The pinned layout is now the current arrangement.'); });
+$('#comparison-detail').addEventListener('click', event => { if (event.target.closest('#restore-baseline') && session.baseline) mutate(() => { session.layout = { ...session.baseline.layout }; session.names = { ...session.baseline.names };session.relationships=validateRelationships(session.baseline.relationships); }, 'The pinned layout is now the current arrangement.'); });
 $('#play').addEventListener('click', togglePlay);
 $('#step').addEventListener('click', () => { pause(); session.day = Math.min(HORIZON, session.day + 1); renderFrame(); save(); });
 $('#day').addEventListener('input', event => {
@@ -301,7 +314,7 @@ $('#day').addEventListener('input', event => {
   pause(); session.day = selectedDay; renderFrame();
 });
 $('#day').addEventListener('change', save);
-$('#trace').addEventListener('change', event => { session.trace = event.target.value; renderFrame(); save(); });
+$('#trace').addEventListener('change', event => { session.trace = event.target.value; renderFrame();renderRelationships(); save(); });
 $('#assumptions-form').addEventListener('submit', event => { event.preventDefault(); const next = normalizeAssumptions({ ...session.assumptions, coordination: Number($('#coordination').value) / 100, handoffDelay: Number($('#handoff-delay').value), handoffEffort:Number($('#handoff-effort').value) }); mutate(() => { session.assumptions = next; }, 'Every arrangement replayed with the new assumptions. Workload and team memberships are unchanged.'); });
 $('#coordination').addEventListener('input', updateAssumptionsOutputs);
 $('#handoff-delay').addEventListener('input', updateAssumptionsOutputs);

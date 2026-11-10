@@ -27,3 +27,4 @@ lab/docs/
 lab/.openai/
 lab/package.json
 lab/**/*.test.js
+embed/current/

@@ -19,4 +19,7 @@ test('the original Lab package contains a closed current receiver graph without 
  const receiver=readFileSync(join(site,'shared/article-import.js'),'utf8');assert.match(receiver,/from '\.\.\/embed\/core\/codec\.js'/);assert.match(receiver,/import\(`\.\.\/embed\/definitions\/lab-\$\{route\}\.js`\)/);
  assert.ok([...graph.keys()].some(file=>file==='knowledge/engine.js'),'definitions still reuse the native Lab engine');
  assert.ok(![...graph.keys()].some(file=>file.endsWith('/app.js')),'the article model graph excludes app entry points');
+ assert.match(readFileSync(join(site,'authority/view.js'),'utf8'),/from '\.\.\/embed\/definitions\/_lab\.js'/);
+ assert.match(readFileSync(join(site,'model-kit/session.js'),'utf8'),/from '\.\.\/embed\/core\/schema\.js'/);
+ assert.match(readFileSync(join(site,'authority/app.js'),'utf8'),/from '\.\.\/embed\/definitions\/lab-authority\.js'/);
 });

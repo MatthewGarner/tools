@@ -14,3 +14,27 @@
 
 .arrangement-table-wrap thead th:first-child{position:sticky;left:0;background:var(--paper);z-index:2;border-right:1px solid var(--line)}
 @media(max-width:700px){.stage-actions button,.stage-handle{min-height:44px}}
+.relationships{margin:28px 0;padding:24px 0;border-block:1px solid var(--line)}
+.relationships h2{margin:22px 0 12px}.relationships h3{margin:16px 0 10px}
+.relationships label,.relationships input,.relationships select,.relationships button{font-size:16px}
+.relationships input,.relationships select,.relationships button{min-height:44px;max-width:100%}
+.relationship-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:18px 0}
+.relationship-map>section{border-top:3px solid var(--accent);background:var(--card);padding:12px;min-width:0}
+.relationship-capability{border-top:1px solid var(--line);padding:10px 0;display:grid;grid-template-columns:auto 1fr;gap:8px}
+.relationship-capability button{grid-column:1/-1;text-align:left;touch-action:none;cursor:grab}
+.relationship-capability select{min-width:0;width:100%}
+.relationship-capability label{align-self:center}
+.relationship-traces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.relationship-trace-details{margin:20px 0;padding:12px 0;border-block:1px solid var(--line)}
+.relationships input{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:10px;font-family:var(--serif)}
+.relationship-traces ol{padding-left:24px;margin:10px 0}.relationship-traces li{padding:6px 0 6px 8px;border-left:2px solid var(--line)}
+.relationship-traces li.crossing{border-left:3px dashed var(--warn)}.relationship-traces small{display:block;font-size:16px;color:var(--muted)}
+.relationship-budgets,.relationship-people{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.relationship-budgets label{display:grid;gap:8px}.relationship-budgets input{width:100%}
+/* Absolute screen-reader labels belong to the scroller; without its containing
+   block, labels in offscreen columns can enlarge the phone viewport. */
+.relationship-table{position:relative;overflow:auto;margin-top:20px}.relationship-table table{min-width:760px;width:100%;border-collapse:collapse}
+.relationship-table td,.relationship-table th{padding:10px;text-align:left;border-bottom:1px solid var(--line)}
+.relationship-table input{width:90px}.relationship-table select{width:225px}
+.relationship-result{padding:18px 0;border-block:1px solid var(--line)}.relationship-result strong{font-family:var(--font-heading);font-size:26px}
+@media(max-width:650px){.relationships .section-heading{display:block}.relationship-map,.relationship-traces,.relationship-budgets,.relationship-people{grid-template-columns:1fr}.relationship-table{max-width:100%}.relationship-map>section{padding:10px}.relationships{padding-block:10px}}

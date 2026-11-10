@@ -12,7 +12,10 @@ test('every shipped page has the maintained static identity without a runtime de
     assert.equal((html.match(/class="mg-masthead"/g)||[]).length,1,dir);
     assert.match(html,/<script src="\/assets\/identity\/theme-init.js"><\/script>/,dir);
     const nav=html.match(/<nav class="mg-nav"[\s\S]*?<\/nav>/)?.[0];
-    assert.deepEqual([...nav.matchAll(/>(Writing|Tools Lab|Now)<\/a>/g)].map(m=>m[1]),['Writing','Tools Lab','Now'],dir);
+    const toolsLink=dir==='explore'?'Tools Lab':'All tools';
+    assert.deepEqual([...nav.matchAll(/>(Writing|Tools Lab|All tools|Now)<\/a>/g)].map(m=>m[1]),['Writing',toolsLink,'Now'],dir);
+    if(dir==='explore')assert.match(nav,/aria-current="page"/);
+    else assert.doesNotMatch(nav,/aria-current/);
     if(TOOL_DIRS.includes(dir)||dir.startsWith('energy/')) assert.match(html,/<header data-tool-header/,dir);
   }
 });

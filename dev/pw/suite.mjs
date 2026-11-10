@@ -1,9 +1,12 @@
 import {verifyRegularWork} from './regular-work.mjs';
+import {verifyWorkplaceModels} from './workplace-models.mjs';
+import {SUITE_CATALOG} from '../../assets/suite-catalog.js';
 import { chromium, devices } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {LAB_ROUTES} from '../suite-pages.mjs';
 const base=process.env.BASE||'http://localhost:8087';
+const currentCount=SUITE_CATALOG.filter(tool=>tool.status==='active').length;
 const out=process.env.SUITE_SCREENSHOTS;if(out)fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch();
 const errors=[];
@@ -13,10 +16,17 @@ try {
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto(base+'/');
     await page.locator('[data-explore-form]').waitFor({state:'visible'});
+    const catalogueLink=page.locator('.mg-nav [data-suite-link="explore"]');
+    assert.equal(await catalogueLink.textContent(),'Tools Lab');
+    assert.equal(await catalogueLink.getAttribute('aria-current'),'page');
     await page.evaluate(()=>document.fonts.ready);
-    assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
-    assert.equal(await page.locator('[data-catalog-id]:visible').count(),40);
+    assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
+    assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    assert.equal(await page.locator('#recent-work .work-filters').count(),1);
+    assert.equal(await page.locator('#recent-work').isVisible(),false,'empty work shelf stays out of the catalogue');
+    const columns=await page.locator('.explore-list').first().evaluate(list=>getComputedStyle(list).gridTemplateColumns.split(' ').length);
+    assert.equal(columns,phone?1:3);
     if(out)await page.screenshot({path:`${out}/${phone?'phone':'desktop'}-${colorScheme}.png`});
     const targets=await page.locator('.explore-filters button, .explore-filters input, .explore-filters select, .mg-nav a').evaluateAll(els=>els.filter(e=>{const r=e.getBoundingClientRect();return r.height<44 || r.width<44}).map(e=>({text:e.textContent,width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height})));
     assert.deepEqual(targets,[]);
@@ -29,7 +39,7 @@ try {
       await page.getByLabel('Maturity',{exact:true}).selectOption('experimental');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),2);
       await page.goBack();assert.equal(page.url(),typedURL);assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
-      await page.goBack();assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
+      await page.goBack();assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
       await page.goForward();assert.equal(await page.locator('[data-explore-form]').getByRole('searchbox').inputValue(),'BÁTTÉRY');
       await page.reload();assert.equal(await page.locator('[data-catalog-id]:visible').count(),6);
       await page.getByRole('button',{name:'Clear filters',exact:true}).first().click();
@@ -39,12 +49,30 @@ try {
       assert.equal(await page.locator('[data-empty-results]').isVisible(),true);
       assert.equal(await page.locator('.explore img').count(),0);
       await page.locator('[data-empty-clear]').click();
-      assert.equal(await page.locator('[data-result-count]').textContent(),'40 tools');
+      assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
       await page.getByLabel('Type',{exact:true}).selectOption('calculator');
       assert.equal(await page.locator('[data-catalog-id]:visible').count(),3);
     }
     await context.close();
   }
+  const tablet=await browser.newContext({viewport:{width:900,height:1000},colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
+  const tabletPage=await tablet.newPage();await tabletPage.goto(base+'/');await tabletPage.locator('[data-explore-form]').waitFor({state:'visible'});
+  assert.equal(await tabletPage.locator('.explore-list').first().evaluate(list=>getComputedStyle(list).gridTemplateColumns.split(' ').length),2);
+  assert.equal(await tabletPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  if(out)await tabletPage.screenshot({path:`${out}/tablet-light.png`});
+  await tablet.close();
+  const workContext=await browser.newContext({serviceWorkers:'block'}),workPage=await workContext.newPage();
+  await workPage.goto(base+'/');await workPage.locator('#recent-work .work-filters').waitFor({state:'attached'});
+  assert.equal(await workPage.locator('#recent-work').isVisible(),false);
+  await workPage.evaluate(async()=>{const {recentStore}=await import('/assets/recent-store.js');recentStore(localStorage,'tools').add({id:'catalogue-preview',tool:'flow',name:'Saved work example',hash:btoa('{}'),savedAt:Date.now()});});
+  await workPage.reload();await workPage.locator('#recent-work .work-disclosure-summary').waitFor({state:'visible'});
+  assert.equal(await workPage.locator('#recent-work').isVisible(),true,'work shelf appears when there is saved work');
+  assert.equal(await workPage.locator('#recent-work .work-filters').isVisible(),false,'single saved copy does not need work filters');
+  assert.equal(await workPage.locator('.work-disclosure').evaluate(node=>node.open),false,'saved work is collapsed by default');
+  assert.equal(await workPage.locator('.recent-open').isVisible(),false,'saved rows stay out of the catalogue until requested');
+  if(out)await workPage.screenshot({path:`${out}/desktop-work-present.png`});
+  await workPage.locator('.work-disclosure-summary').click();await workPage.locator('.recent-open').waitFor({state:'visible'});
+  await workContext.close();
   // Every original Lab route still runs under the consolidated CSP and prefix.
   // No model is replaced or silently omitted merely because it was archived.
   for(const phone of [false,true])for(const theme of ['light','dark']){
@@ -59,6 +87,10 @@ try {
       await page.evaluate(()=>document.fonts.ready);
       assert.equal(await page.locator('#lab-experiment').inputValue(),route);
       assert.equal(await page.locator('.mg-masthead').count(),1);
+      const homeLink=page.locator('.mg-nav [data-suite-link="explore"]');
+      assert.equal(await homeLink.textContent(),'All tools',route+' home link label');
+      assert.equal(await homeLink.getAttribute('aria-current'),null,route+' home link is not the current page');
+      assert.equal(new URL(await homeLink.getAttribute('href'),page.url()).pathname,'/',route+' home link target');
       assert.equal(await page.locator('.lab-header').count(),0,'no duplicate shell');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' '+phone+' '+theme+' page overflow');
       if(out&&['knowledge','reframe','flexibility','accuracy'].includes(route))await page.screenshot({path:`${out}/lab-${route}-${phone?'phone':'desktop'}-${theme}.png`});
@@ -66,13 +98,21 @@ try {
     assert.deepEqual(broken,[], 'Lab routes, assets and CSP '+phone+' '+theme);
     await context.close();
   }
-  console.log('PASS all 24 Lab routes on desktop/phone in both themes, real assets and CSP');
+  console.log('PASS all '+LAB_ROUTES.length+' Lab routes on desktop/phone in both themes, real assets and CSP');
   const routes=await browser.newContext({serviceWorkers:'block'}),rp=await routes.newPage();
+  await rp.goto(base+'/lab/');
+  const labHomeLink=rp.locator('.mg-nav [data-suite-link="explore"]');
+  assert.equal(await labHomeLink.textContent(),'All tools');
+  assert.equal(await labHomeLink.getAttribute('aria-current'),null);
+  await labHomeLink.click();
+  assert.equal(new URL(rp.url()).pathname,'/');
+  await rp.locator('[data-explore-form]').waitFor({state:'visible'});
+  assert.equal(await rp.locator('.mg-nav [data-suite-link="explore"]').textContent(),'Tools Lab');
   const response=await rp.request.get(base+'/lab/knowledge?entry=old',{maxRedirects:0});
   assert.equal(response.status(),308);assert.equal(response.headers().location,'/lab/knowledge/?entry=old');
   await rp.goto(base+'/lab/dist/knowledge/?entry=old#saved');
   assert.equal(new URL(rp.url()).pathname,'/lab/knowledge/');assert.equal(new URL(rp.url()).hash,'#saved');assert.equal(new URL(rp.url()).search,'?entry=old');
-  await rp.locator('.mg-nav').getByRole('link',{name:'Tools Lab',exact:true}).click();
+  await rp.locator('.mg-nav').getByRole('link',{name:'All tools',exact:true}).click();
   assert.equal(new URL(rp.url()).pathname,'/');
   await rp.getByLabel('Domain',{exact:true}).selectOption('energy');
   assert.equal(new URL(rp.url()).search,'?domain=energy');
@@ -82,15 +122,16 @@ try {
   assert.equal(await rp.locator('[data-catalog-id="lab:flexibility"]').isVisible(),false);
   const missing=await rp.goto(base+'/a-tool-that-does-not-exist/');
   assert.equal(missing.status(),404);await rp.getByRole('heading',{name:'This page isn’t here'}).waitFor();
-  await rp.locator('.mg-nav').getByRole('link',{name:'Tools Lab',exact:true}).click();
+  await rp.locator('.mg-nav').getByRole('link',{name:'All tools',exact:true}).click();
   assert.equal(new URL(rp.url()).pathname,'/');
   await routes.close();
   const context=await browser.newContext({javaScriptEnabled:false,serviceWorkers:'block'});const page=await context.newPage();
   await page.goto(base+'/?q=battery');
-  assert.equal(await page.locator('[data-catalog-id]:visible').count(),40);
+  assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
   assert.equal(await page.locator('[data-explore-form]').isVisible(),false);
-  await page.locator('[data-archive-list] summary').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),47);
+  await page.locator('[data-archive-list] summary').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),SUITE_CATALOG.length);
   await context.close();assert.deepEqual(errors,[]);
   await verifyRegularWork(browser,base,out);
+  await verifyWorkplaceModels(browser,base,out);
   console.log('PASS: light/dark desktop/phone; 44px targets; no horizontal overflow; search/filter/history/reload; archive and no-JS discovery; hostile query inert; no page errors.');
 } finally {await browser.close()}

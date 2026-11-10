@@ -35,6 +35,96 @@ const energy = [
 // lab-catalogue:start
 const lab = [
   {
+    "id": "lab:authority",
+    "route": "authority",
+    "title": "Who can actually decide?",
+    "description": "Move information and authority. Follow the decisions that wait or conflict.",
+    "type": "model",
+    "keywords": "authority KNOW → DECIDE → CONSEQUENCE",
+    "domains": [
+      "teams",
+      "systems"
+    ],
+    "maturity": "experimental",
+    "status": "active",
+    "source": "lab"
+  },
+  {
+    "id": "lab:context",
+    "route": "context",
+    "title": "What survived the status update?",
+    "description": "Carry facts through reporting layers. Discover which omission changes a decision.",
+    "type": "model",
+    "keywords": "context FACT → SUMMARY → DECISION",
+    "domains": [
+      "teams",
+      "systems"
+    ],
+    "maturity": "experimental",
+    "status": "active",
+    "source": "lab"
+  },
+  {
+    "id": "lab:consistency",
+    "route": "consistency",
+    "title": "How much consistency is enough?",
+    "description": "Choose what teams standardise. Compare handoffs with local workarounds.",
+    "type": "model",
+    "keywords": "consistency LOCAL FIT / SHARED INTERFACES",
+    "domains": [
+      "teams",
+      "systems"
+    ],
+    "maturity": "experimental",
+    "status": "active",
+    "source": "lab"
+  },
+  {
+    "id": "lab:alignment",
+    "route": "alignment",
+    "title": "We’re aligned—until something changes",
+    "description": "Disturb an agreed plan. Reveal the different reasoning underneath it.",
+    "type": "model",
+    "keywords": "alignment SAME PLAN / DIFFERENT REASONS",
+    "domains": [
+      "teams",
+      "product"
+    ],
+    "maturity": "experimental",
+    "status": "active",
+    "source": "lab"
+  },
+  {
+    "id": "lab:possibilities",
+    "route": "possibilities",
+    "title": "Making worthwhile work possible",
+    "description": "Do available work or remove what blocks better options. Watch the landscape change.",
+    "type": "model",
+    "keywords": "possibilities ENABLE → OPEN → DELIVER",
+    "domains": [
+      "teams",
+      "product"
+    ],
+    "maturity": "experimental",
+    "status": "active",
+    "source": "lab"
+  },
+  {
+    "id": "lab:clocks",
+    "route": "clocks",
+    "title": "The organisation’s clocks",
+    "description": "Move discovery, review, funding and delivery windows. Find when evidence can change work.",
+    "type": "model",
+    "keywords": "clocks LEARN → REVIEW → FUND → ACT",
+    "domains": [
+      "teams",
+      "systems"
+    ],
+    "maturity": "experimental",
+    "status": "active",
+    "source": "lab"
+  },
+  {
     "id": "lab:commitment",
     "route": "commitment",
     "title": "The commitment spiral",
