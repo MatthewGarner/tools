@@ -15,11 +15,13 @@ export function moduleReferences(file, source){
     .map(ref => ref.startsWith('/') ? ref.slice(1) : posix.normalize(posix.join(posix.dirname(file), ref)));
 }
 
-export function moduleGraph(root, entry, seen = new Set()){
+/* `skip` lists lazily loaded modules (a dynamic import on first use): not walked, so a caller can
+   measure what a page loads before anything is asked of it. */
+export function moduleGraph(root, entry, seen = new Set(), skip = new Set()){
   if(seen.has(entry)) return seen;
   seen.add(entry);
   const source = readFileSync(new URL(entry, root), 'utf8');
-  for(const ref of moduleReferences(entry, source)) moduleGraph(root, ref, seen);
+  for(const ref of moduleReferences(entry, source)) if(!skip.has(ref)) moduleGraph(root, ref, seen, skip);
   return seen;
 }
 

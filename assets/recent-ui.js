@@ -4,7 +4,7 @@ const scope = document.documentElement.dataset.recentScope || document.documentE
 const tool = location.pathname.split('/').filter(part=>part && part!=='index.html').at(-1);
 const el = (tag, text, cls) => {const node=document.createElement(tag);if(text)node.textContent=text;if(cls)node.className=cls;return node;};
 const button = text => {const b=el('button',text);b.type='button';return b;};
-const store = () => recentStore(localStorage,scope);
+const store = () => recentStore(localStorage,scope,document.querySelector('[data-shell-row]')?'in Your work':undefined);
 const failure = error => error?.name === 'QuotaExceededError'
   ? 'Device storage is full. Nothing was saved. Remove an older copy or free some browser storage.'
   : error?.name === 'SecurityError' ? 'Browser storage is unavailable. Allow site storage to use Your work.'

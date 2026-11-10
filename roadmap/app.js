@@ -8,7 +8,7 @@ import {renderChapter, renderChapterPages} from './chapter-svg.js';
 import {chapterHero as focusHeroIndex, chapterNativeWidth} from './chapter-layout.js';
 import {stripEmbeddedFonts} from '../assets/chapter-fonts.js';
 import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
-import {provide} from '../assets/tool-shell.js';
+import {offer as provide} from '../assets/recent-ui.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics, applyWorld} from './parse.js';

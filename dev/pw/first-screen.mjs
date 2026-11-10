@@ -23,8 +23,16 @@
      ready        the shell wired itself: data-shell-ready is set       (shell)
      no shift     header bottom at DOMContentLoaded equals header bottom once the
                   page has settled (at least network idle + 900ms), within 1px (shell)
-   The last four apply only to entries with shell:true; the synthetic fixtures at
-   the end of this file prove the stamped and shift checks can fail. */
+     one verb     no .model-link, .recent-save, #copylink or "Save on this device"
+                  control anywhere on the page: Share and Save a copy live in File
+                  (shell)
+     no cut-off   the h1 is not truncated at 375px                      (shell)
+     layout       at 320x568, 390x844, 1280x900, 1440x900 and 1920x1080, light and
+                  dark: the header is exactly 96px and <main> starts at its bottom
+                  edge (shell). The 215/180 budgets stay measured at the two
+                  reference sizes: the pinned masthead grows with viewport height.
+   The last six apply only to entries with shell:true; the synthetic fixtures at
+   the end of this file prove each of them can fail. */
 import {chromium} from 'playwright';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {SHELL_MANIFEST, HEADER_BUDGET, ANCHOR_BUDGET, HEADER_CONTROLS_MAX, ANCHOR_MIN_SIZE, VIEWPORTS} from '../shell-manifest.mjs';
@@ -96,6 +104,8 @@ function installProbe(){
       controls, regionFound, controlTags: all.length,
       strays: shown.filter(el => !inRegion(el)).map(label).sort(),
       title: header?.querySelector('h1')?.textContent.trim() ?? null,
+      h1Over: (() => { const h = header?.querySelector('h1'); return h ? h.scrollWidth - h.clientWidth : 0; })(),
+      strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, button')].filter(el => el.matches('.model-link, .recent-save, #copylink') || /save on this device/i.test(el.textContent)).length,
       shellReady: !!header && header.hasAttribute('data-shell-ready'),
       /* a worker or async render still owns the layout: Cycles marks its stage
          aria-busy / .recomputing for ~5s and its anchor then moves 90px, so a
@@ -215,12 +225,40 @@ for(const [dir] of PAGES){
     if(entry.shell){
       const stamped = stampedProblems(entry, m.atDcl, m);
       ok(!stamped.length, `${where}: stamped controls${stamped.length ? ' — ' + stamped.join('; ') : ''}`);
+      ok(m.strayActions === 0, `${where}: one verb each — ${m.strayActions ? m.strayActions + ' stray model-link, recent-save, #copylink or "Save on this device" control(s) on the page' : 'no stray share or save controls outside File and Share'}`);
+      if(vp === 'phone') ok(m.h1Over <= 0, `${where}: the h1 is not cut off${m.h1Over > 0 ? ' — ' + m.h1Over + 'px wider than its box' : ''}`);
       const title = titleProblems(entry, m);
       ok(!title.length, `${where}: title${title.length ? ' — ' + title.join('; ') : ' — h1 is ' + JSON.stringify(entry.name)}`);
       ok(m.shellReady, `${where}: shell ready — ${m.shellReady ? 'data-shell-ready is set' : 'data-shell-ready is missing: some stamped control was never wired'}`);
       const shift = shiftProblems(m.atDcl, m);
       ok(!shift.length, `${where}: no header shift${shift.length ? ' — ' + shift.join('; ') : ''}`);
     }
+  }
+}
+
+
+/* ---- the header is exactly 96px and <main> starts at its bottom edge, at five sizes in both schemes ---- */
+const LAYOUT_SIZES = [[320, 568], [390, 844], [1280, 900], [1440, 900], [1920, 1080]];
+const probeLayout = () => {
+  const header = document.querySelector('[data-tool-header]'), main = document.querySelector('main');
+  const h = header.getBoundingClientRect(), m = main.getBoundingClientRect();
+  return {header: Math.round(h.height * 10) / 10, gap: Math.round((m.top - h.bottom) * 10) / 10};
+};
+const layoutProblems = m => [
+  ...(m.header === 96 ? [] : [`header is ${m.header}px tall, not 96`]),
+  ...(m.gap === 0 ? [] : [`<main> starts ${m.gap}px from the header's bottom edge, not 0`]),
+];
+for(const [dir, url] of PAGES){
+  const entry = SHELL_MANIFEST[dir];
+  if(!entry?.shell || !scope.wants(dir)) continue;
+  for(const scheme of ['light', 'dark']) for(const [width, height] of LAYOUT_SIZES){
+    const context = await browser.newContext({viewport: {width, height}, deviceScaleFactor: 1, reducedMotion: 'reduce', colorScheme: scheme, serviceWorkers: 'block'});
+    const page = await context.newPage();
+    await page.goto(url, {waitUntil: 'networkidle'});
+    await page.evaluate(() => document.fonts.ready);
+    const problems = layoutProblems(await page.evaluate(probeLayout));
+    ok(!problems.length, `${dir} @${width}x${height} ${scheme}: header 96px, <main> flush below it${problems.length ? ' — ' + problems.join('; ') : ''}`);
+    await context.close();
   }
 }
 
@@ -268,8 +306,42 @@ if(!scope.focused){
     'fixture: a control injected during load, which DOMContentLoaded cannot see, still fails against the stamped region');
   ok(results.shifting.shift.length === 1, 'fixture: a header that grows after DOMContentLoaded fails the no-shift check');
   ok(!results.lateButton.shift.length && !results.shifting.stamped.length, 'fixture: each bad fixture trips only its own check');
+  /* the layout, no-cut-off and one-verb checks, each against a page built to break it */
+  const LAYOUT = {
+    good: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header style="height:96px"><h1 style="margin:0;font:28px/48px sans-serif">Fixture</h1></header><main style="display:block;height:300px">m</main>',
+    tall: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header style="height:100px"><h1>Fixture</h1></header><main style="display:block;height:300px">m</main>',
+    gap: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header style="height:96px"><h1>Fixture</h1></header><main style="display:block;height:300px;margin-top:10px">m</main>',
+  };
+  const layout = {};
+  for(const [name, html] of Object.entries(LAYOUT)){
+    const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
+    await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
+    const page = await context.newPage();
+    await page.goto('http://fixture.test/' + name);
+    layout[name] = layoutProblems(await page.evaluate(probeLayout));
+    await context.close();
+  }
+  ok(!layout.good.length, 'fixture: a 96px header with <main> flush below passes the layout check');
+  ok(layout.tall.length === 1 && /100px tall/.test(layout.tall[0]), 'fixture: a header that is 100px tall fails the layout check');
+  ok(layout.gap.length === 1 && /10px from/.test(layout.gap[0]), 'fixture: <main> 10px below the header fails the layout check');
+  const probe = {};
+  for(const [name, html] of Object.entries({
+    cut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1 style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long title indeed</h1></header><main>m</main>',
+    stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button></main>',
+    clean: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main>m</main>',
+  })){
+    const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
+    await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
+    const page = await context.newPage();
+    await page.addInitScript(installProbe);
+    await page.goto('http://fixture.test/' + name);
+    probe[name] = await page.evaluate(() => window.__shellProbe(null));
+    await context.close();
+  }
+  ok(probe.cut.h1Over > 0 && probe.clean.h1Over <= 0, 'fixture: a truncated h1 is measured as wider than its box; an untruncated one is not');
+  ok(probe.stray.strayActions === 3 && probe.clean.strayActions === 0, 'fixture: .recent-save, "Save on this device" and #copylink are each counted as stray controls');
 }
 
 await browser.close();
 /* Floor: settled, header and anchor-real, at two sizes, per page; plus the fixtures. */
-scope.report('first-screen', {pass, fail, min: PAGES.length * 6 + 5});
+scope.report('first-screen', {pass, fail, min: PAGES.length * 6 + 5 + 30});

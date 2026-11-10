@@ -35,7 +35,7 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
   if(!['alarm','flow','signal-vs-noise','case','paths','frequency'].includes(tool)){
     templates=createTemplates({scope,tool,format:'model-link',capture:async()=>(await capture()).hash,
       name:()=>snapshotName(getState?.(),RECENT_TOOLS[scope][tool]),notice:message=>status.textContent=message,
-      description:'Starting from a template first keeps your current model as a saved copy in Your work.',
+      description:'Starting from a template first keeps your current model as a saved copy in Your work.',place:row?'Your work':'Templates',
       beforeStart:async()=>{const {hash,value}=await capture(),shelf=store();if(!shelf.list().some(copy=>copy.tool===tool&&copy.hash===hash))shelf.add({id:crypto.randomUUID(),tool,name:snapshotName(value,RECENT_TOOLS[scope][tool]),hash,savedAt:Date.now()});},
       restore:hash=>{if(!/^(?:z:)?[A-Za-z0-9_+/=-]+$/.test(hash)||hash.length>HASH_LIMIT)throw Error('This template does not contain a valid model link.');location.hash=hash;location.reload();},
     });
@@ -62,7 +62,7 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
     }catch(error){status.textContent=failure(error);}
     finally{if(save)save.disabled=false;}
   }
-  if(row){offer({getState,getHash,maxLength,templates,save:openSave});return null;}
+  if(row){offer({getState,getHash,templates,save:openSave});return null;}
   save.addEventListener('click',()=>openSave(save));
   return save;
 }

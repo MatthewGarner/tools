@@ -54,18 +54,19 @@
       <details class="tool-file" data-shell-file>
         <summary>File</summary>
         <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
           <p class="tool-note">Draft saved in this browser</p>
-          <button type="button" data-act="new">New</button>
-          <button type="button" data-act="examples" aria-expanded="false">Examples</button>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
           <div class="tool-examples" data-shell-examples-list hidden></div>
-          <button type="button" data-act="work">Your work…</button>
-          <button type="button" data-act="save">Save a copy…</button>
-          <button type="button" data-act="template">Save as template…</button>
-          <button type="button" data-act="item" data-item="import-markdown">Import markdown</button>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <button type="button" data-act="item" data-item="import-markdown" disabled>Import markdown</button>
           <a href="/backup/" data-act="backup">Backup &amp; restore</a>
         </div>
       </details>
-      <button type="button" data-act="share" class="tool-share">Share</button>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
       <p class="tool-status" role="status"></p>
     </div>
     <!-- shell:end -->

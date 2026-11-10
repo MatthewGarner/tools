@@ -36,6 +36,9 @@ test('every shell page stamps exactly the controls its manifest entry grants', (
     assert.deepEqual(acts(stamped), want, dir + ': File menu items differ from the manifest');
     assert.equal(/Draft saved in this browser/.test(stamped), ['roadmap', 'cycles', 'risk', 'bets', 'case', 'gauge', 'map', 'paths', 'proxy', 'timeline', 'tree', 'wardley', 'why'].includes(dir), dir + ': draft line');
     assert.equal((stamped.match(/<h1>/g) || []).length, 1, dir);
+    const buttons = stamped.match(/<button\b[^>]*>/g) || [];
+    assert.ok(buttons.length >= 3 && buttons.every(tag => /\sdisabled>$/.test(tag)), dir + ': every stamped button ships disabled, so one that is never wired cannot look usable');
+    assert.match(stamped, /<p class="tool-stalled">This page did not finish loading\. Reload to save or share\.<\/p>/, dir + ': the stalled line is stamped');
     for(const leftover of ['class="tagline"', 'class="crumb"', 'planning-boundary', 'chapter-wordmark'])
       assert.ok(!html.match(/<header data-tool-header[\s\S]*?<\/header>/)[0].includes(leftover), dir + ': header still carries ' + leftover);
   }

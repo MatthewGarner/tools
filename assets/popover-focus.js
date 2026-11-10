@@ -13,14 +13,15 @@
    to true action menus, applied by the caller that builds them). Informational
    callouts can opt out of the Tab trap: they are not dialogs and must not
    create a keyboard island. `onEscape` is the caller's real close() function. */
-export function trapPopoverFocus(pop, onEscape, {trap = true} = {}){
+export function trapPopoverFocus(pop, onEscape, {trap = true, items = null} = {}){
   /* Two different element sets on purpose: `rovable` (buttons only) is what
      Arrow/Home/End step between — widening it to inputs would hijack a number
      input's native spinner arrows / a text input's Home-End cursor jump (the
      alarm claim dialog mixes both). `focusable` (buttons + enabled inputs) is
      the wider Tab-trap boundary — every real stop in the popover, so Tab still
      wraps correctly even when the first/last stop is an input, not a button. */
-  const rovable = () => [...pop.querySelectorAll('button')];
+  /* `items` (a selector) is opt-in: those rows, enabled and visible, replace plain buttons */
+  const rovable = () => items ? [...pop.querySelectorAll(items)].filter(el => !el.disabled && el.checkVisibility()) : [...pop.querySelectorAll('button')];
   const focusable = () => [...pop.querySelectorAll('button, input:not([disabled])')];
   pop.addEventListener('keydown', e => {
     if(e.key === 'Escape'){ e.preventDefault(); onEscape(); return; }
@@ -46,7 +47,7 @@ export function trapPopoverFocus(pop, onEscape, {trap = true} = {}){
     if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
   });
-  const first = pop.querySelector('button');
+  const first = items ? rovable()[0] : pop.querySelector('button');
   if(first) first.focus();
   else { pop.tabIndex = -1; pop.focus(); }   // read-only popover (e.g. intraday's callout): focus the container itself
 }

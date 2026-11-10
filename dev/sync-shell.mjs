@@ -13,15 +13,18 @@ import {SOURCE_TOOLS} from '../assets/saved-work-keys.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 const esc = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-const button = (act, label, extra = '') => `<button type="button" data-act="${act}"${extra}>${label}</button>`;
+/* Every control ships disabled: the shell enables each one as its capability arrives, so one
+   that cannot work says so, including when the shell or the page script never loads. */
+const button = (act, label, extra = '') => `<button type="button" data-act="${act}"${extra} disabled>${label}</button>`;
 
 /* The File menu, in the spec's order, each item only where the manifest grants it.
    Every page gets Your work and Save a copy, so File is always present. */
 export function shellRegion(dir, entry){
   const items = [
+    '<p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>',
     ...(SOURCE_TOOLS.includes(dir) ? ['<p class="tool-note">Draft saved in this browser</p>'] : []),
     ...(entry.new ? [button('new', 'New')] : entry.templates ? [button('new-template', 'New from template…')] : []),
-    ...(entry.examples ? [`<button type="button" data-act="examples" aria-expanded="false">Examples</button>`, '<div class="tool-examples" data-shell-examples-list hidden></div>'] : []),
+    ...(entry.examples ? [button('examples', 'Examples', ' aria-expanded="false"'), '<div class="tool-examples" data-shell-examples-list hidden></div>'] : []),
     button('work', 'Your work…'),
     button('save', 'Save a copy…'),
     ...(entry.templates ? [button('template', 'Save as template…')] : []),

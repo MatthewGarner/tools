@@ -52,12 +52,13 @@
       <details class="tool-file" data-shell-file>
         <summary>File</summary>
         <div class="tool-menu">
-          <button type="button" data-act="work">Your work…</button>
-          <button type="button" data-act="save">Save a copy…</button>
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
           <a href="/backup/" data-act="backup">Backup &amp; restore</a>
         </div>
       </details>
-      <button type="button" data-act="share" class="tool-share">Share</button>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
       <p class="tool-status" role="status"></p>
     </div>
     <!-- shell:end -->
@@ -115,7 +116,6 @@
           <button class="btn" id="dlsvg">SVG</button>
         </div>
       </details>
-      <button class="btn" id="copylink">Copy link</button>
       <span class="method">Seeded 1,000-case population · counts read off the dots</span>
     </div>
   </div>

@@ -262,10 +262,6 @@ $('copydoc').addEventListener('click', async () => {
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
-$('copylink').addEventListener('click', async () => {
-  try{ await navigator.clipboard.writeText(modelHref()); flash('copylink', 'Copied'); }
-  catch(e){ prompt('Copy this link:', modelHref()); }
-});
 $('replay').addEventListener('click', animateGate);
 function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = msg; setTimeout(() => { b.textContent = was; }, 1500); }
 

@@ -5,7 +5,7 @@ import {shellRow, offer} from './recent-ui.js';
 // Snapshot the model at click time: location.hash can lag behind a recent edit.
 // Shared by the injected button and the shell's Share; getHash is the same hook
 // Save a copy uses, and the link never comes from location.hash.
-export async function shareModel({getState, getHash, maxLength = 6000, status, button}){
+export async function shareModel({getState, getHash, maxLength = 6000, status, button, done = 'Model link copied — opens a separate copy.', title = 'Copy model link'}){
   status.textContent = ''; button.disabled = true;
   try{
     const state = getState ? getState() : null;
@@ -17,11 +17,11 @@ export async function shareModel({getState, getHash, maxLength = 6000, status, b
     const url = new URL(location.pathname, location.origin); url.hash = hash;
     try{
       await navigator.clipboard.writeText(url.href);
-      status.textContent = 'Model link copied — opens a separate copy.';
+      status.textContent = done;
     }catch{
       const dialog = document.createElement('dialog'); dialog.className = 'model-link-dialog';
-      dialog.setAttribute('aria-label', 'Copy model link');
-      const heading = document.createElement('h2'); heading.textContent = 'Copy model link';
+      dialog.setAttribute('aria-label', title);
+      const heading = document.createElement('h2'); heading.textContent = title;
       const field = document.createElement('label'); field.textContent = 'Select and copy this link';
       const input = document.createElement('textarea'); input.readOnly = true; input.value = url.href;
       const close = document.createElement('button'); close.className = 'btn'; close.textContent = 'Done';
