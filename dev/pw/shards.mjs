@@ -9,7 +9,7 @@ export const SHARDS = [
   {name:'eip', suites:['check-eip.mjs'], browsers:'chromium'},
   {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs','design-bar.mjs'], browsers:'chromium'},
   {name:'motion-webkit', suites:['motion.mjs','webkit.mjs','check.mjs','paths-budget.mjs','map.mjs'], browsers:'chromium webkit'},
-  {name:'layout-gauge', suites:['chapter.mjs','energy-design-bar.mjs','workshop-design.mjs','first-screen.mjs','layout.mjs','signal.mjs','intraday-export.mjs','frequency.mjs','case.mjs'], browsers:'chromium'},
+  {name:'layout-gauge', suites:['chapter.mjs','energy-design-bar.mjs','workshop-design.mjs','first-screen.mjs','tool-shell.mjs','layout.mjs','signal.mjs','intraday-export.mjs','frequency.mjs','case.mjs'], browsers:'chromium'},
 ];
 
 export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
@@ -24,7 +24,7 @@ export const SUITE_SECONDS = {
   'recent-work.mjs': 60,
   'templates.mjs': 20,
   // Initial ordering hints for the design-bar regressions; refine from the complete gate.
-  'identity.mjs': 12, 'design-bar.mjs': 10, 'energy-design-bar.mjs': 12, 'workshop-design.mjs': 25, 'first-screen.mjs': 50,
+  'identity.mjs': 12, 'design-bar.mjs': 10, 'energy-design-bar.mjs': 12, 'workshop-design.mjs': 25, 'first-screen.mjs': 50, 'tool-shell.mjs': 60,
   // Initial ordering hints for Chapter; update from the first complete gate run.
   'chapter.mjs': 45, 'chapter-interactions.mjs': 20, 'timeline.mjs': 20,
   'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,

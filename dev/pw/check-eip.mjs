@@ -857,7 +857,7 @@ if(scope.wants("roadmap")){
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await focusRoadmapSource(p);
-  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
   await p.waitForTimeout(500);
   /* The flagship is a plain now/next/later doc → the CHART, whose own markup
@@ -966,7 +966,7 @@ if(scope.wants("roadmap")){
      chart's own lane×horizon geometry, so it should not inherit their layout
      history. */
   await focusRoadmapSource(p);
-  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
   await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     t => (t.includes('Platform: Sync engine rewrite') && t.includes('Growth: Home-screen widget gallery')));
@@ -1013,7 +1013,7 @@ if(scope.wants("roadmap")){
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await focusRoadmapSource(p);
-  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
   await p.waitForTimeout(500);
 
@@ -1924,7 +1924,7 @@ if(scope.wants("roadmap")){
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await openRoadmapSource(mpage);
-  await mpage.locator('#examples summary').click(); await mpage.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openExamples(mpage); await mpage.getByRole('button', {name: 'Reading app roadmap'}).click();
   await mpage.waitForTimeout(600);
 
   /* coarse menu-first redirect: tap the CENTRE of the title text itself — a
@@ -3396,7 +3396,7 @@ if(scope.wants("why", "map", "roadmap")){
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
     await focusRoadmapSource(p);
-  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openExamples(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
     /* This 700ms settle stays a sleep. Twice now a poll has been put here and twice it
        broke: it must cover the example's text reaching localStorage through the

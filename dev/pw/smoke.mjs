@@ -1,4 +1,4 @@
-import {openExamples} from './_harness.mjs';
+import {openExamples, openFileMenu} from './_harness.mjs';
 /* Smoke checks for every tool + the landing page. The quality bar: each tool
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
@@ -569,8 +569,13 @@ for(const theme of FLOW_THEMES){
       await page.goto(BASE + path, {waitUntil: 'domcontentloaded'});
       if(theme === 'light'){        // the crumb is markup, and markup does not have a theme
         const crumb = page.locator('a.crumb');
-        check(path + ': carries the home crumb',
-          await crumb.count() === 1 && await crumb.getAttribute('href') === home);
+        /* a stamped shell header drops the (hidden) crumb; the masthead's Tools Lab link is the way home */
+        if(await page.locator('[data-shell-row]').count())
+          check(path + ': shell header has no crumb; the masthead Tools Lab link goes home',
+            await crumb.count() === 0 && await page.locator('a[data-suite-link="explore"]').getAttribute('href') === home);
+        else
+          check(path + ': carries the home crumb',
+            await crumb.count() === 1 && await crumb.getAttribute('href') === home);
       }
       await page.waitForTimeout(450);          // autoload renders through debounce + rAF
       const svgs = await page.locator('svg').count();
@@ -1427,7 +1432,7 @@ if(scope.wants("timeline")){
 if(scope.wants("roadmap")){
   const {page, errors} = await freshPage('/roadmap/');
   await openRoadmapSource(page);
-  await page.locator('#examples summary').click(); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
   await page.locator('#stylepicker [data-style="grid"]').click();
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
@@ -1654,7 +1659,10 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
   /* half these tools open with the source rail collapsed (the chips live in it) */
   if(!['/roadmap/','/case/'].includes(tool) && !await page.getByRole('button', {name:'Start your own',exact:true}).isVisible()) await page.locator('#railtab').click();
   await page.waitForTimeout(300);
-  const chip = page.getByRole('button', {name: tool === '/roadmap/' ? 'New roadmap' : tool === '/case/' ? 'New case' : 'Start your own'});
+  /* Roadmap's start is File > New in the stamped shell header */
+  if(tool === '/roadmap/') await openFileMenu(page);
+  const chip = tool === '/roadmap/' ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true})
+    : page.getByRole('button', {name: tool === '/case/' ? 'New case' : 'Start your own'});
   check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);
   await chip.click();
   /* energy's engines settle off-thread — poll rather than guess a sleep */

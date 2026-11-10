@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, isShellPage, fileItem} from './_harness.mjs';
 const base=process.env.BASE||'http://localhost:8087';
 const browser=await chromium.launch();
 const routes=(process.env.TEMPLATE_LAB_ROUTES??'reframe,mixer,constraints,analogy,objections,interventions,questions,answers,family,scenes,territory,disagreement').split(',').filter(Boolean);
 const records=page=>page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('mg:template:v1:')).map(key=>JSON.parse(localStorage.getItem(key))));
 async function saveTemplate(page,name){
-  await page.getByRole('button',{name:'Templates',exact:true}).click();
-  const dialog=page.locator('.mg-template-dialog');await dialog.getByRole('button',{name:'Save current as template',exact:true}).click();
+  // Stamped-shell pages open the same save form straight from File > Save as template…
+  if(await isShellPage(page))await fileItem(page,'Save as template…');else await page.getByRole('button',{name:'Templates',exact:true}).click();
+  const dialog=page.locator('.mg-template-dialog');if(!(await isShellPage(page)))await dialog.getByRole('button',{name:'Save current as template',exact:true}).click();
   await dialog.getByLabel('Template name').fill(name);await dialog.getByRole('button',{name:'Save template',exact:true}).click();
   await dialog.getByRole('button',{name:'Make default',exact:true}).waitFor();return dialog;
 }
@@ -32,9 +33,9 @@ try{
   const ctx=await browser.newContext({serviceWorkers:'block'}),page=await ctx.newPage(),errors=trackErrors(page);
   // Fermi's authoring fields are intentionally hidden until Edit is requested.
   await page.goto(base+'/fermi/');await page.getByRole('button',{name:'Edit formula & ranges',exact:true}).click();await page.locator('#estimatequestion').fill('Reusable estimate');let dialog=await saveTemplate(page,'Estimate template');await dialog.getByRole('button',{name:'Make default',exact:true}).click();await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'detached'});
-  await page.locator('#estimatequestion').fill('Unfinished estimate');await page.getByRole('button',{name:'New from template',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#estimatequestion')?.value==='Reusable estimate');
+  await page.locator('#estimatequestion').fill('Unfinished estimate');await fileItem(page,'New from template…');await page.waitForFunction(()=>document.querySelector('#estimatequestion')?.value==='Reusable estimate');
   const copies=await page.evaluate(()=>Object.keys(localStorage).filter(key=>key.startsWith('mg:recent:v1:tools:')).map(key=>JSON.parse(localStorage.getItem(key))));assert.equal(copies.length,1);assert.equal(copies[0].name,'Unfinished estimate');
-  await page.getByRole('button',{name:'Templates',exact:true}).click();dialog=page.locator('.mg-template-dialog');await dialog.getByRole('button',{name:'Save current as template',exact:true}).click();await dialog.getByLabel('Template name').fill('Will fail');await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw new DOMException('Full','QuotaExceededError');};});await dialog.getByRole('button',{name:'Save template',exact:true}).click();await dialog.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(page)).length,1);assert.deepEqual(errors,[]);await ctx.close();console.log('PASS original model template preserves outgoing draft and reports failed writes');
+  await fileItem(page,'Save as template…');dialog=page.locator('.mg-template-dialog');await dialog.getByLabel('Template name').fill('Will fail');await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw new DOMException('Full','QuotaExceededError');};});await dialog.getByRole('button',{name:'Save template',exact:true}).click();await dialog.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(page)).length,1);assert.deepEqual(errors,[]);await ctx.close();console.log('PASS original model template preserves outgoing draft and reports failed writes');
   if(process.env.TEMPLATE_SCREENSHOTS){
     await mkdir(process.env.TEMPLATE_SCREENSHOTS,{recursive:true});
     for(const width of [390,1280])for(const colorScheme of ['light','dark']){

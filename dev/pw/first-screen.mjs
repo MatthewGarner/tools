@@ -15,13 +15,16 @@
      anchor real  the anchor selector matches a visible element of at least
                   100x40 px (a wrong selector fails instead of passing vacuously)
      anchor       anchor top is within ANCHOR_BUDGET   (only when anchorBudget)
-     stamped      exactly the manifest's controls are visible in the header, and
-                  none were added after DOMContentLoaded                 (shell)
+     stamped      exactly the manifest's controls are visible in the header, all of
+                  them inside the stamped shell region, and the header holds
+                  exactly the controls its served HTML stamped: nothing added
+                  or removed by script, before or after load           (shell)
+     title        the h1 text equals the manifest name                  (shell)
+     ready        the shell wired itself: data-shell-ready is set       (shell)
      no shift     header bottom at DOMContentLoaded equals header bottom once the
                   page has settled (at least network idle + 900ms), within 1px (shell)
-   The last two apply only to entries with shell:true, which no real page has
-   yet, so they are exercised here only by the synthetic fixtures at the end of
-   this file. */
+   The last four apply only to entries with shell:true; the synthetic fixtures at
+   the end of this file prove the stamped and shift checks can fail. */
 import {chromium} from 'playwright';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {SHELL_MANIFEST, HEADER_BUDGET, ANCHOR_BUDGET, HEADER_CONTROLS_MAX, ANCHOR_MIN_SIZE, VIEWPORTS} from '../shell-manifest.mjs';
@@ -32,13 +35,14 @@ const scope = scopeFor('first-screen.mjs');
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
 
-/* Every page is over its header budget on 2026-11-09 (phone main 346-699,
+/* Every page was over its header budget on 2026-11-09 (phone main 346-699,
    laptop 201-448 against 215 / 180). Delete a page's entry in the phase that
-   brings it under budget; the gate then holds it there. */
+   brings it under budget; the gate then holds it there. Phase 1 cleared fermi,
+   roadmap and alarm. */
 const BOTH = ['phone', 'laptop'];
 const EXPECTED_HEADER_FAILURES = {
-  fermi: BOTH, rank: BOTH, roadmap: BOTH, why: BOTH, tree: BOTH, map: BOTH, gauge: BOTH,
-  flow: BOTH, timeline: BOTH, wardley: BOTH, alarm: BOTH, duel: BOTH, premortem: BOTH,
+  rank: BOTH, why: BOTH, tree: BOTH, map: BOTH, gauge: BOTH,
+  flow: BOTH, timeline: BOTH, wardley: BOTH, duel: BOTH, premortem: BOTH,
   bets: BOTH, 'signal-vs-noise': BOTH, case: BOTH, paths: BOTH, proxy: BOTH,
   cycles: BOTH, risk: BOTH, frequency: BOTH, 'merit-order': BOTH, intraday: BOTH,
 };
@@ -60,7 +64,8 @@ const ok = (c, m) => { scope.checked(); if(c){ pass++; console.log('PASS', m); }
 function installProbe(){
   const visible = el => {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
-    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
+    /* checkVisibility sees through a closed <details>: its content has layout boxes but is skipped */
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && (!el.checkVisibility || el.checkVisibility({visibilityProperty: true}));
   };
   const label = el => (el.getAttribute('aria-label') || el.textContent || '').replace(/[▾▸▼▶+]/g, '').replace(/\s+/g, ' ').trim();
   window.__shellProbe = (anchor) => {
@@ -72,16 +77,26 @@ function installProbe(){
     if(!main && header){ main = header.nextElementSibling; mainIsFallback = true; }
     const target = anchor ? document.querySelector(anchor) : null;
     const box = target ? target.getBoundingClientRect() : null;
-    const controls = header
-      ? [...header.querySelectorAll('button, summary, a[href], input, select, textarea, [role="button"]')]
-          .filter(visible).map(label).sort()
-      : [];
+    /* Header controls are buttons, summaries and inputs; navigation links (the
+       kicker, Energy's E1-E5 strip) are not. Those visible at rest are what the
+       gate counts; every one must sit inside the stamped region. */
+    const kids = header ? [...header.childNodes] : [];
+    const at = text => kids.findIndex(n => n.nodeType === 8 && n.data.trim() === text);
+    const [from, to] = [at('shell:start'), at('shell:end')];
+    const regionFound = from >= 0 && to > from;
+    const inRegion = el => regionFound && kids.slice(from + 1, to).some(n => n.contains(el));
+    const all = header ? [...header.querySelectorAll('button, summary, input, select, textarea, [role="button"]')] : [];
+    const shown = all.filter(visible);
+    const controls = shown.map(label).sort();
     return {
       mainTop: main ? top(main) : null, mainIsFallback,
       headerBottom: header ? Math.round((header.getBoundingClientRect().bottom + scrollY) * 10) / 10 : null,
       anchorFound: !!target, anchorVisible: !!target && visible(target),
       anchorTop: target ? top(target) : null, anchorW: box ? Math.round(box.width) : 0, anchorH: box ? Math.round(box.height) : 0,
-      controls,
+      controls, regionFound, controlTags: all.length,
+      strays: shown.filter(el => !inRegion(el)).map(label).sort(),
+      title: header?.querySelector('h1')?.textContent.trim() ?? null,
+      shellReady: !!header && header.hasAttribute('data-shell-ready'),
       /* a worker or async render still owns the layout: Cycles marks its stage
          aria-busy / .recomputing for ~5s and its anchor then moves 90px, so a
          page that merely stopped moving for half a second is not yet settled */
@@ -101,7 +116,10 @@ const sameLayout = (a, b) => a.mainTop === b.mainTop && a.anchorTop === b.anchor
 async function measure(context, url, anchor, {idleWait = 0} = {}){
   const page = await context.newPage();
   await page.addInitScript(installProbe);
-  await page.goto(url, {waitUntil: 'networkidle'});
+  const response = await page.goto(url, {waitUntil: 'networkidle'});
+  /* what the server stamped: every control element in the served header */
+  const served = (await response.text()).match(/<header data-tool-header[\s\S]*?<\/header>/)?.[0] ?? '';
+  const servedControls = (served.match(/<(?:button|summary|input|select|textarea)\b/g) || []).length;
   await page.evaluate(() => document.fonts.ready);
   /* spec 6.4 compares header bottom at network idle + 900ms. Only stamped pages are
      held to it; every other page is measured as soon as it is settled. */
@@ -123,15 +141,12 @@ async function measure(context, url, anchor, {idleWait = 0} = {}){
   const final = settled || await read();
   const atDcl = await page.evaluate(() => window.__shellAtDcl);
   await page.close();
-  return {...final, atDcl, settled: !!settled};
+  return {...final, atDcl, servedControls, settled: !!settled};
 }
 
-/* The header-side expectations the manifest implies (spec section 3): File when
-   the page grants any of New / Examples / Templates, Share when it grants Share. */
-const expectedControls = entry => [
-  ...(entry.new || entry.examples || entry.templates ? ['File'] : []),
-  ...(entry.share ? ['Share'] : []),
-].sort();
+/* The header-side expectations the manifest implies: every page gets File (it
+   always holds Your work and Save a copy), and Share when the manifest grants it. */
+const expectedControls = entry => ['File', ...(entry.share ? ['Share'] : [])].sort();
 
 /* Checks 6.3 and 6.4, as pure functions of two samples so the fixtures can prove
    them. Return a list of problems; empty means pass. */
@@ -141,8 +156,13 @@ function stampedProblems(entry, atDcl, settled){
   if(JSON.stringify(settled.controls) !== JSON.stringify(want)) problems.push(`visible [${settled.controls}] but the manifest stamps [${want}]`);
   if(!atDcl || JSON.stringify(atDcl.controls) !== JSON.stringify(settled.controls))
     problems.push(`controls at DOMContentLoaded [${atDcl?.controls}] differ from settled [${settled.controls}]: added after load`);
+  if(!settled.regionFound) problems.push('the header has no shell:start / shell:end markers');
+  if(settled.strays.length) problems.push(`visible controls outside the stamped region: [${settled.strays}]`);
+  if(settled.controlTags !== settled.servedControls)
+    problems.push(`the header holds ${settled.controlTags} control elements but its served HTML stamped ${settled.servedControls}: script added or removed header controls`);
   return problems;
 }
+const titleProblems = (entry, m) => m.title === entry.name ? [] : [`h1 reads ${JSON.stringify(m.title)} but the manifest name is ${JSON.stringify(entry.name)}`];
 function shiftProblems(atDcl, settled){
   if(!atDcl || atDcl.headerBottom === null || settled.headerBottom === null) return ['no header to measure'];
   const moved = Math.abs(settled.headerBottom - atDcl.headerBottom);
@@ -195,6 +215,9 @@ for(const [dir] of PAGES){
     if(entry.shell){
       const stamped = stampedProblems(entry, m.atDcl, m);
       ok(!stamped.length, `${where}: stamped controls${stamped.length ? ' — ' + stamped.join('; ') : ''}`);
+      const title = titleProblems(entry, m);
+      ok(!title.length, `${where}: title${title.length ? ' — ' + title.join('; ') : ' — h1 is ' + JSON.stringify(entry.name)}`);
+      ok(m.shellReady, `${where}: shell ready — ${m.shellReady ? 'data-shell-ready is set' : 'data-shell-ready is missing: some stamped control was never wired'}`);
       const shift = shiftProblems(m.atDcl, m);
       ok(!shift.length, `${where}: no header shift${shift.length ? ' — ' + shift.join('; ') : ''}`);
     }
@@ -222,10 +245,12 @@ if(table.length){
    trip exactly the check they were built to trip, and the good one must trip none. */
 if(!scope.focused){
   scope.unscoped();
-  const GOOD = '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header style="height:96px"><button>File</button><button>Share</button></header><main style="display:block;height:300px">m</main>';
+  const GOOD = '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header data-shell style="height:96px"><!-- shell:start --><h1>Fixture</h1><button>File</button><button>Share</button><!-- shell:end --></header><main style="display:block;height:300px">m</main>';
   const FIXTURES = {
     good: GOOD,
     lateButton: GOOD + '<script>setTimeout(()=>{const b=document.createElement("button");b.textContent="Save a copy";document.querySelector("header").append(b)},400)</script>',
+    /* injected while the page loads, so it is already there at DOMContentLoaded */
+    earlyButton: GOOD + '<script>{const b=document.createElement("button");b.textContent="Save a copy";document.querySelector("header").append(b)}</script>',
     shifting: GOOD + '<script>setTimeout(()=>{document.querySelector("header").style.height="170px"},400)</script>',
   };
   const entry = {new: true, examples: true, templates: false, share: true};
@@ -239,10 +264,12 @@ if(!scope.focused){
   }
   ok(!results.good.stamped.length && !results.good.shift.length, 'fixture: a static stamped header passes both shell checks');
   ok(results.lateButton.stamped.some(p => /added after load/.test(p)), 'fixture: a control injected after load fails the stamped-controls check');
+  ok(results.earlyButton.stamped.some(p => /outside the stamped region/.test(p)) && results.earlyButton.stamped.some(p => /script added or removed/.test(p)),
+    'fixture: a control injected during load, which DOMContentLoaded cannot see, still fails against the stamped region');
   ok(results.shifting.shift.length === 1, 'fixture: a header that grows after DOMContentLoaded fails the no-shift check');
   ok(!results.lateButton.shift.length && !results.shifting.stamped.length, 'fixture: each bad fixture trips only its own check');
 }
 
 await browser.close();
 /* Floor: settled, header and anchor-real, at two sizes, per page; plus the fixtures. */
-scope.report('first-screen', {pass, fail, min: PAGES.length * 6 + 4});
+scope.report('first-screen', {pass, fail, min: PAGES.length * 6 + 5});
