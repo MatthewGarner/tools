@@ -3,7 +3,7 @@
    can do with provide() (also reached by mountRecentSave, mountModelLink and
    mountDocumentStart): getState, getHash, save, templates, blank, examples as
    [{name, pick}], items as {id: fn}. An undefined value or an empty examples list
-   never counts. data-shell-ready is set once every stamped control is wired. The
+   never counts. {withdraw: true} takes every offer back and hides File and Share. data-shell-ready is set once every stamped control is wired. The
    Your work panel loads on first use (tool-work.js). */
 import {button, shellRow, offer} from './recent-ui.js';
 import {shareModel} from './model-link.js';
@@ -24,6 +24,9 @@ function init(row){
     work: () => 1, backup: () => 1,
   };
   const wire = () => {
+    /* a page that withdrew its offer (Gauge's participant and console modes) shows the title alone:
+       nothing visible is left to wire, so the header is as ready as it will get */
+    if(row.hasAttribute('data-shell-off')){ header.setAttribute('data-shell-ready', ''); return; }
     caps.templates?.setBlank(caps.blank);
     caps.templates?.setManager(() => work('templates'));
     let ready = true;
@@ -35,11 +38,14 @@ function init(row){
     header.toggleAttribute('data-shell-ready', ready);
   };
   const absorb = () => {
-    for(const o of row.shellOffers?.splice(0) ?? [])
+    for(const o of row.shellOffers?.splice(0) ?? []){
+      if(o.withdraw){ for(const key of Object.keys(caps)) delete caps[key]; row.setAttribute('data-shell-off', ''); continue; }
+      row.removeAttribute('data-shell-off');
       for(const [key, value] of Object.entries(o)){
         if(value === undefined || (key === 'examples' && !value.length)) continue;
         caps[key] = key === 'items' ? {...caps.items, ...value} : value;
       }
+    }
     wire();
   };
   row.addEventListener('shell-offer', absorb); absorb();
@@ -79,7 +85,7 @@ function init(row){
     try{ fn(await import('./tool-work.js')); }
     catch{ status.textContent = 'Could not load that. Reload and try again.'; }
   };
-  const work = section => lazy(m => m.openWork({name, caps, opener: summary, status, section}));
+  const work = section => lazy(m => m.openWork({name, caps, opener: summary, status, section, workspaces: row.dataset.workspaces}));
   const run = {
     new: () => caps.templates ? caps.templates.newWork() : caps.blank(),
     'new-template': () => caps.templates.newWork(),

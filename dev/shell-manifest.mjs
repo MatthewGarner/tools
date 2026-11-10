@@ -34,9 +34,14 @@ export const VIEWPORTS = Object.freeze({
   laptop: Object.freeze({width: 1280, height: 800}),
 });
 
-/* items: tool-specific File entries, [{id, label}]; the page attaches the behaviour. */
-const page = (name, anchor, {new: fresh, examples, templates, share, items = []}) =>
-  Object.freeze({name, anchor, new: fresh, examples, templates, share, items: Object.freeze(items), anchorBudget: false, shell: false});
+/* items: tool-specific File entries, [{id, label}]; the page attaches the behaviour.
+   workspaces: what Your work calls this tool's own live records (Gauge's question sets,
+   Premortem's registers), listed first in the dialog; null where there are none.
+   ownLink: the page has a #copylink that copies something other than the model's link, so the
+   gate's one-verb check does not count it (Gauge's console copies the live room's join link,
+   which is not the question set). It is the one exemption and it is by id, not by loosened check. */
+const page = (name, anchor, {new: fresh, examples, templates, share, items = [], workspaces = null, ownLink = false}) =>
+  Object.freeze({name, anchor, new: fresh, examples, templates, share, items: Object.freeze(items), workspaces, ownLink, anchorBudget: false, shell: false});
 
 export const SHELL_MANIFEST = Object.freeze(Object.fromEntries(Object.entries({
   fermi: {...page('Fermi', '#results', {new: false, examples: false, templates: true, share: true}), shell: true},
@@ -45,16 +50,16 @@ export const SHELL_MANIFEST = Object.freeze(Object.fromEntries(Object.entries({
   why: {...page('Why', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
   tree: {...page('Tree', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
   map: {...page('Map', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
-  gauge: page('Gauge', '#preview', {new: true, examples: true, templates: true, share: false}),
+  gauge: {...page('Gauge', '#preview', {new: true, examples: true, templates: true, share: false, workspaces: 'Question sets', ownLink: true}), shell: true},
   flow: {...page('Flow', '#strip', {new: false, examples: false, templates: false, share: true}), shell: true},
-  timeline: page('Timeline', '#preview', {new: true, examples: true, templates: true, share: true}),
+  timeline: {...page('Timeline', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
   wardley: {...page('Wardley', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
   alarm: {...page('Alarm', '#distwrap', {new: false, examples: false, templates: false, share: true}), shell: true},
   duel: {...page('Duel', '#setupcard', {new: false, examples: false, templates: true, share: true}), shell: true},
-  premortem: page('Premortem', '#wizardview', {new: true, examples: false, templates: true, share: true}),
+  premortem: {...page('Premortem', '#wizardview', {new: true, examples: false, templates: true, share: true, workspaces: 'Registers'}), shell: true},
   bets: {...page('Bets', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
-  'signal-vs-noise': page('Signal vs noise', '#stage', {new: false, examples: false, templates: false, share: true}),
-  case: page('Case file', '#preview', {new: true, examples: true, templates: false, share: true}),
+  'signal-vs-noise': {...page('Signal vs noise', '#stage', {new: false, examples: false, templates: false, share: true}), shell: true},
+  case: {...page('Case file', '#preview', {new: true, examples: true, templates: false, share: true}), shell: true},
   paths: {...page('Paths', '#preview', {new: true, examples: true, templates: false, share: true}), shell: true},
   proxy: {...page('Proxy Hunt', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},
   cycles: page('Cycle budget', '#preview', {new: true, examples: true, templates: true, share: true}),

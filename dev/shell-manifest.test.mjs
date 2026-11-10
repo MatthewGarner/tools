@@ -31,7 +31,7 @@ test('every anchor is a non-empty selector and every flag is a boolean', () => {
   for(const [dir, entry] of Object.entries(SHELL_MANIFEST)){
     assert.equal(typeof entry.anchor, 'string', dir + ': anchor is not a string');
     assert.ok(entry.anchor.length > 0 && entry.anchor === entry.anchor.trim(), dir + ': anchor is empty or padded');
-    for(const flag of ['new', 'examples', 'templates', 'share', 'anchorBudget', 'shell'])
+    for(const flag of ['new', 'examples', 'templates', 'share', 'anchorBudget', 'shell', 'ownLink'])
       assert.equal(typeof entry[flag], 'boolean', dir + ': ' + flag + ' must be a boolean');
   }
 });

@@ -8,7 +8,7 @@ import {scope,tool,el,button,store,failure,modal,nameField,shellRow,offer} from 
 // Saving is explicit; opening an example, editing or visiting never adds a row.
 export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LIMIT}){
   if(!RECENT_TOOLS[scope]?.[tool]) return;
-  const row=!host&&shellRow();
+  const row=shellRow();   // a stamped page hands off even when the page names a host (Premortem)
   let save,status;
   if(row)status=row.querySelector('[role=status]');
   else{

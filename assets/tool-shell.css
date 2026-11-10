@@ -5,7 +5,7 @@ body.mg-site .wrap > [data-tool-header][data-shell] + * ~ *{margin-top:20px}
 /* main starts at the header's bottom edge, whether it sits in the header's .wrap or follows it:
    a margin on its first child (the workspace's 28px) would collapse through main and push it down */
 .wrap:has(> [data-tool-header][data-shell]) + main > :first-child,[data-tool-header][data-shell] + main > :first-child{margin-top:0}
-body.mg-site [data-tool-header][data-shell]{box-sizing:border-box;height:96px;max-width:none;margin:0;padding:16px 0 12px}
+body.mg-site [data-tool-header][data-shell]{display:block;box-sizing:border-box;height:96px;max-width:none;margin:0;padding:16px 0 12px}
 body.mg-site [data-tool-header][data-shell] .kicker{box-sizing:border-box;height:20px;margin:0;font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool-titlerow{position:relative;display:flex;align-items:center;gap:8px;height:48px}
 body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:0;font-family:var(--mg-display);font-size:28px;line-height:48px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -55,3 +55,10 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
 .tool-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
 .tool-work-all{display:inline-flex;align-items:center;min-height:44px;padding:0 .75rem;color:var(--mg-ink)}
 @media print{.tool-titlerow .tool-file,.tool-share,.tool-status{display:none}}
+[data-shell-row][data-shell-off] :is(.tool-file,.tool-share){display:none}
+/* the row of document controls at the top of main (Edit source, Export deck, views…), 44px targets */
+.tool-stage-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;padding:0}
+.tool-stage-row > *{min-height:44px}
+.tool-stage-row + .workspace{margin-top:0}
+/* a page whose first block wraps its workspace (Gauge's #compose) sits flush too */
+.wrap:has(> [data-tool-header][data-shell]) + main > :first-child > .workspace:first-child{margin-top:0}
