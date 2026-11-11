@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Little Product Tools</title>
-<meta name="description" content="Small, sharp tools for product work under uncertainty — estimation, prioritisation, and the conversations around them.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
+<title>Tools Lab — Matthew Garner</title>
+<meta name="description" content="Instruments for a decision, models to play with, and workbenches for a problem: small interactive tools for product work, energy and uncertain situations.">
+<link rel="icon" href="/assets/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#24212c">
@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/catalogue.css">
+<link rel="stylesheet" href="/assets/front-door.css">
 <!-- identity:head:start -->
 <script src="/assets/identity/theme-init.js"></script>
 <link rel="stylesheet" href="/assets/identity/identity.css">
@@ -24,8 +25,7 @@
 <script type="module" src="/assets/identity/appearance.js"></script>
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
-<script type="module" src="/assets/your-work.js"></script>
-<link rel="stylesheet" href="/assets/recent-work.css">
+<script type="module" src="/assets/front-door.js"></script>
 </head>
 <body class="catalogue-page mg-site">
 <!-- identity:header:start -->
@@ -36,177 +36,100 @@
   <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
 </div>
 <!-- identity:header:end -->
-<main class="catalogue" id="main" tabindex="-1">
+<main class="catalogue door" id="main" tabindex="-1">
   <header class="catalogue-intro">
-    <h1>Instruments<br>for judgement</h1>
+    <h1>Tools Lab</h1>
     <div class="catalogue-lede">
-      <p>Small, sharp tools for product work under uncertainty.</p>
+      <p>Make a plan, play with a model, or find a different way into a problem.</p>
     </div>
   </header>
-  <section id="recent-work" data-recent-work hidden aria-label="Your work"></section>
-  <section class="tools catalogue-list" aria-label="Product tools">
-    <a class="tool catalogue-row" href="/roadmap/">
-      <span class="num">01</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="8" width="28" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="8" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="8" y="34" width="28" height="8" fill="none" stroke="var(--border)"/><rect x="46" y="8" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="46" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="84" y="8" width="28" height="9" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg>
-      <div class="catalogue-copy">
-        <h2>Roadmap</h2>
-        <p>Now / next / later columns, WIP limits, deck export — the plan as an artefact, not a promise.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/timeline/">
-      <span class="num">02</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="10" y1="14" x2="66" y2="14" stroke="var(--border)" stroke-width="2"/><path d="M40 10l4 4-4 4-4-4z" fill="var(--muted)"/><path d="M66 10l4 4-4 4-4-4z" fill="none" stroke="var(--border)"/><line x1="26" y1="30" x2="96" y2="30" stroke="var(--border)" stroke-width="2"/><path d="M58 26l4 4-4 4-4-4z" fill="var(--muted)"/><path d="M96 26l4 4-4 4-4-4z" fill="none" stroke="var(--border)"/><line x1="52" y1="4" x2="52" y2="40" stroke="var(--data)" stroke-width="2"/></svg>
-      <div class="catalogue-copy">
-        <h2>Timeline</h2>
-        <p>Milestones with P50–P90 whiskers and a merge-risk verdict; the snapshot compare draws the slip slide.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/bets/">
-      <span class="num">03</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="34" x2="112" y2="34" stroke="var(--border)" stroke-width="2"/><circle cx="24" cy="34" r="4" fill="var(--muted)"/><circle cx="46" cy="34" r="7" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="72" cy="34" r="10" fill="var(--data)" fill-opacity=".85"/><circle cx="98" cy="34" r="5" fill="none" stroke="var(--border)" stroke-width="2"/></svg>
-      <div class="catalogue-copy">
-        <h2>Bets</h2>
-        <p>The quarter as a blotter of stakes, odds and payoffs — concentration risk included.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/rank/">
-      <span class="num">04</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><polyline points="10,10 60,10 110,32" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,22 60,32 110,22" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,34 60,20 110,10" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg>
-      <div class="catalogue-copy">
-        <h2>Rank</h2>
-        <p>Weighted-criteria ranking with a robustness shuffle — does #1 survive your own uncertainty?</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/duel/">
-      <span class="num">05</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="12" y="8" width="42" height="28" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="8" width="42" height="28" fill="none" stroke="var(--data)" stroke-width="2.5"/><line x1="58" y1="16" x2="62" y2="28" stroke="var(--muted)" stroke-width="2"/></svg>
-      <div class="catalogue-copy">
-        <h2>Duel</h2>
-        <p>Pairwise showdowns when a list is too long to rank honestly in one pass.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/map/">
-      <span class="num">06</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="60" y1="4" x2="60" y2="40" stroke="var(--border)"/><line x1="10" y1="22" x2="110" y2="22" stroke="var(--border)"/><circle cx="36" cy="13" r="4" fill="var(--muted)"/><circle cx="84" cy="30" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="88" cy="11" r="5" fill="var(--data)"/></svg>
-      <div class="catalogue-copy">
-        <h2>Map</h2>
-        <p>Two axes, labelled zones, presets — position the portfolio and argue about placement, not vibes.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/tree/">
-      <span class="num">07</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="16" cy="22" r="4" fill="var(--muted)"/><path d="M20 22 C44 22 44 10 66 10" fill="none" stroke="var(--data)" stroke-width="2.5"/><path d="M20 22 C44 22 44 34 66 34" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="72" cy="10" r="4" fill="var(--data)"/><circle cx="72" cy="34" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="80" y1="10" x2="106" y2="10" stroke="var(--border)" stroke-dasharray="3 3"/></svg>
-      <div class="catalogue-copy">
-        <h2>Tree</h2>
-        <p>Probability-weighted decision trees with expected value carried up the branches.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/why/">
-      <span class="num">08</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="6" width="40" height="10" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="28" y1="16" x2="28" y2="24" stroke="var(--border)"/><line x1="28" y1="20" x2="66" y2="20" stroke="var(--border)"/><rect x="46" y="17" width="40" height="10" fill="var(--data)" fill-opacity=".85"/><line x1="66" y1="27" x2="66" y2="34" stroke="var(--border)"/><rect x="72" y="30" width="40" height="10" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg>
-      <div class="catalogue-copy">
-        <h2>Why</h2>
-        <p>Outcome → assumptions → solutions; the argument drawn so the weak link is visible.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/wardley/">
-      <span class="num">09</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M10 36 C40 34 70 20 110 10" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="34" cy="33" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="78" cy="18" r="4" fill="var(--data)"/><line x1="37" y1="31" x2="75" y2="20" stroke="var(--muted)" stroke-dasharray="3 3"/></svg>
-      <div class="catalogue-copy">
-        <h2>Wardley</h2>
-        <p>Value-chain evolution maps — what to build, buy, or let commoditise.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/premortem/">
-      <span class="num">10</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="10" x2="60" y2="10" stroke="var(--border)" stroke-width="2"/><rect x="70" y="6" width="42" height="8" fill="var(--data)" fill-opacity=".85"/><line x1="8" y1="24" x2="60" y2="24" stroke="var(--border)" stroke-width="2"/><rect x="70" y="20" width="26" height="8" fill="none" stroke="var(--border)"/><line x1="8" y1="38" x2="60" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="70" y="34" width="14" height="8" fill="none" stroke="var(--border)"/></svg>
-      <div class="catalogue-copy">
-        <h2>Premortem</h2>
-        <p>Write the failure story first, price it into an EV register, promote the real risks.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/fermi/">
-      <span class="num">11</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="8" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="22" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="36" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="8" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="36" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="40" y1="22" x2="70" y2="22" stroke="var(--muted)" stroke-width="2"/><rect x="72" y="14" width="38" height="16" fill="var(--data)" fill-opacity=".85"/></svg>
-      <div class="catalogue-copy">
-        <h2>Fermi</h2>
-        <p>Driver-tree estimation with ranges that confess what must be true for the answer to hold.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/gauge/">
-      <span class="num">12</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="10" x2="74" y2="10" stroke="var(--border)" stroke-width="4"/><line x1="38" y1="22" x2="106" y2="22" stroke="var(--border)" stroke-width="4"/><line x1="26" y1="34" x2="88" y2="34" stroke="var(--border)" stroke-width="4"/><rect x="38" y="5" width="36" height="34" fill="var(--data)" fill-opacity=".25"/></svg>
-      <div class="catalogue-copy">
-        <h2>Gauge</h2>
-        <p>Collect a room's estimates before anyone anchors it — Delphi rounds, chips, calibrated ranges.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/alarm/">
-      <span class="num">13</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="38" x2="112" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="28" y="8" width="22" height="30" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="26" width="22" height="12" fill="var(--data)" fill-opacity=".85"/></svg>
-      <div class="catalogue-copy">
-        <h2>Alarm</h2>
-        <p>Base-rate playground — how often a monitor that's “99% right” cries wolf.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/flow/">
-      <span class="num">14</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="14" cy="22" r="4" fill="var(--muted)"/><circle cx="28" cy="22" r="4" fill="var(--muted)"/><circle cx="42" cy="22" r="4" fill="var(--muted)"/><line x1="58" y1="6" x2="58" y2="16" stroke="var(--border)" stroke-width="2"/><line x1="58" y1="28" x2="58" y2="38" stroke="var(--border)" stroke-width="2"/><circle cx="70" cy="22" r="4" fill="var(--data)"/><circle cx="96" cy="22" r="4" fill="none" stroke="var(--border)" stroke-width="2"/></svg>
-      <div class="catalogue-copy">
-        <h2>Flow</h2>
-        <p>Little's-law throughput sketches — where the queue actually is.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/signal-vs-noise/">
-      <span class="num">15</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="12" x2="112" y2="12" stroke="var(--border)" stroke-dasharray="4 3"/><line x1="8" y1="32" x2="112" y2="32" stroke="var(--border)" stroke-dasharray="4 3"/><polyline points="8,24 24,18 40,27 56,16 72,26 88,20 104,24" fill="none" stroke="var(--muted)" stroke-width="2"/><circle cx="88" cy="8" r="4" fill="var(--data)"/></svg>
-      <div class="catalogue-copy">
-        <h2>Signal vs noise</h2>
-        <p>Eight noisy quarters, one real shift — Deming's tampering and regression to the mean, made felt.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/paths/">
-      <span class="num">16</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="22" x2="52" y2="22" stroke="var(--ink)" stroke-width="2"/><polygon points="62,22 70,14 78,22 70,30" fill="none" stroke="var(--data)" stroke-width="2"/><line x1="78" y1="22" x2="90" y2="12" stroke="var(--muted)" stroke-width="2"/><line x1="78" y1="22" x2="90" y2="32" stroke="var(--border)" stroke-width="2" stroke-dasharray="3 3"/><circle cx="98" cy="12" r="3" fill="var(--muted)"/><circle cx="98" cy="32" r="3" fill="none" stroke="var(--border)" stroke-width="2"/></svg>
-      <div class="catalogue-copy">
-        <h2>Paths</h2>
-        <p>The questions inside the plan — what each answer buys, what happens either way, and whether the question can be answered at all.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
-    <a class="tool catalogue-row" href="/proxy/">
-      <span class="num">17</span>
-      <svg class="thumb" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="10" y1="22" x2="50" y2="22" stroke="var(--ink)" stroke-width="2"/><circle cx="60" cy="22" r="8" fill="none" stroke="var(--data)" stroke-width="2"/><line x1="68" y1="22" x2="104" y2="10" stroke="var(--muted)" stroke-width="2"/><line x1="68" y1="22" x2="104" y2="34" stroke="var(--err)" stroke-width="2"/><circle cx="108" cy="10" r="3" fill="none" stroke="var(--muted)" stroke-width="2"/><circle cx="108" cy="34" r="3" fill="var(--err)"/></svg>
-      <div class="catalogue-copy">
-        <h2>Proxy Hunt</h2>
-        <p>Stress-test whether a metric under pressure can quietly harm the outcome you want or one you need to protect.</p>
-      </div>
-      <span class="go" aria-hidden="true">→</span>
-    </a>
+  <section class="door-resume" id="resume" data-door-resume hidden aria-labelledby="resume-h">
+    <h2 id="resume-h">Pick up where you left off</h2>
+    <ul class="door-resume-list" data-door-work></ul>
+    <p class="door-resume-favourites" data-door-favourites hidden><span>Favourites</span> <span data-door-favourite-links></span></p>
+    <p class="door-resume-all"><a href="/explore/#recent-work">Your work</a></p>
   </section>
-
-  <a class="binder catalogue-binder" href="/case/">
-    <div class="catalogue-copy">
-      <h2>Case file</h2>
-      <p>The binder above the instruments: paste each tool's URL as an exhibit and one link holds the whole decision — question, kit and verdict — behind a cover page.</p>
-    </div>
-    <span class="go" aria-hidden="true">→</span>
-  </a>
+<!-- front-door:start -->
+<section class="door-room" id="instruments" aria-labelledby="instruments-h">
+  <header class="door-head"><h2 id="instruments-h">Instruments</h2><p>Bring a decision. Leave with something you can show.</p></header>
+  <ol class="door-jobs">
+    <li class="door-job" data-job="size">
+      <h3 class="door-job-title">Size it</h3>
+      <a class="door-flagship" href="/fermi/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="8" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="22" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="36" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="8" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="36" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="40" y1="22" x2="70" y2="22" stroke="var(--muted)" stroke-width="2"/><rect x="72" y="14" width="38" height="16" fill="var(--data)" fill-opacity=".85"/></svg><span class="door-copy"><span class="door-name">Fermi</span><span class="door-line">Build a driver-tree estimate with ranges and see which assumptions matter.</span></span></a>
+      <ul class="door-also" aria-label="Also for: Size it">
+        <li><a href="/gauge/"><span class="door-name">Gauge</span><span class="door-line">Collect independent estimates, compare ranges and run another round.</span></a></li>
+      </ul>
+    </li>
+    <li class="door-job" data-job="choose">
+      <h3 class="door-job-title">Choose</h3>
+      <a class="door-flagship" href="/rank/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><polyline points="10,10 60,10 110,32" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,22 60,32 110,22" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,34 60,20 110,10" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg><span class="door-copy"><span class="door-name">Rank</span><span class="door-line">Rank options against weighted criteria and see whether the order survives uncertainty.</span></span></a>
+      <ul class="door-also" aria-label="Also for: Choose">
+        <li><a href="/duel/"><span class="door-name">Duel</span><span class="door-line">Compare options in pairs when a list is too long to rank in one pass.</span></a></li>
+        <li><a href="/tree/"><span class="door-name">Tree</span><span class="door-line">Draw a decision tree with probabilities and expected values carried up its branches.</span></a></li>
+        <li><a href="/bets/"><span class="door-name">Bets</span><span class="door-line">Compare stakes, odds and payoffs across a portfolio of bets.</span></a></li>
+        <li><a href="/map/"><span class="door-name">Map</span><span class="door-line">Place a portfolio on two axes and explore what different positions mean.</span></a></li>
+      </ul>
+    </li>
+    <li class="door-job" data-job="plan">
+      <h3 class="door-job-title">Plan it</h3>
+      <a class="door-flagship" href="/roadmap/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="8" width="28" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="8" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="8" y="34" width="28" height="8" fill="none" stroke="var(--border)"/><rect x="46" y="8" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="46" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="84" y="8" width="28" height="9" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg><span class="door-copy"><span class="door-name">Roadmap</span><span class="door-line">Arrange work across now, next and later, set WIP limits, and export the plan.</span></span></a>
+      <ul class="door-also" aria-label="Also for: Plan it">
+        <li><a href="/timeline/"><span class="door-name">Timeline</span><span class="door-line">Map milestones, uncertainty ranges and dependencies; compare how the plan has moved.</span></a></li>
+        <li><a href="/paths/"><span class="door-name">Paths</span><span class="door-line">Map the questions inside a plan, what their answers buy and what happens either way.</span></a></li>
+      </ul>
+    </li>
+    <li class="door-job" data-job="test">
+      <h3 class="door-job-title">Test the argument</h3>
+      <a class="door-flagship" href="/premortem/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="10" x2="60" y2="10" stroke="var(--border)" stroke-width="2"/><rect x="70" y="6" width="42" height="8" fill="var(--data)" fill-opacity=".85"/><line x1="8" y1="24" x2="60" y2="24" stroke="var(--border)" stroke-width="2"/><rect x="70" y="20" width="26" height="8" fill="none" stroke="var(--border)"/><line x1="8" y1="38" x2="60" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="70" y="34" width="14" height="8" fill="none" stroke="var(--border)"/></svg><span class="door-copy"><span class="door-name">Premortem</span><span class="door-line">Write the failure story, estimate its risks and decide which ones need action.</span></span></a>
+      <ul class="door-also" aria-label="Also for: Test the argument">
+        <li><a href="/why/"><span class="door-name">Why</span><span class="door-line">Connect outcomes, assumptions and solutions to expose the argument behind a plan.</span></a></li>
+        <li><a href="/proxy/"><span class="door-name">Proxy Hunt</span><span class="door-line">Stress-test whether pressure on a metric can harm the outcomes it is meant to serve.</span></a></li>
+        <li><a href="/wardley/"><span class="door-name">Wardley</span><span class="door-line">Map a value chain and its evolution to explore what to build, buy or commoditise.</span></a></li>
+      </ul>
+    </li>
+    <li class="door-job" data-job="case">
+      <h3 class="door-job-title">Make the case</h3>
+      <a class="door-flagship" href="/case/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="30" y="4" width="60" height="36" fill="none" stroke="var(--border)"/><rect x="24" y="8" width="60" height="36" fill="none" stroke="var(--border)"/><rect x="18" y="2" width="60" height="38" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="26" y1="12" x2="56" y2="12" stroke="var(--muted)" stroke-width="2"/><line x1="26" y1="20" x2="48" y2="20" stroke="var(--border)" stroke-width="2"/><line x1="26" y1="28" x2="52" y2="28" stroke="var(--border)" stroke-width="2"/><rect x="62" y="24" width="12" height="10" fill="var(--data)" fill-opacity=".85"/></svg><span class="door-copy"><span class="door-name">Case file</span><span class="door-line">Bring tool links, a decision question and a verdict together in one case.</span></span></a>
+    </li>
+  </ol>
+</section>
+<section class="door-room" id="models" aria-labelledby="models-h">
+  <header class="door-head"><h2 id="models-h">Models</h2><p>Play a mechanism for ten minutes.</p></header>
+  <ul class="door-cards">
+      <li><a class="door-card" href="/flow/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="14" cy="22" r="4" fill="var(--muted)"/><circle cx="28" cy="22" r="4" fill="var(--muted)"/><circle cx="42" cy="22" r="4" fill="var(--muted)"/><line x1="58" y1="6" x2="58" y2="16" stroke="var(--border)" stroke-width="2"/><line x1="58" y1="28" x2="58" y2="38" stroke="var(--border)" stroke-width="2"/><circle cx="70" cy="22" r="4" fill="var(--data)"/><circle cx="96" cy="22" r="4" fill="none" stroke="var(--border)" stroke-width="2"/></svg><span class="door-copy"><span class="door-name">Flow</span><span class="door-line">Explore the relationship between work in progress, throughput and waiting time.</span></span></a></li>
+      <li><a class="door-card" href="/alarm/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="38" x2="112" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="28" y="8" width="22" height="30" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="26" width="22" height="12" fill="var(--data)" fill-opacity=".85"/></svg><span class="door-copy"><span class="door-name">Alarm</span><span class="door-line">Explore how base rates change the meaning of a supposedly accurate alarm.</span></span></a></li>
+      <li><a class="door-card" href="/lab/commitment/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="26" y="9" width="68" height="26" rx="3" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="18" y="3" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><rect x="86" y="3" width="16" height="10" fill="var(--data)" fill-opacity=".85"/><rect x="86" y="31" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><rect x="18" y="31" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><path d="M52 9l-4-3v6zM98 22l-3-4h6zM68 35l4 3v-6zM22 22l3 4h-6z" fill="var(--muted)"/></svg><span class="door-copy"><span class="door-name">The commitment spiral</span><span class="door-line">Can a team promise its way into losing the ability to deliver?</span></span></a></li>
+      <li><a class="door-card" href="/lab/delay/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="10" y="6" width="22" height="32" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="10" y="20" width="22" height="18" fill="var(--data)" fill-opacity=".25"/><line x1="44" y1="10" x2="44" y2="36" stroke="var(--muted)" stroke-width="2"/><rect x="40" y="18" width="8" height="6" fill="var(--muted)"/><polyline points="58,34 78,34 78,12 112,12" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="58,34 90,34 90,24 100,18 112,16" fill="none" stroke="var(--data)" stroke-width="2.5" stroke-dasharray="0"/></svg><span class="door-copy"><span class="door-name">Steering through delay</span><span class="door-line">Keep a system steady while your instrument reports an earlier state.</span></span></a></li>
+      <li><a class="door-card" href="/lab/teams/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="6" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="44" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="82" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="11" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="11" y="24" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="49" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="49" y="24" width="22" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="87" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="87" y="24" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/></svg><span class="door-copy"><span class="door-name">How teams fit the work</span><span class="door-line">Move capabilities across team boundaries. Watch the work find a different route.</span></span></a></li>
+      <li><a class="door-card" href="/lab/context/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="6" y1="10" x2="114" y2="10" stroke="var(--border)"/><line x1="6" y1="22" x2="114" y2="22" stroke="var(--border)"/><line x1="6" y1="34" x2="114" y2="34" stroke="var(--border)"/><circle cx="14" cy="10" r="3" fill="var(--muted)"/><circle cx="26" cy="10" r="3" fill="var(--muted)"/><circle cx="38" cy="10" r="3" fill="var(--muted)"/><circle cx="50" cy="10" r="3" fill="var(--muted)"/><circle cx="50" cy="22" r="3" fill="var(--muted)"/><circle cx="62" cy="22" r="3" fill="var(--muted)"/><circle cx="74" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="86" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="100" cy="34" r="4" fill="var(--data)"/><line x1="52" y1="12" x2="52" y2="20" stroke="var(--border)"/><line x1="64" y1="25" x2="98" y2="32" stroke="var(--data)" stroke-width="2"/></svg><span class="door-copy"><span class="door-name">What survived the status update?</span><span class="door-line">Carry facts through reporting layers. Discover which omission changes a decision.</span></span></a></li>
+  </ul>
+  <p class="door-more"><a href="/explore/?type=model">All 23 models</a></p>
+</section>
+<section class="door-room" id="workbenches" aria-labelledby="workbenches-h">
+  <header class="door-head"><h2 id="workbenches-h">Workbenches</h2><p>Find a different way into a problem.</p></header>
+  <ul class="door-bench">
+      <li><a href="/lab/reframe/"><span class="door-name">Reframing workbench</span><span class="door-line">Describe the same problem differently. Notice what you would do next.</span></a></li>
+      <li><a href="/lab/mixer/"><span class="door-name">Possibility mixer</span><span class="door-line">Combine ingredients, map your concepts, and investigate spaces you have not explored.</span></a></li>
+      <li><a href="/lab/constraints/"><span class="door-name">Constraint playground</span><span class="door-line">Change a limit in your imagination. Bring the useful part back to reality.</span></a></li>
+      <li><a href="/lab/analogy/"><span class="door-name">Analogy workshop</span><span class="door-line">Borrow a mechanism from somewhere else. Find where the comparison breaks.</span></a></li>
+      <li><a href="/lab/interventions/"><span class="door-name">Intervention workbench</span><span class="door-line">Which causal relationship would you change, and what would you expect to observe?</span></a></li>
+      <li><a href="/lab/objections/"><span class="door-name">Alternatives workbench</span><span class="door-line">Start with an idea, an objection or a disagreement. Compare different ways to make it work.</span></a></li>
+      <li><a href="/lab/scenes/"><span class="door-name">Scene-first invention</span><span class="door-line">Invent for a person at a particular moment, with partial information.</span></a></li>
+  </ul>
+</section>
+<section class="door-room door-energy" id="energy" aria-labelledby="energy-h">
+  <header class="door-head"><h2 id="energy-h"><a href="/energy/">Energy</a></h2></header>
+  <ul class="door-energy-list" aria-label="Energy tools">
+    <li><a href="/energy/cycles/">Cycle budget</a></li>
+    <li><a href="/energy/risk/">Risk transfer</a></li>
+    <li><a href="/energy/frequency/">Frequency &amp; inertia</a></li>
+    <li><a href="/energy/merit-order/">Merit order</a></li>
+    <li><a href="/energy/intraday/">A day through the stack</a></li>
+  </ul>
+</section>
+<p class="door-foot"><a href="/explore/">Search all 46 tools</a><a href="/backup/">Backup &amp; restore</a></p>
+<script type="application/json" id="door-catalog">{"product:roadmap":["Roadmap","/roadmap/"],"product:timeline":["Timeline","/timeline/"],"product:bets":["Bets","/bets/"],"product:rank":["Rank","/rank/"],"product:duel":["Duel","/duel/"],"product:map":["Map","/map/"],"product:tree":["Tree","/tree/"],"product:why":["Why","/why/"],"product:wardley":["Wardley","/wardley/"],"product:premortem":["Premortem","/premortem/"],"product:fermi":["Fermi","/fermi/"],"product:gauge":["Gauge","/gauge/"],"product:alarm":["Alarm","/alarm/"],"product:flow":["Flow","/flow/"],"product:signal-vs-noise":["Signal vs noise","/signal-vs-noise/"],"product:paths":["Paths","/paths/"],"product:proxy":["Proxy Hunt","/proxy/"],"product:case":["Case file","/case/"],"energy:cycles":["Cycle budget","/energy/cycles/"],"energy:risk":["Risk transfer","/energy/risk/"],"energy:frequency":["Frequency & inertia","/energy/frequency/"],"energy:merit-order":["Merit order","/energy/merit-order/"],"energy:intraday":["A day through the stack","/energy/intraday/"],"lab:authority":["Who can actually decide?","/lab/authority/"],"lab:context":["What survived the status update?","/lab/context/"],"lab:consistency":["How much consistency is enough?","/lab/consistency/"],"lab:alignment":["We’re aligned—until something changes","/lab/alignment/"],"lab:possibilities":["Making worthwhile work possible","/lab/possibilities/"],"lab:clocks":["The organisation’s clocks","/lab/clocks/"],"lab:commitment":["The commitment spiral","/lab/commitment/"],"lab:teams":["How teams fit the work","/lab/teams/"],"lab:flexibility":["Where flexibility gets trapped","/lab/flexibility/"],"lab:delay":["Steering through delay","/lab/delay/"],"lab:exceptions":["How exceptions accumulate","/lab/exceptions/"],"lab:knowledge":["Specialists and shared knowledge","/lab/knowledge/"],"lab:predictions":["When predictions change behaviour","/lab/predictions/"],"lab:accuracy":["Accurate enough for which decision?","/lab/accuracy/"],"lab:reliability":["Almost reliable parts","/lab/reliability/"],"lab:adoption":["Crossing the adoption gap","/lab/adoption/"],"lab:reframe":["Reframing workbench","/lab/reframe/"],"lab:mixer":["Possibility mixer","/lab/mixer/"],"lab:constraints":["Constraint playground","/lab/constraints/"],"lab:analogy":["Analogy workshop","/lab/analogy/"],"lab:interventions":["Intervention workbench","/lab/interventions/"],"lab:objections":["Alternatives workbench","/lab/objections/"],"lab:scenes":["Scene-first invention","/lab/scenes/"]}</script>
+<!-- front-door:end -->
 </main>
 <!-- identity:footer:start -->
 <div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a><a href="https://www.matthewgarner.me/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>

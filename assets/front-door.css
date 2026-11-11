@@ -1,0 +1,122 @@
+/* Tools Lab front door (home/index.html, served at `/`). A contents page, not a card grid:
+   five jobs as ruled rows, then models as pictured cards, workbenches and Energy as plain text.
+   Reuses the identity tokens and the catalogue intro; sketches keep the stroke/accent treatment
+   they had on the old index. Everything below the intro is generated from assets/suite-catalog.js. */
+.door { padding-bottom: 1.5rem; }
+.door [hidden] { display: none !important; }
+
+/* a compact intro: the page is for choosing, the heading should not take the first screen */
+.door .catalogue-intro { grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 2.5rem; padding-block: 2rem 1.5rem; }
+.door .catalogue-intro h1 { font-size: clamp(2.5rem, 5vw, 4rem); white-space: nowrap; }
+.door .catalogue-lede > p { font-size: clamp(1.15rem, 1.8vw, 1.5rem); }
+
+.door a { color: inherit; text-decoration: none; }
+.door a:focus-visible { outline: 2px solid var(--mg-accent, var(--accent-ink)); outline-offset: 3px; }
+.door-name { color: var(--mg-ink, var(--ink)); font-family: var(--mg-display, "Arial Narrow", sans-serif); font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.door-line { color: var(--mg-muted, var(--muted)); font-size: 1rem; line-height: 1.4; text-wrap: pretty; }
+@media (hover: hover) and (pointer: fine) {
+  .door a:hover .door-name { color: var(--mg-accent, var(--accent-ink)); text-decoration: underline; text-underline-offset: .15em; text-decoration-thickness: 1px; }
+}
+.door .sketch {
+  --ink: var(--mg-ink);
+  --muted: var(--mg-muted);
+  --border: var(--mg-line);
+  display: block; width: 100%; height: auto; overflow: visible;
+}
+
+/* ---- returning strip: only when this browser has saved or recent work ---- */
+.door-resume { padding-block: 1rem 1.25rem; border-top: 1px solid var(--mg-line, var(--border)); }
+.door-resume h2 { margin: 0 0 .5rem; font: 600 1rem/1.3 var(--mg-display, sans-serif); letter-spacing: .06em; text-transform: uppercase; color: var(--mg-muted, var(--muted)); }
+.door-resume-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0 2rem; }
+.door-resume-list a { display: grid; gap: .1rem; min-height: 44px; padding-block: .5rem; border-top: 1px solid var(--mg-line, var(--border)); }
+.door-resume-list .door-name { font-size: 1.25rem; }
+.door-resume-list .door-line { font-size: .9375rem; }
+.door-resume-favourites, .door-resume-all { margin: 0; font-size: 1rem; }
+.door-resume-favourites { padding-top: .25rem; color: var(--mg-muted, var(--muted)); }
+.door-resume-favourites a, .door-resume-all a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: .5rem; color: var(--mg-ink, var(--ink)); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+.door-resume-favourites a:first-child { padding-left: 0; }
+.door-resume-all a { margin-left: -.5rem; }
+
+/* ---- rooms ---- */
+.door-room { padding-top: 2rem; }
+.door-head { display: grid; grid-template-columns: 14rem minmax(0, 1fr); align-items: baseline; gap: 0 1.5rem; padding-bottom: 1rem; }
+.door-head h2 { margin: 0; font: 600 1rem/1.3 var(--mg-display, sans-serif); letter-spacing: .06em; text-transform: uppercase; color: var(--mg-accent, var(--accent-ink)); }
+.door-head p { margin: 0; font-family: var(--mg-display, sans-serif); font-size: clamp(1.5rem, 2.6vw, 2.25rem); font-weight: 600; line-height: 1.15; letter-spacing: -.015em; text-wrap: balance; }
+
+/* ---- instruments: one ruled row per job ---- */
+.door-jobs { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--mg-line, var(--border)); }
+.door-job {
+  display: grid; grid-template-columns: 14rem minmax(0, 24rem) minmax(0, 1fr);
+  column-gap: 1.5rem; align-items: start;
+  padding-block: 1.25rem; border-top: 1px solid var(--mg-line, var(--border));
+}
+.door-job-title { margin: 0; padding-top: .25rem; font: 600 1.75rem/1.15 var(--mg-display, sans-serif); letter-spacing: -.015em; }
+.door-flagship { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 1rem; align-items: start; min-height: 44px; }
+.door-flagship .sketch { margin-top: .35rem; }
+.door-flagship .door-copy { display: grid; gap: .25rem; }
+.door-flagship .door-name { font-size: 2rem; line-height: 1.1; }
+.door-also { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 1.5rem; align-content: start; }
+.door-also a { display: grid; gap: .1rem; min-height: 44px; padding-block: .35rem; }
+.door-also .door-name { font-size: 1.25rem; line-height: 1.2; }
+.door-also .door-line { font-size: .9375rem; }
+
+/* ---- models: pictured cards ---- */
+.door-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+.door-card { display: grid; grid-template-rows: auto 1fr; gap: .75rem; height: 100%; padding: 1rem; border: 1px solid var(--mg-line, var(--border)); background: var(--mg-surface, var(--card)); }
+.door-card .sketch { max-height: 5.5rem; }
+.door-card .door-copy { display: grid; gap: .25rem; align-content: start; }
+.door-card .door-name { font-size: 1.5rem; line-height: 1.15; }
+.door-more { margin: 1rem 0 0; }
+.door-more a, .door-foot a, .door-energy-list a { display: inline-flex; align-items: center; min-height: 44px; }
+.door-more a { font: 600 1.25rem/1.2 var(--mg-display, sans-serif); color: var(--mg-accent, var(--accent-ink)); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+
+/* ---- workbenches and energy: plain text ---- */
+.door-bench { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 2rem; border-top: 1px solid var(--mg-line, var(--border)); }
+.door-bench a { display: grid; gap: .1rem; min-height: 44px; padding-block: .5rem; border-bottom: 1px solid var(--mg-line, var(--border)); }
+.door-bench .door-name { font-size: 1.25rem; }
+.door-energy-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0 1.5rem; border-top: 1px solid var(--mg-line, var(--border)); }
+.door-energy-list a { padding-block: .25rem; font: 600 1.25rem/1.2 var(--mg-display, sans-serif); }
+.door-energy .door-head h2 a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; }
+.door-energy .door-head { padding-bottom: .25rem; }
+.door-foot { display: flex; flex-wrap: wrap; gap: 0 2rem; margin: 2rem 0 0; padding-top: 1rem; border-top: 1px solid var(--mg-line, var(--border)); font-size: 1.125rem; }
+.door-foot a { text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+
+@media (max-width: 1000px) {
+  .door-head { grid-template-columns: minmax(0, 1fr); gap: .25rem; }
+  .door-job { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); row-gap: .75rem; }
+  .door-job-title { grid-column: 1 / -1; }
+  .door-also { grid-template-columns: minmax(0, 1fr); }
+  .door-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* phone: each job stacks, then the other tools wrap inline as names; cards go horizontal */
+@media (max-width: 640px) {
+  .door .catalogue-intro { grid-template-columns: minmax(0, 1fr); gap: .5rem; padding-block: 1rem .5rem; }
+  .door .catalogue-intro h1 { font-size: 2.5rem; }
+  .door .catalogue-lede > p { font-size: 1.125rem; line-height: 1.3; }
+  .door-room { padding-top: 1.25rem; }
+  .door-head { padding-bottom: .5rem; }
+  .door-head p { font-size: 1.5rem; }
+  .door-job { grid-template-columns: minmax(0, 1fr); row-gap: .5rem; padding-block: .875rem; }
+  .door-job-title { font-size: 1.375rem; padding-top: 0; }
+  .door-flagship { grid-template-columns: 5.5rem minmax(0, 1fr); gap: .875rem; align-items: center; }
+  .door-flagship .sketch { margin-top: 0; }
+  .door-flagship .door-name { font-size: 1.75rem; }
+  .door-also { display: flex; flex-wrap: wrap; gap: 0 .25rem; margin-inline: -.5rem; }
+  .door-also a { align-content: center; padding-inline: .5rem; }
+  .door-also .door-line, .door-bench .door-line, .door-card .door-line { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .door-cards { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .door-card { grid-template-columns: 6rem minmax(0, 1fr); grid-template-rows: none; align-items: center; gap: .875rem; padding: .625rem .75rem; min-height: 44px; }
+  .door-card .sketch { max-height: 3rem; }
+  .door-card .door-name { font-size: 1.25rem; }
+  .door-bench { grid-template-columns: minmax(0, 1fr); }
+  .door-bench a { align-content: center; padding-block: .25rem; }
+  .door-energy-list { gap: 0 1rem; }
+  .door-foot { margin-top: 1rem; gap: 0 1.5rem; }
+  .door-resume-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (forced-colors: active) {
+  .door-card { border-color: CanvasText; }
+  .door a { color: LinkText; }
+}
