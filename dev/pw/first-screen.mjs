@@ -57,7 +57,8 @@ const H1_CUT_AT_320 = [];
 const SETTLE_MS = 25000;
 const ANCHOR_GRACE_MS = 5000;
 
-const PAGES = [
+/* FIRST_SCREEN_FIXTURES_ONLY=1 (a local shortcut, never set by the runner) skips the real pages and drives only the synthetic fixtures */
+const PAGES = process.env.FIRST_SCREEN_FIXTURES_ONLY === '1' ? [] : [
   ...TOOL_DIRS.map(dir => [dir, T + '/' + dir + '/']),
   ...ENERGY_TOOL_DIRS.map(dir => [dir, E + '/' + dir + '/']),
 ];
@@ -77,10 +78,7 @@ function installProbe(){
   window.__shellProbe = (anchor) => {
     const top = el => Math.round(el.getBoundingClientRect().top + scrollY);
     const header = document.querySelector('[data-tool-header]');
-    let main = document.querySelector('main'), mainIsFallback = false;
-    /* signal-vs-noise has no <main> today: use the first element after the header,
-       which is where <main> would start, and say so in the table */
-    if(!main && header){ main = header.nextElementSibling; mainIsFallback = true; }
+    const main = document.querySelector('main');   // a page without <main> has no main top and fails its budget
     const target = anchor ? document.querySelector(anchor) : null;
     const box = target ? target.getBoundingClientRect() : null;
     /* Header controls are buttons, summaries and inputs; navigation links (the
@@ -95,7 +93,7 @@ function installProbe(){
     const shown = all.filter(visible);
     const controls = shown.map(label).sort();
     return {
-      mainTop: main ? top(main) : null, mainIsFallback,
+      mainTop: main ? top(main) : null,
       headerBottom: header ? Math.round((header.getBoundingClientRect().bottom + scrollY) * 10) / 10 : null,
       anchorFound: !!target, anchorVisible: !!target && visible(target),
       anchorTop: target ? top(target) : null, anchorW: box ? Math.round(box.width) : 0, anchorH: box ? Math.round(box.height) : 0,
@@ -373,10 +371,9 @@ if(table.length){
   console.log(pad('page', 17) + pad('phone main', 12) + pad('anchor', 8) + pad('size', 10) + pad('| laptop main', 14) + pad('anchor', 8) + pad('size', 10) + 'anchor selector');
   for(const {dir, phone, laptop} of table){
     const size = m => m.anchorW + 'x' + m.anchorH;
-    console.log(pad(dir, 17) + pad(cell(phone, 'mainTop') + (phone.mainIsFallback ? '*' : ''), 12) + pad(cell(phone, 'anchorTop'), 8) + pad(size(phone), 10) +
-      pad('| ' + cell(laptop, 'mainTop') + (laptop.mainIsFallback ? '*' : ''), 14) + pad(cell(laptop, 'anchorTop'), 8) + pad(size(laptop), 10) + SHELL_MANIFEST[dir].anchor);
+    console.log(pad(dir, 17) + pad(cell(phone, 'mainTop'), 12) + pad(cell(phone, 'anchorTop'), 8) + pad(size(phone), 10) +
+      pad('| ' + cell(laptop, 'mainTop'), 14) + pad(cell(laptop, 'anchorTop'), 8) + pad(size(laptop), 10) + SHELL_MANIFEST[dir].anchor);
   }
-  if(table.some(r => r.phone.mainIsFallback || r.laptop.mainIsFallback)) console.log('* no <main> on this page; measured the element after the header, where <main> would start');
   console.log('');
 }
 
@@ -432,6 +429,7 @@ if(!scope.focused){
     cut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1 style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long title indeed</h1></header><main>m</main>',
     stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button><button data-act="copylink">Copy link</button></main>',
     clean: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main>m</main>',
+    noMain: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><div>not a main</div>',
     kickerCut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><p class="kicker" style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">07 — A long epithet that cannot fit</p><h1>Fixture</h1></header><main>m</main>',
   })){
     const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
@@ -442,6 +440,7 @@ if(!scope.focused){
     probe[name] = await page.evaluate(() => window.__shellProbe(null));
     await context.close();
   }
+  ok(probe.noMain.mainTop === null && probe.clean.mainTop !== null, 'fixture: a page with no <main> measures no main top (it fails the budget), where the next element used to stand in');
   ok(probe.cut.h1Over > 0 && probe.clean.h1Over <= 0, 'fixture: a truncated h1 is measured as wider than its box; an untruncated one is not');
   ok(probe.kickerCut.kickerOver > 0 && probe.clean.kickerOver <= 0, 'fixture: a truncated kicker is measured as wider than its box; a missing one is not');
   /* the action row: one at the viewport edge while the header is inset must fail, and one in the header's own edges must pass */
