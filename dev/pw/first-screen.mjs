@@ -20,7 +20,7 @@
      ready        the shell wired itself: data-shell-ready is set       (shell)
      no shift     header bottom at DOMContentLoaded equals header bottom once the
                   page has settled (at least network idle + 900ms), within 1px (shell)
-     one verb     no .model-link, .recent-save, #copylink or "Save on this device"
+     one verb     no .model-link, .recent-save, #copylink, [data-act=copylink] or "Save on this device"
                   control anywhere on the page: Share and Save a copy live in File
                   (shell)
      no cut-off   the h1 is not truncated at 375px                      (shell)
@@ -106,7 +106,7 @@ function installProbe(){
       kickerText: header?.querySelector('.kicker')?.textContent ?? null,
       h1Over: (() => { const h = header?.querySelector('h1'); return h ? h.scrollWidth - h.clientWidth : 0; })(),
       ownLinks: document.querySelectorAll('#copylink').length,
-      strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, button')].filter(el => el.matches('.model-link, .recent-save, #copylink') || /save on this device/i.test(el.textContent)).length,
+      strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, [data-act="copylink"], button')].filter(el => el.matches('.model-link, .recent-save, #copylink, [data-act="copylink"]') || /save on this device/i.test(el.textContent)).length,
       shellReady: !!header && header.hasAttribute('data-shell-ready'),
       /* a worker or async render still owns the layout: Cycles marks its stage
          aria-busy / .recomputing for ~5s and its anchor then moves 90px, so a
@@ -430,7 +430,7 @@ if(!scope.focused){
   const probe = {};
   for(const [name, html] of Object.entries({
     cut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1 style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long title indeed</h1></header><main>m</main>',
-    stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button></main>',
+    stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button><button data-act="copylink">Copy link</button></main>',
     clean: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main>m</main>',
     kickerCut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><p class="kicker" style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">07 — A long epithet that cannot fit</p><h1>Fixture</h1></header><main>m</main>',
   })){
@@ -482,7 +482,7 @@ if(!scope.focused){
   ok(!strips.good.length, 'fixture: a one-row 44px strip with its current item on screen passes the strip check (' + strips.good.join('; ') + ')');
   ok(strips.wrapped.some(p => /wraps onto more than one line/.test(p)), 'fixture: a strip that wraps fails the strip check');
   ok(strips.offscreen.some(p => /current item is off screen/.test(p)), 'fixture: a strip whose current item is off screen fails the strip check');
-  ok(probe.stray.strayActions === 3 && probe.clean.strayActions === 0, 'fixture: .recent-save, "Save on this device" and #copylink are each counted as stray controls');
+  ok(probe.stray.strayActions === 4 && probe.clean.strayActions === 0, 'fixture: .recent-save, "Save on this device", #copylink and [data-act=copylink] are each counted as stray controls');
 }
 
 await browser.close();

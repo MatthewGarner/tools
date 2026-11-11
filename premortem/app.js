@@ -1,4 +1,4 @@
-import {toSnapshotLink} from './links.js';
+import {toSnapshotLink, toShareLink} from './links.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 import {offer as provide} from '../assets/recent-ui.js';
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
@@ -420,24 +420,17 @@ $('phasepanel').addEventListener('click', e => {
     if(timer){ clearInterval(timer); timer = 0; }
     mutate(() => { doc = advance(doc); }, {phaseFocus: true});
   }
-  else if(d.act === 'copylink'){ copyLink(); }
   else if(d.act === 'copydoc'){ copyDoc(); }
   else if(d.act === 'reviewall'){ if(confirm('Mark every ' + (modeOf(doc) === 'success' ? 'opportunity' : 'risk') + ' reviewed today?')) mutate(() => {
     const now = new Date().toISOString(); doc.entries.forEach(en => { en.lastReviewed = now; }); },
     {focus: '[data-act="reviewall"]', announce: 'All ' + (modeOf(doc) === 'success' ? 'opportunities' : 'risks') + ' marked reviewed.'}); }
 });
-async function copyLink(){
-  const link = await toLink(withoutHandoffMeta(doc));
-  const url = location.origin + location.pathname + (link || '');
-  if(!link){ alert('This register is too large for a link — use "Copy as markdown" instead.'); return; }
-  try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch(e){ prompt('Copy this link:', url); }
-}
 async function copyDoc(){
   const md = markdown(doc, exposure(doc.entries.filter(isRisk)), new Date());
   try{ await navigator.clipboard.writeText(md); toast('Copied for a doc'); }catch(e){ prompt('Copy this:', md); }
 }
 function toast(msg){
-  const b = $('phasepanel').querySelector('[data-act="copylink"]');
+  const b = $('phasepanel').querySelector('[data-act="copydoc"]');
   if(!b) return; const was = b.textContent; b.textContent = msg; setTimeout(() => { b.textContent = was; }, 1500);
 }
 
@@ -482,4 +475,4 @@ $('boardpanel').addEventListener('click', e => {
 
 mountRecentSave({getState:()=>doc&&withoutHandoffMeta(doc),getHash:toSnapshotLink,note:'Opens as a separate register. Use Save as new there to keep editing it in Premortem.'});
 /* File > New starts a premortem, as "New premortem" on the registers list does */
-provide({blank: () => $('newbtn').click()});
+provide({blank: () => $('newbtn').click(), getHash: toShareLink});   // Share's own refusals; Save a copy keeps toSnapshotLink's

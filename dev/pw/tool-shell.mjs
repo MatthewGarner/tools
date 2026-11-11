@@ -149,6 +149,28 @@ const focusHeld = async p => {
 };
 
 const browser = await chromium.launch();
+/* Every wait is bounded and every close is bounded, so a failing state reports a FAIL line in seconds instead of
+   leaving the runner to kill the suite at its 600s timeout. A context's default timeout is 10s (navigation 20s);
+   closing races a 10s timer and prints a NOTE (not a FAIL) if the timer wins. */
+const liveContexts = new Set();
+const newContext = browser.newContext.bind(browser);
+browser.newContext = async (...args) => {
+  const context = await newContext(...args), rawClose = context.close.bind(context);
+  context.setDefaultTimeout(10000); context.setDefaultNavigationTimeout(20000);
+  liveContexts.add(context);
+  context.close = async () => {
+    liveContexts.delete(context);
+    let timer;
+    const timedOut = await Promise.race([rawClose().then(() => false, () => false), new Promise(resolve => { timer = setTimeout(() => resolve(true), 10000); })]);
+    clearTimeout(timer);
+    if(timedOut) console.log('NOTE a browser context did not close within 10s; moving on');
+  };
+  return context;
+};
+const closeLeftovers = () => Promise.all([...liveContexts].map(context => context.close()));
+/* a service worker that never installs (a stale integrity hash after an edit under assets/: run npm run sync) would hang
+   navigator.serviceWorker.ready forever */
+const swInstalled = page => page.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 15000))]));
 const phoneOpts = {viewport: VIEWPORTS.phone, hasTouch: true, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block'};
 const laptopOpts = {viewport: VIEWPORTS.laptop, deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block'};
 async function open(dir, opts, url = originOf(dir) + '/' + dir + '/'){
@@ -170,6 +192,7 @@ const geometry = p => p.evaluate(() => ({
 
 for(const dir of SHELLS){
   if(!scope.wants(dir)) continue;
+  try{
   const entry = SHELL_MANIFEST[dir], names = menuNames(entry), model = MODEL[dir];
   ok(!!model, `${dir}: the suite knows how to edit and read this page's model`);
 
@@ -306,6 +329,15 @@ for(const dir of SHELLS){
       await pop.context.close();
     }
 
+    /* Premortem's register has no Copy link of its own: Share is the one way to a link, and its refusal says why */
+    if(dir === 'premortem'){
+      const reg = await open(dir, laptopOpts), rp = reg.page;
+      await rp.locator('#viewtoggle [data-view=register]').click();
+      await rp.locator('#phasepanel [data-act=copydoc], #registerpanel [data-act=copydoc], [data-act=copydoc]').first().waitFor();
+      ok(await rp.locator('[data-act=copylink]').count() === 0 && await rp.locator('[data-act=copydoc]').count() >= 1, `${dir}: the register view offers Copy as markdown and no second Copy link`);
+      await reg.context.close();
+    }
+
     /* Premortem supplies its own link builder, which throws on an oversize register: Share must keep that guard */
     if(dir === 'premortem'){
       const big = await open(dir, laptopOpts);
@@ -317,7 +349,7 @@ for(const dir of SHELLS){
       await big.page.locator('[data-act=share]').click();
       await until(async () => (await status(big.page).textContent()).length > 0);
       const said = await status(big.page).textContent(), clip = await big.page.evaluate(() => navigator.clipboard.readText());
-      ok(/Could not create the link/.test(said) && clip === 'sentinel', `${dir}: an oversize register is refused by Premortem's own link builder and nothing is copied (said ${JSON.stringify(said)})`);
+      ok(said === 'This register is too large for a link. Copy it as Markdown instead.' && clip === 'sentinel', `${dir}: an oversize register is refused by Premortem's own link builder, says why in its own words, and nothing is copied (said ${JSON.stringify(said)})`);
       await big.context.close();
     }
 
@@ -397,15 +429,18 @@ for(const dir of SHELLS){
     if(dir === 'frequency'){
       const context = await browser.newContext({...laptopOpts, serviceWorkers: 'allow'}), page = await context.newPage();
       await page.goto(E + '/frequency/', {waitUntil: 'networkidle'}); await ready(page);
-      await page.evaluate(() => navigator.serviceWorker.ready);
-      await page.reload({waitUntil: 'networkidle'});
-      await until(() => page.evaluate(() => !!navigator.serviceWorker.controller), {timeout: 15000});
-      await context.setOffline(true);
-      await page.reload({waitUntil: 'domcontentloaded'}); await ready(page);
-      await fileItem(page, 'Your work…');
-      const panel = page.getByRole('dialog', {name: 'Your work in ' + entry.name});
-      await panel.waitFor({timeout: 8000});
-      ok(await panel.isVisible() && (await panel.textContent()).includes('Nothing saved'), `${dir}: Your work opens offline from the Energy service worker's precache`);
+      const installed = await swInstalled(page);
+      ok(installed, `${dir}: the Energy service worker installs (if not: an integrity hash is stale, run npm run sync)`);
+      if(installed){
+        await page.reload({waitUntil: 'networkidle'});
+        ok(await until(() => page.evaluate(() => !!navigator.serviceWorker.controller), {timeout: 15000}), `${dir}: the Energy service worker controls the reloaded page before going offline`);
+        await context.setOffline(true);
+        await page.reload({waitUntil: 'domcontentloaded'}); await ready(page);
+        await fileItem(page, 'Your work…');
+        const panel = page.getByRole('dialog', {name: 'Your work in ' + entry.name});
+        await panel.waitFor({timeout: 8000});
+        ok(await until(async () => (await panel.textContent()).includes('Nothing saved'), {timeout: 6000}), `${dir}: Your work opens offline from the Energy service worker's precache`);
+      }
       await context.close();
     }
     continue;
@@ -930,9 +965,11 @@ for(const dir of SHELLS){
     const context = await browser.newContext({...laptopOpts, serviceWorkers: 'allow'}), page = await context.newPage();
     await page.goto(T + '/' + dir + '/', {waitUntil: 'networkidle'});
     await ready(page);
-    await page.evaluate(() => navigator.serviceWorker.ready);
+    const installed = await swInstalled(page);
+    ok(installed, `${dir}: the service worker installs (if not: an integrity hash is stale, run npm run sync)`);
+    if(!installed){ await context.close(); continue; }
     await page.reload({waitUntil: 'networkidle'});
-    await until(() => page.evaluate(() => !!navigator.serviceWorker.controller), {timeout: 15000});
+    ok(await until(() => page.evaluate(() => !!navigator.serviceWorker.controller), {timeout: 15000}), `${dir}: the service worker controls the reloaded page before going offline`);
     ok(!(await page.evaluate(() => performance.getEntriesByType('resource').some(r => r.name.endsWith('/assets/tool-work.js')))), `${dir}: the Your work module is not fetched at page load`);
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
@@ -940,7 +977,7 @@ for(const dir of SHELLS){
     await fileItem(page, 'Your work…');
     const offlinePanel = page.getByRole('dialog', {name: 'Your work in ' + entry.name});
     await offlinePanel.waitFor({timeout: 8000});
-    ok(await offlinePanel.isVisible() && (await offlinePanel.textContent()).includes('Nothing saved'), `${dir}: Your work opens offline from the precache`);
+    ok(await until(async () => (await offlinePanel.textContent()).includes('Nothing saved'), {timeout: 6000}), `${dir}: Your work opens offline from the precache`);
     await page.keyboard.press('Escape');
     if(entry.templates){
       await fileItem(page, 'Save as template…');
@@ -978,6 +1015,10 @@ for(const dir of SHELLS){
     ok(await until(async () => await fresh.page.locator('#claimChip').isVisible() && await fresh.page.locator('#claimChip').textContent() === chip, {timeout: 8000}), `${dir}: Share with a pinned claim reopens with the claim (${chip.trim()})`);
     await fresh.context.close(); await context.close();
   }
+  }catch(error){
+    ok(false, `${dir}: stopped — ${String(error).split('\n')[0]}`);
+    await closeLeftovers();
+  }
 }
 
 /* ---- hand-off from provide() and the two mount functions, on a synthetic stamped page ---- */
@@ -996,6 +1037,7 @@ const log = t => { document.getElementById('log').textContent += t + ';'; };
 ${script}
 </script></main></div></body></html>`;
   {
+  try{
     const html = fixture(`provide({blank: () => log('start'), examples: [{name: 'Alpha example', pick: () => log('alpha')}, {name: 'Beta example', pick: () => log('beta')}]});
 mountModelLink({getState: () => ({t: 'fixture'})});`);
     const context = await browser.newContext(laptopOpts), page = await context.newPage(), errors = trackErrors(page);
@@ -1014,8 +1056,27 @@ mountModelLink({getState: () => ({t: 'fixture'})});`);
     ok(await status(page).textContent().then(t => t === 'Link copied. It opens as a separate copy.') || await page.getByRole('dialog', {name: 'Share link'}).count() === 1, 'hand-off: Share works from the state mountModelLink handed over');
     ok(errors.length === 0, 'hand-off: no console errors (' + errors.join(' | ').slice(0, 120) + ')');
     await context.close();
+    }catch(error){ ok(false, `hand-off fixture: stopped — ${String(error).split('\n')[0]}`); await closeLeftovers(); }
+  }
+  for(const [label, script, want] of [
+    ['a page whose link builder returns nothing', `provide({getHash: async () => ''}); mountModelLink({getState: () => ({t: 'x'})});`, 'This model is too large for a link. Export the source instead.'],
+    ['a page whose link builder refuses with a reason', `provide({getHash: async () => { throw new Error('This thing is special. Copy it another way.'); }}); mountModelLink({getState: () => ({t: 'x'})});`, 'This thing is special. Copy it another way.'],
+  ]){
+    try{
+    /* Share shows the page's own refusal, and treats a missing hash as too large rather than crashing */
+    const context = await browser.newContext(laptopOpts), page = await context.newPage();
+    await context.route(T + '/why/', route => route.fulfill({contentType: 'text/html', body: fixture(script)}));
+    await page.goto(T + '/why/', {waitUntil: 'networkidle'});
+    await page.waitForFunction(() => !document.querySelector('[data-act=share]').disabled);
+    await page.locator('[data-act=share]').click();
+    await until(async () => (await status(page).textContent()).length > 0);
+    const said = await status(page).textContent();
+    ok(said === want, `hand-off: Share with ${label} says ${JSON.stringify(want)} (said ${JSON.stringify(said)})`);
+    await context.close();
+    }catch(error){ ok(false, `hand-off: Share with ${label}: stopped — ${String(error).split('\n')[0]}`); await closeLeftovers(); }
   }
   {
+  try{
     /* Energy hides its kicker on purpose (the E-series strip stands in); the shell must not un-hide it */
     const context = await browser.newContext(laptopOpts), page = await context.newPage();
     await page.goto(E + '/frequency/', {waitUntil: 'networkidle'});
@@ -1023,8 +1084,10 @@ mountModelLink({getState: () => ({t: 'fixture'})});`);
       css: [...document.styleSheets].some(sheet => (sheet.href || '').endsWith('/assets/tool-shell.css'))}));
     ok(kicker.shell && kicker.css && kicker.display === 'none', `energy origin: a stamped header keeps the kicker hidden (display ${kicker.display}, shell css loaded ${kicker.css})`);
     await context.close();
+    }catch(error){ ok(false, `hand-off fixture: stopped — ${String(error).split('\n')[0]}`); await closeLeftovers(); }
   }
   {
+  try{
     /* a page that offers no examples must not get an Examples capability from an empty list */
     const html = fixture(`provide({blank: () => log('start'), examples: []});
 mountModelLink({getState: () => ({t: 'fixture'})});`);
@@ -1034,6 +1097,7 @@ mountModelLink({getState: () => ({t: 'fixture'})});`);
     await page.waitForFunction(() => document.querySelector('[data-act=save]') && !document.querySelector('[data-act=save]').disabled);
     ok(await page.locator('[data-act=examples]').isDisabled() && !(await page.locator('[data-tool-header][data-shell-ready]').count()), 'hand-off: an empty example list leaves Examples disabled and the header not ready');
     await context.close();
+    }catch(error){ ok(false, `hand-off fixture: stopped — ${String(error).split('\n')[0]}`); await closeLeftovers(); }
   }
 }
 

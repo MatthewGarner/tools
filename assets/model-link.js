@@ -13,8 +13,16 @@ export async function shareModel({getState, getHash, maxLength = 6000, status, b
   status.textContent = ''; button.disabled = true;
   try{
     const state = getState ? getState() : null;
-    const hash = getHash ? (await getHash(state)).replace(/^.*#/, '') : await encodeHash(state);
-    if(hash.length >= maxLength){
+    let hash;
+    try{ hash = getHash ? await getHash(state) : await encodeHash(state); }
+    catch(error){
+      /* the page's own link builder refused: its message is the reason (an Error from a page that has none gets the generic line) */
+      status.textContent = error instanceof Error && error.message ? error.message : 'Could not create the link. Try again or export the source.';
+      return;
+    }
+    hash = typeof hash === 'string' ? hash.replace(/^.*#/, '') : '';
+    /* a missing or empty hash is a model too big to encode, not a crash */
+    if(!hash || hash.length >= maxLength){
       status.textContent = 'This model is too large for a link. Export the source instead.';
       return;
     }

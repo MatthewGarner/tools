@@ -80,6 +80,14 @@ function keepsAuthoredValues(before, after){
   return Object.entries(before).every(([key,value]) => key==='id' || key==='x' || value===undefined
     || (key==='mode' && value==='risk' && after[key]===undefined) || keepsAuthoredValues(value,after[key]));
 }
+/* Share's own link: same encoding as the snapshot, but a refusal says what a reader of a link needs to know,
+   not the Recent work wording Save a copy keeps. */
+export async function toShareLink(doc){
+  const hash=await toLink(doc);
+  if(!hash) throw new Error('This register is too large for a link. Copy it as Markdown instead.');
+  if(!keepsAuthoredValues(doc,await fromLink(hash))) throw new Error('This register has text a link would cut short. Copy it as Markdown instead.');
+  return hash;
+}
 export async function toSnapshotLink(doc){
   const hash=await toLink(doc);
   if(!hash) throw new Error('This register is too large for Recent work. Copy it as Markdown instead.');
