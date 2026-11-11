@@ -62,8 +62,9 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
 .tool-stage-row + .workspace{margin-top:0}
 /* a page whose first block wraps its workspace (Gauge's #compose) sits flush too */
 .wrap:has(> [data-tool-header][data-shell]) + main > :first-child > .workspace:first-child{margin-top:0}
-/* a page's action row at the top of main keeps the header's 16px gutter on phones, both sides */
-@media(max-width:519px){main > .tool-stage-row{box-sizing:border-box;padding-inline:16px}}
+/* a page's action row at the top of main sits in a .wrap, the same wrapper as the header, so its box has the
+   header's left and right edges at every width (the gutter and max-width come from the one .wrap rule) */
+.wrap:has(> .tool-stage-row) + .workspace{margin-top:0}
 /* Energy pages: the E1-E5 strip is the first row of the header (the kicker stays hidden there, so no empty line).
    16px above + 44px strip + 48px title row + 12px below = 120px. One row that never wraps; it scrolls sideways
    when it does not fit, with an edge fade as the cue (tool-shell.js sets data-fade and centres the current item). */

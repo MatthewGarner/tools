@@ -192,8 +192,8 @@ for(const theme of FLOW_THEMES){
   check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
   check('risk(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
   check('risk(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('risk(' + theme + '): the E1-E5 strip marks this page and reaches the other four',
-    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/risk/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 5);
+  check('risk(' + theme + '): the strip marks this page and lists All energy tools and the five instruments',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/risk/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 6);
   check('risk(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -460,8 +460,8 @@ for(const theme of FLOW_THEMES){
   check('frequency(' + theme + '): trace canvas exists', await page.locator('#trace').count() === 1);
   const verdict = (await page.locator('#verdict').innerText()).trim();
   check('frequency(' + theme + '): verdict non-empty', verdict.length > 20);
-  check('frequency(' + theme + '): the E1-E5 strip marks this page and reaches the other four',
-    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/frequency/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 5);
+  check('frequency(' + theme + '): the strip marks this page and lists All energy tools and the five instruments',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/frequency/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 6);
   check('frequency(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -509,8 +509,8 @@ for(const theme of FLOW_THEMES){
     await page.locator("svg g[data-plant='Hydrogen']").count() === 1 && await page.locator('svg g[data-tex]').count() >= 2);
   check('merit-order(' + theme + '): world demand max grows (>64)',
     Number(await page.locator('#demand').getAttribute('max')) > 64);
-  check('merit-order(' + theme + '): the E1-E5 strip marks this page and reaches the other four',
-    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/merit-order/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 5);
+  check('merit-order(' + theme + '): the strip marks this page and lists All energy tools and the five instruments',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/merit-order/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 6);
   check('merit-order(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

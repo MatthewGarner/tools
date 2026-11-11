@@ -28,11 +28,16 @@
                   dark: the header is exactly 96px (Energy: 120px) and <main> starts
                   at its bottom edge (shell). The budgets stay measured at the two
                   reference sizes: the pinned masthead grows with viewport height.
+     action row   a .tool-stage-row (the page's own controls at the top of main) has the
+                  header's left and right edges at 375, 768, 1280 and 1920 wide: its box
+                  matches the title row's, a start-aligned row's first control starts at
+                  that left edge and an end-aligned row's last control ends at the right
+                  one (within 1px); Case's row is one line at 375            (shell)
      strip        Energy only: the E1-E5 strip is the header's first row, 44px, one
                   line, five 44px links, one aria-current naming this page and on
                   screen at 375 and 320, no page overflow or scroll, an edge fade when
                   it scrolls, visible keyboard focus, and the kicker stays hidden
-   The last seven apply only to entries with shell:true; the synthetic fixtures at
+   The last eight apply only to entries with shell:true; the synthetic fixtures at
    the end of this file prove each of them can fail. */
 import {chromium} from 'playwright';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS as BINDER_DIRS} from '../tool-dirs.mjs';
@@ -145,6 +150,27 @@ function stripProblems(dir, m){
   return problems;
 }
 
+/* A page's action row (.tool-stage-row) against the header's own edges. Pure, so fixtures can prove it fails. */
+const probeRow = () => {
+  const row = document.querySelector('.tool-stage-row'), title = document.querySelector('[data-tool-header] .tool-titlerow');
+  if(!row || !title) return null;
+  const edge = e => { const r = e.getBoundingClientRect(); return {left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10, top: Math.round(r.top)}; };
+  const kids = [...row.children].filter(k => k.getBoundingClientRect().width > 0 && getComputedStyle(k).visibility !== 'hidden');
+  const t = edge(title), r = edge(row);
+  return {title: t, row: r, justify: getComputedStyle(row).justifyContent, first: kids.length ? edge(kids[0]) : null, last: kids.length ? edge(kids.at(-1)) : null,
+    tops: [...new Set(kids.map(k => edge(k).top))], vw: document.documentElement.clientWidth};
+};
+function rowProblems(m, {oneLine = false} = {}){
+  if(!m) return [];
+  const problems = [], near = (a, b) => Math.abs(a - b) <= 1;
+  if(!near(m.row.left, m.title.left) || !near(m.row.right, m.title.right)) problems.push(`the row box is ${m.row.left}-${m.row.right}px, the header's is ${m.title.left}-${m.title.right}px`);
+  const end = /end|right/.test(m.justify), between = m.justify === 'space-between';
+  if(m.first && !end && !near(m.first.left, m.title.left)) problems.push(`the first control starts at ${m.first.left}px, the header's left edge is ${m.title.left}px`);
+  if(m.last && (end || between) && !near(m.last.right, m.title.right)) problems.push(`the last control ends at ${m.last.right}px, the header's right edge is ${m.title.right}px`);
+  if(oneLine && m.tops.length > 1) problems.push('the row wraps onto more than one line');
+  return problems;
+}
+
 const realAnchor = m => m.anchorVisible && m.anchorW >= ANCHOR_MIN_SIZE.width && m.anchorH >= ANCHOR_MIN_SIZE.height;
 const sameLayout = (a, b) => a.mainTop === b.mainTop && a.anchorTop === b.anchorTop && a.anchorW === b.anchorW && a.anchorH === b.anchorH;
 
@@ -180,6 +206,7 @@ async function measure(context, url, anchor, {idleWait = 0} = {}){
   const final = settled || await read();
   const atDcl = await page.evaluate(() => window.__shellAtDcl);
   const strip = await page.evaluate(probeStrip);
+  const row = await page.evaluate(probeRow);
   if(strip){
     /* keyboard focus: Tab from the top until a strip link has it, then read its outline */
     strip.focus = undefined;
@@ -190,7 +217,7 @@ async function measure(context, url, anchor, {idleWait = 0} = {}){
     }
   }
   await page.close();
-  return {...final, atDcl, servedControls, settled: !!settled, strip};
+  return {...final, atDcl, servedControls, settled: !!settled, strip, row};
 }
 
 /* The header-side expectations the manifest implies: every page gets File (it
@@ -270,6 +297,10 @@ for(const [dir] of PAGES){
       ok(m.shellReady, `${where}: shell ready — ${m.shellReady ? 'data-shell-ready is set' : 'data-shell-ready is missing: some stamped control was never wired'}`);
       const shift = shiftProblems(m.atDcl, m);
       ok(!shift.length, `${where}: no header shift${shift.length ? ' — ' + shift.join('; ') : ''}`);
+      if(m.row){
+        const rowIssues = rowProblems(m.row, {oneLine: dir === 'case' && vp === 'phone'});
+        ok(!rowIssues.length, `${where}: action row${rowIssues.length ? ' — ' + rowIssues.join('; ') : ' — the header\'s edges'}`);
+      }
       if(isEnergy(dir)){
         const strip = stripProblems(dir, m.strip);
         ok(!strip.length, `${where}: E1-E5 strip${strip.length ? ' — ' + strip.join('; ') : ' — one 44px row, current item on screen'}`);
@@ -306,6 +337,21 @@ for(const [dir, url] of PAGES){
       ok(!narrow.length, `${dir} @320x568: E1-E5 strip${narrow.length ? ' — ' + narrow.join('; ') : ' — one row, current item on screen, no page overflow'}`);
     }
     ok(!problems.length, `${dir} @${width}x${height} ${scheme}: header ${headerHeight(dir)}px, <main> flush below it${problems.length ? ' — ' + problems.join('; ') : ''}`);
+    await context.close();
+  }
+}
+
+/* ---- action rows at the two widths the reference viewports do not cover ---- */
+for(const row of table){
+  if(!row.phone.row || !scope.wants(row.dir)) continue;
+  for(const [width, height] of [[768, 1024], [1920, 1080]]){
+    const context = await browser.newContext({viewport: {width, height}, deviceScaleFactor: 1, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block'});
+    const page = await context.newPage();
+    await page.goto(PAGES.find(([dir]) => dir === row.dir)[1], {waitUntil: 'networkidle'});
+    await page.evaluate(() => document.fonts.ready);
+    const m = await until(async () => { const r = await page.evaluate(probeRow); return r?.first ? r : null; }, {timeout: 8000, step: 150}) || await page.evaluate(probeRow);
+    const issues = rowProblems(m);
+    ok(!issues.length, `${row.dir} @${width}x${height}: action row${issues.length ? ' — ' + issues.join('; ') : ' — the header\'s edges'}`);
     await context.close();
   }
 }
@@ -389,6 +435,22 @@ if(!scope.focused){
   }
   ok(probe.cut.h1Over > 0 && probe.clean.h1Over <= 0, 'fixture: a truncated h1 is measured as wider than its box; an untruncated one is not');
   ok(probe.kickerCut.kickerOver > 0 && probe.clean.kickerOver <= 0, 'fixture: a truncated kicker is measured as wider than its box; a missing one is not');
+  /* the action row: one at the viewport edge while the header is inset must fail, and one in the header's own edges must pass */
+  const rowPage = (rowCss, headerCss) => `<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><div class="tool-titlerow" style="display:block;height:48px;${headerCss}"></div></header><main><div class="tool-stage-row" style="display:flex;justify-content:flex-end;${rowCss}"><button style="width:100px;height:44px">Export</button></div></main>`;
+  const rows = {};
+  for(const [name, html] of Object.entries({
+    good: rowPage('margin:0 16px', 'margin:0 16px'),
+    flush: rowPage('margin:0', 'margin:0 16px'),
+  })){
+    const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
+    await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
+    const page = await context.newPage();
+    await page.goto('http://fixture.test/' + name);
+    rows[name] = rowProblems(await page.evaluate(probeRow));
+    await context.close();
+  }
+  ok(!rows.good.length, 'fixture: an action row with the header\'s edges passes the row check (' + rows.good.join('; ') + ')');
+  ok(rows.flush.some(p => /row box is 0-375px/.test(p)) && rows.flush.some(p => /last control ends at 375px/.test(p)), 'fixture: an action row at the viewport edge fails the row check');
   /* the strip: a wrapped one and one whose current item is off screen must fail, and a good one must pass */
   const link = (n, current) => `<a href="/x/${n}/" style="flex:none;display:block;box-sizing:border-box;width:100px;height:44px"${current ? ' aria-current="page"' : ''}>E${n}</a>`;
   const stripPage = (css, current) => `<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><nav class="series" style="display:flex;box-sizing:border-box;width:343px;margin:0 16px;${css}"><a href="../" aria-label="All energy tools" style="flex:none;display:block;box-sizing:border-box;width:60px;height:44px">All</a>${[1, 2, 3, 4, 5].map(n => link(n, n === current)).join('')}</nav><p class="kicker" style="display:none"></p></header><main>m</main>`;
