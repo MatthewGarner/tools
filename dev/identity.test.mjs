@@ -12,19 +12,18 @@ test('every shipped page has the maintained static identity without a runtime de
     assert.equal((html.match(/class="mg-masthead"/g)||[]).length,1,dir);
     assert.match(html,/<script src="\/assets\/identity\/theme-init.js"><\/script>/,dir);
     const nav=html.match(/<nav class="mg-nav"[\s\S]*?<\/nav>/)?.[0];
-    const toolsLink=dir==='explore'?'Tools Lab':'All tools';
-    assert.deepEqual([...nav.matchAll(/>(Writing|Tools Lab|All tools|Now)<\/a>/g)].map(m=>m[1]),['Writing',toolsLink,'Now'],dir);
-    if(dir==='explore')assert.match(nav,/aria-current="page"/);
+    assert.deepEqual([...nav.matchAll(/>(Writing|Tools Lab|All tools|Now)<\/a>/g)].map(m=>m[1]),['Writing','Tools Lab','Now'],dir+': one name for the suite link on every page');
+    if(dir==='home')assert.match(nav,/<a data-suite-link="explore" href="\/" aria-current="page">Tools Lab<\/a>/,'the front door is the one current item');
     else assert.doesNotMatch(nav,/aria-current/);
     if(TOOL_DIRS.includes(dir)||dir.startsWith('energy/')) assert.match(html,/<header data-tool-header/,dir);
   }
 });
 
 test('catalogue rows preserve the complete tool inventory',()=>{
-  for(const [file,dirs] of [['home/index.html',TOOL_DIRS],['energy/index.html',ENERGY_TOOL_DIRS]]){
+  // The front door's inventory is held by dev/front-door.test.mjs (every current entry within one click).
+  for(const [file,dirs] of [['energy/index.html',ENERGY_TOOL_DIRS]]){
     const html=readFileSync(new URL('../'+file,import.meta.url),'utf8');
     const links=[...html.matchAll(/<a class="tool catalogue-row" href="\/?([a-z-]+)\/"/g)].map(m=>m[1]);
-    if(file.startsWith('home')) links.push(...[...html.matchAll(/<a class="[^\"]*binder[^\"]*" href="\/case\/"/g)].map(()=>'case'));
     assert.deepEqual(links.sort(),[...dirs].sort(),file);
   }
 });

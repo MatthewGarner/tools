@@ -28,9 +28,9 @@ for(const {page,section,catalogue,file} of SUITE_PAGES){
   if(!existsSync(path)){if(check)throw Error('Missing suite page: '+page);continue;}
   let html=readFileSync(path,'utf8');
   const energy=section==='energy',lab=section==='lab';
-  const isCatalogueHome=page==='explore';
-  const toolsLink=isCatalogueHome?'Tools Lab':'All tools';
-  const toolsCurrent=isCatalogueHome?' aria-current="page"':'';
+  // One name everywhere; the current item is the front door itself (a sub-page like /explore/ has none).
+  const toolsLink='Tools Lab';
+  const toolsCurrent=page==='home'?' aria-current="page"':'';
   const local=catalogue?'./':'../';
   const main=html.match(/<main\b[^>]*\bid="([^"]+)"/)?.[1]||'main';
   const header=`<!-- identity:header:start -->
@@ -42,7 +42,7 @@ for(const {page,section,catalogue,file} of SUITE_PAGES){
 </div>
 <!-- identity:header:end -->`;
   const footer=`<!-- identity:footer:start -->
-<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere">${!catalogue&&!lab?`<a href="${energy?'../':'/'}#recent-work">Your work</a>`:''}<a data-suite-link="backup" href="/backup/">Backup &amp; restore</a>${lab?`<a href="${local}about.html">Model limits</a>`:''}<a href="${personal}/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere">${!catalogue&&!lab?`<a href="${energy?'../':'/explore/'}#recent-work">Your work</a>`:''}<a data-suite-link="backup" href="/backup/">Backup &amp; restore</a>${lab?`<a href="${local}about.html">Model limits</a>`:''}<a href="${personal}/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
 <!-- identity:footer:end -->`;
   const head=`<!-- identity:head:start -->
 <script src="/assets/identity/theme-init.js"></script>
