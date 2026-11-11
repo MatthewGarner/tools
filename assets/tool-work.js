@@ -119,7 +119,7 @@ export function openWork({name, caps, opener, status, section: wanted, workspace
       notes.push(el('p', SOURCE_TOOLS.includes(tool) && draft ? `No saved copies of ${name} yet. Your draft is kept in this browser as you work.`
         : `Nothing saved for ${name} yet. Save a copy from the File menu to keep this model.`, 'recent-note'));
     const all = document.querySelector('.mg-footer a[href$="#recent-work"]'), more = el('a', 'See all your work', 'tool-work-all');
-    more.href = all?.getAttribute('href') || '/#recent-work';
+    more.href = all?.getAttribute('href') || '/explore/#recent-work';
     body.replaceChildren(alert, ...sections, ...notes, more);
   }
 

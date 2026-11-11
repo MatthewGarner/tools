@@ -8,7 +8,7 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {toRepoPath, toToolsPath, energyRedirectSources, toolRedirectSources} from './origins.mjs';
+import {toRepoPath, toToolsPath, energyRedirectSources, toolRedirectSources, legacyRedirects} from './origins.mjs';
 import {responseHeaders} from './response-headers.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -27,6 +27,7 @@ const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/java
   '.woff2':'font/woff2', '.json': 'application/json', '.webmanifest': 'application/manifest+json'};
 const ENERGY_REDIR = new Set(energyRedirectSources());   /* bare tool path → trailing-slash */
 const TOOL_REDIR = new Set(toolRedirectSources());       /* bare tool path → trailing-slash */
+const LEGACY_REDIR = new Map(legacyRedirects().map(r => [r.source, r.destination]));   /* /product → the front door's Instruments */
 
 const server = createServer(async (req, res) => {
   const requestURL=new URL(req.url,'http://x');
@@ -34,6 +35,11 @@ const server = createServer(async (req, res) => {
   const HEADERS = responseHeaders(p, {local:true});
   if(ORIGIN_ENERGY && ENERGY_REDIR.has(p)){   /* emulate vercel.json's no-slash redirect */
     res.writeHead(308, {Location: p + '/' + requestURL.search, ...HEADERS});
+    res.end();
+    return;
+  }
+  if(LEGACY_REDIR.has(p)){
+    res.writeHead(307, {Location: LEGACY_REDIR.get(p), ...HEADERS});
     res.end();
     return;
   }

@@ -2,7 +2,7 @@
 
 Interactive tools for product work, energy and exploring uncertain situations. One repository and one searchable catalogue, with domain, interaction-type and maturity filters. Matthew’s [website identity](https://www.matthewgarner.me) ties the collection together; each tool keeps its own model and working surface.
 
-Tools Lab lives at [tools.matthewgarner.me](https://tools.matthewgarner.me). Product retains its existing tool URLs and a collection page at `/product/`; [Energy](https://energy.matthewgarner.me) keeps its original domain. Lab uses `/lab/`, including the archived prototypes. The consolidation’s implementation and publication status is recorded in [CONSOLIDATION.md](CONSOLIDATION.md).
+Tools Lab lives at [tools.matthewgarner.me](https://tools.matthewgarner.me). The front door at `/` groups the tools by room (the old Product index address redirects to its Instruments) and `/explore/` is the full searchable catalogue; Product keeps its existing tool URLs; [Energy](https://energy.matthewgarner.me) keeps its original domain. Lab uses `/lab/`, including the archived prototypes. The consolidation’s implementation and publication status is recorded in [CONSOLIDATION.md](CONSOLIDATION.md).
 
 ## Work locally
 
@@ -12,7 +12,7 @@ node dev/serve.mjs 8087
 node dev/serve.mjs 8089 --origin=energy
 ```
 
-The first server emulates Tools and previews; the second emulates the Energy domain. Open `/`, `/product/`, `/energy/` or `/lab/` on the first server. Plain HTML, CSS and ES modules ship without a framework build. CodeMirror is vendored; fonts are local.
+The first server emulates Tools and previews; the second emulates the Energy domain. Open `/`, `/explore/`, `/energy/` or `/lab/` on the first server. Plain HTML, CSS and ES modules ship without a framework build. CodeMirror is vendored; fonts are local.
 
 After editing inventory, shared navigation or shipped assets:
 

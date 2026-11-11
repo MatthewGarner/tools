@@ -13,23 +13,13 @@ import {SHELL_MANIFEST} from './shell-manifest.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
-test('home index cards carry the canonical instrument numbers', () => {
+test('the front door numbers nothing: instrument numbers live on the pages\' kickers, not in the index', () => {
   const home = read('home/index.html');
-  const cards = [...home.matchAll(/<a class="tool catalogue-row" href="\/([a-z-]+)\/">\s*<span class="num">(\d+)<\/span>/g)]
-    .map(m => ({dir: m[1], num: m[2]}));
-  const listed = new Map(cards.map(c => [c.dir, c.num]));
-  assert.equal(listed.size, cards.length, 'a tool is listed twice on home');
-  assert.deepEqual([...listed.keys()].sort(), Object.keys(INSTRUMENTS).sort(),
-    'home lists a different set of tools than INSTRUMENTS');
-  for(const [dir, num] of Object.entries(INSTRUMENTS))
-    assert.equal(listed.get(dir), num,
-      `home says "${listed.get(dir)} ${dir}" but INSTRUMENTS (and the page kicker) say ${num}`);
-});
-
-test('home index numbers ascend in page order', () => {
-  const home = read('home/index.html');
-  const nums = [...home.matchAll(/<span class="num">(\d+)<\/span>/g)].map(m => +m[1]);
-  assert.deepEqual(nums, nums.map((_, i) => i + 1), 'home .num sequence is not 1..N in order');
+  assert.doesNotMatch(home, /<span class="num">/, 'the front door groups by job; a number would imply an order it does not have');
+  assert.doesNotMatch(home, /catalogue-row/, 'the old numbered rows are gone from home');
+  for(const dir of Object.keys(INSTRUMENTS))
+    if(!['alarm', 'flow', 'signal-vs-noise'].includes(dir))
+      assert.ok(home.includes('href="/' + dir + '/"') || SUITE_CATALOG.find(t => t.id === 'product:' + dir)?.room !== 'instrument', dir + ' is an instrument and must be on the front door');
 });
 
 test('energy catalogue numbers every instrument once in the canonical order', () => {
@@ -39,11 +29,11 @@ test('energy catalogue numbers every instrument once in the canonical order', ()
   assert.deepEqual(rows.map(m=>[m[1],m[2]]),Object.entries(ENERGY_INSTRUMENTS));
 });
 
-test('home carries each binder as a distinct band, never a numbered card', () => {
+test('home carries each binder as the flagship of its own job, never a numbered card', () => {
   const home = read('home/index.html');
   for(const b of BINDERS){
-    assert.match(home, new RegExp('<a class="binder catalogue-binder" href="/' + b + '/">'),
-      b + ': home must show the binder band');
+    assert.match(home, new RegExp('<a class="door-flagship" href="/' + b + '/">'),
+      b + ': home must show the binder as its job\'s flagship');
     assert.ok(!new RegExp('<a class="tool catalogue-row" href="/' + b + '/">').test(home),
       b + ': a binder must never be a numbered instrument card');
   }

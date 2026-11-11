@@ -686,7 +686,7 @@ for(const dir of SHELLS){
       ok(await d.getByRole('link', {name: new RegExp(name)}).count() === 1, `${dir}: the saved copy is listed in Your work (panel opened in ${Date.now() - t0}ms including its first load)`);
       { const after = await geometry(page); ok(JSON.stringify(after) === JSON.stringify(before), `${dir}: opening Your work for the first time shifts nothing on the page (${JSON.stringify(before)} -> ${JSON.stringify(after)})`); }
       ok((await d.boundingBox()).width <= size.width, `${dir}: the panel fits the viewport`);
-      ok(await d.getByRole('link', {name: 'See all your work'}).getAttribute('href') === '/#recent-work', `${dir}: the panel links on to the catalogue's Your work`);
+      ok(await d.getByRole('link', {name: 'See all your work'}).getAttribute('href') === '/explore/#recent-work', `${dir}: the panel links on to the catalogue's Your work`);
       await d.getByRole('link', {name: new RegExp(name)}).click();
       await reload();
       ok(await until(async () => await model.read(page) === 'one', {timeout: 8000}), `${dir}: opening the saved copy from Your work restores its model`);

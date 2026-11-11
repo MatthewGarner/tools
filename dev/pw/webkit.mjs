@@ -51,7 +51,7 @@ for(const theme of ['light', 'dark']){
     try{
       await page.goto(base + '/' + (path ? path + '/' : ''), {waitUntil: 'networkidle', timeout: 20000});
       await page.waitForTimeout(200);
-      const expectedNavigation = `Writing|${base === T && !path ? 'Tools Lab' : 'All tools'}|Now`;
+      const expectedNavigation = 'Writing|Tools Lab|Now';
       const m = await page.evaluate(expectedNavigation => {
         const de = document.scrollingElement || document.documentElement;
         return {sw: de.scrollWidth, cw: de.clientWidth,

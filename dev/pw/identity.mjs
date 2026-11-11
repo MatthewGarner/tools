@@ -6,7 +6,7 @@ const base=process.env.BASE||'http://localhost:8087';
 const energy=process.env.EBASE||process.env.ENERGY_BASE||'http://localhost:8089';
 const browser=await chromium.launch();
 try{
-  for(const url of [base+'/',energy+'/',base+'/lab/knowledge/',base+'/timeline/',base+'/rank/',base+'/gauge/',energy+'/frequency/']){
+  for(const url of [base+'/',base+'/explore/',energy+'/',base+'/lab/knowledge/',base+'/timeline/',base+'/rank/',base+'/gauge/',energy+'/frequency/']){
     const context=await browser.newContext({viewport:{width:390,height:844},colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);await page.locator('html[data-mg-ready]').waitFor();
@@ -15,7 +15,7 @@ try{
     const mast=page.locator('.mg-masthead');
     assert.equal(await mast.locator('button').count(),1,'tool actions stay outside global navigation');
     const isHome=url===base+'/';
-    assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing',isHome?'Tools Lab':'All tools','Now']);
+    assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing','Tools Lab','Now']);
     assert.equal(await mast.locator('a[aria-current]').count(),isHome?1:0);
     const geometry=await mast.locator('a,button').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return [r.width,r.height,r.left,r.right];}));
     assert.ok(geometry.every(([w,h,left,right])=>w>=44&&h>=44&&left>=0&&right<=390),url+' masthead targets and reflow');

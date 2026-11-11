@@ -34,7 +34,6 @@ export const ENERGY_ROUTES = [
 
 /* the tools origin's (and previews') view of the relocated root trio */
 export const SHARED_ROUTES = [
-  {from: '/product/', to: '/home/', exact: true},
   // Vercel's wildcard capture drops the terminal slash. Explicit page rows
   // preserve directory-index resolution; the broad row handles asset files.
   ...LAB_ROUTES.map(route=>({from:`/lab/${route}/`,to:`/lab/dist/${route}/`,exact:true})),
@@ -42,7 +41,7 @@ export const SHARED_ROUTES = [
 ];
 export const FALLBACK_ROUTES = [
   ...SHARED_ROUTES,
-  {from: '/', to: '/explore/', exact: true},
+  {from: '/', to: '/home/', exact: true},   // the front door; /explore/ is the full catalogue and a real directory
   {from: '/sw.js', to: '/home/sw.js', exact: true},
   {from: '/manifest.webmanifest', to: '/home/manifest.webmanifest', exact: true},
 ];
@@ -110,7 +109,14 @@ export function energyRedirectSources(){
    URLs then resolve at the site root. Canonicalise every bare tool URL before
    that filesystem handling happens; this applies to previews too. */
 export function toolRedirectSources(){
-  return [...TOOL_DIRS.map(name => '/' + name),'/product','/explore','/lab','/backup',...LAB_ROUTES.map(name=>'/lab/'+name),...EMBED_ROUTES];
+  return [...TOOL_DIRS.map(name => '/' + name),'/explore','/lab','/backup',...LAB_ROUTES.map(name=>'/lab/'+name),...EMBED_ROUTES];
+}
+
+/* The old Product index is now a room of the front door. Both spellings redirect, because
+   Vercel matches `/product` and `/product/` as different sources. */
+export const PRODUCT_REDIRECT_TARGET = '/#instruments';
+export function legacyRedirects(){
+  return ['/product', '/product/'].map(source => ({source, destination: PRODUCT_REDIRECT_TARGET, permanent: false}));
 }
 
 export function vercelRedirects(){
@@ -125,5 +131,5 @@ export function vercelRedirects(){
     destination: source + '/',
     permanent: false,
   }));
-  return [...energy, ...tools];
+  return [...energy, ...tools, ...legacyRedirects()];
 }

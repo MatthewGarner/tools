@@ -7,7 +7,8 @@ import {mountWorkActions} from './work-actions.js';
 
 const shelf=document.querySelector('[data-recent-work]');
 if(shelf){
-  const useDisclosure=scope==='tools'&&location.pathname==='/';
+  // The catalogue's collapsed shelf; the front door at / has its own small strip (assets/front-door.js).
+  const useDisclosure=scope==='tools'&&(location.pathname==='/'||location.pathname==='/explore/');
   let disclosure=null,count=null,content=shelf,announcement=null;
   if(useDisclosure){
     disclosure=document.createElement('details');disclosure.className='work-disclosure';

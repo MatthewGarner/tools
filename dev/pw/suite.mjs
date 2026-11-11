@@ -14,11 +14,12 @@ try {
   for(const phone of [false,true]) for(const colorScheme of ['light','dark']) {
     const context=await browser.newContext({ ...(phone?devices['iPhone 13']:{viewport:{width:1440,height:1000}}), colorScheme,reducedMotion:'reduce',serviceWorkers:'block' });
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-    await page.goto(base+'/');
+    await page.goto(base+'/explore/');
     await page.locator('[data-explore-form]').waitFor({state:'visible'});
     const catalogueLink=page.locator('.mg-nav [data-suite-link="explore"]');
     assert.equal(await catalogueLink.textContent(),'Tools Lab');
-    assert.equal(await catalogueLink.getAttribute('aria-current'),'page');
+    assert.equal(await catalogueLink.getAttribute('aria-current'),null,'the full catalogue is a sub-page of the front door, not the current item');
+    assert.equal(new URL(await catalogueLink.getAttribute('href'),page.url()).pathname,'/');
     await page.evaluate(()=>document.fonts.ready);
     assert.equal(await page.locator('[data-result-count]').textContent(),currentCount+' tools');
     assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
@@ -56,13 +57,13 @@ try {
     await context.close();
   }
   const tablet=await browser.newContext({viewport:{width:900,height:1000},colorScheme:'light',reducedMotion:'reduce',serviceWorkers:'block'});
-  const tabletPage=await tablet.newPage();await tabletPage.goto(base+'/');await tabletPage.locator('[data-explore-form]').waitFor({state:'visible'});
+  const tabletPage=await tablet.newPage();await tabletPage.goto(base+'/explore/');await tabletPage.locator('[data-explore-form]').waitFor({state:'visible'});
   assert.equal(await tabletPage.locator('.explore-list').first().evaluate(list=>getComputedStyle(list).gridTemplateColumns.split(' ').length),2);
   assert.equal(await tabletPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   if(out)await tabletPage.screenshot({path:`${out}/tablet-light.png`});
   await tablet.close();
   const workContext=await browser.newContext({serviceWorkers:'block'}),workPage=await workContext.newPage();
-  await workPage.goto(base+'/');await workPage.locator('#recent-work .work-filters').waitFor({state:'attached'});
+  await workPage.goto(base+'/explore/');await workPage.locator('#recent-work .work-filters').waitFor({state:'attached'});
   assert.equal(await workPage.locator('#recent-work').isVisible(),false);
   await workPage.evaluate(async()=>{const {recentStore}=await import('/assets/recent-store.js');recentStore(localStorage,'tools').add({id:'catalogue-preview',tool:'flow',name:'Saved work example',hash:btoa('{}'),savedAt:Date.now()});});
   await workPage.reload();await workPage.locator('#recent-work .work-disclosure-summary').waitFor({state:'visible'});
@@ -88,7 +89,7 @@ try {
       assert.equal(await page.locator('#lab-experiment').inputValue(),route);
       assert.equal(await page.locator('.mg-masthead').count(),1);
       const homeLink=page.locator('.mg-nav [data-suite-link="explore"]');
-      assert.equal(await homeLink.textContent(),'All tools',route+' home link label');
+      assert.equal(await homeLink.textContent(),'Tools Lab',route+' home link label');
       assert.equal(await homeLink.getAttribute('aria-current'),null,route+' home link is not the current page');
       assert.equal(new URL(await homeLink.getAttribute('href'),page.url()).pathname,'/',route+' home link target');
       assert.equal(await page.locator('.lab-header').count(),0,'no duplicate shell');
@@ -102,18 +103,20 @@ try {
   const routes=await browser.newContext({serviceWorkers:'block'}),rp=await routes.newPage();
   await rp.goto(base+'/lab/');
   const labHomeLink=rp.locator('.mg-nav [data-suite-link="explore"]');
-  assert.equal(await labHomeLink.textContent(),'All tools');
+  assert.equal(await labHomeLink.textContent(),'Tools Lab');
   assert.equal(await labHomeLink.getAttribute('aria-current'),null);
   await labHomeLink.click();
   assert.equal(new URL(rp.url()).pathname,'/');
-  await rp.locator('[data-explore-form]').waitFor({state:'visible'});
+  await rp.locator('#instruments').waitFor({state:'visible'});
   assert.equal(await rp.locator('.mg-nav [data-suite-link="explore"]').textContent(),'Tools Lab');
+  assert.equal(await rp.locator('.mg-nav [data-suite-link="explore"]').getAttribute('aria-current'),'page','the front door is the current item');
   const response=await rp.request.get(base+'/lab/knowledge?entry=old',{maxRedirects:0});
   assert.equal(response.status(),308);assert.equal(response.headers().location,'/lab/knowledge/?entry=old');
   await rp.goto(base+'/lab/dist/knowledge/?entry=old#saved');
   assert.equal(new URL(rp.url()).pathname,'/lab/knowledge/');assert.equal(new URL(rp.url()).hash,'#saved');assert.equal(new URL(rp.url()).search,'?entry=old');
-  await rp.locator('.mg-nav').getByRole('link',{name:'All tools',exact:true}).click();
+  await rp.locator('.mg-nav').getByRole('link',{name:'Tools Lab',exact:true}).click();
   assert.equal(new URL(rp.url()).pathname,'/');
+  await rp.goto(base+'/explore/');await rp.locator('[data-explore-form]').waitFor({state:'visible'});
   await rp.getByLabel('Domain',{exact:true}).selectOption('energy');
   assert.equal(new URL(rp.url()).search,'?domain=energy');
   assert.equal(await rp.locator('[data-catalog-id]:visible').count(),7);
@@ -122,11 +125,11 @@ try {
   assert.equal(await rp.locator('[data-catalog-id="lab:flexibility"]').isVisible(),false);
   const missing=await rp.goto(base+'/a-tool-that-does-not-exist/');
   assert.equal(missing.status(),404);await rp.getByRole('heading',{name:'This page isn’t here'}).waitFor();
-  await rp.locator('.mg-nav').getByRole('link',{name:'All tools',exact:true}).click();
+  await rp.locator('.mg-nav').getByRole('link',{name:'Tools Lab',exact:true}).click();
   assert.equal(new URL(rp.url()).pathname,'/');
   await routes.close();
   const context=await browser.newContext({javaScriptEnabled:false,serviceWorkers:'block'});const page=await context.newPage();
-  await page.goto(base+'/?q=battery');
+  await page.goto(base+'/explore/?q=battery');
   assert.equal(await page.locator('[data-catalog-id]:visible').count(),currentCount);
   assert.equal(await page.locator('[data-explore-form]').isVisible(),false);
   await page.locator('[data-archive-list] summary').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),SUITE_CATALOG.length);

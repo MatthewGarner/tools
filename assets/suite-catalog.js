@@ -3,6 +3,20 @@ export const DOMAINS = { product: 'Product', energy: 'Energy', teams: 'Teams & o
 export const TYPES = { artefact: 'Artefact', calculator: 'Calculator', model: 'Model', workshop: 'Workshop', scaffold: 'Scaffold', binder: 'Binder' };
 export const MATURITIES = { established: 'Established', experimental: 'Experimental', archived: 'Archived' };
 
+/* The front door's rooms (`room`), the five jobs an instrument does (`job`) and which entries are
+   pictured there (`featured`, an order number within its room). Lab entries get theirs from
+   dev/generate-catalogue.mjs with the rest of the Lab block. The front page is generated from these. */
+export const ROOMS = { instrument: 'Instruments', model: 'Models', workbench: 'Workbenches' };
+export const JOBS = {
+  size: { title: 'Size it', order: ['product:fermi', 'product:gauge'] },
+  choose: { title: 'Choose', order: ['product:rank', 'product:duel', 'product:tree', 'product:bets', 'product:map'] },
+  plan: { title: 'Plan it', order: ['product:roadmap', 'product:timeline', 'product:paths'] },
+  test: { title: 'Test the argument', order: ['product:premortem', 'product:why', 'product:proxy', 'product:wardley'] },
+  case: { title: 'Make the case', order: ['product:case'] },
+};
+const jobOf = Object.fromEntries(Object.entries(JOBS).flatMap(([job, { order }]) => order.map(id => [id, job])));
+const FEATURED = { 'product:fermi': 1, 'product:rank': 2, 'product:roadmap': 3, 'product:premortem': 4, 'product:case': 5, 'product:flow': 1, 'product:alarm': 2 };
+
 const product = [
   ['roadmap', 'Roadmap', 'Arrange work across now, next and later, set WIP limits, and export the plan.', 'artefact', 'planning priorities portfolio'],
   ['timeline', 'Timeline', 'Map milestones, uncertainty ranges and dependencies; compare how the plan has moved.', 'artefact', 'planning dates p50 p90 risk'],
@@ -22,7 +36,11 @@ const product = [
   ['paths', 'Paths', 'Map the questions inside a plan, what their answers buy and what happens either way.', 'artefact', 'decision learning uncertainty options'],
   ['proxy', 'Proxy Hunt', 'Stress-test whether pressure on a metric can harm the outcomes it is meant to serve.', 'artefact', 'measurement incentives goodhart'],
   ['case', 'Case file', 'Bring tool links, a decision question and a verdict together in one case.', 'binder', 'evidence decision exhibits'],
-].map(([route, title, description, type, keywords]) => ({ id: `product:${route}`, route, title, description, type, keywords, domains: ['alarm','flow','signal-vs-noise','why','wardley'].includes(route)?['product','systems']:['product'], maturity: 'established', status: 'active', source: 'product' }));
+].map(([route, title, description, type, keywords]) => {
+  const id = `product:${route}`;
+  return { id, route, title, description, type, keywords, domains: ['alarm','flow','signal-vs-noise','why','wardley'].includes(route)?['product','systems']:['product'], maturity: 'established', status: 'active', source: 'product',
+    room: jobOf[id] ? 'instrument' : 'model', ...(jobOf[id] ? { job: jobOf[id] } : {}), ...(FEATURED[id] ? { featured: FEATURED[id] } : {}) };
+});
 
 const energy = [
   ['cycles', 'Cycle budget', 'Explore a battery’s warranty budget and the value of cycles across three horizons.', 'calculator', 'battery bess degradation storage warranty'],
@@ -30,456 +48,40 @@ const energy = [
   ['frequency', 'Frequency & inertia', 'Trip a generator and explore inertia, rate of change of frequency and battery response.', 'model', 'battery bess grid rocof response'],
   ['merit-order', 'Merit order', 'Stack generators by cost, move demand and see which plant sets the clearing price.', 'model', 'electricity market dispatch supply'],
   ['intraday', 'A day through the stack', 'Play a day through the merit order and see how storage changes its price shape.', 'model', 'battery bess electricity market storage dispatch'],
-].map(([route, title, description, type, keywords]) => ({ id: `energy:${route}`, route, title, description, type, keywords, domains: ['energy'], maturity: 'established', status: 'active', source: 'energy' }));
+].map(([route, title, description, type, keywords]) => ({ id: `energy:${route}`, route, title, description, type, keywords, domains: ['energy'], maturity: 'established', status: 'active', source: 'energy', room: 'model' }));
 
 // lab-catalogue:start
 const lab = [
-  {
-    "id": "lab:authority",
-    "route": "authority",
-    "title": "Who can actually decide?",
-    "description": "Move information and authority. Follow the decisions that wait or conflict.",
-    "type": "model",
-    "keywords": "authority KNOW → DECIDE → CONSEQUENCE",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:context",
-    "route": "context",
-    "title": "What survived the status update?",
-    "description": "Carry facts through reporting layers. Discover which omission changes a decision.",
-    "type": "model",
-    "keywords": "context FACT → SUMMARY → DECISION",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:consistency",
-    "route": "consistency",
-    "title": "How much consistency is enough?",
-    "description": "Choose what teams standardise. Compare handoffs with local workarounds.",
-    "type": "model",
-    "keywords": "consistency LOCAL FIT / SHARED INTERFACES",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:alignment",
-    "route": "alignment",
-    "title": "We’re aligned—until something changes",
-    "description": "Disturb an agreed plan. Reveal the different reasoning underneath it.",
-    "type": "model",
-    "keywords": "alignment SAME PLAN / DIFFERENT REASONS",
-    "domains": [
-      "teams",
-      "product"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:possibilities",
-    "route": "possibilities",
-    "title": "Making worthwhile work possible",
-    "description": "Do available work or remove what blocks better options. Watch the landscape change.",
-    "type": "model",
-    "keywords": "possibilities ENABLE → OPEN → DELIVER",
-    "domains": [
-      "teams",
-      "product"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:clocks",
-    "route": "clocks",
-    "title": "The organisation’s clocks",
-    "description": "Move discovery, review, funding and delivery windows. Find when evidence can change work.",
-    "type": "model",
-    "keywords": "clocks LEARN → REVIEW → FUND → ACT",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:commitment",
-    "route": "commitment",
-    "title": "The commitment spiral",
-    "description": "Can a team promise its way into losing the ability to deliver?",
-    "type": "model",
-    "keywords": "commitment Demand → pressure → rework",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:teams",
-    "route": "teams",
-    "title": "How teams fit the work",
-    "description": "Move capabilities across team boundaries. Watch the work find a different route.",
-    "type": "model",
-    "keywords": "teams Capability → boundary → work",
-    "domains": [
-      "teams"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:exploration",
-    "route": "exploration",
-    "title": "Exploration versus delivery",
-    "description": "Spend limited effort learning about the problem or building a response.",
-    "type": "model",
-    "keywords": "exploration LEARN / BUILD",
-    "domains": [
-      "product",
-      "teams"
-    ],
-    "maturity": "archived",
-    "status": "archived",
-    "source": "lab",
-    "archiveReason": "This allocation model is being reconsidered around hypotheses and evidence."
-  },
-  {
-    "id": "lab:flexibility",
-    "route": "flexibility",
-    "title": "Where flexibility gets trapped",
-    "description": "Make battery commitments before you know what comes next.",
-    "type": "model",
-    "keywords": "flexibility Power · energy · promises battery bess decisions energy",
-    "domains": [
-      "energy",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:delay",
-    "route": "delay",
-    "title": "Steering through delay",
-    "description": "Keep a system steady while your instrument reports an earlier state.",
-    "type": "model",
-    "keywords": "delay Move now → see later",
-    "domains": [
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:exceptions",
-    "route": "exceptions",
-    "title": "How exceptions accumulate",
-    "description": "Accept a useful exception. Follow what it asks of the system later.",
-    "type": "model",
-    "keywords": "exceptions TAILORED → STANDARD → RETIRED",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:knowledge",
-    "route": "knowledge",
-    "title": "Specialists and shared knowledge",
-    "description": "Move a coaching period before or after a specialist becomes unavailable.",
-    "type": "model",
-    "keywords": "knowledge Coach now / capacity later",
-    "domains": [
-      "teams"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:local",
-    "route": "local",
-    "title": "Local wins, collective losses",
-    "description": "Change one team’s action and watch who absorbs the consequences.",
-    "type": "model",
-    "keywords": "local OWN / SHARED / EFFECTS",
-    "domains": [
-      "teams",
-      "systems"
-    ],
-    "maturity": "archived",
-    "status": "archived",
-    "source": "lab",
-    "archiveReason": "The fixed payoff assumptions carry too much of the lesson in this version."
-  },
-  {
-    "id": "lab:predictions",
-    "route": "predictions",
-    "title": "When predictions change behaviour",
-    "description": "A shared forecast changes the behaviour that produces its target.",
-    "type": "model",
-    "keywords": "predictions FORECAST → RESPONSE → PRICE",
-    "domains": [
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:accuracy",
-    "route": "accuracy",
-    "title": "Accurate enough for which decision?",
-    "description": "Keep the headline forecast accuracy. Change the decisions it produces.",
-    "type": "model",
-    "keywords": "accuracy SAME ERRORS / DIFFERENT LOSS battery bess decisions energy",
-    "domains": [
-      "energy",
-      "product"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:reliability",
-    "route": "reliability",
-    "title": "Almost reliable parts",
-    "description": "Build a dependency map. Find what a backup really protects you from.",
-    "type": "model",
-    "keywords": "reliability Primary + backup → service",
-    "domains": [
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:adoption",
-    "route": "adoption",
-    "title": "Crossing the adoption gap",
-    "description": "A change may be useful only once enough other people use it.",
-    "type": "model",
-    "keywords": "adoption WHO SWITCHES FIRST?",
-    "domains": [
-      "product",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:reframe",
-    "route": "reframe",
-    "title": "Reframing workbench",
-    "description": "Describe the same problem differently. Notice what you would do next.",
-    "type": "scaffold",
-    "keywords": "reframe One situation / several frames",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:mixer",
-    "route": "mixer",
-    "title": "Possibility mixer",
-    "description": "Combine ingredients, map your concepts, and investigate spaces you have not explored.",
-    "type": "scaffold",
-    "keywords": "mixer COMBINE → MAP → DEVELOP",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:constraints",
-    "route": "constraints",
-    "title": "Constraint playground",
-    "description": "Change a limit in your imagination. Bring the useful part back to reality.",
-    "type": "scaffold",
-    "keywords": "constraints REMOVE / REVERSE / EXAGGERATE",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:analogy",
-    "route": "analogy",
-    "title": "Analogy workshop",
-    "description": "Borrow a mechanism from somewhere else. Find where the comparison breaks.",
-    "type": "scaffold",
-    "keywords": "analogy Source ↔ situation",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:interventions",
-    "route": "interventions",
-    "title": "Intervention workbench",
-    "description": "Which causal relationship would you change, and what would you expect to observe?",
-    "type": "scaffold",
-    "keywords": "interventions CLAIM → TEST → LEARN",
-    "domains": [
-      "ideas",
-      "systems"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:answers",
-    "route": "answers",
-    "title": "Three genuinely different answers",
-    "description": "Generate alternatives with different mechanisms before comparing them.",
-    "type": "scaffold",
-    "keywords": "answers ANSWER A / B / WILDCARD",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "archived",
-    "status": "merged",
-    "source": "lab",
-    "archiveReason": "Three Answers now shares alternatives, borrowed strengths and comparison criteria in the Alternatives workbench.",
-    "mergedInto": "objections"
-  },
-  {
-    "id": "lab:objections",
-    "route": "objections",
-    "title": "Alternatives workbench",
-    "description": "Start with an idea, an objection or a disagreement. Compare different ways to make it work.",
-    "type": "scaffold",
-    "keywords": "objections OPTIONS → COMPARE → TEST",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:territory",
-    "route": "territory",
-    "title": "Unexplored territory",
-    "description": "Map ideas by needs and mechanisms. Investigate empty combinations.",
-    "type": "scaffold",
-    "keywords": "territory NEEDS × MECHANISMS",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "archived",
-    "status": "merged",
-    "source": "lab",
-    "archiveReason": "Territory now maps the same concepts that you generate and develop in Possibility mixer.",
-    "mergedInto": "mixer"
-  },
-  {
-    "id": "lab:scenes",
-    "route": "scenes",
-    "title": "Scene-first invention",
-    "description": "Invent for a person at a particular moment, with partial information.",
-    "type": "scaffold",
-    "keywords": "scenes BEFORE → MOMENT → AFTER",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "experimental",
-    "status": "active",
-    "source": "lab"
-  },
-  {
-    "id": "lab:family",
-    "route": "family",
-    "title": "Idea family tree",
-    "description": "Keep alternatives connected without losing their differences.",
-    "type": "scaffold",
-    "keywords": "family PARENT → BRANCH → COMBINATION",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "archived",
-    "status": "merged",
-    "source": "lab",
-    "archiveReason": "Branching and ancestry now live inside the working tools. Copy Family Tree work into Alternatives to keep developing its branches.",
-    "mergedInto": "objections"
-  },
-  {
-    "id": "lab:questions",
-    "route": "questions",
-    "title": "Questions before answers",
-    "description": "Expand the questions that could open different approaches.",
-    "type": "scaffold",
-    "keywords": "questions FACT / CAUSE / VALUE / DESIGN",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "archived",
-    "status": "merged",
-    "source": "lab",
-    "archiveReason": "Questions now connect directly to frames in the Reframing workbench.",
-    "mergedInto": "reframe"
-  },
-  {
-    "id": "lab:disagreement",
-    "route": "disagreement",
-    "title": "Productive disagreement",
-    "description": "Protect the useful intentions inside two opposing proposals.",
-    "type": "scaffold",
-    "keywords": "disagreement TWO BENEFITS / A NEW APPROACH",
-    "domains": [
-      "ideas"
-    ],
-    "maturity": "archived",
-    "status": "merged",
-    "source": "lab",
-    "archiveReason": "Disagreement now carries protected intentions into the shared Alternatives workbench.",
-    "mergedInto": "objections"
-  }
+  {"id":"lab:authority","route":"authority","title":"Who can actually decide?","description":"Move information and authority. Follow the decisions that wait or conflict.","type":"model","keywords":"authority KNOW → DECIDE → CONSEQUENCE","domains":["teams","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:context","route":"context","title":"What survived the status update?","description":"Carry facts through reporting layers. Discover which omission changes a decision.","type":"model","keywords":"context FACT → SUMMARY → DECISION","domains":["teams","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model","featured":6},
+  {"id":"lab:consistency","route":"consistency","title":"How much consistency is enough?","description":"Choose what teams standardise. Compare handoffs with local workarounds.","type":"model","keywords":"consistency LOCAL FIT / SHARED INTERFACES","domains":["teams","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:alignment","route":"alignment","title":"We’re aligned—until something changes","description":"Disturb an agreed plan. Reveal the different reasoning underneath it.","type":"model","keywords":"alignment SAME PLAN / DIFFERENT REASONS","domains":["teams","product"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:possibilities","route":"possibilities","title":"Making worthwhile work possible","description":"Do available work or remove what blocks better options. Watch the landscape change.","type":"model","keywords":"possibilities ENABLE → OPEN → DELIVER","domains":["teams","product"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:clocks","route":"clocks","title":"The organisation’s clocks","description":"Move discovery, review, funding and delivery windows. Find when evidence can change work.","type":"model","keywords":"clocks LEARN → REVIEW → FUND → ACT","domains":["teams","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:commitment","route":"commitment","title":"The commitment spiral","description":"Can a team promise its way into losing the ability to deliver?","type":"model","keywords":"commitment Demand → pressure → rework","domains":["teams","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model","featured":3},
+  {"id":"lab:teams","route":"teams","title":"How teams fit the work","description":"Move capabilities across team boundaries. Watch the work find a different route.","type":"model","keywords":"teams Capability → boundary → work","domains":["teams"],"maturity":"experimental","status":"active","source":"lab","room":"model","featured":5},
+  {"id":"lab:exploration","route":"exploration","title":"Exploration versus delivery","description":"Spend limited effort learning about the problem or building a response.","type":"model","keywords":"exploration LEARN / BUILD","domains":["product","teams"],"maturity":"archived","status":"archived","source":"lab","room":"model","archiveReason":"This allocation model is being reconsidered around hypotheses and evidence."},
+  {"id":"lab:flexibility","route":"flexibility","title":"Where flexibility gets trapped","description":"Make battery commitments before you know what comes next.","type":"model","keywords":"flexibility Power · energy · promises battery bess decisions energy","domains":["energy","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:delay","route":"delay","title":"Steering through delay","description":"Keep a system steady while your instrument reports an earlier state.","type":"model","keywords":"delay Move now → see later","domains":["systems"],"maturity":"experimental","status":"active","source":"lab","room":"model","featured":4},
+  {"id":"lab:exceptions","route":"exceptions","title":"How exceptions accumulate","description":"Accept a useful exception. Follow what it asks of the system later.","type":"model","keywords":"exceptions TAILORED → STANDARD → RETIRED","domains":["teams","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:knowledge","route":"knowledge","title":"Specialists and shared knowledge","description":"Move a coaching period before or after a specialist becomes unavailable.","type":"model","keywords":"knowledge Coach now / capacity later","domains":["teams"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:local","route":"local","title":"Local wins, collective losses","description":"Change one team’s action and watch who absorbs the consequences.","type":"model","keywords":"local OWN / SHARED / EFFECTS","domains":["teams","systems"],"maturity":"archived","status":"archived","source":"lab","room":"model","archiveReason":"The fixed payoff assumptions carry too much of the lesson in this version."},
+  {"id":"lab:predictions","route":"predictions","title":"When predictions change behaviour","description":"A shared forecast changes the behaviour that produces its target.","type":"model","keywords":"predictions FORECAST → RESPONSE → PRICE","domains":["systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:accuracy","route":"accuracy","title":"Accurate enough for which decision?","description":"Keep the headline forecast accuracy. Change the decisions it produces.","type":"model","keywords":"accuracy SAME ERRORS / DIFFERENT LOSS battery bess decisions energy","domains":["energy","product"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:reliability","route":"reliability","title":"Almost reliable parts","description":"Build a dependency map. Find what a backup really protects you from.","type":"model","keywords":"reliability Primary + backup → service","domains":["systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:adoption","route":"adoption","title":"Crossing the adoption gap","description":"A change may be useful only once enough other people use it.","type":"model","keywords":"adoption WHO SWITCHES FIRST?","domains":["product","systems"],"maturity":"experimental","status":"active","source":"lab","room":"model"},
+  {"id":"lab:reframe","route":"reframe","title":"Reframing workbench","description":"Describe the same problem differently. Notice what you would do next.","type":"scaffold","keywords":"reframe One situation / several frames","domains":["ideas"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:mixer","route":"mixer","title":"Possibility mixer","description":"Combine ingredients, map your concepts, and investigate spaces you have not explored.","type":"scaffold","keywords":"mixer COMBINE → MAP → DEVELOP","domains":["ideas"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:constraints","route":"constraints","title":"Constraint playground","description":"Change a limit in your imagination. Bring the useful part back to reality.","type":"scaffold","keywords":"constraints REMOVE / REVERSE / EXAGGERATE","domains":["ideas"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:analogy","route":"analogy","title":"Analogy workshop","description":"Borrow a mechanism from somewhere else. Find where the comparison breaks.","type":"scaffold","keywords":"analogy Source ↔ situation","domains":["ideas"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:interventions","route":"interventions","title":"Intervention workbench","description":"Which causal relationship would you change, and what would you expect to observe?","type":"scaffold","keywords":"interventions CLAIM → TEST → LEARN","domains":["ideas","systems"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:answers","route":"answers","title":"Three genuinely different answers","description":"Generate alternatives with different mechanisms before comparing them.","type":"scaffold","keywords":"answers ANSWER A / B / WILDCARD","domains":["ideas"],"maturity":"archived","status":"merged","source":"lab","room":"workbench","archiveReason":"Three Answers now shares alternatives, borrowed strengths and comparison criteria in the Alternatives workbench.","mergedInto":"objections"},
+  {"id":"lab:objections","route":"objections","title":"Alternatives workbench","description":"Start with an idea, an objection or a disagreement. Compare different ways to make it work.","type":"scaffold","keywords":"objections OPTIONS → COMPARE → TEST","domains":["ideas"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:territory","route":"territory","title":"Unexplored territory","description":"Map ideas by needs and mechanisms. Investigate empty combinations.","type":"scaffold","keywords":"territory NEEDS × MECHANISMS","domains":["ideas"],"maturity":"archived","status":"merged","source":"lab","room":"workbench","archiveReason":"Territory now maps the same concepts that you generate and develop in Possibility mixer.","mergedInto":"mixer"},
+  {"id":"lab:scenes","route":"scenes","title":"Scene-first invention","description":"Invent for a person at a particular moment, with partial information.","type":"scaffold","keywords":"scenes BEFORE → MOMENT → AFTER","domains":["ideas"],"maturity":"experimental","status":"active","source":"lab","room":"workbench"},
+  {"id":"lab:family","route":"family","title":"Idea family tree","description":"Keep alternatives connected without losing their differences.","type":"scaffold","keywords":"family PARENT → BRANCH → COMBINATION","domains":["ideas"],"maturity":"archived","status":"merged","source":"lab","room":"workbench","archiveReason":"Branching and ancestry now live inside the working tools. Copy Family Tree work into Alternatives to keep developing its branches.","mergedInto":"objections"},
+  {"id":"lab:questions","route":"questions","title":"Questions before answers","description":"Expand the questions that could open different approaches.","type":"scaffold","keywords":"questions FACT / CAUSE / VALUE / DESIGN","domains":["ideas"],"maturity":"archived","status":"merged","source":"lab","room":"workbench","archiveReason":"Questions now connect directly to frames in the Reframing workbench.","mergedInto":"reframe"},
+  {"id":"lab:disagreement","route":"disagreement","title":"Productive disagreement","description":"Protect the useful intentions inside two opposing proposals.","type":"scaffold","keywords":"disagreement TWO BENEFITS / A NEW APPROACH","domains":["ideas"],"maturity":"archived","status":"merged","source":"lab","room":"workbench","archiveReason":"Disagreement now carries protected intentions into the shared Alternatives workbench.","mergedInto":"objections"},
 ];
 // lab-catalogue:end
 
