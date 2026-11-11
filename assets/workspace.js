@@ -225,6 +225,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   /* re-apply zoom whenever the app re-renders the preview */
   let renderEpoch = 0;
   let readingFrame = 0;
+  let pendingPane = 0;
   const gridWorkspace = () => getComputedStyle(workspace).display === 'grid';
   function resolveInitialReading(epoch, svg){
     if(readingResolved || readingOverride || !svg || !svg.isConnected || epoch !== renderEpoch) return;
@@ -234,10 +235,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       return;
     }
     const railWidth = 420;
-    const pane = paneWidth();
-    /* `reading-pending` has already expanded #preview to the full reader pane.
-       Back out the rail once to recover the ordinary authoring width that the
-       guard must judge; `pane` is not the pre-pending stage width here. */
+    /* `reading-pending` animates #preview out to the full reader pane as soon as an SVG exists, so the width read
+       here depends on how many frames have passed. The guard has always judged the width at the first frame of
+       that animation, less one rail; `pendingPane` is that width, taken where frame timing cannot move it. */
+    const pane = pendingPane || paneWidth();
     const expandedPane = Math.max(0, pane - railWidth);
     const cap = fitCap(svg, {pane:expandedPane, forExpanded:true});
     const fitWidth = cap ? Math.min(expandedPane, cap) : expandedPane;
@@ -252,6 +253,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     else applyZoom();
   }
   new MutationObserver(() => {
+    if(!pendingPane && !readingResolved && workspace.classList.contains('reading-pending') && svgEl()) pendingPane = paneWidth();
     renderEpoch++;
     applyZoom();
     if(initialReading === 'when-guarded' && !readingResolved && !readingOverride){

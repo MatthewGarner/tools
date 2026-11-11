@@ -87,3 +87,6 @@
 }
 
 /* --- footer: hairline, the promise left, the series tag right in ember --- */
+/* the Export menu opens from the right edge of its button on phones: with Copy model link gone from the
+   action row the button can sit near the right edge, and a menu opened to its right would run off the page */
+@media(max-width:600px){.actions > .action-disclosure:last-child > .action-menu{left:auto;right:0}}

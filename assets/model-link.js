@@ -1,16 +1,28 @@
 import {mountRecentSave} from './recent-work.js';
 import {encodeHash} from './series.js';
-import {shellRow, offer} from './recent-ui.js';
+import {offer} from './recent-ui.js';
+
+/* The longest link Share will copy: the limit Case always had and the Energy pages' old Copy link allowed.
+   Pages whose models stay small keep the 6000 default in mountModelLink. */
+export const SHARE_MAX = 24000;
 
 // Snapshot the model at click time: location.hash can lag behind a recent edit.
-// Shared by the injected button and the shell's Share; getHash is the same hook
+// Used by the shell's Share; getHash is the same hook
 // Save a copy uses, and the link never comes from location.hash.
 export async function shareModel({getState, getHash, maxLength = 6000, status, button, done = 'Model link copied — opens a separate copy.', title = 'Copy model link'}){
   status.textContent = ''; button.disabled = true;
   try{
     const state = getState ? getState() : null;
-    const hash = getHash ? (await getHash(state)).replace(/^.*#/, '') : await encodeHash(state);
-    if(hash.length >= maxLength){
+    let hash;
+    try{ hash = getHash ? await getHash(state) : await encodeHash(state); }
+    catch(error){
+      /* the page's own link builder refused: its message is the reason (an Error from a page that has none gets the generic line) */
+      status.textContent = error instanceof Error && error.message ? error.message : 'Could not create the link. Try again or export the source.';
+      return;
+    }
+    hash = typeof hash === 'string' ? hash.replace(/^.*#/, '') : '';
+    /* a missing or empty hash is a model too big to encode, not a crash */
+    if(!hash || hash.length >= maxLength){
       status.textContent = 'This model is too large for a link. Export the source instead.';
       return;
     }
@@ -34,14 +46,9 @@ export async function shareModel({getState, getHash, maxLength = 6000, status, b
   finally{ button.disabled = false; }
 }
 
-export function mountModelLink(host, {getState, maxLength = 6000, label = 'Copy model link'}){
+/* Every page has the stamped header, so a page's link is Share (and Save a copy): hand the shell the state
+   getter and the size limit. */
+export function mountModelLink({getState, maxLength = 6000}){
   mountRecentSave({getState});
-  if(shellRow()){ offer({shareMax: maxLength}); return null; }
-  const button = document.createElement('button');
-  button.type = 'button'; button.className = 'btn model-link'; button.textContent = label;
-  const status = document.createElement('span');
-  status.className = 'method model-link-status'; status.setAttribute('role', 'status');
-  host.append(button, status);
-  button.addEventListener('click', () => shareModel({getState, maxLength, status, button}));
-  return button;
+  offer({shareMax: maxLength});
 }

@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
@@ -15,9 +15,8 @@ import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -258,33 +257,10 @@ const whyEip = attachEditInPlace($('preview'), {
   },
 });
 
-/* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+/* ---------- examples and the blank start: File menu ---------- */
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
-/* ---------- saved ---------- */
-const SAVED_KEY = 'why-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved tree ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!model || !model.outcomes.length) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Tree ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 /* ---------- exports (active view) ---------- */
 function svgString(intent){
@@ -317,7 +293,6 @@ watchNarrowBucket(previewEl, rerender);
   if(!text){
     try{ text = localStorage.getItem('why-src') || ''; }catch(e){}
   }
-  renderSaved();
   syncViewToggle();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
@@ -327,4 +302,4 @@ watchNarrowBucket(previewEl, rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent']);
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

@@ -1,9 +1,8 @@
 /* Behaviour for the stamped header (dev/sync-shell.mjs). The markup is static; this
    attaches handlers to it and never adds header elements. Pages hand over what they
-   can do with provide() (also reached by mountRecentSave, mountModelLink and
-   mountDocumentStart): getState, getHash, save, templates, blank, examples as
+   can do with provide() (also reached by mountRecentSave and mountModelLink): getState, getHash, save, templates, blank, examples as
    [{name, pick}], items as {id: fn}. An undefined value or an empty examples list
-   never counts. data-shell-ready is set once every stamped control is wired. The
+   never counts. {withdraw: true} takes every offer back and hides File and Share. data-shell-ready is set once every stamped control is wired. The
    Your work panel loads on first use (tool-work.js). */
 import {button, shellRow, offer} from './recent-ui.js';
 import {shareModel} from './model-link.js';
@@ -18,12 +17,17 @@ function init(row){
   const menu = file.querySelector('.tool-menu'), status = row.querySelector('[role=status]');
   const list = row.querySelector('[data-shell-examples-list]'), toggle = row.querySelector('[data-act=examples]');
   const name = row.querySelector('h1').textContent, caps = {};
+  const strip = header.querySelector(':scope > .series');
+  if(strip) initStrip(strip);
   const need = {
     save: () => caps.save, new: () => caps.blank, 'new-template': () => caps.templates, template: () => caps.templates,
     share: () => caps.getState || caps.getHash, examples: () => caps.examples, item: b => caps.items?.[b.dataset.item],
     work: () => 1, backup: () => 1,
   };
   const wire = () => {
+    /* a page that withdrew its offer (Gauge's participant and console modes) shows the title alone:
+       nothing visible is left to wire, so the header is as ready as it will get */
+    if(row.hasAttribute('data-shell-off')){ header.setAttribute('data-shell-ready', ''); return; }
     caps.templates?.setBlank(caps.blank);
     caps.templates?.setManager(() => work('templates'));
     let ready = true;
@@ -35,22 +39,29 @@ function init(row){
     header.toggleAttribute('data-shell-ready', ready);
   };
   const absorb = () => {
-    for(const o of row.shellOffers?.splice(0) ?? [])
+    for(const o of row.shellOffers?.splice(0) ?? []){
+      if(o.withdraw){ for(const key of Object.keys(caps)) delete caps[key]; row.setAttribute('data-shell-off', ''); continue; }
+      row.removeAttribute('data-shell-off');
       for(const [key, value] of Object.entries(o)){
         if(value === undefined || (key === 'examples' && !value.length)) continue;
         caps[key] = key === 'items' ? {...caps.items, ...value} : value;
       }
+    }
     wire();
   };
   row.addEventListener('shell-offer', absorb); absorb();
 
   /* ---- File menu ---- */
-  const POPOVER = 'details.action-disclosure';
+  const POPOVER = ':is(details.action-disclosure, details[data-shell-popover])';
   const closeMenu = () => { file.open = false; };
   const closeAndFocus = () => { closeMenu(); summary.focus(); };
   let trapped = false;
+  /* the open menu never runs past the bottom of the viewport: it scrolls inside itself instead (12px to spare) */
+  const fitMenu = () => { if(file.open) file.style.setProperty('--tool-menu-room', Math.max(120, innerHeight - menu.getBoundingClientRect().top - 12) + 'px'); };
+  addEventListener('resize', fitMenu);
   file.addEventListener('toggle', () => {
     if(file.open){
+      fitMenu();
       for(const other of document.querySelectorAll(POPOVER + '[open]')) other.open = false;
       if(trapped) menu.querySelector('button:not(:disabled)')?.focus();
       else { trapped = true; trapPopoverFocus(menu, closeAndFocus, {trap: false, items: 'button, a[href]'}); }
@@ -58,6 +69,11 @@ function init(row){
   });
   /* opening another popover (Roadmap's Appearance) closes File */
   document.addEventListener('toggle', e => { if(file.open && e.target.matches?.(POPOVER) && e.target.open) closeMenu(); }, true);
+  /* a popover the page marks data-shell-popover (Case's Appearance) closes on Escape and gives focus back */
+  document.addEventListener('keydown', e => {
+    const pop = e.key === 'Escape' && e.target.closest?.('details[data-shell-popover][open]');
+    if(pop){ e.preventDefault(); pop.open = false; pop.querySelector('summary')?.focus(); }
+  });
   file.addEventListener('keydown', e => { if(e.key === 'Escape' && file.open){ e.preventDefault(); closeAndFocus(); } });
   file.addEventListener('focusout', e => { if(file.open && e.relatedTarget && !file.contains(e.relatedTarget)) closeMenu(); });
   document.addEventListener('pointerdown', e => { if(file.open && !file.contains(e.target)) closeMenu(); });
@@ -71,15 +87,20 @@ function init(row){
       return b;
     }));
     list.hidden = false;
+    fitMenu();
   }
 
   const shareButton = row.querySelector('[data-act=share]');
   /* the panel is its own module, fetched on first use */
   const lazy = async fn => {
-    try{ fn(await import('./tool-work.js')); }
-    catch{ status.textContent = 'Could not load that. Reload and try again.'; }
+    let loaded;
+    try{ loaded = await import('./tool-work.js'); }
+    catch{ status.textContent = 'Could not load that. Reload and try again.'; return; }
+    /* a bug inside the panel is not a load failure: say so, and keep the error visible in the console */
+    try{ await fn(loaded); }
+    catch(error){ status.textContent = 'Something went wrong opening that.'; console.error(error); }
   };
-  const work = section => lazy(m => m.openWork({name, caps, opener: summary, status, section}));
+  const work = section => lazy(m => m.openWork({name, caps, opener: summary, status, section, workspaces: row.dataset.workspaces}));
   const run = {
     new: () => caps.templates ? caps.templates.newWork() : caps.blank(),
     'new-template': () => caps.templates.newWork(),
@@ -101,4 +122,25 @@ function init(row){
   let timer;
   new MutationObserver(() => { clearTimeout(timer); if(status.textContent) timer = setTimeout(() => { status.textContent = ''; }, 8000); })
     .observe(status, {childList: true, characterData: true, subtree: true});
+}
+
+/* Energy's E1-E5 strip: bring the current item on screen by moving the strip itself (never the page), keep an
+   edge fade honest about which sides still hide something, and leave the reader's own scrolling alone. */
+function initStrip(strip){
+  let touched = false;
+  const fade = () => {
+    const max = strip.scrollWidth - strip.clientWidth;
+    if(max <= 1) strip.removeAttribute('data-fade');
+    else strip.dataset.fade = strip.scrollLeft <= 1 ? 'end' : strip.scrollLeft >= max - 1 ? 'start' : 'both';
+  };
+  const centre = () => {
+    const current = strip.querySelector('[aria-current]');
+    if(current && !touched) strip.scrollLeft = Math.max(0, current.offsetLeft - (strip.clientWidth - current.offsetWidth) / 2);
+    fade();
+  };
+  for(const type of ['pointerdown', 'wheel', 'keydown']) strip.addEventListener(type, () => { touched = true; }, {passive: true});
+  strip.addEventListener('scroll', fade, {passive: true});
+  new ResizeObserver(centre).observe(strip);
+  centre();
+  document.fonts?.ready.then(centre);
 }

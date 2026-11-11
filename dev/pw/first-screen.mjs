@@ -4,14 +4,11 @@
    Run from dev/pw with both servers up, or set BASE / EBASE like the sibling
    suites. The measured table prints on every run.
 
-   Red before green. Phase 0 lands this gate while every page is over its header
-   budget, so every page is listed in EXPECTED_HEADER_FAILURES below. An expected
-   failure that fails is a pass; one that PASSES the budget fails the suite, so
-   the list cannot go stale. Each later phase deletes the entries it fixes.
+   Every page is stamped now, so every page is held to its budget with no exceptions:
+   Product pages 215 / 180, Energy pages 259 / 224 (the Product budget plus the 44px E1-E5 row).
 
    Checks per page and viewport:
-     header       <main> top is within HEADER_BUDGET, or the page is a listed
-                  expected failure
+     header       <main> top is within the page's budget (Product or Energy)
      anchor real  the anchor selector matches a visible element of at least
                   100x40 px (a wrong selector fails instead of passing vacuously)
      anchor       anchor top is within ANCHOR_BUDGET   (only when anchorBudget)
@@ -23,19 +20,28 @@
      ready        the shell wired itself: data-shell-ready is set       (shell)
      no shift     header bottom at DOMContentLoaded equals header bottom once the
                   page has settled (at least network idle + 900ms), within 1px (shell)
-     one verb     no .model-link, .recent-save, #copylink or "Save on this device"
+     one verb     no .model-link, .recent-save, #copylink, [data-act=copylink] or "Save on this device"
                   control anywhere on the page: Share and Save a copy live in File
                   (shell)
      no cut-off   the h1 is not truncated at 375px                      (shell)
      layout       at 320x568, 390x844, 1280x900, 1440x900 and 1920x1080, light and
-                  dark: the header is exactly 96px and <main> starts at its bottom
-                  edge (shell). The 215/180 budgets stay measured at the two
+                  dark: the header is exactly 96px (Energy: 120px) and <main> starts
+                  at its bottom edge (shell). The budgets stay measured at the two
                   reference sizes: the pinned masthead grows with viewport height.
-   The last six apply only to entries with shell:true; the synthetic fixtures at
+     action row   a .tool-stage-row (the page's own controls at the top of main) has the
+                  header's left and right edges at 375, 768, 1280 and 1920 wide: its box
+                  matches the title row's, a start-aligned row's first control starts at
+                  that left edge and an end-aligned row's last control ends at the right
+                  one (within 1px); Case's row is one line at 375            (shell)
+     strip        Energy only: the E1-E5 strip is the header's first row, 44px, one
+                  line, five 44px links, one aria-current naming this page and on
+                  screen at 375 and 320, no page overflow or scroll, an edge fade when
+                  it scrolls, visible keyboard focus, and the kicker stays hidden
+   The last eight apply only to entries with shell:true; the synthetic fixtures at
    the end of this file prove each of them can fail. */
 import {chromium} from 'playwright';
-import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
-import {SHELL_MANIFEST, HEADER_BUDGET, ANCHOR_BUDGET, HEADER_CONTROLS_MAX, ANCHOR_MIN_SIZE, VIEWPORTS} from '../shell-manifest.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS as BINDER_DIRS} from '../tool-dirs.mjs';
+import {SHELL_MANIFEST, HEADER_BUDGET, HEADER_BUDGET_ENERGY, STRIP_HEIGHT, headerBudget, headerHeight, isEnergy, ANCHOR_BUDGET, HEADER_CONTROLS_MAX, ANCHOR_MIN_SIZE, VIEWPORTS} from '../shell-manifest.mjs';
 import {scopeFor} from './_scope.mjs';
 import {until} from './_harness.mjs';
 const scope = scopeFor('first-screen.mjs');
@@ -43,23 +49,16 @@ const scope = scopeFor('first-screen.mjs');
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
 
-/* Every page was over its header budget on 2026-11-09 (phone main 346-699,
-   laptop 201-448 against 215 / 180). Delete a page's entry in the phase that
-   brings it under budget; the gate then holds it there. Phase 1 cleared fermi,
-   roadmap and alarm. */
-const BOTH = ['phone', 'laptop'];
-const EXPECTED_HEADER_FAILURES = {
-  rank: BOTH, why: BOTH, tree: BOTH, map: BOTH, gauge: BOTH,
-  flow: BOTH, timeline: BOTH, wardley: BOTH, duel: BOTH, premortem: BOTH,
-  bets: BOTH, 'signal-vs-noise': BOTH, case: BOTH, paths: BOTH, proxy: BOTH,
-  cycles: BOTH, risk: BOTH, frequency: BOTH, 'merit-order': BOTH, intraday: BOTH,
-};
+/* Titles that still do not fit the 320px title row at the 22px phone size. Each must really cut (the check
+   fails if one stops cutting, so the list cannot go stale). */
+const H1_CUT_AT_320 = [];
 
 /* Cycles takes ~5s unloaded to finish its first run; the gate runs beside other suites. */
 const SETTLE_MS = 25000;
 const ANCHOR_GRACE_MS = 5000;
 
-const PAGES = [
+/* FIRST_SCREEN_FIXTURES_ONLY=1 (a local shortcut, never set by the runner) skips the real pages and drives only the synthetic fixtures */
+const PAGES = process.env.FIRST_SCREEN_FIXTURES_ONLY === '1' ? [] : [
   ...TOOL_DIRS.map(dir => [dir, T + '/' + dir + '/']),
   ...ENERGY_TOOL_DIRS.map(dir => [dir, E + '/' + dir + '/']),
 ];
@@ -79,10 +78,7 @@ function installProbe(){
   window.__shellProbe = (anchor) => {
     const top = el => Math.round(el.getBoundingClientRect().top + scrollY);
     const header = document.querySelector('[data-tool-header]');
-    let main = document.querySelector('main'), mainIsFallback = false;
-    /* signal-vs-noise has no <main> today: use the first element after the header,
-       which is where <main> would start, and say so in the table */
-    if(!main && header){ main = header.nextElementSibling; mainIsFallback = true; }
+    const main = document.querySelector('main');   // a page without <main> has no main top and fails its budget
     const target = anchor ? document.querySelector(anchor) : null;
     const box = target ? target.getBoundingClientRect() : null;
     /* Header controls are buttons, summaries and inputs; navigation links (the
@@ -97,15 +93,18 @@ function installProbe(){
     const shown = all.filter(visible);
     const controls = shown.map(label).sort();
     return {
-      mainTop: main ? top(main) : null, mainIsFallback,
+      mainTop: main ? top(main) : null,
       headerBottom: header ? Math.round((header.getBoundingClientRect().bottom + scrollY) * 10) / 10 : null,
       anchorFound: !!target, anchorVisible: !!target && visible(target),
       anchorTop: target ? top(target) : null, anchorW: box ? Math.round(box.width) : 0, anchorH: box ? Math.round(box.height) : 0,
       controls, regionFound, controlTags: all.length,
       strays: shown.filter(el => !inRegion(el)).map(label).sort(),
       title: header?.querySelector('h1')?.textContent.trim() ?? null,
+      kickerOver: (() => { const k = header?.querySelector('.kicker'); return k ? k.scrollWidth - k.clientWidth : 0; })(),
+      kickerText: header?.querySelector('.kicker')?.textContent ?? null,
       h1Over: (() => { const h = header?.querySelector('h1'); return h ? h.scrollWidth - h.clientWidth : 0; })(),
-      strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, button')].filter(el => el.matches('.model-link, .recent-save, #copylink') || /save on this device/i.test(el.textContent)).length,
+      ownLinks: document.querySelectorAll('#copylink').length,
+      strayActions: [...document.querySelectorAll('.model-link, .recent-save, #copylink, [data-act="copylink"], button')].filter(el => el.matches('.model-link, .recent-save, #copylink, [data-act="copylink"]') || /save on this device/i.test(el.textContent)).length,
       shellReady: !!header && header.hasAttribute('data-shell-ready'),
       /* a worker or async render still owns the layout: Cycles marks its stage
          aria-busy / .recomputing for ~5s and its anchor then moves 90px, so a
@@ -114,6 +113,64 @@ function installProbe(){
     };
   };
   document.addEventListener('DOMContentLoaded', () => { window.__shellAtDcl = window.__shellProbe(null); });
+}
+
+/* Energy's E1-E5 strip, measured in the page and judged as a pure function so fixtures can prove it fails. */
+const probeStrip = () => {
+  const header = document.querySelector('[data-tool-header]'), strip = header?.querySelector(':scope > .series');
+  if(!strip) return null;
+  const r = e => e.getBoundingClientRect(), s = r(strip), k = header.querySelector('.kicker');
+  return {
+    first: header.firstElementChild === strip, stripH: Math.round(s.height), stripLeft: Math.round(s.left), stripRight: Math.round(s.right),
+    links: [...strip.querySelectorAll('a')].map(a => ({href: a.getAttribute('href'), label: a.getAttribute('aria-label') || '', top: Math.round(r(a).top), h: Math.round(r(a).height), left: Math.round(r(a).left), right: Math.round(r(a).right), current: a.getAttribute('aria-current') === 'page'})),
+    overflow: strip.scrollWidth > strip.clientWidth + 1, fade: strip.dataset.fade || '', vw: document.documentElement.clientWidth,
+    pageW: document.documentElement.scrollWidth, scrollY: window.scrollY, kickerDisplay: k ? getComputedStyle(k).display : 'none',
+  };
+};
+function stripProblems(dir, m){
+  if(!m) return ['the header has no E1-E5 strip'];
+  const problems = [], current = m.links.filter(l => l.current);
+  if(!m.first) problems.push('the strip is not the header\'s first row');
+  if(m.stripH !== STRIP_HEIGHT) problems.push(`the strip is ${m.stripH}px tall, not ${STRIP_HEIGHT}`);
+  if(m.links.length !== 6) problems.push(`${m.links.length} links, not 6 (All energy tools, then E1-E5)`);
+  else if(m.links[0].href !== '../' || m.links[0].label !== 'All energy tools') problems.push('the first strip item is not the All energy tools link');
+  if(new Set(m.links.map(l => l.top)).size > 1) problems.push('the strip wraps onto more than one line');
+  const short = m.links.filter(l => l.h < 44);
+  if(short.length) problems.push(`${short.length} link(s) shorter than 44px`);
+  if(current.length !== 1) problems.push(`${current.length} items marked aria-current, not 1`);
+  else{
+    const c = current[0];
+    if(dir && !c.href.includes('/' + dir + '/')) problems.push(`aria-current marks ${c.href}, not ${dir}`);
+    if(c.left < Math.max(0, m.stripLeft) - 1 || c.right > Math.min(m.vw, m.stripRight) + 1) problems.push(`the current item is off screen (${c.left}-${c.right}px of ${m.stripLeft}-${Math.min(m.vw, m.stripRight)})`);
+  }
+  if(m.pageW > m.vw) problems.push(`the page overflows sideways (${m.pageW}px in ${m.vw}px)`);
+  if(m.scrollY !== 0) problems.push(`the page scrolled to ${m.scrollY}px`);
+  if(m.overflow && !m.fade) problems.push('the strip scrolls but shows no edge fade');
+  if(m.kickerDisplay !== 'none') problems.push('the kicker is shown on an Energy page');
+  if(m.focus === undefined) problems.push('no keyboard focus reached the strip');
+  else if(m.focus && !(m.focus.style !== 'none' && m.focus.width >= 2 && m.focus.offset <= 0)) problems.push('keyboard focus on a strip link is not visibly outlined inside the strip');
+  return problems;
+}
+
+/* A page's action row (.tool-stage-row) against the header's own edges. Pure, so fixtures can prove it fails. */
+const probeRow = () => {
+  const row = document.querySelector('.tool-stage-row'), title = document.querySelector('[data-tool-header] .tool-titlerow');
+  if(!row || !title) return null;
+  const edge = e => { const r = e.getBoundingClientRect(); return {left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10, top: Math.round(r.top)}; };
+  const kids = [...row.children].filter(k => k.getBoundingClientRect().width > 0 && getComputedStyle(k).visibility !== 'hidden');
+  const t = edge(title), r = edge(row);
+  return {title: t, row: r, justify: getComputedStyle(row).justifyContent, first: kids.length ? edge(kids[0]) : null, last: kids.length ? edge(kids.at(-1)) : null,
+    tops: [...new Set(kids.map(k => edge(k).top))], vw: document.documentElement.clientWidth};
+};
+function rowProblems(m, {oneLine = false} = {}){
+  if(!m) return [];
+  const problems = [], near = (a, b) => Math.abs(a - b) <= 1;
+  if(!near(m.row.left, m.title.left) || !near(m.row.right, m.title.right)) problems.push(`the row box is ${m.row.left}-${m.row.right}px, the header's is ${m.title.left}-${m.title.right}px`);
+  const end = /end|right/.test(m.justify), between = m.justify === 'space-between';
+  if(m.first && !end && !near(m.first.left, m.title.left)) problems.push(`the first control starts at ${m.first.left}px, the header's left edge is ${m.title.left}px`);
+  if(m.last && (end || between) && !near(m.last.right, m.title.right)) problems.push(`the last control ends at ${m.last.right}px, the header's right edge is ${m.title.right}px`);
+  if(oneLine && m.tops.length > 1) problems.push('the row wraps onto more than one line');
+  return problems;
 }
 
 const realAnchor = m => m.anchorVisible && m.anchorW >= ANCHOR_MIN_SIZE.width && m.anchorH >= ANCHOR_MIN_SIZE.height;
@@ -150,8 +207,19 @@ async function measure(context, url, anchor, {idleWait = 0} = {}){
   }, {timeout: SETTLE_MS, step: 100});
   const final = settled || await read();
   const atDcl = await page.evaluate(() => window.__shellAtDcl);
+  const strip = await page.evaluate(probeStrip);
+  const row = await page.evaluate(probeRow);
+  if(strip){
+    /* keyboard focus: Tab from the top until a strip link has it, then read its outline */
+    strip.focus = undefined;
+    for(let i = 0; i < 20 && strip.focus === undefined; i++){
+      await page.keyboard.press('Tab');
+      const f = await page.evaluate(() => { const a = document.activeElement; if(!a?.closest('.series')) return undefined; const c = getComputedStyle(a); return {style: c.outlineStyle, width: parseFloat(c.outlineWidth), offset: parseFloat(c.outlineOffset)}; });
+      if(f) strip.focus = f;
+    }
+  }
   await page.close();
-  return {...final, atDcl, servedControls, settled: !!settled};
+  return {...final, atDcl, servedControls, settled: !!settled, strip, row};
 }
 
 /* The header-side expectations the manifest implies: every page gets File (it
@@ -206,14 +274,10 @@ for(const [dir] of PAGES){
   table.push(row);
   for(const [vp, m] of [['phone', phone], ['laptop', laptop]]){
     const where = `${dir} @${vp}`;
-    const expectedFail = (EXPECTED_HEADER_FAILURES[dir] || []).includes(vp);
-    const over = m.mainTop === null || m.mainTop > HEADER_BUDGET[vp];
+    const budget = headerBudget(dir)[vp];
+    const over = m.mainTop === null || m.mainTop > budget;
     const value = m.mainTop === null ? 'no <main>' : m.mainTop + 'px';
-    if(expectedFail)
-      ok(over, over ? `${where}: header budget — expected failure, <main> top ${value} > ${HEADER_BUDGET[vp]}`
-                    : `${where}: header budget — UNEXPECTED PASS, <main> top ${value} <= ${HEADER_BUDGET[vp]} but the page is still listed in EXPECTED_HEADER_FAILURES; delete its entry`);
-    else
-      ok(!over, `${where}: header budget — <main> top ${value}${over ? ' > ' + HEADER_BUDGET[vp] : ' <= ' + HEADER_BUDGET[vp]}`);
+    ok(!over, `${where}: header budget — <main> top ${value}${over ? ' > ' + budget : ' <= ' + budget}`);
 
     ok(m.settled, `${where}: settled — layout stable and nothing still computing`);
     ok(realAnchor(m), m.anchorFound
@@ -225,13 +289,24 @@ for(const [dir] of PAGES){
     if(entry.shell){
       const stamped = stampedProblems(entry, m.atDcl, m);
       ok(!stamped.length, `${where}: stamped controls${stamped.length ? ' — ' + stamped.join('; ') : ''}`);
-      ok(m.strayActions === 0, `${where}: one verb each — ${m.strayActions ? m.strayActions + ' stray model-link, recent-save, #copylink or "Save on this device" control(s) on the page' : 'no stray share or save controls outside File and Share'}`);
+      const stray = m.strayActions - (entry.ownLink ? m.ownLinks : 0);
+      ok(stray === 0, `${where}: one verb each — ${stray ? stray + ' stray model-link, recent-save, #copylink or "Save on this device" control(s) on the page' : 'no stray share or save controls outside File and Share'}`);
+      if(vp === 'phone') ok(m.kickerOver <= 0, `${where}: the whole kicker fits on one line${m.kickerOver > 0 ? ' — ' + m.kickerOver + 'px wider than its box (' + m.kickerText + ')' : ''}`);
+      if(vp === 'phone') ok((BINDER_DIRS.includes(dir) ? /^Binder — \S/ : isEnergy(dir) ? /^Instrument E\d — \S/ : /^Instrument \d\d — \S/).test(m.kickerText ?? ''), `${where}: the kicker still reads "${BINDER_DIRS.includes(dir) ? 'Binder' : isEnergy(dir) ? 'Instrument EN' : 'Instrument NN'} — …" to assistive tech (${JSON.stringify((m.kickerText ?? '').slice(0, 28))})`);
       if(vp === 'phone') ok(m.h1Over <= 0, `${where}: the h1 is not cut off${m.h1Over > 0 ? ' — ' + m.h1Over + 'px wider than its box' : ''}`);
       const title = titleProblems(entry, m);
       ok(!title.length, `${where}: title${title.length ? ' — ' + title.join('; ') : ' — h1 is ' + JSON.stringify(entry.name)}`);
       ok(m.shellReady, `${where}: shell ready — ${m.shellReady ? 'data-shell-ready is set' : 'data-shell-ready is missing: some stamped control was never wired'}`);
       const shift = shiftProblems(m.atDcl, m);
       ok(!shift.length, `${where}: no header shift${shift.length ? ' — ' + shift.join('; ') : ''}`);
+      if(m.row){
+        const rowIssues = rowProblems(m.row, {oneLine: dir === 'case' && vp === 'phone'});
+        ok(!rowIssues.length, `${where}: action row${rowIssues.length ? ' — ' + rowIssues.join('; ') : ' — the header\'s edges'}`);
+      }
+      if(isEnergy(dir)){
+        const strip = stripProblems(dir, m.strip);
+        ok(!strip.length, `${where}: E1-E5 strip${strip.length ? ' — ' + strip.join('; ') : ' — one 44px row, current item on screen'}`);
+      }
     }
   }
 }
@@ -241,11 +316,12 @@ for(const [dir] of PAGES){
 const LAYOUT_SIZES = [[320, 568], [390, 844], [1280, 900], [1440, 900], [1920, 1080]];
 const probeLayout = () => {
   const header = document.querySelector('[data-tool-header]'), main = document.querySelector('main');
+  if(!header || !main) return {header: header ? Math.round(header.getBoundingClientRect().height * 10) / 10 : null, gap: null, missing: !header ? 'header' : '<main>'};
   const h = header.getBoundingClientRect(), m = main.getBoundingClientRect();
   return {header: Math.round(h.height * 10) / 10, gap: Math.round((m.top - h.bottom) * 10) / 10};
 };
-const layoutProblems = m => [
-  ...(m.header === 96 ? [] : [`header is ${m.header}px tall, not 96`]),
+const layoutProblems = (m, height = 96) => m.missing ? [`the page has no ${m.missing}`] : [
+  ...(m.header === height ? [] : [`header is ${m.header}px tall, not ${height}`]),
   ...(m.gap === 0 ? [] : [`<main> starts ${m.gap}px from the header's bottom edge, not 0`]),
 ];
 for(const [dir, url] of PAGES){
@@ -256,8 +332,33 @@ for(const [dir, url] of PAGES){
     const page = await context.newPage();
     await page.goto(url, {waitUntil: 'networkidle'});
     await page.evaluate(() => document.fonts.ready);
-    const problems = layoutProblems(await page.evaluate(probeLayout));
-    ok(!problems.length, `${dir} @${width}x${height} ${scheme}: header 96px, <main> flush below it${problems.length ? ' — ' + problems.join('; ') : ''}`);
+    const problems = layoutProblems(await page.evaluate(probeLayout), headerHeight(dir));
+    if(width === 320 && scheme === 'light'){
+      const over = await page.evaluate(() => { const h = document.querySelector('[data-tool-header] h1'); return h ? h.scrollWidth - h.clientWidth : 0; });
+      const allowed = H1_CUT_AT_320.includes(dir);
+      ok(allowed ? over > 0 : over <= 0, `${dir} @320x568: the h1 ${allowed ? 'still cuts and is on the allow-list' : 'is not cut off'}${allowed && over <= 0 ? ' — it no longer cuts: delete it from H1_CUT_AT_320' : ''}${!allowed && over > 0 ? ' — ' + over + 'px wider than its box' : ''}`);
+    }
+    if(isEnergy(dir) && width === 320 && scheme === 'light'){
+      await page.waitForTimeout(400);
+      const narrow = stripProblems(dir, await page.evaluate(probeStrip)).filter(p => !/keyboard focus/.test(p));
+      ok(!narrow.length, `${dir} @320x568: E1-E5 strip${narrow.length ? ' — ' + narrow.join('; ') : ' — one row, current item on screen, no page overflow'}`);
+    }
+    ok(!problems.length, `${dir} @${width}x${height} ${scheme}: header ${headerHeight(dir)}px, <main> flush below it${problems.length ? ' — ' + problems.join('; ') : ''}`);
+    await context.close();
+  }
+}
+
+/* ---- action rows at the two widths the reference viewports do not cover ---- */
+for(const row of table){
+  if(!row.phone.row || !scope.wants(row.dir)) continue;
+  for(const [width, height] of [[768, 1024], [1920, 1080]]){
+    const context = await browser.newContext({viewport: {width, height}, deviceScaleFactor: 1, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block'});
+    const page = await context.newPage();
+    await page.goto(PAGES.find(([dir]) => dir === row.dir)[1], {waitUntil: 'networkidle'});
+    await page.evaluate(() => document.fonts.ready);
+    const m = await until(async () => { const r = await page.evaluate(probeRow); return r?.first ? r : null; }, {timeout: 8000, step: 150}) || await page.evaluate(probeRow);
+    const issues = rowProblems(m);
+    ok(!issues.length, `${row.dir} @${width}x${height}: action row${issues.length ? ' — ' + issues.join('; ') : ' — the header\'s edges'}`);
     await context.close();
   }
 }
@@ -266,14 +367,13 @@ for(const [dir, url] of PAGES){
 const cell = (m, key) => m[key] === null ? '-' : String(Math.round(m[key]));
 const pad = (s, n) => String(s).padEnd(n);
 if(table.length){
-  console.log('\nFirst screen (CSS px from the top of the document; main budget phone ' + HEADER_BUDGET.phone + ' / laptop ' + HEADER_BUDGET.laptop + ')');
+  console.log('\nFirst screen (CSS px from the top of the document; main budget phone ' + HEADER_BUDGET.phone + ' / laptop ' + HEADER_BUDGET.laptop + ', Energy ' + HEADER_BUDGET_ENERGY.phone + ' / ' + HEADER_BUDGET_ENERGY.laptop + ')');
   console.log(pad('page', 17) + pad('phone main', 12) + pad('anchor', 8) + pad('size', 10) + pad('| laptop main', 14) + pad('anchor', 8) + pad('size', 10) + 'anchor selector');
   for(const {dir, phone, laptop} of table){
     const size = m => m.anchorW + 'x' + m.anchorH;
-    console.log(pad(dir, 17) + pad(cell(phone, 'mainTop') + (phone.mainIsFallback ? '*' : ''), 12) + pad(cell(phone, 'anchorTop'), 8) + pad(size(phone), 10) +
-      pad('| ' + cell(laptop, 'mainTop') + (laptop.mainIsFallback ? '*' : ''), 14) + pad(cell(laptop, 'anchorTop'), 8) + pad(size(laptop), 10) + SHELL_MANIFEST[dir].anchor);
+    console.log(pad(dir, 17) + pad(cell(phone, 'mainTop'), 12) + pad(cell(phone, 'anchorTop'), 8) + pad(size(phone), 10) +
+      pad('| ' + cell(laptop, 'mainTop'), 14) + pad(cell(laptop, 'anchorTop'), 8) + pad(size(laptop), 10) + SHELL_MANIFEST[dir].anchor);
   }
-  if(table.some(r => r.phone.mainIsFallback || r.laptop.mainIsFallback)) console.log('* no <main> on this page; measured the element after the header, where <main> would start');
   console.log('');
 }
 
@@ -327,8 +427,10 @@ if(!scope.focused){
   const probe = {};
   for(const [name, html] of Object.entries({
     cut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1 style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A very long title indeed</h1></header><main>m</main>',
-    stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button></main>',
+    stray: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main><button class="recent-save">Save a copy</button><button>＋ Save on this device</button><button id="copylink">Copy link</button><button data-act="copylink">Copy link</button></main>',
     clean: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><main>m</main>',
+    noMain: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><h1>Fixture</h1></header><div>not a main</div>',
+    kickerCut: '<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><p class="kicker" style="width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">07 — A long epithet that cannot fit</p><h1>Fixture</h1></header><main>m</main>',
   })){
     const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
     await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
@@ -338,8 +440,48 @@ if(!scope.focused){
     probe[name] = await page.evaluate(() => window.__shellProbe(null));
     await context.close();
   }
+  ok(probe.noMain.mainTop === null && probe.clean.mainTop !== null, 'fixture: a page with no <main> measures no main top (it fails the budget), where the next element used to stand in');
   ok(probe.cut.h1Over > 0 && probe.clean.h1Over <= 0, 'fixture: a truncated h1 is measured as wider than its box; an untruncated one is not');
-  ok(probe.stray.strayActions === 3 && probe.clean.strayActions === 0, 'fixture: .recent-save, "Save on this device" and #copylink are each counted as stray controls');
+  ok(probe.kickerCut.kickerOver > 0 && probe.clean.kickerOver <= 0, 'fixture: a truncated kicker is measured as wider than its box; a missing one is not');
+  /* the action row: one at the viewport edge while the header is inset must fail, and one in the header's own edges must pass */
+  const rowPage = (rowCss, headerCss) => `<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><div class="tool-titlerow" style="display:block;height:48px;${headerCss}"></div></header><main><div class="tool-stage-row" style="display:flex;justify-content:flex-end;${rowCss}"><button style="width:100px;height:44px">Export</button></div></main>`;
+  const rows = {};
+  for(const [name, html] of Object.entries({
+    good: rowPage('margin:0 16px', 'margin:0 16px'),
+    flush: rowPage('margin:0', 'margin:0 16px'),
+  })){
+    const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
+    await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
+    const page = await context.newPage();
+    await page.goto('http://fixture.test/' + name);
+    rows[name] = rowProblems(await page.evaluate(probeRow));
+    await context.close();
+  }
+  ok(!rows.good.length, 'fixture: an action row with the header\'s edges passes the row check (' + rows.good.join('; ') + ')');
+  ok(rows.flush.some(p => /row box is 0-375px/.test(p)) && rows.flush.some(p => /last control ends at 375px/.test(p)), 'fixture: an action row at the viewport edge fails the row check');
+  /* the strip: a wrapped one and one whose current item is off screen must fail, and a good one must pass */
+  const link = (n, current) => `<a href="/x/${n}/" style="flex:none;display:block;box-sizing:border-box;width:100px;height:44px"${current ? ' aria-current="page"' : ''}>E${n}</a>`;
+  const stripPage = (css, current) => `<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><nav class="series" style="display:flex;box-sizing:border-box;width:343px;margin:0 16px;${css}"><a href="../" aria-label="All energy tools" style="flex:none;display:block;box-sizing:border-box;width:60px;height:44px">All</a>${[1, 2, 3, 4, 5].map(n => link(n, n === current)).join('')}</nav><p class="kicker" style="display:none"></p></header><main>m</main>`;
+  const strips = {};
+  for(const [name, html] of Object.entries({
+    good: stripPage('flex-wrap:nowrap;overflow-x:auto;height:44px', 1),
+    wrapped: stripPage('flex-wrap:wrap;height:auto', 1),
+    offscreen: stripPage('flex-wrap:nowrap;overflow-x:auto;height:44px', 5),
+  })){
+    const context = await browser.newContext({viewport: VIEWPORTS.phone, serviceWorkers: 'block'});
+    await context.route('http://fixture.test/**', route => route.fulfill({contentType: 'text/html', body: html}));
+    const page = await context.newPage();
+    await page.goto('http://fixture.test/' + name);
+    const m = await page.evaluate(probeStrip);
+    m.focus = {style: 'solid', width: 2, offset: -4};
+    m.fade = 'end';
+    strips[name] = stripProblems(null, m);
+    await context.close();
+  }
+  ok(!strips.good.length, 'fixture: a one-row 44px strip with its current item on screen passes the strip check (' + strips.good.join('; ') + ')');
+  ok(strips.wrapped.some(p => /wraps onto more than one line/.test(p)), 'fixture: a strip that wraps fails the strip check');
+  ok(strips.offscreen.some(p => /current item is off screen/.test(p)), 'fixture: a strip whose current item is off screen fails the strip check');
+  ok(probe.stray.strayActions === 4 && probe.clean.strayActions === 0, 'fixture: .recent-save, "Save on this device", #copylink and [data-act=copylink] are each counted as stray controls');
 }
 
 await browser.close();

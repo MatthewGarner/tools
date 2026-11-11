@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved paths, exports, boot. */
 import {parse, CONFIG_KEYS} from './parse.js';
@@ -31,11 +31,10 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
 import {download, measure, isDark, themeColors, onThemeChange, renderWarningList,
-  pngRasterPlan, slugify, svgToCanvas, exampleChips} from '../assets/app-common.js';
+  pngRasterPlan, slugify, svgToCanvas} from '../assets/app-common.js';
 import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {paintKicker} from '../assets/verdict.js';
@@ -1552,34 +1551,9 @@ const ws = initWorkspace({
   },
 });
 
-exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+const startFrom = example => editor.setText(example.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
-const SAVED_KEY = 'paths-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel:item => 'Delete saved paths ' + item.name,
-    onLoad:item => editor.setText(item.src),
-    onDelete:(_item, index) => {
-      const list = loadSaved(SAVED_KEY);
-      list.splice(index, 1);
-      storeSaved(SAVED_KEY, list);
-      renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!model || (!model.items.length && !model.decisions.length)) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name:(model.title || `Paths ${list.length + 1}`).slice(0, 28), src:editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 function wideSvg(){
   if(!model || (!model.items.length && !model.decisions.length)) return null;
@@ -1738,7 +1712,6 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('paths-src') || ''; }catch(_){ }
   }
-  renderSaved();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(LANTERN))) refresh();
 })();
@@ -1747,4 +1720,4 @@ export {LANTERN};
 
 function modelLinkState(){ return targetHashState(
     {t:editor.getText(), ...(ws.collapsed() && !sourceAutoFolded ? {e:0} : {})}, inboundHandoff); }
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

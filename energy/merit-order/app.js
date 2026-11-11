@@ -381,7 +381,7 @@ async function boot(){
   }
 
   const shareLink = () => modelLink('merit-order', encodeStateV2(state));
-  wireModelLink($('copylink'), shareLink);
+  wireModelLink(shareLink);
   const outcome = document.createElement('p'); outcome.className='energy-outcome'; outcome.setAttribute('aria-live','polite');
   document.querySelector('.controls').parentElement.prepend(outcome);
   const updatePlants = mountTargetPicker(chartwrap.parentElement, {label:'Inspect plant',

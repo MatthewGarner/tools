@@ -31,6 +31,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -42,20 +46,36 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Map</h1>
-    <p class="tagline">Assumption mapping, stakeholder grids, futures matrices, and risk registers are the same physical act: put items on two axes and read meaning off where they land. Write the list as text, drag to place, and the zones tell you what to do next.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Map</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
 <main id="main" tabindex="-1">
 <div class="workspace mapping-workspace" id="workspace">
     <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
       <div id="cmhost" aria-label="Map source editor"></div>
-      <div class="chips" id="savedrow" style="margin-top:12px"></div>
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
@@ -120,6 +140,7 @@
   <section class="about">
     <h2>One tool, four methods</h2>
     <div class="prose">
+    <p>Assumption mapping, stakeholder grids, futures matrices, and risk registers are the same physical act: put items on two axes and read meaning off where they land. Write the list as text, drag to place, and the zones tell you what to do next.</p>
     <p>These methods share a mechanism: position on two axes, meaning from the zone you land in. The zone — not the quadrant — is the unit that matters, so this tool speaks zones: presets, N×M grids, and inequality rules for corners and diagonal bands. Positions are honest ("roughly here"), the readout is opinionated.</p>
     <p><strong>Assumption mapping</strong> (importance × evidence) ranks what to test next: high-importance, low-evidence assumptions go to <em>test first</em>, and the tool nags until each has a designed test. <span id="test-methods">Cheap test methods: <em>interview</em> five people who felt the problem this week; <em>prototype</em> a fake door or concierge version; <em>data pull</em> — find behaviour you already log.</span> “Ask the room for priors” collects independent judgement before that work; it is not a test or new evidence. Sources: Teresa Torres, <a href="https://www.producttalk.org/" target="_blank" rel="noopener"><em>Continuous Discovery Habits</em></a>; David J. Bland, <em>Testing Business Ideas</em>.</p>
     <p><strong>Stakeholder grids</strong> (power × interest) date to Mendelow (1991): manage closely, keep satisfied, keep informed, monitor. The tool flags high-power stakeholders you haven't read an attitude on — those are the ones who surprise you.</p>

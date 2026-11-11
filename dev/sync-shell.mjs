@@ -32,7 +32,7 @@ export function shellRegion(dir, entry){
     '<a href="/backup/" data-act="backup">Backup &amp; restore</a>',
   ];
   return `<!-- shell:start -->
-    <div class="tool-titlerow" data-shell-row>
+    <div class="tool-titlerow" data-shell-row${entry.workspaces ? ` data-workspaces="${esc(entry.workspaces)}"` : ''}${entry.longName ? ' data-long-name' : ''}>
       <h1>${esc(entry.name)}</h1>
       <details class="tool-file" data-shell-file>
         <summary>File</summary>

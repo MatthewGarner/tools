@@ -2,7 +2,6 @@
    The ember token block (and the origin chrome) live in assets/energy.css. */
 /* the ember token block lives once, in assets/energy.css (linked before this) */
 
-.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 1200 / 766}   /* load-grace: default example's viewBox — see workspace.css */
 .method{color:var(--muted);font-size:12.5px}

@@ -56,7 +56,7 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
   }
   for(const dir of numbered){
     const html = read(dir + '/index.html');
-    if(dir==='timeline'){assert.match(html, /data-visual-family="observatory"/);continue;}
+    if(dir==='timeline')assert.match(html, /data-visual-family="observatory"/);
     assert.match(html, /<p class="kicker" id="kicker"><\/p>/,
       dir + ': missing the .kicker slot above its h1');
     const js = read(dir + '/app.js');

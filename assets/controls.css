@@ -75,15 +75,6 @@
   .chip,.btn{transition:border-color .15s,color .15s,background-color .15s}
 }
 
-/* Home crumb: every tool page links back to the suite, top-left above the h1.
-   Big enough for thumbs on coarse pointers. */
-.crumb{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--muted);text-decoration:none;
-  margin-bottom:10px;border-radius:0}
-.crumb:hover{color:var(--ink)}
-@media (pointer: coarse){
-  .crumb{padding:10px 12px;margin:-10px 0 2px -12px}
-}
 /* chip-row lead label, warning list, and saved-item chips — extracted
    2026-07-13 from per-tool copies (byte-identical in 6-14 places; .savedchip is
    the CSS companion to the already-shared saved-items.js). NB the .chips row
@@ -92,8 +83,6 @@
 .chips .lead{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted)}
 /* on-ramp chip: opens the row, accented so it reads as the way in (why: app-common.js) */
-.chip.start{border-color:var(--accent);color:var(--accent-ink)}
-.chip.start:hover{background:var(--accent);color:var(--bg)}
 #warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
 .savedchip{display:inline-flex;align-items:stretch;border:1px solid var(--border);
   border-radius:0;overflow:hidden}
@@ -102,8 +91,6 @@
 .savedchip button:hover{color:var(--accent-ink)}
 .savedchip .chipdel{padding:4px 10px 4px 4px;color:var(--muted)}
 .savedchip .chipdel:hover{color:var(--err)}
-.model-link-status:empty{display:none}
-.model-link-status{flex-basis:100%;overflow-wrap:anywhere}
 .model-link-dialog{width:min(520px,calc(100vw - 40px));box-sizing:border-box;padding:24px;background:var(--bg);color:var(--ink);border:1px solid var(--border)}
 .model-link-dialog::backdrop{background:rgb(0 0 0 / .45)}
 .model-link-dialog h2{margin-top:0}

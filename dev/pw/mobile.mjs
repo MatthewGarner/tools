@@ -98,8 +98,6 @@ for(const [name, url] of ALL){
   });
   if(presetRows.count) ok(presetRows.failures.length === 0,
     `${name}: all preset chips wrap without horizontal scrolling${presetRows.failures.length ? ' — ' + presetRows.failures.join(', ') : ''}`);
-  const examples = page.locator('details.document-examples, details#examples').first();
-  if(await examples.count()) await examples.locator('summary').first().click();
   /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
      must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
      have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the
@@ -367,8 +365,10 @@ if(scope.wants("bets")){
   const page = await ctx.newPage();
   await page.goto(T + '/bets/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(600);
+  await openExamples(page);
   const chip = page.getByRole('button', {name: 'Lantern portfolio'});
-  if(await chip.count()) await chip.click();
+  ok(await chip.count() === 1, 'bets: the Lantern portfolio example is offered in File > Examples');
+  await chip.click();
   await page.waitForTimeout(600);
   const board = await page.evaluate(() => {
     const svg = document.querySelector('#preview svg');
@@ -1252,15 +1252,15 @@ if(scope.wants("why")){
 
 // Toolbar targets are often reviewed in a 390px desktop-resize as well as on a
 // real phone. A fine-pointer viewport must retain the same 44px floor once a
-// tool crosses its narrow layout breakpoint: Proxy Hunt's examples/save/zoom/
+// tool crosses its narrow layout breakpoint: Proxy Hunt's File menu, examples, Share, zoom and
 // export controls and Paths' shared action/view controls otherwise regress to
 // the compact desktop measurements even though they are being used as a phone.
 {
   const nctx = await browser.newContext({viewport: {width:390, height:844}, reducedMotion:'reduce'});
   const targetsFor = name => name === 'paths'
-    ? ['#chips .chip', '#savedrow .chip', '#zoomctl button', '#copypng',
+    ? ['[data-shell-examples-list] button', '[data-shell-file] summary', '.tool-share', '#zoomctl button', '#copypng',
       '.action-disclosure > summary', '[data-paths-view]', '.paths-more-views > summary']
-    : ['#chips .chip', '#savedrow .chip', '#zoomctl button', '#copypng',
+    : ['[data-shell-examples-list] button', '[data-shell-file] summary', '.tool-share', '#zoomctl button', '#copypng',
       '.action-disclosure > summary'];
   for(const name of ['proxy', 'paths']){
     if(!scope.wants(name)) continue;
@@ -1284,11 +1284,10 @@ if(scope.wants("why")){
   await nctx.close();
 }
 
-/* ---- "Start your own" on a phone (2026-08-15) ----
-   Every tool autoloads an example, so on a phone the starter is the only route to a
-   document that is yours. The chip lives inside the source rail, which is collapsed on
-   most tools at this width — so this checks it is REACHABLE (open the rail, chip visible),
-   a real 44px target, and that tapping it actually swaps the artefact. */
+/* ---- the blank start on a phone: File > New ----
+   Every tool autoloads an example, so on a phone New is the only route to a document that is yours.
+   This checks it is REACHABLE (File open, item visible), a real 44px target, and that tapping it
+   actually swaps the artefact. */
 {
   const sctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   for(const [name, marker] of [['roadmap', 'Your roadmap'], ['wardley', 'Your landscape'],
@@ -1297,16 +1296,12 @@ if(scope.wants("why")){
     const page = await sctx.newPage();
     await page.goto(T + '/' + name + '/', {waitUntil: 'networkidle'}).catch(() => {});
     await page.waitForTimeout(650);
-    if(name !== 'roadmap' && !await page.locator('#chips').isVisible().catch(() => false)){
-      await page.locator('#railtab').click().catch(() => {});
-      await page.waitForTimeout(400);
-    }
-    /* Roadmap's start lives in the shell's File menu as "New"; the others keep the source-rail chip */
-    if(name === 'roadmap') await openFileMenu(page);
-    const chip = name === 'roadmap' ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true}) : page.getByRole('button', {name: 'Start your own'});
+    /* every page in this list is a stamped-shell page: the start is File > New */
+    await openFileMenu(page);
+    const chip = page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true});
     const box = await chip.count() ? await chip.boundingBox() : null;
     ok(!!box && box.height >= 44,
-      `${name}: phone ${name === 'roadmap' ? 'File > New' : '"Start your own"'} is reachable and >=44px${box ? ' (' + Math.round(box.height) + 'px)' : ' (missing)'}`);
+      `${name}: phone File > New is reachable and >=44px${box ? ' (' + Math.round(box.height) + 'px)' : ' (missing)'}`);
     if(box){
       await chip.click();
       await page.waitForTimeout(800);

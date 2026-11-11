@@ -12,7 +12,7 @@ import {encodeHash} from './series.js';
 
 const when = r => r.savedAt ? new Date(r.savedAt).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'}) : 'Date unavailable';
 
-export function openWork({name, caps, opener, status, section: wanted}){
+export function openWork({name, caps, opener, status, section: wanted, workspaces}){
   const dialog = el('dialog', null, 'recent-dialog tool-work'), head = el('div', null, 'tool-work-head'), heading = el('h2', 'Your work in ' + name);
   const close = button('Close'), body = el('div', null, 'tool-work-body'), alert = el('p', null, 'recent-note');
   heading.id = 'tool-work-title'; dialog.setAttribute('aria-labelledby', heading.id); alert.setAttribute('role', 'status');
@@ -69,7 +69,7 @@ export function openWork({name, caps, opener, status, section: wanted}){
         const k = `mg:recent:v1:${scope}:${r.id}`;
         return {...r, key: k, copyId: r.id, id: workId(k), kind: 'copy', toolName: RECENT_TOOLS[scope][tool]};
       });
-      const organised = decorateWork(localStorage, [...native.records.filter(r => r.tool === tool && ['copy', 'baseline'].includes(r.kind)), ...recent]);
+      const organised = decorateWork(localStorage, [...native.records.filter(r => r.tool === tool && ['copy', 'baseline', 'workspace'].includes(r.kind)), ...recent]);
       if(organised.unreadable.length) problems.add('Some work organisation needs recovery. Use Backup & restore.');
       records = organised.records;
     }catch(error){ problems.add(failure(error)); }
@@ -103,11 +103,16 @@ export function openWork({name, caps, opener, status, section: wanted}){
     };
     const rm = r => r.copyId ? store().remove(r.copyId) : removeLegacy(r);
     const copies = records.filter(r => r.kind === 'copy'), live = copies.filter(r => !r.archived), kept = copies.filter(r => r.archived);
+    /* The page's own editable records (Gauge question sets, Premortem registers) come first. They open on their own
+       href; Pin, Rename (a catalogue name only) and Archive work without touching the store, so Remove is left off. */
+    const spaces = records.filter(r => r.kind === 'workspace' && !r.archived);
+    if(workspaces && spaces.length) add('workspaces', workspaces, rows(spaces, 'Opens in ' + name, (a, r) => { a.href = r.href; }));
     if(live.length) add('copies', 'Saved copies', rows(live, 'Saved copy', openCopy, rm));
     if(caps.templates) templates(add, problems);
     const bases = records.filter(r => r.kind === 'baseline' && !r.archived);
     if(bases.length) add('baselines', 'Comparison baselines', rows(bases, 'Baseline · open in History', (a, r) => { a.href = r.href; }));
-    if(kept.length) add('archived', 'Archived', rows(kept, 'Archived copy', openCopy, rm));
+    const keptSpaces = records.filter(r => r.kind === 'workspace' && r.archived);
+    if(kept.length || keptSpaces.length) add('archived', 'Archived', rows(kept, 'Archived copy', openCopy, rm), ...(keptSpaces.length ? [rows(keptSpaces, 'Archived · opens in ' + name, (a, r) => { a.href = r.href; })] : []));
 
     const notes = [...problems].map(p => el('p', p, 'recent-note'));
     if(!sections.length && !problems.size)

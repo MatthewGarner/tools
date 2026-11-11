@@ -30,6 +30,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -41,18 +45,34 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <nav class="series" aria-label="The ember series">
-    <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
-    <a href="../risk/"><span class="enum">E2</span>Risk</a>
-    <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
-    <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
-    <a href="../intraday/" aria-current="page"><span class="enum">E5</span>Intraday</a>
-  </nav>
-  <header data-tool-header>
-    <a class="crumb" href="../">← All energy tools</a>
+  <header data-tool-header data-shell>
+    <nav class="series" aria-label="The ember series">
+      <a href="../" aria-label="All energy tools">All</a>
+      <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
+      <a href="../risk/"><span class="enum">E2</span>Risk</a>
+      <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
+      <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
+      <a href="../intraday/" aria-current="page"><span class="enum">E5</span>Intraday</a>
+    </nav>
     <p class="kicker" id="kicker"></p>
-    <h1>A day through the stack</h1>
-    <p class="tagline">One stack, twenty-four demands. Play the day and the intraday price shape draws itself off the merit order — then add a storage fleet and watch it flatten the very shape it feeds on.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row data-long-name>
+      <h1>A day through the stack</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <button type="button" data-act="new-template" disabled>New from template…</button>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 
   <main id="main" tabindex="-1">
@@ -89,7 +109,6 @@
     <div id="pricewrap"></div>
     <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
     <div class="actions">
-      <button class="btn" id="copylink">Copy model link</button>
       <button class="btn primary" id="copypng">Copy PNG</button>
       <details class="action-disclosure">
         <summary class="btn">Export</summary>
@@ -104,6 +123,7 @@
   <section class="about">
     <h2>Why the price moves all day</h2>
     <div class="prose">
+    <p>One stack, twenty-four demands. Play the day and the intraday price shape draws itself off the merit order — then add a storage fleet and watch it flatten the very shape it feeds on.</p>
     <p>The intraday price shape isn't data — it's the <a href="../merit-order/">merit order</a> read out by the day. Demand sweeps from the overnight trough to the evening peak, solar swells and dies, and each hour lands on a different rung of the same staircase: the price is flat where the stack is flat and spiky where it's steep. The gas staircase is why the evening peak costs what it does; the solar bell is why a sunny afternoon barely clears above nuclear.</p>
     <p>The storage fleet plans like a trader with perfect foresight of the raw shape: greedy pair-matching of the cheapest charging hours against the dearest discharge hours, within its power and duration limits. But its own dispatch feeds back — charging lifts the trough, discharging shaves the peak — so the shape it actually earns on is flatter than the one it planned on. That gap is drawn (ghost shape behind, flattened shape in front) and quoted: storage flattens the very shape it feeds on, and its margin per MW falls as the fleet grows.</p>
     <p>One representative day, cleared pay-as-clear hour by hour, inheriting the merit-order toy's named simplifications (flat bids, no unit commitment, no network). The fleet has perfect foresight of its own day — real fleets forecast, and miss; the gap between greedy and truly optimal dispatch is small at toy scale and belongs to a sibling toy. The solar bell is a shape, not weather. No live data, ever.</p>

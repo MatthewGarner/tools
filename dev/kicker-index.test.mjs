@@ -76,7 +76,7 @@ test('a shell page\'s h1 is its catalogue title', () => {
     const source = TOOL_DIRS.includes(dir) ? 'product' : 'energy';
     const catalogue = SUITE_CATALOG.find(tool => tool.source === source && tool.route === dir);
     const html = read((source === 'energy' ? 'energy/' : '') + dir + '/index.html');
-    const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+    const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)].map(m => m[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim());
     assert.deepEqual(h1s, [catalogue.title], dir + ': the page must carry exactly one h1, equal to the catalogue title');
   }
 });

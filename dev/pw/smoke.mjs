@@ -192,8 +192,8 @@ for(const theme of FLOW_THEMES){
   check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
   check('risk(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
   check('risk(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('risk(' + theme + '): crumb points at energy landing',
-    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('risk(' + theme + '): the strip marks this page and lists All energy tools and the five instruments',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/risk/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 6);
   check('risk(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -460,8 +460,8 @@ for(const theme of FLOW_THEMES){
   check('frequency(' + theme + '): trace canvas exists', await page.locator('#trace').count() === 1);
   const verdict = (await page.locator('#verdict').innerText()).trim();
   check('frequency(' + theme + '): verdict non-empty', verdict.length > 20);
-  check('frequency(' + theme + '): crumb points at energy landing',
-    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('frequency(' + theme + '): the strip marks this page and lists All energy tools and the five instruments',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/frequency/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 6);
   check('frequency(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -509,8 +509,8 @@ for(const theme of FLOW_THEMES){
     await page.locator("svg g[data-plant='Hydrogen']").count() === 1 && await page.locator('svg g[data-tex]').count() >= 2);
   check('merit-order(' + theme + '): world demand max grows (>64)',
     Number(await page.locator('#demand').getAttribute('max')) > 64);
-  check('merit-order(' + theme + '): crumb points at energy landing',
-    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('merit-order(' + theme + '): the strip marks this page and lists All energy tools and the five instruments',
+    await page.locator('[data-tool-header] .series a[aria-current=page][href$="/merit-order/"]').count() === 1 && await page.locator('[data-tool-header] .series a').count() === 6);
   check('merit-order(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -572,7 +572,7 @@ for(const theme of FLOW_THEMES){
         /* a stamped shell header drops the (hidden) crumb; the masthead's Tools Lab link is the way home */
         if(await page.locator('[data-shell-row]').count())
           check(path + ': shell header has no crumb; the masthead Tools Lab link goes home',
-            await crumb.count() === 0 && await page.locator('a[data-suite-link="explore"]').getAttribute('href') === home);
+            await crumb.count() === 0 && await page.locator('a[data-suite-link="explore"]').getAttribute('href') === (path.startsWith('/energy/') ? '/explore/' : home));
         else
           check(path + ': carries the home crumb',
             await crumb.count() === 1 && await crumb.getAttribute('href') === home);
@@ -749,15 +749,15 @@ for(const theme of FLOW_THEMES){
 }
 
 /* ---- duel: copy-link race regression (the un-awaited writeHashState bug) ----
-   #copylink is clicked with NO settle wait right after a pick, to stress the
-   exact race an un-awaited writeHashState would lose: navigator.clipboard.write
+   Share (it replaced the page's own Copy link) is clicked with NO settle wait right
+   after a pick, to stress the exact race an un-awaited writeHashState would lose: navigator.clipboard.write
    Text is stubbed to capture the argument directly (deterministic — no real
    clipboard permission dance needed), then a second page loads that captured
    URL and its own duel count must reflect the pick just made, not the state
    from before it. */
 if(scope.wants("duel")){
   const {page, errors} = await freshPage('/duel/', 'light');
-  await page.waitForTimeout(400);
+  await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
   await page.locator('#start').click();
   await page.waitForTimeout(300);
   await page.evaluate(() => {
@@ -773,10 +773,10 @@ if(scope.wants("duel")){
   };
   const beforeN = await readDuelCount(page);
   await page.locator('#duelwrap [data-pick]').first().click();   // the just-made pick
-  await page.locator('#copylink').click();                       // no settle wait — this is the race
-  await page.waitForTimeout(150);
+  await page.locator('[data-act=share]').click();                // no settle wait — this is the race
+  await page.waitForFunction(() => window.__copied);
   const copied = await page.evaluate(() => window.__copied);
-  check('duel: copylink captures a real URL with a hash', typeof copied === 'string' && copied.includes('#'));
+  check('duel: Share captures a real URL with a hash', typeof copied === 'string' && copied.includes('#'));
   const page2 = await browser.newPage();
   await page2.goto(copied);
   await page2.waitForTimeout(400);
@@ -985,7 +985,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   if(!scope.wants("rank")) continue;
   const {page, errors} = await freshPage('/rank/', theme);
-  await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
+  await openExamples(page); await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
   await page.waitForTimeout(600);
   const rows = await page.locator('#rows tr').count();
   check('rank(' + theme + '): table renders rows (' + rows + ')',
@@ -1019,7 +1019,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   if(!scope.wants("tree")) continue;
   const {page, errors} = await freshPage('/tree/', theme);
-  await page.getByRole('button', {name: 'Bid or no bid'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Bid or no bid'}).click();
   await page.waitForTimeout(600);
   check('tree(' + theme + '): example renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').evaluate(el => el.outerHTML);
@@ -1166,8 +1166,8 @@ for(const theme of FLOW_THEMES){
   await page.waitForTimeout(600);
   // New default: opens alive on the sample reveal of the first example (hash-safe autoload).
   check('gauge(' + theme + '): opens alive on the sample reveal', await page.locator('#viewreveal.on').count() === 1 && await page.locator('#preview svg').count() === 1);
-  await page.locator('#railtab').click();
-  await page.getByRole('button', {name: 'Q3 commitment review'}).click();
+  await openExamples(page);
+  await page.locator('[data-shell-examples-list]').getByRole('button', {name: 'Q3 commitment review'}).click();
   await page.locator('#viewform').click();
   await page.waitForTimeout(600);
   check('gauge(' + theme + '): form preview renders 3 questions', await page.locator('#preview .gform .q').count() === 3);
@@ -1310,7 +1310,7 @@ for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/bets/', theme);
   await page.waitForTimeout(500);
   check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
-  await page.getByRole('button', {name: 'Lantern portfolio'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Lantern portfolio'}).click();
   await page.waitForTimeout(600);
   /* Allocation Field is a root-SVG contract; innerHTML cannot observe its
      data surface and would turn the regression into a false negative. */
@@ -1643,11 +1643,11 @@ if(scope.wants("flow")){
   await page2.close();
 }
 
-/* ---- "Start your own": every DSL tool's on-ramp chip ----
+/* ---- the blank start: every DSL tool's File > New ----
    Each tool autoloads an example, so the starter is the only way to reach a frame
    that is yours. Clicking it must replace the example, render, and warn about
-   nothing — dev/starter.test.mjs proves the text parses clean, this proves the
-   chip is actually wired and reaches the screen. */
+   nothing — dev/starter.test.mjs proves the text parses clean, this proves New
+   is actually wired and reaches the screen. */
 for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your programme'],
     ['/wardley/', 'Your landscape'], ['/map/', 'Your assumptions'], ['/why/', 'Your outcome'],
     ['/tree/', 'Your decision'], ['/bets/', 'Your bets'], ['/paths/', 'Your plan'],
@@ -1656,14 +1656,12 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
   if(!scope.wants(tool)) continue;
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);
-  /* half these tools open with the source rail collapsed (the chips live in it) */
-  if(!['/roadmap/','/case/'].includes(tool) && !await page.getByRole('button', {name:'Start your own',exact:true}).isVisible()) await page.locator('#railtab').click();
+  /* Every page starts from File > New */
+  await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
   await page.waitForTimeout(300);
-  /* Roadmap's start is File > New in the stamped shell header */
-  if(tool === '/roadmap/') await openFileMenu(page);
-  const chip = tool === '/roadmap/' ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true})
-    : page.getByRole('button', {name: tool === '/case/' ? 'New case' : 'Start your own'});
-  check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);
+  await openFileMenu(page);
+  const chip = page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true});
+  check(tool + ' start: File > New is present', await chip.count() === 1);
   await chip.click();
   /* energy's engines settle off-thread — poll rather than guess a sleep */
   await page.waitForFunction(m => (document.querySelector('#preview svg')?.textContent || '').includes(m),
@@ -1681,8 +1679,10 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 if(scope.wants("rank")){
   const {page, errors} = await freshPage('/rank/');
   await page.waitForTimeout(500);
-  const chip = page.getByRole('button', {name: 'Start your own'});
-  check('/rank/ start: the chip is present and opens the row', await chip.count() === 1);
+  await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
+  await openFileMenu(page);
+  const chip = page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true});
+  check('/rank/ start: File > New is present', await chip.count() === 1);
   await chip.click();
   await page.waitForTimeout(600);
   const rows = await page.locator('#rows').innerHTML();

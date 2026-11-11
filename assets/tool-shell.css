@@ -2,11 +2,18 @@
    so the header is 96px at any width and never moves when fonts or scripts arrive. */
 body.mg-site .wrap:has(> [data-tool-header][data-shell]){margin-top:0;gap:0}
 body.mg-site .wrap > [data-tool-header][data-shell] + * ~ *{margin-top:20px}
-body.mg-site [data-tool-header][data-shell]{box-sizing:border-box;height:96px;max-width:none;margin:0;padding:16px 0 12px}
+/* main starts at the header's bottom edge, whether it sits in the header's .wrap or follows it:
+   a margin on its first child (the workspace's 28px) would collapse through main and push it down */
+.wrap:has(> [data-tool-header][data-shell]) + main > :first-child,[data-tool-header][data-shell] + main > :first-child{margin-top:0}
+body.mg-site [data-tool-header][data-shell]{display:block;box-sizing:border-box;height:96px;max-width:none;margin:0;padding:16px 0 12px}
 body.mg-site [data-tool-header][data-shell] .kicker{box-sizing:border-box;height:20px;margin:0;font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool-titlerow{position:relative;display:flex;align-items:center;gap:8px;height:48px}
 body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:0;font-family:var(--mg-display);font-size:28px;line-height:48px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(min-width:1024px){body.mg-site [data-tool-header][data-shell] h1{font-size:32px}}
+/* phones: "07 — Choices priced…" so the whole epithet fits (Rank's, the longest, with ~27px to spare at 375;
+   11px is the floor); the word stays for screen readers. At 320 the ellipsis is the fallback. */
+@media(max-width:519px){body.mg-site [data-tool-header][data-shell] .kicker{font-size:11px;letter-spacing:.02em}
+  body.mg-site [data-tool-header][data-shell] .kicker .kw{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 .tool-file summary,.tool-share{box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;min-width:44px;min-height:44px;padding:0 14px;border:1px solid var(--mg-line);border-radius:0;background:transparent;color:var(--mg-ink);font:500 15px/1 var(--mg-sans);letter-spacing:0;text-transform:none;cursor:pointer;list-style:none}
 .tool-file summary::-webkit-details-marker{display:none}
 .tool-file summary::after{content:"";width:6px;height:6px;margin:-3px 0 0 2px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
@@ -23,7 +30,7 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
 .tool-share:disabled,.tool-menu button:disabled{opacity:calc(1 - .5 * var(--tool-late));cursor:default}
 .tool-stalled{box-sizing:border-box;max-height:calc(var(--tool-late) * 6em);margin:0;padding:calc(var(--tool-late) * 10px) 12px;overflow:hidden;color:var(--mg-ink);font:500 13px/1.4 var(--mg-sans)}
 [data-tool-header][data-shell-ready] .tool-stalled{max-height:0;padding-block:0}
-.tool-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:60;box-sizing:border-box;display:flex;flex-direction:column;width:min(300px,calc(100vw - 32px));max-height:min(70vh,34rem);overflow-y:auto;padding:4px;border:1px solid var(--mg-line);background:var(--mg-paper);color:var(--mg-ink);box-shadow:0 10px 28px rgb(0 0 0 / .14)}
+.tool-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:60;box-sizing:border-box;display:flex;flex-direction:column;width:min(300px,calc(100vw - 32px));max-height:min(70vh,34rem,var(--tool-menu-room,70vh));overflow-y:auto;padding:4px;border:1px solid var(--mg-line);background:var(--mg-paper);color:var(--mg-ink);box-shadow:0 10px 28px rgb(0 0 0 / .14)}
 .tool-menu :is(button,a){box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:0;background:none;color:var(--mg-ink);font:400 15px/1.3 var(--mg-sans);letter-spacing:0;text-align:left;text-transform:none;text-decoration:none;cursor:pointer}
 .tool-menu :is(button,a):hover{background:color-mix(in srgb,var(--mg-ink) 8%,transparent)}
 .tool-menu [data-act=examples]::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
@@ -48,3 +55,30 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
 .tool-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
 .tool-work-all{display:inline-flex;align-items:center;min-height:44px;padding:0 .75rem;color:var(--mg-ink)}
 @media print{.tool-titlerow .tool-file,.tool-share,.tool-status{display:none}}
+[data-shell-row][data-shell-off] :is(.tool-file,.tool-share){display:none}
+/* the row of document controls at the top of main (Edit source, Export deck, views…), 44px targets */
+.tool-stage-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;padding:0}
+.tool-stage-row > *{min-height:44px}
+.tool-stage-row + .workspace{margin-top:0}
+/* a page whose first block wraps its workspace (Gauge's #compose) sits flush too */
+.wrap:has(> [data-tool-header][data-shell]) + main > :first-child > .workspace:first-child{margin-top:0}
+/* a page's action row at the top of main sits in a .wrap, the same wrapper as the header, so its box has the
+   header's left and right edges at every width (the gutter and max-width come from the one .wrap rule) */
+.wrap:has(> .tool-stage-row) + .workspace{margin-top:0}
+/* Energy pages: the E1-E5 strip is the first row of the header (the kicker stays hidden there, so no empty line).
+   16px above + 44px strip + 48px title row + 12px below = 120px. One row that never wraps; it scrolls sideways
+   when it does not fit, with an edge fade as the cue (tool-shell.js sets data-fade and centres the current item). */
+:root[data-mg-section='energy'] body.mg-site [data-tool-header][data-shell]{height:120px}
+[data-tool-header][data-shell] > .series{position:relative;box-sizing:border-box;display:flex;flex-wrap:nowrap;gap:0 24px;height:44px;margin:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;box-shadow:inset 0 -1px 0 var(--border)}
+[data-tool-header][data-shell] > .series::-webkit-scrollbar{display:none}
+[data-tool-header][data-shell] > .series a{flex:none;box-sizing:border-box;height:44px;min-height:44px;padding:0;white-space:nowrap}
+[data-tool-header][data-shell] > .series a:focus-visible{outline:2px solid var(--accent);outline-offset:-4px}
+[data-tool-header][data-shell] > .series[data-fade=end]{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent)}
+[data-tool-header][data-shell] > .series[data-fade=start]{-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 32px),transparent)}
+[data-tool-header][data-shell] > .series[data-fade=both]{-webkit-mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
+/* a long title (manifest longName) steps down a size on phones and may take two lines inside the 48px row (nothing is
+   clipped: the glyph box is taller than the 24px line); below 360px a size further, so it is whole at 320 and 375 */
+@media(max-width:519px){body.mg-site .tool-titlerow[data-long-name] h1{max-height:48px;font-size:24px;line-height:24px;white-space:normal;overflow-wrap:break-word;overflow:visible}}
+@media(max-width:359px){body.mg-site .tool-titlerow[data-long-name] h1{font-size:20px;line-height:22px}}
+/* below 360px an ordinary title steps down to 22px so most names fit the 320px title row */
+@media(max-width:359px){body.mg-site [data-tool-header][data-shell] h1{font-size:22px}}

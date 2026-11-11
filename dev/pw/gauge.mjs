@@ -2,7 +2,7 @@
    Run from dev/pw:  node gauge.mjs */
 import {chromium, devices} from 'playwright';
 import {inflateRawSync} from 'node:zlib';
-import {report, tally} from './_harness.mjs';
+import {report, tally, openExamples} from './_harness.mjs';
 import {startServer, evidenceDirectory} from './session.mjs';
 import {NO_STORE} from '../../api/gauge/_response.js';
 
@@ -38,13 +38,26 @@ try{
   const pageF = await (await browser.newContext()).newPage();
   const errF = watchErrors(pageF);
   await pageF.goto(BASE + '/gauge/', {waitUntil: 'networkidle'});
-  await pageF.locator('#railtab').click();
-  await pageF.getByRole('button', {name: 'Q3 commitment review'}).click();
+  await pageF.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
+  check('compose: File is offered (New, Examples, Your work, Save a copy) and Share is not',
+    await pageF.locator('[data-shell-file]').isVisible() && await pageF.locator('[data-tool-header] [data-act=share]').count() === 0
+    && await pageF.locator('[data-shell-file] button:not([disabled])[data-act=new], [data-shell-file] button:not([disabled])[data-act=work]').count() === 2);
+  await openExamples(pageF);
+  await pageF.locator('[data-shell-examples-list]').getByRole('button', {name: 'Q3 commitment review'}).click();
   await pageF.waitForTimeout(400);
   await pageF.locator('#startbtn').click();
   await pageF.waitForSelector('#console:not([hidden])', {timeout: 10000});
   check('facilitator: console mode after start',
     await pageF.locator('#console').isVisible() && !(await pageF.locator('#compose').isVisible()));
+  /* the live console and the participant page offer nothing to file or share: the title alone */
+  const bare = async page => ({
+    file: await page.locator('[data-shell-file]').isVisible(), share: await page.locator('[data-tool-header] [data-act=share]').isVisible(),
+    title: await page.locator('[data-tool-header] h1').innerText(), kicker: await page.locator('[data-tool-header] .kicker').innerText(),
+    ready: await page.locator('[data-tool-header][data-shell-ready]').count(),
+  });
+  const consoleBare = await bare(pageF);
+  check('console: header shows the kicker and title alone, no File and no Share',
+    !consoleBare.file && !consoleBare.share && consoleBare.title === 'Gauge' && /12/.test(consoleBare.kicker) && consoleBare.ready === 1);
 
   /* The console generates the compressed participant URL asynchronously.
      Waiting on its value—not an incidental button state—keeps this check
@@ -89,6 +102,9 @@ try{
   check('participants: both submitted',
     /Submitted/.test(await A.page.locator('#pstatus').innerText()) &&
     /Submitted/.test(await B.page.locator('#pstatus').innerText()));
+  const partBare = await bare(A.page);
+  check('participant: header shows the kicker and title alone, no File and no Share',
+    !partBare.file && !partBare.share && partBare.title === 'Gauge' && /12/.test(partBare.kicker) && partBare.ready === 1);
   await A.page.reload({waitUntil: 'networkidle'});
   check('participant: reload restores the local draft before relay status can repaint it',
     await A.page.locator('.q[data-q="0"] input[type=range]').inputValue() === '80' &&
@@ -295,8 +311,8 @@ try{
     const cf = await (await browser.newContext()).newPage();
     const errCF = watchErrors(cf);
     await cf.goto(BASE + '/gauge/', {waitUntil: 'networkidle'});
-    await cf.locator('#railtab').click();
-    await cf.getByRole('button', {name: 'Confidence auction'}).click();
+    await openExamples(cf);
+    await cf.locator('[data-shell-examples-list]').getByRole('button', {name: 'Confidence auction'}).click();
     await cf.waitForTimeout(400);
     await cf.locator('#startbtn').click();
     await cf.waitForSelector('#console:not([hidden])', {timeout: 10000});

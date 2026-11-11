@@ -1,8 +1,4 @@
-.recent-save { min-width:44px; min-height:44px; }
 /* Site chrome stays independent of document/export palettes, including Case. */
-.recent-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-top:1rem; }
-.recent-status { font:400 .875rem/1.4 var(--mg-sans); color:var(--mg-muted); }
-.recent-status:empty { display:none; }
 .recent-dialog { box-sizing:border-box; width:min(30rem,calc(100% - 2rem)); max-height:calc(100dvh - 2rem); padding:1.5rem; border:1px solid var(--mg-line); border-radius:0; background:var(--mg-paper); color:var(--mg-ink); font:400 1rem/1.5 var(--mg-sans); }
 .recent-dialog::backdrop { background:rgb(0 0 0 / .4); }
 .recent-dialog h2, [data-recent-work] h2 { margin:0; font:600 1.75rem/1.2 var(--mg-display); letter-spacing:-.015em; }

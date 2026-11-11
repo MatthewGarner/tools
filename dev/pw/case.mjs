@@ -1,7 +1,7 @@
 /* Case's source-backed native forms replace its former SVG edit-in-place surface.
    These flows cover the same phone/keyboard/undo contract plus reference history. */
 import {chromium} from 'playwright';
-import {trackErrors, report, tally, until, untilValue} from './_harness.mjs';
+import {openExamples, trackErrors, report, tally, until, untilValue} from './_harness.mjs';
 const BASE=process.env.BASE||'http://localhost:8087';
 const browser=await chromium.launch();
 const page=await browser.newPage({viewport:{width:1500,height:1000},colorScheme:'light',reducedMotion:'reduce'});
@@ -40,8 +40,8 @@ await themed.waitForFunction(()=>document.querySelector('#preview svg > rect')?.
 check('Case system theme responds to OS changes without rewriting source',await pageTheme()==='dark'&&(await themed.evaluate(()=>localStorage.getItem('case-src'))).includes('theme: system'));
 await saved.close();
 await page.goto(BASE+'/case/',{waitUntil:'networkidle'});
-await page.locator('#examples summary').click();
-await page.getByRole('button',{name:'Morrow · paid tier',exact:true}).click();
+await openExamples(page);
+await page.locator('[data-shell-examples-list]').getByRole('button',{name:'Morrow · paid tier',exact:true}).click();
 await until(doc);
 const original=await doc();
 check('Brief separates the approved pilot from the unresolved launch',(await page.locator('#preview').textContent()).includes('Paid-tier launch remains undecided'));

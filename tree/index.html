@@ -30,6 +30,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -41,20 +45,36 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
+  <header data-tool-header data-shell>
     <p class="kicker" id="kicker"></p>
-    <h1>Decision tree sketcher</h1>
-    <p class="tagline">Write a decision as an indented tree — options, chances, payoffs, all as honest 90% ranges. Get the expected value, the recommended path, how often it actually wins, and exactly what would flip the decision.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Tree</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
 <main id="main" tabindex="-1">
 <div class="workspace" id="workspace">
     <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
       <div id="cmhost" aria-label="Decision tree source editor"></div>
-      <div class="chips" id="savedrow" style="margin-top:12px"></div>
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
@@ -123,6 +143,7 @@
   <section class="about">
     <h2>How the maths works</h2>
     <div class="prose">
+    <p>Write a decision as an indented tree — options, chances, payoffs, all as honest 90% ranges. Get the expected value, the recommended path, how often it actually wins, and exactly what would flip the decision.</p>
     <p>Every range you write is a 90% interval, sampled 10,000 times (log-normal for positive ranges, normal otherwise; probabilities are normalised so siblings sum to 1 in every simulation). The tree rolls back a <em>policy</em>: at each decision node the tool commits to the option with the highest mean expected value — you decide once, you don't get to re-decide with hindsight in each simulation. What you read at each node is the distribution of expected value given what you don't know.</p>
     <p>The verdict includes how often the recommendation actually beats the alternative across simulations — an EV edge that wins only 55% of the time deserves different scrutiny from one that wins 95%. "What would flip this" is the sensitivity that matters in a meeting: the probability threshold at which the recommendation changes, found by bisection, and any payoff ranges wide enough to change the answer within themselves.</p>
     <p>Sources: Ronald Howard's <a href="https://en.wikipedia.org/wiki/Decision_analysis" target="_blank" rel="noopener">decision analysis</a> tradition; Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on calibrated ranges; and the <a href="/fermi/">Fermi estimator</a>, this tool's sibling, for the estimation habits underneath it.</p>

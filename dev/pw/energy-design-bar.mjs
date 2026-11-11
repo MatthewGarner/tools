@@ -12,7 +12,7 @@ try{
   await page.goto(route(tool)); await page.locator('#verdict:not([hidden])').waitFor();
   if(['cycles','risk'].includes(tool)){
    await page.locator('#preview:not([inert]) svg').waitFor();
-   assert.equal(await page.locator('.document-actions .start').count(),1);
+   assert.equal(await page.locator('#assumptionrow').getByRole('button',{name:'Edit assumption',exact:true}).count(),1,'Edit assumption sits in the row at the top of main');
    await page.getByRole('button',{name:'Edit assumption',exact:true}).click();
    await page.locator('.eip-input').waitFor();
    assert.doesNotMatch((await page.locator('[role=status]').allTextContents()).join(' '),/can.t be edited/);
@@ -32,7 +32,7 @@ try{
    await page.locator('[data-preset="stack"]').click();
    await page.waitForFunction(()=>document.querySelector('#effinertia').textContent.includes('= 100'));
   }
-  await page.locator('#copylink').click(); await page.waitForFunction(()=>document.querySelector('#copylink').textContent==='Copied model link');
+  await page.locator('[data-act=share]').click(); await page.waitForFunction(()=>/Link copied/.test(document.querySelector('[data-tool-header] [role=status]').textContent));
   const link=await page.evaluate(()=>navigator.clipboard.readText()); assert.ok(new URL(link).hash.length>10);
   const expectedVerdict=await page.locator('#verdict').textContent();
   const recipient=await context.newPage(); await recipient.goto(route(tool)+new URL(link).hash); await recipient.locator('#verdict:not([hidden])').waitFor();

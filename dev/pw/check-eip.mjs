@@ -122,7 +122,7 @@ if(scope.wants('tree')){
   const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errors = trackErrors(page);
 await page.goto(BASE, {waitUntil: 'networkidle'});
-await page.getByRole('button', {name: 'Bid or no bid'}).click();
+await openExamples(page); await page.getByRole('button', {name: 'Bid or no bid'}).click();
 await page.waitForTimeout(500);
 const before = await page.evaluate(() => localStorage.getItem('tree-src'));
 const rec0 = (await page.locator('#preview svg').innerHTML()).includes('Submit bid');
@@ -2681,7 +2681,7 @@ if(scope.wants("wardley", "timeline", "bets")){
      ONE touch-Undo, assert full revert before the next action. ---- */
   if(scope.wants("bets")){
     await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-    await mpage.getByRole('button', {name: 'Lantern portfolio'}).click();
+    await openExamples(mpage); await mpage.getByRole('button', {name: 'Lantern portfolio'}).click();
     await mpage.waitForTimeout(800);   // stays — see the timeline block: render precedes the localStorage write
     const btNarrow = await untilValue(() => mpage.evaluate(() => ({
       narrow: !!document.querySelector('#preview svg [data-narrow]'),
@@ -3083,7 +3083,7 @@ if(scope.wants("bets")){
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Lantern portfolio'}).click();
+  await openExamples(p); await p.getByRole('button', {name: 'Lantern portfolio'}).click();
   await p.waitForTimeout(500);
   const baseline = await p.evaluate(() => localStorage.getItem('bets-src'));
   const undo = () => undoStep(p);
@@ -3200,7 +3200,7 @@ if(scope.wants("bets")){
   const dp = await browser.newPage({viewport: {width: 420, height: 900}});
   const derrs = trackErrors(dp);
   await dp.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-  await dp.getByRole('button', {name: 'Lantern portfolio'}).click();
+  await openExamples(dp); await dp.getByRole('button', {name: 'Lantern portfolio'}).click();
   check('bets desktop-narrow: a fine-pointer narrow viewport still relayouts (data-narrow)', await until(async () => (await dp.evaluate(() => !!document.querySelector('#preview svg [data-narrow]')))));
   await dp.locator('#preview svg g[data-edit="addbet"][data-line="4"]').click();
   await dp.locator('.eip-input').fill('Fine pointer add');

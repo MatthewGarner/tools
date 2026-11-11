@@ -30,6 +30,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body data-visual-family="observatory" class="mg-site">
 <!-- identity:header:start -->
@@ -41,20 +45,39 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <header data-tool-header>
-    <a class="crumb" href="/">← All tools</a>
-    <h1 title="Timing forecast · ranges, not promises">Timeline</h1>
-    <div class="instrument-actions">
-      <button class="btn" id="exportdeck" type="button" data-icon="download">Export deck</button>
-      <button class="btn" id="editsource" type="button" data-icon="edit">Edit source</button>
+  <header data-tool-header data-shell>
+    <p class="kicker" id="kicker"></p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Timeline</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <p class="tool-note">Draft saved in this browser</p>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
     </div>
+    <!-- shell:end -->
   </header>
 </div>
 
 <main id="main" tabindex="-1">
+<div class="wrap"><div class="tool-stage-row">
+  <button class="btn" id="exportdeck" type="button" data-icon="download">Export deck</button>
+  <button class="btn" id="editsource" type="button" data-icon="edit">Edit source</button>
+</div></div>
 <div class="workspace" id="workspace">
     <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
       <div id="cmhost" aria-label="Timeline source editor"></div>
       <ul id="warns"></ul>
       <details class="syntax">
@@ -139,6 +162,7 @@
 
 <div class="wrap">
   <details class="about"><summary>About this timeline</summary>
+    <p><strong>Timing forecast · ranges, not promises.</strong> Map milestones, uncertainty ranges and dependencies, and compare how the plan has moved.</p>
     <p>Timeline forecasts when milestones may finish. It does not decide which conditional work belongs in the plan; use <a href="/paths/">Paths</a> and <a href="/roadmap/">Roadmap</a> for those decisions.</p>
     <p>Finish ranges express uncertainty: P50 is the median forecast and P90 allows more time. A recorded start supplies calendar-span context, not a progress estimate. Fixed events and actual finishes retain their own marks.</p>
     <p>Snapshot before a review, then select it in History to compare forecasts. Snapshots stay in this browser.</p>

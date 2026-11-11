@@ -31,6 +31,10 @@
 <script type="module" src="/assets/suite-navigation.js"></script>
 <!-- identity:head:end -->
 <link rel="stylesheet" href="/assets/recent-work.css">
+<!-- shell:head:start -->
+<link rel="stylesheet" href="/assets/tool-shell.css">
+<script type="module" src="/assets/tool-shell.js"></script>
+<!-- shell:head:end -->
 </head>
 <body class="mg-site">
 <!-- identity:header:start -->
@@ -42,18 +46,34 @@
 </div>
 <!-- identity:header:end -->
 <div class="wrap">
-  <nav class="series" aria-label="The ember series">
-    <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
-    <a href="../risk/"><span class="enum">E2</span>Risk</a>
-    <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
-    <a href="../merit-order/" aria-current="page"><span class="enum">E4</span>Merit order</a>
-    <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
-  </nav>
-  <header data-tool-header>
-    <a class="crumb" href="../">← All energy tools</a>
+  <header data-tool-header data-shell>
+    <nav class="series" aria-label="The ember series">
+      <a href="../" aria-label="All energy tools">All</a>
+      <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
+      <a href="../risk/"><span class="enum">E2</span>Risk</a>
+      <a href="../frequency/"><span class="enum">E3</span>Frequency</a>
+      <a href="../merit-order/" aria-current="page"><span class="enum">E4</span>Merit order</a>
+      <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
+    </nav>
     <p class="kicker" id="kicker"></p>
-    <h1>Merit order</h1>
-    <p class="tagline">The 2026 Great Britain fleet stacked cheapest-first — or a 2035 net-zero world from NESO's Future Energy Scenarios. Drag demand and watch which plant sets the price: cheap gas today, or hydrogen when the wind drops in a decarbonised grid.</p>
+    <!-- shell:start -->
+    <div class="tool-titlerow" data-shell-row>
+      <h1>Merit order</h1>
+      <details class="tool-file" data-shell-file>
+        <summary>File</summary>
+        <div class="tool-menu">
+          <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
+          <button type="button" data-act="new-template" disabled>New from template…</button>
+          <button type="button" data-act="work" disabled>Your work…</button>
+          <button type="button" data-act="save" disabled>Save a copy…</button>
+          <button type="button" data-act="template" disabled>Save as template…</button>
+          <a href="/backup/" data-act="backup">Backup &amp; restore</a>
+        </div>
+      </details>
+      <button type="button" data-act="share" class="tool-share" disabled>Share</button>
+      <p class="tool-status" role="status"></p>
+    </div>
+    <!-- shell:end -->
   </header>
 </div>
 
@@ -64,7 +84,6 @@
     <div id="chartwrap"></div>
     <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
     <div class="actions">
-      <button class="btn" id="copylink">Copy model link</button>
       <button class="btn primary" id="copypng">Copy PNG</button>
       <details class="action-disclosure">
         <summary class="btn">Export</summary>
@@ -115,6 +134,7 @@
   <section class="about">
     <h2>What sets the price</h2>
     <div class="prose">
+    <p>The 2026 Great Britain fleet stacked cheapest-first — or a 2035 net-zero world from NESO's Future Energy Scenarios. Drag demand and watch which plant sets the price: cheap gas today, or hydrogen when the wind drops in a decarbonised grid.</p>
     <p>Every plant <b>offers</b> power at a price and the grid takes the cheapest first. For thermal plant that offer is roughly its fuel-plus-carbon cost — near zero for wind, solar and nuclear, higher for gas. Stack them cheapest-first and the demand line lands on one plant, the <b>marginal unit</b>; in a <b>pay-as-clear</b> market everyone dispatched is paid that one plant's price, and the cheaper plants pocket the difference (their inframarginal rent). So a typical day is still priced by gas whenever the last megawatt needed comes from a CCGT.</p>
     <p>The gas fleet isn't one plant — it's a <b>range of efficiencies</b>. Each band's cost is fuel ÷ efficiency, plus carbon, so the most efficient CCGT sets a lower price than the oldest, and a gas-price spike fans the whole staircase apart. Which gas unit is marginal is what moves the price.</p>
     <p><b>Batteries and pumped storage bid their charging cost</b> — what they paid to fill, divided by round-trip efficiency — which sits below gas, so they're dispatched <i>ahead</i> of gas and push it out of the stack. The shaded rent on a battery is the <b>arbitrage spread</b> it earns off the gas-set price, not a fuel margin. This is a snapshot of storage discharging only; the charging leg and its energy limit over a day aren't drawn. A ~1.8-hour fleet can't hold full power for long — which is why a long, still, cold evening empties it and the oldest gas sets the price. The full charge→discharge cycle is a sibling toy's job.</p>

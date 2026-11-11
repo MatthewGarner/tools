@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* URL-local Proxy Hunt shell: source -> parse -> project -> render. */
 import {parse} from './parse.js';
@@ -10,13 +10,12 @@ import {createEditor} from './editor.js';
 import {EXAMPLES} from './example.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {download, isDark, measure, pngRasterPlan, slugify, svgToCanvas, themeColors,
-  onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
+  onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
@@ -203,28 +202,8 @@ $('viewreceipt').addEventListener('click', focusReceipt);
 watchNarrowBucket(preview, () => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 onThemeChange(() => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 
-exampleChips($('chips'), EXAMPLES, example => { selectedTheoryId = null; editor.setText(example.src); }, {start: {src: STARTER}});
-mountDocumentStart($('chips'));
-const SAVED_KEY = 'proxy-saved';
-function renderSaved(){
-  const host = $('savedrow');
-  renderSavedChips(host, loadSaved(SAVED_KEY), {
-    deleteLabel:item => `Delete saved hunt ${item.name}`,
-    onLoad:item => { selectedTheoryId = item.selectedTheoryId || null; editor.setText(item.src); },
-    onDelete:(_item, index) => {
-      const list = loadSaved(SAVED_KEY); list.splice(index, 1); storeSaved(SAVED_KEY, list); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip'; save.type = 'button'; save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!hunt) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name:(hunt.title || `Hunt ${list.length + 1}`).slice(0, 32), src:editor.getText(), selectedTheoryId});
-    storeSaved(SAVED_KEY, list); renderSaved();
-  });
-  host.appendChild(save);
-}
+const startFrom = example => { selectedTheoryId = null; editor.setText(example.src); };
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
@@ -251,7 +230,6 @@ $('receiptpng').addEventListener('click', () => {
   }, 'image/png'), () => flash(button, 'PNG unavailable — use SVG', original));
 });
 
-renderSaved();
 wireSyntaxTry(document.querySelector('details.syntax'), editor,
   ['title', 'date', 'outcome', 'proxy', 'action', 'mode', 'optimisation-pressure', 'trade-off', 'decision-rule',
     'verdict', 'palette', 'accent']);
@@ -266,4 +244,4 @@ wireSyntaxTry(document.querySelector('details.syntax'), editor,
   else autoloadExample(() => editor.setText(EXAMPLES[0].src));
 })();
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

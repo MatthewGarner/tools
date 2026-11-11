@@ -1,6 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {decodeHash} from '../../assets/series.js';
+import {fileItem, openExamples} from './_harness.mjs';
 const base = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
 const context = await browser.newContext({viewport:{width:1440,height:1000}, reducedMotion:'reduce', serviceWorkers:'block'});
@@ -58,19 +59,19 @@ await test('Document start and sharing actions are independent of source',async(
   for(const tool of ['timeline','map','why','wardley','paths','proxy']){
     await page.goto(base+'/'+tool+'/');
     await page.locator('#preview svg').waitFor();
-    await page.getByRole('button',{name:'Start your own',exact:true}).click();
+    // New, Examples and Share live in the header's File menu and Share button.
+    await page.locator('[data-tool-header][data-shell-ready]').waitFor({state:'attached'});
+    await fileItem(page,'New');
     await page.waitForFunction(()=>document.querySelector('#preview svg')?.textContent.includes('Your'));
-    await page.getByRole('button',{name:'Copy model link',exact:true}).click();
-    await page.getByRole('status').filter({hasText:'Model link copied'}).waitFor();
+    await page.locator('[data-act=share]').click();await page.getByRole('status').filter({hasText:'Link copied. It opens as a separate copy.'}).waitFor();
     const url=await page.evaluate(()=>navigator.clipboard.readText());
     const model=await decodeHash(new URL(url).hash.slice(1));
     assert.match(model.t,/Your/i,tool+' links the starter');
     const recipient=await context.newPage();await recipient.goto(url);
     await recipient.waitForFunction(()=>document.querySelector('#preview svg')?.textContent.includes('Your'));
     await recipient.close();
-    await page.locator('.document-examples summary').click();
-    await page.locator('#chips button').first().click();
-    assert.equal(await page.locator('.document-examples').evaluate(el=>el.open),false);
+    await openExamples(page);await page.locator('[data-shell-examples-list] button').first().click();
+    assert.equal(await page.locator('[data-shell-file]').evaluate(el=>el.open),false,tool+' choosing an example closes File');
   }
 });
 await test('Document example menus fit phones and keep every choice at least 44px',async()=>{
@@ -79,11 +80,12 @@ await test('Document example menus fit phones and keep every choice at least 44p
     const p=await phone.newPage();
     for(const tool of ['timeline','map','why','wardley','paths','proxy','energy/cycles','energy/risk']){
       await p.goto(base+'/'+tool+'/');await p.locator('#preview svg').waitFor();
-      await p.locator('.document-examples summary').click();
-      const geometry=await p.locator('#chips').evaluate(menu=>{
+      await p.locator('[data-tool-header][data-shell-ready]').waitFor({state:'attached'});await openExamples(p);
+      const geometry=await p.locator('[data-shell-file] .tool-menu').evaluate(menu=>{
         const box=menu.getBoundingClientRect(),viewport=document.documentElement.clientWidth;
+        const buttons=menu.querySelectorAll('[data-shell-examples-list] button');
         return {left:box.left,right:box.right,viewport,scroll:menu.scrollWidth,width:menu.clientWidth,
-          choices:[...menu.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {height:r.height,left:r.left,right:r.right};})};
+          choices:[...buttons].map(b=>{const r=b.getBoundingClientRect();return {height:r.height,left:r.left,right:r.right};})};
       });
       assert.ok(geometry.left>=0 && geometry.right<=geometry.viewport+1,tool+' menu fits viewport');
       assert.ok(geometry.scroll<=geometry.width+1,tool+' has no horizontal menu scrolling');
@@ -94,6 +96,14 @@ await test('Document example menus fit phones and keep every choice at least 44p
       }
     }
     await phone.close();
+  }
+});
+await test('Every Energy tool page reaches the Energy landing from its strip',async()=>{
+  for(const tool of ['cycles','risk','frequency','merit-order','intraday']){
+    await page.goto(base+'/energy/'+tool+'/');
+    const all=page.locator('[data-tool-header] .series a[aria-label="All energy tools"]');
+    assert.equal(await all.count(),1,tool+' has the All energy tools item');
+    await all.click();await page.waitForURL(u=>new URL(u).pathname==='/energy/');
   }
 });
 await browser.close();

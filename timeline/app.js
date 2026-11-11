@@ -1,6 +1,7 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
+import {paintKicker} from '../assets/verdict.js';
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineVerdict, timelineReadout} from './render.js';
@@ -13,7 +14,7 @@ import {validators, editLabel, editDates, setStatus, setLane, editNote,
 import {readHashState, writeHashState} from '../assets/series.js';
 import {handoffReturnHref} from '../assets/handoff.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {observatoryPages, observatoryColors} from './observatory.js';
 import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
 import {stripEmbeddedFonts} from '../assets/chapter-fonts.js';
@@ -234,9 +235,9 @@ const eip = attachEditInPlace($('preview'), {
   },
 });
 
-/* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+/* ---------- examples and the blank start: File menu ---------- */
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 /* ---------- exports ---------- */
 function svgString(intent){
@@ -366,6 +367,7 @@ new ResizeObserver(()=>{
 }).observe($('preview'));
 
 /* ---------- boot ---------- */
+paintKicker($('kicker'), '02', 'Ranges, not promises');
 (async function(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
@@ -494,4 +496,4 @@ $('slidepreviewdialog').addEventListener('keydown',event=>{
   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 });
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

@@ -20,6 +20,12 @@ test('a scaffold shares one bounded definition between its full app and article 
     assert.match(result.summary,/20 units/);assert.match(result.summary,/500/);
     assert.match(fs.readFileSync(path.join(root,'starter/app.js'),'utf8'),/mode:'tool'/);
     assert.match(fs.readFileSync(path.join(root,'starter/index.html'),'utf8'),/Cost &amp; capacity/);
+    const page=fs.readFileSync(path.join(root,'starter/index.html'),'utf8');
+    assert.match(page,/<div class="wrap"><header data-tool-header><p class="kicker" id="kicker"><\/p><h1>Cost &amp; capacity<\/h1><\/header><\/div>/);
+    assert.match(page,/<main id="main" tabindex="-1"><div id="embed">/);
+    assert.match(page,/assets\/tokens\.css/);
+    assert.match(fs.readFileSync(path.join(root,'starter/app.js'),'utf8'),/mountModelLink\(/);
+    assert.doesNotMatch(fs.readFileSync(path.join(root,'starter/README.md'),'utf8'),/8089/);
     assert.throws(()=>createTool({root,id:'starter',title:'Overwrite'}),/replace/);
     assert.throws(()=>createTool({root,id:'../escape',title:'Escape'}),/hyphenated/);
   }finally{fs.rmSync(root,{recursive:true,force:true});}

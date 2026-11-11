@@ -579,18 +579,16 @@ test('per-page load stays under budget', () => {
     // Personal work: ~8k for durable organisation/change dates, ~10k for the
     // template store/editor. Catalogue pages deliberately exclude that editor.
     const personal = (files.has('assets/work-metadata.js') ? 8_000 : 0) + (files.has('assets/template-ui.js') ? 10_000 : 0);
-    // Shared tool header (2026-11): what a stamped page loads at first paint that it did not
-    // before. Measured against the pre-shell pages: Alarm +15.7k (tool-shell.js 5.4k + .css 5.7k +
-    // model-link and popover focus it lacked 6.1k, less ~1.5k its header and Copy link handler lost), Roadmap
-    // +8.2k, Fermi +4.6k (both already carried model-link and popover focus). 17k = Alarm's cost
-    // plus 1.3k. The Your work panel (tool-work.js and its imports) is LAZY, fetched on first use,
-    // and is capped separately below. Paid by every stamped page, so Phase 2 needs no per-page raises.
-    // Pages not yet stamped still load the hand-off code the shell added to the shared save, share,
-    // template and popover modules: +1.84k measured (recent-ui 470, model-link 452, recent-work 339,
-    // template-ui 308, popover-focus 226, the two stores 43). Merged with the 2026-11 CodeMirror
-    // update (+2.5k on main) that put Tree, Map, Wardley and Bets 28-1,334 bytes over. Transitional:
-    // delete this line when Phase 2 stamps the last page and the 17k above covers every one.
-    const shell = files.has('assets/tool-shell.js') ? 17_000 : files.has('assets/recent-work.js') ? 2_000 : 0;
+    // Shared tool header (2026-11): what a stamped page loads at first paint beyond its pre-shell
+    // budget, measured on all 23 stamped pages after the retirements (the chip-row on-ramp, the injected
+    // save/share buttons and their CSS are gone). Largest: Rank +19.6k, Premortem +17.5k, Frequency +17.4k,
+    // Gauge +15.3k, Flow +14.4k, then Cycles, Risk, Signal vs noise, Wardley 13.4-14.0k, the rest below
+    // 12k (tool-shell.js and .css with the Energy strip rules, model-link, popover focus, kicker and
+    // recent-ui additions). Fix round 2 (2026-11-11: menu fit, popover set, a page's own Share refusal,
+    // the 320px title step) added 2.0k of shared code, so Rank is +21.6k. 22.5k = the largest plus 0.9k. The Your work panel (tool-work.js and
+    // its imports) is LAZY, fetched on first use, and is capped separately below. Paid by every
+    // stamped page, so no per-page raises, and no transitional allowance for unstamped pages: none left.
+    const shell = files.has('assets/tool-shell.js') ? 22_500 : 0;
     const limit =budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal + shell;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }

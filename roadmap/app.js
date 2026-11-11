@@ -807,7 +807,7 @@ attachEditInPlace($('verdict').parentElement, {
 });
 
 /* ---------- example + import chips ---------- */
-mountModelLink(null, {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});
 provide({
   blank: () => { editor.setText(STARTER); ws.setCollapsed(true); },
   examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)})),

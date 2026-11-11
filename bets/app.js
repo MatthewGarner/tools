@@ -1,4 +1,5 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
+import {offer as provide} from '../assets/recent-ui.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved portfolios, exports, boot, snapshot compare
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
@@ -14,7 +15,7 @@ import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
   renameBet, removeBet, addBetLine, addGroupLine,
   addedBetTarget, addedGroupTarget, addedKillTarget} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
@@ -24,7 +25,6 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {applyLineOps} from '../assets/editor-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {STARTER} from './starter.js';
@@ -284,31 +284,8 @@ const eip = attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
 
-/* ---------- saved portfolios ---------- */
-const SAVED_KEY = 'bets-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved portfolio ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!hasBets(model)) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Portfolio ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function nativeSvgString(){
@@ -348,7 +325,6 @@ wireCopyVerdict($('verdict'));
   if(!text){
     try{ text = localStorage.getItem('bets-src') || ''; }catch(e){}
   }
-  renderSaved();
   syncViewToggle();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
@@ -358,4 +334,4 @@ wireCopyVerdict($('verdict'));
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'unit']);
 
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

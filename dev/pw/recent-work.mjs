@@ -33,9 +33,9 @@ try{
   assert.deepEqual(errors,[],tool);console.log('PASS Recent work capture and reopen: '+tool);await ctx.close();
  }
  const ctx=await browser.newContext(contextOptions),page=await ctx.newPage();
- await page.goto(energy+'/frequency/');await page.locator('.recent-save').waitFor();
+ await page.goto(energy+'/frequency/');await recentReady(page);
  // Same event turn as the edit: a debounced location.hash would still be stale.
- await page.evaluate(()=>{const i=document.querySelector('#inertia');i.value='155';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.recent-save').click();});
+ await page.evaluate(()=>{const i=document.querySelector('#inertia');i.value='155';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-act=save]').click();});
  await page.locator('.recent-dialog').waitFor();await page.getByLabel('Copy name').fill('Fresh edit');await page.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();
  await page.locator('.recent-dialog').waitFor({state:'detached'});assert.equal((await decodeHash((await records(page))[0].hash)).i,155);
  for(let i=2;i<=4;i++)await save(page,'Grid '+i);
@@ -68,17 +68,17 @@ try{
  await wp.getByLabel('Manage Friday review',{exact:true}).click();await wp.getByRole('button',{name:'Restore Friday review',exact:true}).click();assert.equal(await wp.locator('.work-list li').count(),0);
  await wp.getByRole('combobox',{name:'Show',exact:true}).selectOption('active');await wp.getByRole('link',{name:/Friday review/}).click();assert.equal(await wp.locator('#problem').inputValue(),'Which support change should we try?');
  await organised.close();console.log('PASS Work management: changed-save dates, names, pins, reversible archive and exact native resume');
- const fail=await browser.newContext(contextOptions),fp=await fail.newPage();await fp.goto(base+'/flow/');await fp.locator('.recent-save').waitFor();
+ const fail=await browser.newContext(contextOptions),fp=await fail.newPage();await fp.goto(base+'/flow/');await recentReady(fp);
  await fp.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError');};});
- await fp.locator('.recent-save').click();await fp.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();await fp.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(fp)).length,0);
+ await openSaveCopy(fp);await fp.locator('.recent-dialog').getByRole('button',{name:'Save copy',exact:true}).click();await fp.getByRole('alert').filter({hasText:'Nothing was saved'}).waitFor();assert.equal((await records(fp)).length,0);
  await fp.getByRole('button',{name:'Cancel',exact:true}).click();// Native dialog close dispatches asynchronously; assert restored focus once it has run.
- await fp.waitForFunction(()=>document.activeElement===document.querySelector('.recent-save'));await fail.close();console.log('PASS Recent work quota failure and keyboard focus');
+ await fp.waitForFunction(()=>document.activeElement===document.querySelector('[data-shell-file] summary'));await fail.close();console.log('PASS Recent work quota failure and keyboard focus');
  // A partial Duel setup and a mid-turn Signal exercise are work, too.
- const special=await browser.newContext(contextOptions),sp=await special.newPage();await sp.goto(base+'/duel/');await sp.locator('.recent-save').waitFor();await sp.locator('#question').fill('My draft');await sp.locator('#items').fill('One\nTwo');const draft=await save(sp,'Draft');await sp.goto(base+'/');await sp.goto(base+'/duel/#'+draft.hash);await sp.locator('.recent-save').waitFor();assert.equal(await sp.locator('#items').inputValue(),'One\nTwo');assert.equal(await sp.locator('#setupcard').isVisible(),true);
- await sp.goto(base+'/signal-vs-noise/');await sp.locator('.recent-save').waitFor();await sp.locator('#next').click();const run=await save(sp,'In progress');await sp.goto(base+'/');await sp.goto(base+'/signal-vs-noise/#'+run.hash);await sp.locator('.recent-save').waitFor();assert.equal(await sp.locator('#reveal').isVisible(),true);assert.match(await sp.locator('#next').textContent(),/Go to quarter 2/);await special.close();console.log('PASS Recent work unfinished Duel and Signal sessions');
+ const special=await browser.newContext(contextOptions),sp=await special.newPage();await sp.goto(base+'/duel/');await recentReady(sp);await sp.locator('#question').fill('My draft');await sp.locator('#items').fill('One\nTwo');const draft=await save(sp,'Draft');await sp.goto(base+'/');await sp.goto(base+'/duel/#'+draft.hash);await recentReady(sp);assert.equal(await sp.locator('#items').inputValue(),'One\nTwo');assert.equal(await sp.locator('#setupcard').isVisible(),true);
+ await sp.goto(base+'/signal-vs-noise/');await recentReady(sp);await sp.locator('#next').click();const run=await save(sp,'In progress');await sp.goto(base+'/');await sp.goto(base+'/signal-vs-noise/#'+run.hash);await recentReady(sp);assert.equal(await sp.locator('#reveal').isVisible(),true);assert.match(await sp.locator('#next').textContent(),/Go to quarter 2/);await special.close();console.log('PASS Recent work unfinished Duel and Signal sessions');
  // Installed-app contract: a never-visited instrument can open from the shelf offline.
  for(const [origin,tool] of [[base,'flow'],[energy,'frequency']]){
-  const offline=await browser.newContext({...contextOptions,serviceWorkers:'allow'}),op=await offline.newPage();await op.goto(origin+'/'+tool+'/');await op.locator('.recent-save').waitFor();await save(op,'Offline model');await op.evaluate(()=>navigator.serviceWorker.ready);await op.goto(origin+'/');if(origin===base)await op.locator('.work-disclosure-summary').click();await op.locator('.recent-open').waitFor();await offline.setOffline(true);await op.locator('.recent-open').click();await op.locator('.recent-save').waitFor();assert.equal(new URL(op.url()).pathname,'/'+tool+'/');await save(op,'Offline revision');assert.equal((await records(op)).length,2);await offline.close();
+  const offline=await browser.newContext({...contextOptions,serviceWorkers:'allow'}),op=await offline.newPage();await op.goto(origin+'/'+tool+'/');await recentReady(op);await save(op,'Offline model');await op.evaluate(()=>navigator.serviceWorker.ready);await op.goto(origin+'/');if(origin===base)await op.locator('.work-disclosure-summary').click();await op.locator('.recent-open').waitFor();await offline.setOffline(true);await op.locator('.recent-open').click();await recentReady(op);assert.equal(new URL(op.url()).pathname,'/'+tool+'/');await save(op,'Offline revision');assert.equal((await records(op)).length,2);await offline.close();
  }
  console.log('PASS Recent work offline on both installed-app origins');
  if(process.env.RECENT_SCREENSHOTS)await mkdir(process.env.RECENT_SCREENSHOTS,{recursive:true});

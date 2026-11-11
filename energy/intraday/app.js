@@ -76,7 +76,7 @@ async function boot(){
   const renderWidth = el => el.clientWidth || 900;
 
   const shareLink = () => modelLink('intraday', encodeDayState(p, preset));
-  wireModelLink($('copylink'), shareLink);
+  wireModelLink(shareLink);
   const outcome = document.createElement('p'); outcome.className='energy-outcome'; outcome.setAttribute('aria-live','polite');
   document.querySelector('.controls').parentElement.prepend(outcome);
   const updatePlants = mountTargetPicker(stackEl.parentElement, {label:'Inspect plant',

@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {parse} from './parse.js';
 import {resolve, zoneFor} from './zones.js';
@@ -11,9 +11,8 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref} from '../assets/handoff.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -197,31 +196,9 @@ attachEditInPlace($('preview'), {
   },
 });
 
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
-const SAVED_KEY = 'map-saved';
-function renderSaved(){
-  const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    deleteLabel: m => 'Delete saved map ' + m.name,
-    onLoad: m => editor.setText(m.src),
-    onDelete: (m, i) => {
-      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
-    },
-  });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = 'Save on this device';
-  save.addEventListener('click', () => {
-    if(!hasContent()) return;
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: model.title ? model.title.slice(0, 28) : 'Map ' + (list.length + 1), src: editor.getText()});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
-}
 
 paintKicker($('kicker'), '06', 'Two axes, named zones');
 
@@ -405,7 +382,6 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('map-src') || ''; }catch(e){}
   }
-  renderSaved();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
@@ -413,4 +389,4 @@ onThemeChange(rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['preset', 'title', 'palette', 'accent', 'x', 'y', 'zones', 'verdict']);
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

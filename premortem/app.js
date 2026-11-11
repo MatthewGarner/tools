@@ -1,5 +1,6 @@
-import {toSnapshotLink} from './links.js';
+import {toSnapshotLink, toShareLink} from './links.js';
 import {mountRecentSave} from '../assets/recent-work.js';
+import {offer as provide} from '../assets/recent-ui.js';
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
    the DOM, the phase machine wiring, localStorage autosave, the WRITE timer, undo,
    and import-from-link. The doc is the single state; every mutation autosaves. */
@@ -69,11 +70,11 @@ function render(paint = {}){
   const reg = view === 'register';
   $('phaserail').hidden = reg;
   $('navbar').hidden = reg;
-  if(reg){ $('phasepanel').innerHTML = (promotionNote ? '<p class="promotion-seam">' + promotionNote + '</p>' : '') +
-    renderPhase({...doc, phase: 'REGISTER'}, new Date()); finishPaint(paint); return; }
+  if(reg){ paintPhase((promotionNote ? '<p class="promotion-seam">' + promotionNote + '</p>' : '') +
+    renderPhase({...doc, phase: 'REGISTER'}, new Date())); finishPaint(paint); return; }
   reached.add(doc.phase);
   renderRail();
-  $('phasepanel').innerHTML = renderPhase(doc, new Date());
+  paintPhase(renderPhase(doc, new Date()));
   const gate = canAdvance(doc);
   $('next').hidden = doc.phase === 'REGISTER';
   $('next').disabled = !gate.ok;
@@ -419,24 +420,23 @@ $('phasepanel').addEventListener('click', e => {
     if(timer){ clearInterval(timer); timer = 0; }
     mutate(() => { doc = advance(doc); }, {phaseFocus: true});
   }
-  else if(d.act === 'copylink'){ copyLink(); }
   else if(d.act === 'copydoc'){ copyDoc(); }
   else if(d.act === 'reviewall'){ if(confirm('Mark every ' + (modeOf(doc) === 'success' ? 'opportunity' : 'risk') + ' reviewed today?')) mutate(() => {
     const now = new Date().toISOString(); doc.entries.forEach(en => { en.lastReviewed = now; }); },
     {focus: '[data-act="reviewall"]', announce: 'All ' + (modeOf(doc) === 'success' ? 'opportunities' : 'risks') + ' marked reviewed.'}); }
 });
-async function copyLink(){
-  const link = await toLink(withoutHandoffMeta(doc));
-  const url = location.origin + location.pathname + (link || '');
-  if(!link){ alert('This register is too large for a link — use "Copy as markdown" instead.'); return; }
-  try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch(e){ prompt('Copy this link:', url); }
-}
 async function copyDoc(){
   const md = markdown(doc, exposure(doc.entries.filter(isRisk)), new Date());
   try{ await navigator.clipboard.writeText(md); toast('Copied for a doc'); }catch(e){ prompt('Copy this:', md); }
 }
+/* Share in the header is the one link. render-register.js still emits its own "Copy link" because that module is
+   frozen into the published article model (premortem@1); the page drops the button rather than alter that release. */
+function paintPhase(html){
+  const panel = $('phasepanel'); panel.innerHTML = html;
+  for(const b of panel.querySelectorAll('[data-act="copylink"]')) b.remove();
+}
 function toast(msg){
-  const b = $('phasepanel').querySelector('[data-act="copylink"]');
+  const b = $('phasepanel').querySelector('[data-act="copydoc"]');
   if(!b) return; const was = b.textContent; b.textContent = msg; setTimeout(() => { b.textContent = was; }, 1500);
 }
 
@@ -479,4 +479,6 @@ $('boardpanel').addEventListener('click', e => {
   else { doc = exampleDoc(); saveNow(); render(); }   // greet with a populated register, not a blank form
 })();
 
-mountRecentSave({host:document.querySelector('#workspace .toolbar'),getState:()=>doc&&withoutHandoffMeta(doc),getHash:toSnapshotLink,note:'Opens as a separate register. Use Save as new there to keep editing it in Premortem.'});
+mountRecentSave({getState:()=>doc&&withoutHandoffMeta(doc),getHash:toSnapshotLink,note:'Opens as a separate register. Use Save as new there to keep editing it in Premortem.'});
+/* File > New starts a premortem, as "New premortem" on the registers list does */
+provide({blank: () => $('newbtn').click(), getHash: toShareLink});   // Share's own refusals; Save a copy keeps toSnapshotLink's
