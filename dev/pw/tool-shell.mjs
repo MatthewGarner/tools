@@ -28,7 +28,8 @@ const originOf = dir => isEnergy(dir) ? E : T;
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { scope.checked(); if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
-const SHELLS = (MODE === 'core' ? PILOT : GROUPS[MODE]).filter(dir => SHELL_MANIFEST[dir]?.shell);
+/* SHELL_FIXTURES_ONLY=1 (a local shortcut, never set by the runner) skips the per-page runs and drives only the synthetic-page fixtures */
+const SHELLS = process.env.SHELL_FIXTURES_ONLY === '1' ? [] : (MODE === 'core' ? PILOT : GROUPS[MODE]).filter(dir => SHELL_MANIFEST[dir]?.shell);
 
 /* What File must offer, from the manifest alone. */
 const menuNames = e => [
@@ -1073,6 +1074,26 @@ mountModelLink({getState: () => ({t: 'fixture'})});`);
     ok(errors.length === 0, 'hand-off: no console errors (' + errors.join(' | ').slice(0, 120) + ')');
     await context.close();
     }catch(error){ ok(false, `hand-off fixture: stopped — ${String(error).split('\n')[0]}`); await closeLeftovers(); }
+  }
+  /* the Your work panel is lazy: failing to load it and the panel itself throwing are different messages */
+  for(const [label, mode, want] of [
+    ['the module cannot be fetched', 'abort', 'Could not load that. Reload and try again.'],
+    ['the panel throws while opening', 'throw', 'Something went wrong opening that.'],
+  ]){
+    try{
+      const html = fixture(`provide({blank: () => log('start'), save: () => {}}); mountModelLink({getState: () => ({t: 'x'})});`);
+      const context = await browser.newContext(laptopOpts), page = await context.newPage(), errors = trackErrors(page);
+      await context.route(T + '/why/', route => route.fulfill({contentType: 'text/html', body: html}));
+      await context.route('**/assets/tool-work.js', route => mode === 'abort' ? route.abort() : route.fulfill({contentType: 'text/javascript', body: 'export function openWork(){ throw new Error("boom"); } export function saveTemplate(){}'}));
+      await page.goto(T + '/why/', {waitUntil: 'networkidle'});
+      await page.waitForFunction(() => !document.querySelector('[data-act=work]').disabled);
+      await fileItem(page, 'Your work…');
+      await until(async () => (await status(page).textContent()).length > 0);
+      const said = await status(page).textContent();
+      ok(said === want, `lazy panel: when ${label}, the status says ${JSON.stringify(want)} (said ${JSON.stringify(said)})`);
+      if(mode === 'throw') ok(errors.some(e => /boom/.test(e)), 'lazy panel: an error thrown by the panel reaches the console, not just the status line');
+      await context.close();
+    }catch(error){ ok(false, `lazy panel: ${label}: stopped — ${String(error).split('\n')[0]}`); await closeLeftovers(); }
   }
   for(const [label, script, want] of [
     ['a page whose link builder returns nothing', `provide({getHash: async () => ''}); mountModelLink({getState: () => ({t: 'x'})});`, 'This model is too large for a link. Export the source instead.'],

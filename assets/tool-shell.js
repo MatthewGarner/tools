@@ -93,8 +93,12 @@ function init(row){
   const shareButton = row.querySelector('[data-act=share]');
   /* the panel is its own module, fetched on first use */
   const lazy = async fn => {
-    try{ fn(await import('./tool-work.js')); }
-    catch{ status.textContent = 'Could not load that. Reload and try again.'; }
+    let loaded;
+    try{ loaded = await import('./tool-work.js'); }
+    catch{ status.textContent = 'Could not load that. Reload and try again.'; return; }
+    /* a bug inside the panel is not a load failure: say so, and keep the error visible in the console */
+    try{ await fn(loaded); }
+    catch(error){ status.textContent = 'Something went wrong opening that.'; console.error(error); }
   };
   const work = section => lazy(m => m.openWork({name, caps, opener: summary, status, section, workspaces: row.dataset.workspaces}));
   const run = {
