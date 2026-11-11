@@ -52,7 +52,7 @@ function init(row){
   row.addEventListener('shell-offer', absorb); absorb();
 
   /* ---- File menu ---- */
-  const POPOVER = 'details.action-disclosure';
+  const POPOVER = ':is(details.action-disclosure, details[data-shell-popover])';
   const closeMenu = () => { file.open = false; };
   const closeAndFocus = () => { closeMenu(); summary.focus(); };
   let trapped = false;
@@ -65,6 +65,11 @@ function init(row){
   });
   /* opening another popover (Roadmap's Appearance) closes File */
   document.addEventListener('toggle', e => { if(file.open && e.target.matches?.(POPOVER) && e.target.open) closeMenu(); }, true);
+  /* a popover the page marks data-shell-popover (Case's Appearance) closes on Escape and gives focus back */
+  document.addEventListener('keydown', e => {
+    const pop = e.key === 'Escape' && e.target.closest?.('details[data-shell-popover][open]');
+    if(pop){ e.preventDefault(); pop.open = false; pop.querySelector('summary')?.focus(); }
+  });
   file.addEventListener('keydown', e => { if(e.key === 'Escape' && file.open){ e.preventDefault(); closeAndFocus(); } });
   file.addEventListener('focusout', e => { if(file.open && e.relatedTarget && !file.contains(e.relatedTarget)) closeMenu(); });
   document.addEventListener('pointerdown', e => { if(file.open && !file.contains(e.target)) closeMenu(); });

@@ -283,6 +283,29 @@ for(const dir of SHELLS){
       await long.context.close();
     }
 
+    /* Case's Appearance menu is a popover too: one popover open at a time, Escape closes it and returns focus */
+    if(dir === 'case'){
+      const pop = await open(dir, laptopOpts), pp = pop.page, openCount = () => pp.evaluate(() => document.querySelectorAll('[data-shell-file][open], #appearance[open]').length);
+      /* toggle events arrive a task later: wait for the count to settle */
+      const settledCount = async () => { await pp.waitForTimeout(150); return openCount(); };
+      await pp.locator('#appearance summary').click();
+      await pp.locator('[data-shell-file] summary').click();
+      const afterFile = await settledCount();
+      ok(afterFile === 1 && await pp.evaluate(() => document.querySelector('[data-shell-file]').open), `${dir}: opening File closes Appearance (open popovers: ${afterFile})`);
+      await pp.keyboard.press('Escape');
+      ok(await openCount() === 0 && await pp.evaluate(() => document.activeElement === document.querySelector('[data-shell-file] summary')), `${dir}: Escape closes File and returns focus to it`);
+      await pp.locator('#appearance summary').click();
+      await pp.locator('#appearance select').first().focus();
+      await pp.keyboard.press('Escape');
+      ok(await openCount() === 0 && await pp.evaluate(() => document.activeElement === document.querySelector('#appearance summary')), `${dir}: Escape closes Appearance and returns focus to it`);
+      await pp.locator('[data-shell-file] summary').click();
+      await pp.locator('#appearance summary').focus();
+      await pp.keyboard.press('Enter');
+      const afterApp = await settledCount();
+      ok(afterApp === 1 && await pp.evaluate(() => document.querySelector('#appearance').open), `${dir}: opening Appearance closes File (open popovers: ${afterApp})`);
+      await pop.context.close();
+    }
+
     /* Premortem supplies its own link builder, which throws on an oversize register: Share must keep that guard */
     if(dir === 'premortem'){
       const big = await open(dir, laptopOpts);
