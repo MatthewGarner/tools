@@ -1284,11 +1284,10 @@ if(scope.wants("why")){
   await nctx.close();
 }
 
-/* ---- "Start your own" on a phone (2026-08-15) ----
-   Every tool autoloads an example, so on a phone the starter is the only route to a
-   document that is yours. The chip lives inside the source rail, which is collapsed on
-   most tools at this width — so this checks it is REACHABLE (open the rail, chip visible),
-   a real 44px target, and that tapping it actually swaps the artefact. */
+/* ---- the blank start on a phone: File > New ----
+   Every tool autoloads an example, so on a phone New is the only route to a document that is yours.
+   This checks it is REACHABLE (File open, item visible), a real 44px target, and that tapping it
+   actually swaps the artefact. */
 {
   const sctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   for(const [name, marker] of [['roadmap', 'Your roadmap'], ['wardley', 'Your landscape'],

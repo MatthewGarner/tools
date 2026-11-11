@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 /* The link behaviour (click-time state, denied-clipboard fallback, oversize guard)
-   lives in shareModel, shared by the injected "Copy model link" button and the
+   lives in shareModel, used by the
    shell's Share. This drives it on a synthetic host so it works on any page,
    including stamped-shell pages, where mountModelLink hands off to the shell. */
 export async function checkModelLink(page){
