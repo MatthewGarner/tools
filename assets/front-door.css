@@ -27,7 +27,7 @@
 .door-resume-list a { display: grid; gap: .1rem; min-height: 44px; padding-block: .5rem; border-top: 1px solid var(--mg-line, var(--border)); }
 .door-resume-list .door-name { font-size: 1.25rem; }
 .door-resume-list .door-line { font-size: .9375rem; }
-.door-resume-favourites, .door-resume-all { margin: 0; font-size: 1rem; }
+.door-resume-favourites, .door-resume-all { display: inline-block; margin: 0 1.5rem 0 0; font-size: 1rem; }
 .door-resume-favourites { padding-top: .25rem; color: var(--mg-muted, var(--muted)); }
 .door-resume-favourites a, .door-resume-all a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-inline: .5rem; color: var(--mg-ink, var(--ink)); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
 .door-resume-favourites a:first-child { padding-left: 0; }
@@ -42,12 +42,12 @@
 /* ---- instruments: one ruled row per job ---- */
 .door-jobs { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--mg-line, var(--border)); }
 .door-job {
-  display: grid; grid-template-columns: 14rem minmax(0, 24rem) minmax(0, 1fr);
+  display: grid; grid-template-columns: 14rem minmax(0, 26rem) minmax(0, 1fr);
   column-gap: 1.5rem; align-items: start;
   padding-block: 1.25rem; border-top: 1px solid var(--mg-line, var(--border));
 }
 .door-job-title { margin: 0; padding-top: .25rem; font: 600 1.75rem/1.15 var(--mg-display, sans-serif); letter-spacing: -.015em; }
-.door-flagship { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 1rem; align-items: start; min-height: 44px; }
+.door-flagship { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 1rem; align-items: start; min-height: 44px; }
 .door-flagship .sketch { margin-top: .35rem; }
 .door-flagship .door-copy { display: grid; gap: .25rem; }
 .door-flagship .door-name { font-size: 2rem; line-height: 1.1; }
@@ -73,7 +73,6 @@
 .door-energy-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0 1.5rem; border-top: 1px solid var(--mg-line, var(--border)); }
 .door-energy-list a { padding-block: .25rem; font: 600 1.25rem/1.2 var(--mg-display, sans-serif); }
 .door-energy .door-head h2 a { display: inline-flex; align-items: center; min-height: 44px; color: inherit; }
-.door-energy .door-head { padding-bottom: .25rem; }
 .door-foot { display: flex; flex-wrap: wrap; gap: 0 2rem; margin: 2rem 0 0; padding-top: 1rem; border-top: 1px solid var(--mg-line, var(--border)); font-size: 1.125rem; }
 .door-foot a { text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
 

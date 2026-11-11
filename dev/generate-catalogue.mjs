@@ -96,12 +96,12 @@ ${inRoom('workbench').map(bench).join('\n')}
   </ul>
 </section>
 <section class="door-room door-energy" id="energy" aria-labelledby="energy-h">
-  <header class="door-head"><h2 id="energy-h"><a href="/energy/">Energy</a></h2></header>
+  <header class="door-head"><h2 id="energy-h"><a href="/energy/">Energy</a></h2><p>Batteries and power markets, on their own site.</p></header>
   <ul class="door-energy-list" aria-label="Energy tools">
 ${current.filter(t => t.source === 'energy').map(t => `    <li>${link(t, '', escape(t.title))}</li>`).join('\n')}
   </ul>
 </section>
-<p class="door-foot"><a href="/explore/">Search all ${current.length} tools</a><a href="/backup/">Backup &amp; restore</a></p>
+<p class="door-foot"><a href="/explore/">Search all ${current.length} tools</a></p>
 <script type="application/json" id="door-catalog">${JSON.stringify(lite).replace(/</g, '\\u003c')}</script>
 <!-- front-door:end -->`;
 const doorFile = path.join(root, 'home/index.html');
