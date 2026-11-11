@@ -1552,7 +1552,7 @@ if(boot && boot.m === 'cf'){
 paintKicker($('kicker'), '11', 'A number built from its parts');
 wireCopyVerdict($('verdict'), {canCopy: () => !!last && !$('results').classList.contains('is-stale')});
 
-mountModelLink(document.querySelector('.trace-actions'), {getState: () => {
+mountModelLink({getState: () => {
   if(pageMode === 'cf'){ensureFreshCashflow();return cashflowHashState(cf, $('cftin').value);}
   ensureFreshEstimate();scenStore[active]=snapshot();
   return targetHashState(compareOn ? {a:packScen(scenStore.A), b:packScen(scenStore.B), on:active} : packScen(scenStore.A), inboundHandoff);

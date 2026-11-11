@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
@@ -15,7 +15,7 @@ import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
@@ -257,9 +257,9 @@ const whyEip = attachEditInPlace($('preview'), {
   },
 });
 
-/* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+/* ---------- examples and the blank start: File menu ---------- */
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 
 /* ---------- exports (active view) ---------- */
@@ -302,4 +302,4 @@ watchNarrowBucket(previewEl, rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent']);
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

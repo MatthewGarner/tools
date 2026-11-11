@@ -1,5 +1,5 @@
+import {offer as provide} from '../../assets/recent-ui.js';
 import {saveTrackedWork} from '../../assets/work-metadata.js';
-import {mountDocumentStart} from '../../assets/document-start.js';
 import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
 import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
 /* State, refresh loop, edit-in-place, exports, boot. DOM lives here only. */
@@ -11,7 +11,7 @@ import {validators, editField, addKeyLine, removeKeyLine, addedKeyTarget,
   addKeyReturnIdentity} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/workspace.js';
@@ -419,9 +419,9 @@ previewEip = attachEditInPlace($('preview'), {
   },
 });
 
-/* chips */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+/* examples and the blank start: File menu */
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 const shareLink = () => modelLink('cycles', {t: editor.getText(), e: 0});
 wireModelLink(shareLink);

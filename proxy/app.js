@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* URL-local Proxy Hunt shell: source -> parse -> project -> render. */
 import {parse} from './parse.js';
@@ -10,7 +10,7 @@ import {createEditor} from './editor.js';
 import {EXAMPLES} from './example.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {download, isDark, measure, pngRasterPlan, slugify, svgToCanvas, themeColors,
-  onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
+  onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
@@ -202,8 +202,8 @@ $('viewreceipt').addEventListener('click', focusReceipt);
 watchNarrowBucket(preview, () => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 onThemeChange(() => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 
-exampleChips($('chips'), EXAMPLES, example => { selectedTheoryId = null; editor.setText(example.src); }, {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+const startFrom = example => { selectedTheoryId = null; editor.setText(example.src); };
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
@@ -244,4 +244,4 @@ wireSyntaxTry(document.querySelector('details.syntax'), editor,
   else autoloadExample(() => editor.setText(EXAMPLES[0].src));
 })();
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

@@ -114,30 +114,6 @@ export function onThemeChange(fn){
 
 /* Rebuild a soft-warning <ul> from a list of strings. Callers assemble their own
    array (one model, merged models, or a pre-computed extra) and pass it. */
-/* the example-chip row every DSL tool builds: one `.chip` button per item
-   (labelled ex.name) that calls onPick(ex) — replaces a byte-identical 7-line
-   loop copied into 10 tools. Host is the container element (e.g. $('chips')).
-   opts.start = {src, label?} prepends the "Start your own" chip AHEAD of the
-   row's "Try:" lead, so the on-ramp reads before the examples instead of as one
-   of them — every tool autoloads an example, and until 2026-08-15 the examples
-   were the only way in. src is the tool's starter (see <tool>/starter.js). */
-export function exampleChips(host, list, onPick, opts = {}){
-  const chip = (name, pick) => {
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.textContent = name;
-    b.addEventListener('click', pick);
-    return b;
-  };
-  if(opts.start){
-    const {src, label = 'Start your own'} = opts.start;
-    const b = chip(label, () => onPick({name: label, src}));
-    b.classList.add('start');
-    host.insertBefore(b, host.firstChild);
-  }
-  for(const ex of list) host.appendChild(chip(ex.name, () => onPick(ex)));
-}
-
 export function renderWarningList(el, warnings){
   el.textContent = '';
   for(const w of warnings){

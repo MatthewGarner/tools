@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {parse} from './parse.js';
 import {resolve, zoneFor} from './zones.js';
@@ -11,7 +11,7 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref} from '../assets/handoff.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
@@ -196,8 +196,8 @@ attachEditInPlace($('preview'), {
   },
 });
 
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 
 paintKicker($('kicker'), '06', 'Two axes, named zones');
@@ -389,4 +389,4 @@ onThemeChange(rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['preset', 'title', 'palette', 'accent', 'x', 'y', 'zones', 'verdict']);
 
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

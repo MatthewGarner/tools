@@ -12,7 +12,6 @@ body.mg-site > :is(.mg-masthead,.mg-footer){width:min(calc(var(--page-max,1208px
 body.mg-site > .wrap{margin-top:28px}
 /* The collection link in the masthead replaces a repeated back-link; Energy's
    local series already supplies its instrument number above the title. */
-body.mg-site [data-tool-header] > .crumb{display:none}
 :root[data-mg-section='energy'] [data-tool-header] > .kicker{display:none}
 body.mg-site [data-tool-header] h1{font-family:var(--mg-display);font-size:clamp(34px,4vw,52px);line-height:1.14;letter-spacing:-.02em;font-weight:600}
 body.mg-site [data-tool-header] .tagline{font-family:var(--mg-serif);font-size:22px;line-height:1.4;max-width:68ch;font-optical-sizing:auto;color:var(--mg-muted)}

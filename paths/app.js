@@ -1,5 +1,5 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved paths, exports, boot. */
 import {parse, CONFIG_KEYS} from './parse.js';
@@ -31,7 +31,7 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
 import {download, measure, isDark, themeColors, onThemeChange, renderWarningList,
-  pngRasterPlan, slugify, svgToCanvas, exampleChips} from '../assets/app-common.js';
+  pngRasterPlan, slugify, svgToCanvas} from '../assets/app-common.js';
 import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -1551,8 +1551,8 @@ const ws = initWorkspace({
   },
 });
 
-exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+const startFrom = example => editor.setText(example.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 
 function wideSvg(){
@@ -1720,4 +1720,4 @@ export {LANTERN};
 
 function modelLinkState(){ return targetHashState(
     {t:editor.getText(), ...(ws.collapsed() && !sourceAutoFolded ? {e:0} : {})}, inboundHandoff); }
-mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

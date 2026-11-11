@@ -1,6 +1,6 @@
+import {offer as provide} from '../assets/recent-ui.js';
 import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
-import {mountDocumentStart} from '../assets/document-start.js';
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
 import {parse, STAGES} from './parse.js';
 import {layoutMap} from './layout.js';
@@ -10,7 +10,7 @@ import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, addedComponentTarget, removeComponent, addEdge, removeEdge} from './edit-targets.js';
 import {readHashState, writeHashState, PALETTES} from '../assets/series.js';
 import {applyLineOps} from '../assets/editor-common.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
@@ -391,9 +391,9 @@ $('preview').addEventListener('click', e => {
   if(dragClick.consume(pointerId, componentKey)) e.stopPropagation();
 }, true);
 
-/* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
-mountDocumentStart($('chips'));
+/* ---------- examples and the blank start: File menu ---------- */
+const startFrom = ex => editor.setText(ex.src);
+provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function svgString(intent){
@@ -452,4 +452,4 @@ paintKicker($('kicker'), '09', 'The landscape as text');
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent', 'verdict']);
 
-mountModelLink(document.querySelector('.document-actions'), {getState: () => ({t:editor.getText(),e:ws.collapsed()?0:1})});
+mountModelLink({getState: () => ({t:editor.getText(),e:ws.collapsed()?0:1})});

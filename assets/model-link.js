@@ -1,9 +1,9 @@
 import {mountRecentSave} from './recent-work.js';
 import {encodeHash} from './series.js';
-import {shellRow, offer} from './recent-ui.js';
+import {offer} from './recent-ui.js';
 
 // Snapshot the model at click time: location.hash can lag behind a recent edit.
-// Shared by the injected button and the shell's Share; getHash is the same hook
+// Used by the shell's Share; getHash is the same hook
 // Save a copy uses, and the link never comes from location.hash.
 export async function shareModel({getState, getHash, maxLength = 6000, status, button, done = 'Model link copied — opens a separate copy.', title = 'Copy model link'}){
   status.textContent = ''; button.disabled = true;
@@ -34,14 +34,9 @@ export async function shareModel({getState, getHash, maxLength = 6000, status, b
   finally{ button.disabled = false; }
 }
 
-export function mountModelLink(host, {getState, maxLength = 6000, label = 'Copy model link'}){
+/* Every page has the stamped header, so a page's link is Share (and Save a copy): hand the shell the state
+   getter and the size limit. */
+export function mountModelLink({getState, maxLength = 6000}){
   mountRecentSave({getState});
-  if(shellRow()){ offer({shareMax: maxLength}); return null; }
-  const button = document.createElement('button');
-  button.type = 'button'; button.className = 'btn model-link'; button.textContent = label;
-  const status = document.createElement('span');
-  status.className = 'method model-link-status'; status.setAttribute('role', 'status');
-  host.append(button, status);
-  button.addEventListener('click', () => shareModel({getState, maxLength, status, button}));
-  return button;
+  offer({shareMax: maxLength});
 }

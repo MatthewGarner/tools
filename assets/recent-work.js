@@ -2,26 +2,16 @@ import {encodeHash, decodeHash} from './series.js';
 import {RECENT_TOOLS, HASH_LIMIT, snapshotName} from './recent-store.js';
 import {createTemplates} from './template-ui.js';
 
-import {scope,tool,el,button,store,failure,modal,nameField,shellRow,offer} from './recent-ui.js';
+import {scope,tool,button,store,failure,modal,nameField,shellRow,offer} from './recent-ui.js';
 
 // Capture through the tool's current-state callback, never its debounced URL.
 // Saving is explicit; opening an example, editing or visiting never adds a row.
-export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LIMIT}){
+export function mountRecentSave({getState,getHash,note='',maxLength=HASH_LIMIT}){
   if(!RECENT_TOOLS[scope]?.[tool]) return;
-  const row=shellRow();   // a stamped page hands off even when the page names a host (Premortem)
-  let save,status;
-  if(row)status=row.querySelector('[role=status]');
-  else{
-    if(!host){
-      const header=document.querySelector('[data-tool-header]');
-      host=header?.querySelector('.document-actions, .toolbar-actions, .instrument-actions');
-      if(!host && header){host=el('div',null,'instrument-actions recent-actions');header.append(host);}
-    }
-    if(!host)return;
-    // Some instruments already use Snapshot for a comparison baseline.
-    save=button('Save a copy');save.className='btn recent-save';host.append(save);
-    status=el('span',null,'recent-status');status.setAttribute('role','status');host.append(status);
-  }
+  /* Every page has the stamped header: Save a copy, Your work and templates are File items, handed over here. */
+  const row=shellRow();
+  if(!row)return;
+  const status=row.querySelector('[role=status]');
   async function capture(){
     const state=getState ? structuredClone(getState()) : null;
     if(getState && !state)throw new Error('Open a model before saving a copy.');
@@ -35,17 +25,13 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
   if(!['alarm','flow','signal-vs-noise','case','paths','frequency'].includes(tool)){
     templates=createTemplates({scope,tool,format:'model-link',capture:async()=>(await capture()).hash,
       name:()=>snapshotName(getState?.(),RECENT_TOOLS[scope][tool]),notice:message=>status.textContent=message,
-      description:'Starting from a template first keeps your current model as a saved copy in Your work.',place:row?'Your work':'Templates',
+      description:'Starting from a template first keeps your current model as a saved copy in Your work.',place:'Your work',
       beforeStart:async()=>{const {hash,value}=await capture(),shelf=store();if(!shelf.list().some(copy=>copy.tool===tool&&copy.hash===hash))shelf.add({id:crypto.randomUUID(),tool,name:snapshotName(value,RECENT_TOOLS[scope][tool]),hash,savedAt:Date.now()});},
       restore:hash=>{if(!/^(?:z:)?[A-Za-z0-9_+/=-]+$/.test(hash)||hash.length>HASH_LIMIT)throw Error('This template does not contain a valid model link.');location.hash=hash;location.reload();},
     });
-    if(!row){
-      const manage=button('Templates');manage.className='btn';manage.addEventListener('click',templates.open);
-      const start=button('New from template');start.className='btn';start.addEventListener('click',templates.newWork);host.insertBefore(manage,status);host.insertBefore(start,status);
-    }
   }
   async function openSave(opener){
-    if(save)save.disabled=true;status.textContent='';
+    status.textContent='';
     try{
       const {hash,value}=await capture();
       const ui=modal('Save a copy',opener);
@@ -60,11 +46,8 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
       name.addEventListener('input',()=>name.setCustomValidity(''));
       ui.dialog.showModal();name.focus();name.select();
     }catch(error){status.textContent=failure(error);}
-    finally{if(save)save.disabled=false;}
   }
-  if(row){offer({getState,getHash,templates,save:openSave});return null;}
-  save.addEventListener('click',()=>openSave(save));
-  return save;
+  offer({getState,getHash,templates,save:openSave});
 }
 
 export {scope,el,button,store,failure,modal,nameField} from './recent-ui.js';

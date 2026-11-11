@@ -4,8 +4,6 @@
 
 header:has(>h1) h1{font-family:var(--mg-display,"Oswald Variable",sans-serif);
   font-size:clamp(36px,5vw,64px);font-weight:600;line-height:1.12;letter-spacing:-.025em}
-header:has(>h1) .tagline{max-width:70ch;font-family:var(--mg-serif,"Newsreader Variable",Georgia,serif);
-  font-size:24px;line-height:1.4;color:var(--mg-muted,var(--muted));margin-top:14px}
 
 .board{display:grid;grid-template-columns:320px minmax(0,1fr);gap:32px;
   align-items:start;margin:32px auto 0}
@@ -96,7 +94,6 @@ input[type=range]:focus-visible{outline:2px solid var(--mg-accent,var(--accent))
   .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:640px){
-  header:has(>h1) .tagline{font-size:21px;line-height:1.4}
   .controls{display:flex;gap:10px}
   .chips{margin-bottom:24px}
   .frequency-main .chip{padding-inline:7px}

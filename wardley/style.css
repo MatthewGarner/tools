@@ -1,7 +1,6 @@
 /* /wardley: the house page scaffold (per-tool by design — timeline/style.css
    is the reference copy) + this tool's drag affordances. */
 
-.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar:1200 / 688}   /* Strategic Field default — see workspace.css */
 .method{color:var(--muted);font-size:12.5px}

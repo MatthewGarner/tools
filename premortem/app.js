@@ -480,6 +480,6 @@ $('boardpanel').addEventListener('click', e => {
   else { doc = exampleDoc(); saveNow(); render(); }   // greet with a populated register, not a blank form
 })();
 
-mountRecentSave({host:document.querySelector('#workspace .toolbar'),getState:()=>doc&&withoutHandoffMeta(doc),getHash:toSnapshotLink,note:'Opens as a separate register. Use Save as new there to keep editing it in Premortem.'});
+mountRecentSave({getState:()=>doc&&withoutHandoffMeta(doc),getHash:toSnapshotLink,note:'Opens as a separate register. Use Save as new there to keep editing it in Premortem.'});
 /* File > New starts a premortem, as "New premortem" on the registers list does */
 provide({blank: () => $('newbtn').click()});

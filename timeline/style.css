@@ -37,7 +37,6 @@ body{padding-top:0;font-family:'DM Sans',system-ui,sans-serif}
 .forecast-analysis summary{cursor:pointer;color:var(--ink);width:fit-content;min-height:28px}
 .forecast-analysis p{max-width:100ch;line-height:1.65}
 #fontstatus{padding:12px 28px}#fontstatus[hidden]{display:none}
-.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}.handoffstatus{color:var(--st-risk-ink);font-size:13px;max-width:42ch}.handoffstatus:empty{display:none}
 .about{font-size:14px;line-height:1.7;margin-top:44px}.about summary{cursor:pointer;color:var(--muted)}.about p{max-width:85ch}
 .preview svg [data-inspect]{cursor:pointer}.preview svg [data-inspect]:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}

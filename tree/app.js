@@ -595,4 +595,4 @@ onThemeChange(rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'currency', 'palette', 'accent', 'verdict']);
 
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink({getState: modelLinkState});

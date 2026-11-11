@@ -1,7 +1,6 @@
 /* Behaviour for the stamped header (dev/sync-shell.mjs). The markup is static; this
    attaches handlers to it and never adds header elements. Pages hand over what they
-   can do with provide() (also reached by mountRecentSave, mountModelLink and
-   mountDocumentStart): getState, getHash, save, templates, blank, examples as
+   can do with provide() (also reached by mountRecentSave and mountModelLink): getState, getHash, save, templates, blank, examples as
    [{name, pick}], items as {id: fn}. An undefined value or an empty examples list
    never counts. {withdraw: true} takes every offer back and hides File and Share. data-shell-ready is set once every stamped control is wired. The
    Your work panel loads on first use (tool-work.js). */
