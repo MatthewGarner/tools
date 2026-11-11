@@ -14,6 +14,9 @@ const subjects={
   knowledge:['teams'],local:['teams','systems'],predictions:['systems'],accuracy:['energy','product'],
   reliability:['systems'],adoption:['product','systems'],interventions:['ideas','systems'],
 };
+// The front door's tiers: scaffolds are workbenches, every other Lab page a model; four models are pictured.
+// Order numbers continue the product-side list in assets/suite-catalog.js (Flow 1, Alarm 2).
+const labFeatured={commitment:3,delay:4,teams:5,context:6};
 const lab = experiments.map(experiment => ({
   id: `lab:${experiment.route}`, route: experiment.route, title: experiment.title,
   description: experiment.question, type: experiment.kind,
@@ -21,6 +24,8 @@ const lab = experiments.map(experiment => ({
   domains: subjects[experiment.route] || ['ideas'],
   maturity: ['archived', 'merged'].includes(experiment.status) ? 'archived' : 'experimental',
   status: experiment.status ?? 'active', source: 'lab',
+  room: experiment.kind === 'scaffold' ? 'workbench' : 'model',
+  ...(labFeatured[experiment.route] ? { featured: labFeatured[experiment.route] } : {}),
   ...(experiment.archiveReason ? { archiveReason: experiment.archiveReason } : {}),
   ...(experiment.mergedInto ? { mergedInto: experiment.mergedInto } : {}),
 }));

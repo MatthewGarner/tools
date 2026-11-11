@@ -3,6 +3,20 @@ export const DOMAINS = { product: 'Product', energy: 'Energy', teams: 'Teams & o
 export const TYPES = { artefact: 'Artefact', calculator: 'Calculator', model: 'Model', workshop: 'Workshop', scaffold: 'Scaffold', binder: 'Binder' };
 export const MATURITIES = { established: 'Established', experimental: 'Experimental', archived: 'Archived' };
 
+/* The front door's rooms (`room`), the five jobs an instrument does (`job`) and which entries are
+   pictured there (`featured`, an order number within its room). Lab entries get theirs from
+   dev/generate-catalogue.mjs with the rest of the Lab block. The front page is generated from these. */
+export const ROOMS = { instrument: 'Instruments', model: 'Models', workbench: 'Workbenches' };
+export const JOBS = {
+  size: { title: 'Size it', order: ['product:fermi', 'product:gauge'] },
+  choose: { title: 'Choose', order: ['product:rank', 'product:duel', 'product:tree', 'product:bets', 'product:map'] },
+  plan: { title: 'Plan it', order: ['product:roadmap', 'product:timeline', 'product:paths'] },
+  test: { title: 'Test the argument', order: ['product:premortem', 'product:why', 'product:proxy', 'product:wardley'] },
+  case: { title: 'Make the case', order: ['product:case'] },
+};
+const jobOf = Object.fromEntries(Object.entries(JOBS).flatMap(([job, { order }]) => order.map(id => [id, job])));
+const FEATURED = { 'product:fermi': 1, 'product:rank': 2, 'product:roadmap': 3, 'product:premortem': 4, 'product:case': 5, 'product:flow': 1, 'product:alarm': 2 };
+
 const product = [
   ['roadmap', 'Roadmap', 'Arrange work across now, next and later, set WIP limits, and export the plan.', 'artefact', 'planning priorities portfolio'],
   ['timeline', 'Timeline', 'Map milestones, uncertainty ranges and dependencies; compare how the plan has moved.', 'artefact', 'planning dates p50 p90 risk'],
@@ -22,7 +36,11 @@ const product = [
   ['paths', 'Paths', 'Map the questions inside a plan, what their answers buy and what happens either way.', 'artefact', 'decision learning uncertainty options'],
   ['proxy', 'Proxy Hunt', 'Stress-test whether pressure on a metric can harm the outcomes it is meant to serve.', 'artefact', 'measurement incentives goodhart'],
   ['case', 'Case file', 'Bring tool links, a decision question and a verdict together in one case.', 'binder', 'evidence decision exhibits'],
-].map(([route, title, description, type, keywords]) => ({ id: `product:${route}`, route, title, description, type, keywords, domains: ['alarm','flow','signal-vs-noise','why','wardley'].includes(route)?['product','systems']:['product'], maturity: 'established', status: 'active', source: 'product' }));
+].map(([route, title, description, type, keywords]) => {
+  const id = `product:${route}`;
+  return { id, route, title, description, type, keywords, domains: ['alarm','flow','signal-vs-noise','why','wardley'].includes(route)?['product','systems']:['product'], maturity: 'established', status: 'active', source: 'product',
+    room: jobOf[id] ? 'instrument' : 'model', ...(jobOf[id] ? { job: jobOf[id] } : {}), ...(FEATURED[id] ? { featured: FEATURED[id] } : {}) };
+});
 
 const energy = [
   ['cycles', 'Cycle budget', 'Explore a battery’s warranty budget and the value of cycles across three horizons.', 'calculator', 'battery bess degradation storage warranty'],
@@ -30,7 +48,7 @@ const energy = [
   ['frequency', 'Frequency & inertia', 'Trip a generator and explore inertia, rate of change of frequency and battery response.', 'model', 'battery bess grid rocof response'],
   ['merit-order', 'Merit order', 'Stack generators by cost, move demand and see which plant sets the clearing price.', 'model', 'electricity market dispatch supply'],
   ['intraday', 'A day through the stack', 'Play a day through the merit order and see how storage changes its price shape.', 'model', 'battery bess electricity market storage dispatch'],
-].map(([route, title, description, type, keywords]) => ({ id: `energy:${route}`, route, title, description, type, keywords, domains: ['energy'], maturity: 'established', status: 'active', source: 'energy' }));
+].map(([route, title, description, type, keywords]) => ({ id: `energy:${route}`, route, title, description, type, keywords, domains: ['energy'], maturity: 'established', status: 'active', source: 'energy', room: 'model' }));
 
 // lab-catalogue:start
 const lab = [
@@ -47,7 +65,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:context",
@@ -62,7 +81,9 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model",
+    "featured": 6
   },
   {
     "id": "lab:consistency",
@@ -77,7 +98,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:alignment",
@@ -92,7 +114,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:possibilities",
@@ -107,7 +130,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:clocks",
@@ -122,7 +146,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:commitment",
@@ -137,7 +162,9 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model",
+    "featured": 3
   },
   {
     "id": "lab:teams",
@@ -151,7 +178,9 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model",
+    "featured": 5
   },
   {
     "id": "lab:exploration",
@@ -167,6 +196,7 @@ const lab = [
     "maturity": "archived",
     "status": "archived",
     "source": "lab",
+    "room": "model",
     "archiveReason": "This allocation model is being reconsidered around hypotheses and evidence."
   },
   {
@@ -182,7 +212,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:delay",
@@ -196,7 +227,9 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model",
+    "featured": 4
   },
   {
     "id": "lab:exceptions",
@@ -211,7 +244,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:knowledge",
@@ -225,7 +259,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:local",
@@ -241,6 +276,7 @@ const lab = [
     "maturity": "archived",
     "status": "archived",
     "source": "lab",
+    "room": "model",
     "archiveReason": "The fixed payoff assumptions carry too much of the lesson in this version."
   },
   {
@@ -255,7 +291,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:accuracy",
@@ -270,7 +307,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:reliability",
@@ -284,7 +322,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:adoption",
@@ -299,7 +338,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "model"
   },
   {
     "id": "lab:reframe",
@@ -313,7 +353,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:mixer",
@@ -327,7 +368,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:constraints",
@@ -341,7 +383,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:analogy",
@@ -355,7 +398,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:interventions",
@@ -370,7 +414,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:answers",
@@ -385,6 +430,7 @@ const lab = [
     "maturity": "archived",
     "status": "merged",
     "source": "lab",
+    "room": "workbench",
     "archiveReason": "Three Answers now shares alternatives, borrowed strengths and comparison criteria in the Alternatives workbench.",
     "mergedInto": "objections"
   },
@@ -400,7 +446,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:territory",
@@ -415,6 +462,7 @@ const lab = [
     "maturity": "archived",
     "status": "merged",
     "source": "lab",
+    "room": "workbench",
     "archiveReason": "Territory now maps the same concepts that you generate and develop in Possibility mixer.",
     "mergedInto": "mixer"
   },
@@ -430,7 +478,8 @@ const lab = [
     ],
     "maturity": "experimental",
     "status": "active",
-    "source": "lab"
+    "source": "lab",
+    "room": "workbench"
   },
   {
     "id": "lab:family",
@@ -445,6 +494,7 @@ const lab = [
     "maturity": "archived",
     "status": "merged",
     "source": "lab",
+    "room": "workbench",
     "archiveReason": "Branching and ancestry now live inside the working tools. Copy Family Tree work into Alternatives to keep developing its branches.",
     "mergedInto": "objections"
   },
@@ -461,6 +511,7 @@ const lab = [
     "maturity": "archived",
     "status": "merged",
     "source": "lab",
+    "room": "workbench",
     "archiveReason": "Questions now connect directly to frames in the Reframing workbench.",
     "mergedInto": "reframe"
   },
@@ -477,6 +528,7 @@ const lab = [
     "maturity": "archived",
     "status": "merged",
     "source": "lab",
+    "room": "workbench",
     "archiveReason": "Disagreement now carries protected intentions into the shared Alternatives workbench.",
     "mergedInto": "objections"
   }
