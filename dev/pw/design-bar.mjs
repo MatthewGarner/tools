@@ -98,5 +98,13 @@ await test('Document example menus fit phones and keep every choice at least 44p
     await phone.close();
   }
 });
+await test('Every Energy tool page reaches the Energy landing from its strip',async()=>{
+  for(const tool of ['cycles','risk','frequency','merit-order','intraday']){
+    await page.goto(base+'/energy/'+tool+'/');
+    const all=page.locator('[data-tool-header] .series a[aria-label="All energy tools"]');
+    assert.equal(await all.count(),1,tool+' has the All energy tools item');
+    await all.click();await page.waitForURL(u=>new URL(u).pathname==='/energy/');
+  }
+});
 await browser.close();
 process.exitCode=failed?1:0;

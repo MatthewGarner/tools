@@ -115,7 +115,7 @@ const probeStrip = () => {
   const r = e => e.getBoundingClientRect(), s = r(strip), k = header.querySelector('.kicker');
   return {
     first: header.firstElementChild === strip, stripH: Math.round(s.height), stripLeft: Math.round(s.left), stripRight: Math.round(s.right),
-    links: [...strip.querySelectorAll('a')].map(a => ({href: a.getAttribute('href'), top: Math.round(r(a).top), h: Math.round(r(a).height), left: Math.round(r(a).left), right: Math.round(r(a).right), current: a.getAttribute('aria-current') === 'page'})),
+    links: [...strip.querySelectorAll('a')].map(a => ({href: a.getAttribute('href'), label: a.getAttribute('aria-label') || '', top: Math.round(r(a).top), h: Math.round(r(a).height), left: Math.round(r(a).left), right: Math.round(r(a).right), current: a.getAttribute('aria-current') === 'page'})),
     overflow: strip.scrollWidth > strip.clientWidth + 1, fade: strip.dataset.fade || '', vw: document.documentElement.clientWidth,
     pageW: document.documentElement.scrollWidth, scrollY: window.scrollY, kickerDisplay: k ? getComputedStyle(k).display : 'none',
   };
@@ -125,7 +125,8 @@ function stripProblems(dir, m){
   const problems = [], current = m.links.filter(l => l.current);
   if(!m.first) problems.push('the strip is not the header\'s first row');
   if(m.stripH !== STRIP_HEIGHT) problems.push(`the strip is ${m.stripH}px tall, not ${STRIP_HEIGHT}`);
-  if(m.links.length !== 5) problems.push(`${m.links.length} links, not 5`);
+  if(m.links.length !== 6) problems.push(`${m.links.length} links, not 6 (All energy tools, then E1-E5)`);
+  else if(m.links[0].href !== '../' || m.links[0].label !== 'All energy tools') problems.push('the first strip item is not the All energy tools link');
   if(new Set(m.links.map(l => l.top)).size > 1) problems.push('the strip wraps onto more than one line');
   const short = m.links.filter(l => l.h < 44);
   if(short.length) problems.push(`${short.length} link(s) shorter than 44px`);
@@ -390,7 +391,7 @@ if(!scope.focused){
   ok(probe.kickerCut.kickerOver > 0 && probe.clean.kickerOver <= 0, 'fixture: a truncated kicker is measured as wider than its box; a missing one is not');
   /* the strip: a wrapped one and one whose current item is off screen must fail, and a good one must pass */
   const link = (n, current) => `<a href="/x/${n}/" style="flex:none;display:block;box-sizing:border-box;width:100px;height:44px"${current ? ' aria-current="page"' : ''}>E${n}</a>`;
-  const stripPage = (css, current) => `<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><nav class="series" style="display:flex;box-sizing:border-box;width:343px;margin:0 16px;${css}">${[1, 2, 3, 4, 5].map(n => link(n, n === current)).join('')}</nav><p class="kicker" style="display:none"></p></header><main>m</main>`;
+  const stripPage = (css, current) => `<!doctype html><meta charset=utf-8><body style="margin:0"><header data-tool-header><nav class="series" style="display:flex;box-sizing:border-box;width:343px;margin:0 16px;${css}"><a href="../" aria-label="All energy tools" style="flex:none;display:block;box-sizing:border-box;width:60px;height:44px">All</a>${[1, 2, 3, 4, 5].map(n => link(n, n === current)).join('')}</nav><p class="kicker" style="display:none"></p></header><main>m</main>`;
   const strips = {};
   for(const [name, html] of Object.entries({
     good: stripPage('flex-wrap:nowrap;overflow-x:auto;height:44px', 1),

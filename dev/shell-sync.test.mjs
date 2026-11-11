@@ -85,6 +85,7 @@ test('an Energy page\'s header is the E1-E5 strip, then the hidden kicker, then 
     const html = page(dir), header = html.match(/<header data-tool-header data-shell>([\s\S]*?)<\/header>/)[1];
     assert.match(header.trim(), /^<nav class="series"/, dir + ': the strip is not the header\'s first row');
     assert.ok(header.indexOf('class="kicker"') > header.indexOf('</nav>') && header.indexOf('class="kicker"') < header.indexOf('<!-- shell:start -->'), dir + ': the kicker must sit between the strip and the title row');
+    assert.match(header, /<nav class="series" aria-label="The ember series">\s*<a href="\.\.\/" aria-label="All energy tools">All<\/a>/, dir + ': the strip must open with the All energy tools link');
     strips.add(header.match(/<nav class="series"[\s\S]*?<\/nav>/)[0].replace(/ aria-current="page"/, ''));
   }
   assert.equal(strips.size, 1, 'the five Energy strips differ beyond which item is current');
