@@ -172,6 +172,16 @@ const closeLeftovers = () => Promise.all([...liveContexts].map(context => contex
 /* a service worker that never installs (a stale integrity hash after an edit under assets/: run npm run sync) would hang
    navigator.serviceWorker.ready forever */
 const swInstalled = page => page.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 15000))]));
+/* choosing New (or New from template…), Your work… or Save a copy… closes the File menu, with its action started */
+async function checkFileCloses(page, dir, entry){
+  for(const name of [entry.new ? 'New' : entry.templates ? 'New from template…' : null, 'Your work…', 'Save a copy…'].filter(Boolean)){
+    await fileItem(page, name);
+    await page.waitForTimeout(200);
+    ok(await page.evaluate(() => !document.querySelector('[data-shell-file]').open), `${dir}: File closes after choosing "${name}"`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+  }
+}
 const phoneOpts = {viewport: VIEWPORTS.phone, hasTouch: true, isMobile: true, deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block'};
 const laptopOpts = {viewport: VIEWPORTS.laptop, deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block'};
 async function open(dir, opts, url = originOf(dir) + '/' + dir + '/'){
@@ -208,6 +218,7 @@ for(const dir of SHELLS){
     const shown = await page.locator('[data-shell-file] .tool-menu').locator('button, a').evaluateAll(els => els.filter(el => el.checkVisibility()).map(el => el.textContent.trim()));
     ok(JSON.stringify(shown) === JSON.stringify(names), `${dir}: File lists exactly [${names.join(' | ')}] (got [${shown.join(' | ')}])`);
     await page.keyboard.press('Escape');
+    await checkFileCloses(page, dir, entry);
 
     /* Save a copy, then Your work lists it and opens it */
     await model.edit(page, 1);
@@ -346,6 +357,68 @@ for(const dir of SHELLS){
       await pop.context.close();
     }
 
+    /* a saved template shows under Templates in Your work, after Saved copies (and a page with no templates has none) */
+    {
+      const tc = await open(dir, laptopOpts), tp = tc.page;
+      if(entry.templates){
+        await fileItem(tp, 'Save as template…');
+        const tdlg = tp.locator('.mg-template-dialog'); await tdlg.waitFor();
+        await tdlg.getByLabel('Template name').fill('Section check'); await tdlg.getByRole('button', {name: 'Save template', exact: true}).click(); await tdlg.waitFor({state: 'detached'});
+      }
+      await fileItem(tp, 'Your work…');
+      const td = tp.getByRole('dialog', {name: 'Your work in ' + entry.name}); await td.waitFor();
+      const titlesT = await sectionTitles(td);
+      ok(entry.templates ? titlesT.includes('Templates') : !titlesT.includes('Templates'), `${dir}: Your work ${entry.templates ? 'shows the Templates section once a template is saved' : 'has no Templates section'} (sections: [${titlesT}])`);
+      await tc.context.close();
+    }
+
+    /* what a page pins or selects travels in its Share link: set a non-default value, share, reopen in a fresh context */
+    const PINS = {
+      proxy: {
+        label: "Proxy's selected theory",
+        async set(p){ const ids = await p.evaluate(() => [...document.querySelectorAll('#preview [data-kind="failure-theory"]')].map(g => g.dataset.theoryId)); const cur = await this.read(p); const pick = ids.find(id => id !== cur) ?? ids[0]; await p.locator(`#preview [data-kind="failure-theory"][data-theory-id="${pick}"]`).first().click(); await p.waitForTimeout(500); return this.read(p); },
+        read: p => p.evaluate(() => document.querySelector('#preview [data-kind="selected-theory-receipt"]')?.dataset.theoryId ?? ''),
+      },
+      tree: {
+        label: "Tree's collapsed-source flag",
+        async set(p){ const was = await this.read(p); await p.locator('#railtab').click(); await p.waitForTimeout(500); const now = await this.read(p); return now !== was ? now : null; },
+        read: p => p.evaluate(() => String(document.querySelector('#workspace').classList.contains('collapsed'))),
+      },
+      risk: {
+        label: "Risk's focused route",
+        async set(p){ const was = await this.read(p); for(const i of [0, 1, 2, 3]){ await p.locator(`#preview [data-focus="${i}"]`).first().dispatchEvent('click'); await p.waitForTimeout(700); const now = await this.read(p); if(now && now !== was) return now; } return null; },
+        read: p => p.evaluate(() => document.querySelector('#verdict')?.textContent.trim() ?? ''),
+      },
+    }[dir];
+    if(PINS){
+      const pin = await open(dir, laptopOpts), pinned = await PINS.set(pin.page);
+      ok(!!pinned, `${dir}: the page can be put in a non-default ${PINS.label} state`);
+      if(pinned){
+        await pin.page.locator('[data-act=share]').click();
+        await until(async () => (await status(pin.page).textContent()).length > 0);
+        const link = await pin.page.evaluate(() => navigator.clipboard.readText());
+        const fresh = await open(dir, laptopOpts, link);
+        ok(await until(async () => await PINS.read(fresh.page) === pinned, {timeout: 8000}), `${dir}: the shared link carries ${PINS.label} (${JSON.stringify(String(pinned).slice(0, 40))})`);
+        await fresh.context.close();
+      }
+      await pin.context.close();
+    }
+
+    /* a document far past every page's limit is refused with "too large" and nothing is copied (all editor pages) */
+    if(model === dsl && entry.share){
+      const huge = await open(dir, laptopOpts), hp = huge.page;
+      await hp.evaluate(() => navigator.clipboard.writeText('sentinel'));
+      await hp.evaluate(() => {
+        const view = document.querySelector('.cm-content').cmTile.view, noise = Array.from(crypto.getRandomValues(new Uint8Array(60000)), b => String.fromCharCode(33 + b % 90)).join('');
+        view.dispatch({changes: {from: 0, insert: '// ' + noise + '\n'}});
+      });
+      await hp.waitForTimeout(600);
+      await hp.locator('[data-act=share]').click();
+      await until(async () => (await status(hp).textContent()).length > 0);
+      ok((await status(hp).textContent()) === 'This model is too large for a link. Export the source instead.' && await hp.evaluate(() => navigator.clipboard.readText()) === 'sentinel', `${dir}: a model far past the link limit is refused with "too large" and nothing is copied`);
+      await huge.context.close();
+    }
+
     /* Premortem's register has no Copy link of its own: Share is the one way to a link, and its refusal says why */
     if(dir === 'premortem'){
       const reg = await open(dir, laptopOpts), rp = reg.page;
@@ -442,6 +515,22 @@ for(const dir of SHELLS){
       }
       await big.context.close();
     }
+    /* a reader who has scrolled the E1-E5 strip by hand is not re-centred by a resize */
+    if(dir === 'intraday'){
+      const sc = await browser.newContext({viewport: {width: 375, height: 812}, reducedMotion: 'reduce', serviceWorkers: 'block'}), sp = await sc.newPage();
+      await sp.goto(E + '/intraday/', {waitUntil: 'networkidle'}); await ready(sp);
+      const left = () => sp.evaluate(() => document.querySelector('[data-tool-header] .series').scrollLeft);
+      const centred = await left();
+      await sp.locator('[data-tool-header] .series').hover();
+      await sp.mouse.wheel(-600, 0);
+      await sp.waitForTimeout(400);
+      const scrolled = await left();
+      await sp.setViewportSize({width: 380, height: 812});
+      await sp.waitForTimeout(400);
+      const after = await left();
+      ok(centred > 0 && scrolled < centred && Math.abs(after - scrolled) <= 2, `${dir}: after the reader scrolls the strip by hand a resize does not re-centre it (centred ${centred}, scrolled to ${scrolled}, after resize ${after})`);
+      await sc.close();
+    }
     /* the Your work module must open offline from energy/sw.js's own precache (once: every Energy page shares the worker) */
     if(dir === 'frequency'){
       const context = await browser.newContext({...laptopOpts, serviceWorkers: 'allow'}), page = await context.newPage();
@@ -482,6 +571,7 @@ for(const dir of SHELLS){
     ok(sBox.height >= 44 && shBox.height >= 44, `${where}: File and Share are at least 44px tall (${Math.round(sBox.height)}/${Math.round(shBox.height)})`);
     ok(sBox.x + sBox.width <= size.width - 8 && shBox.x + shBox.width <= size.width - 8 && sBox.x >= 0, `${where}: the controls sit inside the viewport`);
     ok(!(await page.locator('[data-shell-file] .tool-menu').isVisible()), `${where}: File is closed at load`);
+    if(vp === 'laptop') await checkFileCloses(page, dir, entry);
 
     await stable(page);
     const before = await geometry(page);

@@ -49,3 +49,39 @@ test('Energy pages add the 44px strip row to the Product budget and header heigh
   assert.deepEqual({...headerBudget('risk')}, {phone: 259, laptop: 224});
   assert.deepEqual({...headerBudget('rank')}, {phone: 215, laptop: 180});
 });
+
+/* The capabilities every page is meant to have, written out by hand. The browser suites read the manifest, so a
+   manifest edit alone could silence them; changing a flag is a deliberate two-place change (here and in the manifest). */
+const PINNED = {
+  fermi: {new: false, examples: false, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  rank: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  roadmap: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  why: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  tree: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  map: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  gauge: {new: true, examples: true, templates: true, share: false, workspaces: "Question sets", ownLink: true, longName: false},
+  flow: {new: false, examples: false, templates: false, share: true, workspaces: null, ownLink: false, longName: false},
+  timeline: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  wardley: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  alarm: {new: false, examples: false, templates: false, share: true, workspaces: null, ownLink: false, longName: false},
+  duel: {new: false, examples: false, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  premortem: {new: true, examples: false, templates: true, share: true, workspaces: "Registers", ownLink: false, longName: false},
+  bets: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  "signal-vs-noise": {new: false, examples: false, templates: false, share: true, workspaces: null, ownLink: false, longName: false},
+  case: {new: true, examples: true, templates: false, share: true, workspaces: null, ownLink: false, longName: false},
+  paths: {new: true, examples: true, templates: false, share: true, workspaces: null, ownLink: false, longName: false},
+  proxy: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  cycles: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  risk: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  frequency: {new: false, examples: false, templates: false, share: true, workspaces: null, ownLink: false, longName: true},
+  "merit-order": {new: false, examples: false, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  intraday: {new: false, examples: false, templates: true, share: true, workspaces: null, ownLink: false, longName: true},
+};
+test('each page\'s capability flags are pinned in this literal table', () => {
+  assert.deepEqual(Object.keys(PINNED).sort(), Object.keys(SHELL_MANIFEST).sort(), 'the table and the manifest list different pages');
+  for(const [dir, pinned] of Object.entries(PINNED)){
+    const entry = SHELL_MANIFEST[dir];
+    assert.deepEqual({new: entry.new, examples: entry.examples, templates: entry.templates, share: entry.share, workspaces: entry.workspaces, ownLink: entry.ownLink, longName: entry.longName}, pinned,
+      dir + ': the manifest no longer matches the pinned capabilities; change both deliberately');
+  }
+});
