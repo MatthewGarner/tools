@@ -584,10 +584,11 @@ test('per-page load stays under budget', () => {
     // save/share buttons and their CSS are gone). Largest: Rank +19.6k, Premortem +17.5k, Frequency +17.4k,
     // Gauge +15.3k, Flow +14.4k, then Cycles, Risk, Signal vs noise, Wardley 13.4-14.0k, the rest below
     // 12k (tool-shell.js and .css with the Energy strip rules, model-link, popover focus, kicker and
-    // recent-ui additions). 21k = the largest (19.6k) plus 1.4k. The Your work panel (tool-work.js and
+    // recent-ui additions). Fix round 2 (2026-11-11: menu fit, popover set, a page's own Share refusal,
+    // the 320px title step) added 2.0k of shared code, so Rank is +21.6k. 22.5k = the largest plus 0.9k. The Your work panel (tool-work.js and
     // its imports) is LAZY, fetched on first use, and is capped separately below. Paid by every
     // stamped page, so no per-page raises, and no transitional allowance for unstamped pages: none left.
-    const shell = files.has('assets/tool-shell.js') ? 21_000 : 0;
+    const shell = files.has('assets/tool-shell.js') ? 22_500 : 0;
     const limit =budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent + personal + shell;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }

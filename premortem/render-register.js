@@ -54,6 +54,7 @@ export function renderRegister(doc, exp, now = new Date(), {interactive = true} 
     (stale ? '<p class="stalenag">' + stale + ' risk' + (stale === 1 ? '' : 's') +
       ' not reviewed in 90 days — a stale register lies. Review them or close them.</p>' : '') +
     (interactive ? '<div class="actions">' +
+    '<button class="btn" data-act="copylink">Copy link</button>' +
     '<button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button>' +
     '<button class="btn" data-act="reviewall">Mark all reviewed today</button>' +
     '<span class="method">Seeded Monte Carlo · the register lives in this browser; a link imports a copy</span></div>' : '');
@@ -78,5 +79,5 @@ function renderSuccessRegister(doc, now, interactive){
     '<p class="registernote">A pre-parade records conditions we choose to make true. It is not a forecast, and it carries no invented upside score.</p>' +
     '<div class="registerwrap"><table class="register successregister"><thead><tr><th></th><th>Opportunity</th><th>Actions</th><th>Votes</th><th>Status</th><th>Review</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
     (stale ? '<p class="stalenag">' + stale + ' ' + (stale === 1 ? 'opportunity' : 'opportunities') + ' not reviewed in 90 days — revisit the commitments or close them.</p>' : '') +
-    (interactive ? '<div class="actions"><button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button><button class="btn" data-act="reviewall">Mark all reviewed today</button><span class="method">A deliberate success-condition register · this browser keeps the copy</span></div>' : '');
+    (interactive ? '<div class="actions"><button class="btn" data-act="copylink">Copy link</button><button class="btn" data-act="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button><button class="btn" data-act="reviewall">Mark all reviewed today</button><span class="method">A deliberate success-condition register · this browser keeps the copy</span></div>' : '');
 }

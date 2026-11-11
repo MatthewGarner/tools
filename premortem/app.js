@@ -70,11 +70,11 @@ function render(paint = {}){
   const reg = view === 'register';
   $('phaserail').hidden = reg;
   $('navbar').hidden = reg;
-  if(reg){ $('phasepanel').innerHTML = (promotionNote ? '<p class="promotion-seam">' + promotionNote + '</p>' : '') +
-    renderPhase({...doc, phase: 'REGISTER'}, new Date()); finishPaint(paint); return; }
+  if(reg){ paintPhase((promotionNote ? '<p class="promotion-seam">' + promotionNote + '</p>' : '') +
+    renderPhase({...doc, phase: 'REGISTER'}, new Date())); finishPaint(paint); return; }
   reached.add(doc.phase);
   renderRail();
-  $('phasepanel').innerHTML = renderPhase(doc, new Date());
+  paintPhase(renderPhase(doc, new Date()));
   const gate = canAdvance(doc);
   $('next').hidden = doc.phase === 'REGISTER';
   $('next').disabled = !gate.ok;
@@ -428,6 +428,12 @@ $('phasepanel').addEventListener('click', e => {
 async function copyDoc(){
   const md = markdown(doc, exposure(doc.entries.filter(isRisk)), new Date());
   try{ await navigator.clipboard.writeText(md); toast('Copied for a doc'); }catch(e){ prompt('Copy this:', md); }
+}
+/* Share in the header is the one link. render-register.js still emits its own "Copy link" because that module is
+   frozen into the published article model (premortem@1); the page drops the button rather than alter that release. */
+function paintPhase(html){
+  const panel = $('phasepanel'); panel.innerHTML = html;
+  for(const b of panel.querySelectorAll('[data-act="copylink"]')) b.remove();
 }
 function toast(msg){
   const b = $('phasepanel').querySelector('[data-act="copydoc"]');
