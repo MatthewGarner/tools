@@ -49,6 +49,10 @@ const scope = scopeFor('first-screen.mjs');
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
 
+/* Titles that still do not fit the 320px title row at the 22px phone size. Each must really cut (the check
+   fails if one stops cutting, so the list cannot go stale). */
+const H1_CUT_AT_320 = [];
+
 /* Cycles takes ~5s unloaded to finish its first run; the gate runs beside other suites. */
 const SETTLE_MS = 25000;
 const ANCHOR_GRACE_MS = 5000;
@@ -331,6 +335,11 @@ for(const [dir, url] of PAGES){
     await page.goto(url, {waitUntil: 'networkidle'});
     await page.evaluate(() => document.fonts.ready);
     const problems = layoutProblems(await page.evaluate(probeLayout), headerHeight(dir));
+    if(width === 320 && scheme === 'light'){
+      const over = await page.evaluate(() => { const h = document.querySelector('[data-tool-header] h1'); return h ? h.scrollWidth - h.clientWidth : 0; });
+      const allowed = H1_CUT_AT_320.includes(dir);
+      ok(allowed ? over > 0 : over <= 0, `${dir} @320x568: the h1 ${allowed ? 'still cuts and is on the allow-list' : 'is not cut off'}${allowed && over <= 0 ? ' — it no longer cuts: delete it from H1_CUT_AT_320' : ''}${!allowed && over > 0 ? ' — ' + over + 'px wider than its box' : ''}`);
+    }
     if(isEnergy(dir) && width === 320 && scheme === 'light'){
       await page.waitForTimeout(400);
       const narrow = stripProblems(dir, await page.evaluate(probeStrip)).filter(p => !/keyboard focus/.test(p));

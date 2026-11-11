@@ -80,3 +80,5 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
    clipped: the glyph box is taller than the 24px line); below 360px a size further, so it is whole at 320 and 375 */
 @media(max-width:519px){body.mg-site .tool-titlerow[data-long-name] h1{max-height:48px;font-size:24px;line-height:24px;white-space:normal;overflow-wrap:break-word;overflow:visible}}
 @media(max-width:359px){body.mg-site .tool-titlerow[data-long-name] h1{font-size:20px;line-height:22px}}
+/* below 360px an ordinary title steps down to 22px so most names fit the 320px title row */
+@media(max-width:359px){body.mg-site [data-tool-header][data-shell] h1{font-size:22px}}
