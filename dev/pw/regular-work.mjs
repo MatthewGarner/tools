@@ -17,7 +17,7 @@ export async function verifyLabWorkspaceLinks(browser,base,out){
    await page.getByRole('button',{name:'New',exact:true}).click();await page.locator('#problem').fill(second);
    await page.waitForFunction(({key,second})=>JSON.parse(localStorage.getItem(key))?.workspaces.some(w=>w.problem===second),{key,second});
    const before=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
-   await page.goto(base+'/');await openToolsWork(page);await page.getByLabel('Find saved work',{exact:true}).fill(first);
+   await page.goto(base+'/explore/');await openToolsWork(page);await page.getByLabel('Find saved work',{exact:true}).fill(first);
    await page.locator('[data-work-kind=workspace]').filter({hasText:first}).click();
    assert.equal(await page.locator('#problem').inputValue(),first,route+' catalogue link resumes the selected workspace');
    assert.equal(new URL(page.url()).search,'',route+' workspace pointer is consumed');
@@ -52,14 +52,14 @@ export async function verifyRegularWork(browser,base,out){
   await page.getByRole('button',{name:'New',exact:true}).click();await page.locator('#problem').fill('Decide the launch scope');
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('thinking-lab:reframe:v1'))?.sessions.some(s=>s.problem==='Decide the launch scope'));
   const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('thinking-lab:reframe:v1')));
-  await page.goto(base+'/');
+  await page.goto(base+'/explore/');
   await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).click();
   await page.getByRole('button',{name:'Add Intervention workbench to favourites',exact:true}).click();
   await page.locator('[data-favourites-only]').click();assert.equal(await page.locator('[data-catalog-id]:visible').count(),2);
   await page.locator('[data-explore-form]').getByRole('searchbox').fill('test hypothesis');assert.equal(await page.locator('[data-catalog-id]:visible').count(),1);
   await page.reload();await page.locator('[data-favourites-only][aria-pressed=true]').waitFor();assert.equal(await page.locator('[data-catalog-id]:visible').count(),1);
   await page.locator('[data-clear-filters]').click();
-  const other=await ctx.newPage();await other.goto(base+'/');await other.getByRole('button',{name:'Remove Roadmap from favourites',exact:true}).click();
+  const other=await ctx.newPage();await other.goto(base+'/explore/');await other.getByRole('button',{name:'Remove Roadmap from favourites',exact:true}).click();
   await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).waitFor();await other.close();
   await page.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('Full','QuotaExceededError');};});
   await page.getByRole('button',{name:'Add Roadmap to favourites',exact:true}).click();assert.match(await page.locator('[data-favourite-status]').textContent(),/only in this tab/);
@@ -75,18 +75,18 @@ export async function verifyRegularWork(browser,base,out){
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('roadmap-snaps'))[0]);
   const currentSource=saved.src.replace(/^title:.*$/m,'title: Revised plan after baseline');
   // Seed only after leaving the autosaving tool, so pagehide cannot overwrite it.
-  await page.goto(base+'/');await page.evaluate(src=>localStorage.setItem('roadmap-src',src),currentSource);await page.reload();await openToolsWork(page);
+  await page.goto(base+'/explore/');await page.evaluate(src=>localStorage.setItem('roadmap-src',src),currentSource);await page.reload();await openToolsWork(page);
   await page.getByRole('combobox',{name:'Work type',exact:true}).selectOption('baseline');await page.locator('[data-work-kind=baseline]').click();
   await page.waitForFunction(()=>document.querySelector('#snapsel')?.value==='0');
   assert.equal(await page.evaluate(()=>localStorage.getItem('roadmap-src')),currentSource);
   assert.equal(new URL(page.url()).search,'');
   // Native Premortem is continued; saved-copy URL imports still mint a separate ID.
-  await page.goto(base+'/premortem/');await recentReady(page);await page.goto(base+'/');await openToolsWork(page);
+  await page.goto(base+'/premortem/');await recentReady(page);await page.goto(base+'/explore/');await openToolsWork(page);
   await page.getByLabel('Find saved work',{exact:true}).fill('Premortem');await page.locator('[data-work-kind=workspace]').click();
   await page.locator('#workspace').waitFor();
   assert.equal(await page.locator('#importstrip').isVisible(),false);
   assert.equal(await page.locator('#workspace').isVisible(),true);
-  await page.goto(base+'/');
+  await page.goto(base+'/explore/');
   const gaugeDraft='title: Current draft\nWill the launch be ready? :: prob';
   await page.evaluate(draft=>{localStorage.setItem('gauge-src',draft);localStorage.setItem('gauge-saved',JSON.stringify([{name:'Weekly question set',src:'title: Weekly questions\nWill requests arrive on time? :: prob'}]));},gaugeDraft);
   await page.reload();await openToolsWork(page);await page.getByLabel('Find saved work',{exact:true}).fill('Weekly question set');await page.locator('[data-work-kind=workspace]').click();
@@ -115,8 +115,8 @@ export async function verifyRegularWork(browser,base,out){
   assert.doesNotMatch(await page.locator('.attempt-record').first().textContent(),/changed expectation/);
   if(out)for(const width of [1440,390])for(const theme of ['light','dark']){
    await page.setViewportSize({width,height:width===390?844:1000});await page.emulateMedia({colorScheme:theme});
-   for(const route of ['','lab/reframe/','lab/mixer/','lab/objections/','lab/interventions/']){
-    await page.goto(base+'/'+route);await page.evaluate(()=>document.fonts.ready);await page.locator(route?'#lab-experiment':'[data-explore-form]').waitFor();
+   for(const route of ['explore/','lab/reframe/','lab/mixer/','lab/objections/','lab/interventions/']){
+    await page.goto(base+'/'+route);await page.evaluate(()=>document.fonts.ready);await page.locator(route.startsWith('lab/')?'#lab-experiment':'[data-explore-form]').waitFor();
     if(route==='lab/objections/')await page.locator('[data-action=view][data-view=compare]').first().click();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,route+' overflow');
     await page.screenshot({path:`${out}/regular-${route.split('/')[1]||'catalogue'}-${width}-${theme}.png`,fullPage:false});

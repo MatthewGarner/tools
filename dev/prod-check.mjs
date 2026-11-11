@@ -21,8 +21,13 @@ check('CSP script-src is exactly self', scriptSrcIsSelf(home.headers.get('conten
 check('nosniff', home.headers.get('x-content-type-options') === 'nosniff');
 check('sw.js served', (await fetch(BASE + '/sw.js')).status === 200);
 check('manifest served', (await fetch(BASE + '/manifest.webmanifest')).status === 200);
-for(const path of ['/product/','/backup/','/lab/','/lab/about.html','/lab/knowledge/','/lab/reframe/','/lab/answers/'])
+for(const path of ['/explore/','/backup/','/lab/','/lab/about.html','/lab/knowledge/','/lab/reframe/','/lab/answers/'])
   check(path+' 200', (await fetch(BASE+path)).status===200);
+check('front door at / has the Instruments room', (await (await fetch(BASE + '/')).text()).includes('id="instruments"'));
+for(const path of ['/product/','/product']){
+  const legacy = await fetch(BASE + path, {redirect: 'manual'});
+  check(path + ' redirects to the front door\'s Instruments', [301, 302, 307, 308].includes(legacy.status) && legacy.headers.get('location')?.endsWith('/#instruments'));
+}
 const labBare=await fetch(BASE+'/lab/knowledge?source=route-check',{redirect:'manual'});
 check('Lab bare-path redirect retains query',new URL(labBare.headers.get('location')||'/',BASE).pathname==='/lab/knowledge/'&&new URL(labBare.headers.get('location')||'/',BASE).search==='?source=route-check');
 note('ARCHITECTURE.md off the served site (tools)', (await fetch(BASE + '/ARCHITECTURE.md')).status === 404);

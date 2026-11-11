@@ -155,15 +155,15 @@ async function copyPngRefuses(page){
    One name, so restoring both themes is a one-word edit rather than 22. */
 const FLOW_THEMES = ['light'];
 
-/* ---- landing ---- */
+/* ---- landing: the front door at / (dev/pw/front-door.mjs holds its budgets); /product/ redirects into it ---- */
 if(!scope.focused){
   scope.unscoped();
   const {page, errors} = await freshPage('/product/');
+  check('landing: /product/ lands on the front door\'s Instruments', new URL(page.url()).pathname === '/' && new URL(page.url()).hash === '#instruments');
   const instruments = TOOL_DIRS.filter(d => !BINDERS.includes(d));
-  check('landing: one card per instrument', await page.locator('a.tool').count() === instruments.length);
-  check('landing: every card carries its instrument sketch', await page.locator('a.tool svg.thumb').count() === instruments.length);
-  check('landing: one binder band per binder', await page.locator('a.binder').count() === BINDERS.length);
-  const hrefs = await page.locator('a.tool, a.binder').evaluateAll(as => as.map(a => a.getAttribute('href')));
+  check('landing: one flagship per job, each with its sketch', await page.locator('a.door-flagship').count() === 5 && await page.locator('a.door-flagship svg.sketch').count() === 5);
+  check('landing: the instruments the page names are all Product tools', (await page.locator('#instruments a').evaluateAll(as => as.map(a => a.getAttribute('href')))).every(h => TOOL_DIRS.includes(h.replaceAll('/', ''))) && instruments.length > 0);
+  const hrefs = await page.locator('main a[href^="/"]').evaluateAll(as => [...new Set(as.map(a => a.getAttribute('href')))]);
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
     check('landing: ' + href + ' resolves', resp.status() === 200);

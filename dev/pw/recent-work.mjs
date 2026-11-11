@@ -45,16 +45,16 @@ try{
  await page.getByLabel('Manage Grid 2',{exact:true}).click();await page.getByRole('button',{name:'Remove Grid 2',exact:true}).click();await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.locator('.recent-list li').count(),4);
  await page.getByLabel('Manage Grid 2',{exact:true}).click();await page.getByRole('button',{name:'Remove Grid 2',exact:true}).click();await page.getByRole('button',{name:'Remove copy',exact:true}).click();assert.equal(await page.locator('.recent-list li').count(),3);
  const other=await ctx.newPage();await other.goto(energy+'/frequency/');await save(other,'Other tab');await page.getByRole('link',{name:/Other tab/}).waitFor();await other.close();
- await page.goto(base+'/');assert.equal(await page.locator('.recent-open').count(),0,'separate origins');
+ await page.goto(base+'/explore/');assert.equal(await page.locator('.recent-open').count(),0,'separate origins');
  await page.goto(base+'/energy/');await page.evaluate(async()=>{const {recentStore}=await import('/assets/recent-store.js');recentStore(localStorage,'energy').add({id:'preview',tool:'frequency',name:'Preview',hash:btoa(JSON.stringify({i:155})),savedAt:Date.now()});});await page.reload();
- assert.ok((await page.locator('.recent-open').getAttribute('href')).startsWith('/energy/frequency/'),'combined preview keeps local Energy route');await page.goto(base+'/');assert.equal(await page.locator('.recent-open').count(),0,'scopes stay separate on one origin');
+ assert.ok((await page.locator('.recent-open').getAttribute('href')).startsWith('/energy/frequency/'),'combined preview keeps local Energy route');await page.goto(base+'/explore/');assert.equal(await page.locator('.recent-open').count(),0,'scopes stay separate on one origin');
  console.log('PASS Recent work fresh edits, rename/remove, multiple tabs and origin isolation');
  await ctx.close();
  const organised=await browser.newContext(contextOptions),wp=await organised.newPage();
  await wp.goto(base+'/lab/objections/');await wp.locator('#problem').fill('Which support change should we try?');
  await wp.waitForFunction(()=>document.querySelector('#save-status')?.textContent==='Saved in this browser');
  const saved=await wp.evaluate(()=>localStorage.getItem('thinking-lab:objections:v1'));
- await wp.goto(base+'/');await wp.locator('.work-disclosure-summary').click();await wp.getByRole('link',{name:/Which support change should we try/}).waitFor();
+ await wp.goto(base+'/explore/');await wp.locator('.work-disclosure-summary').click();await wp.getByRole('link',{name:/Which support change should we try/}).waitFor();
  const workRow=wp.locator('.work-list li').filter({hasText:'Which support change should we try?'});
  assert.match(await workRow.textContent(),/Updated/);
  await workRow.getByLabel('Manage Which support change should we try?',{exact:true}).click();await workRow.getByRole('button',{name:'Pin Which support change should we try?',exact:true}).click();
@@ -78,12 +78,12 @@ try{
  await sp.goto(base+'/signal-vs-noise/');await recentReady(sp);await sp.locator('#next').click();const run=await save(sp,'In progress');await sp.goto(base+'/');await sp.goto(base+'/signal-vs-noise/#'+run.hash);await recentReady(sp);assert.equal(await sp.locator('#reveal').isVisible(),true);assert.match(await sp.locator('#next').textContent(),/Go to quarter 2/);await special.close();console.log('PASS Recent work unfinished Duel and Signal sessions');
  // Installed-app contract: a never-visited instrument can open from the shelf offline.
  for(const [origin,tool] of [[base,'flow'],[energy,'frequency']]){
-  const offline=await browser.newContext({...contextOptions,serviceWorkers:'allow'}),op=await offline.newPage();await op.goto(origin+'/'+tool+'/');await recentReady(op);await save(op,'Offline model');await op.evaluate(()=>navigator.serviceWorker.ready);await op.goto(origin+'/');if(origin===base)await op.locator('.work-disclosure-summary').click();await op.locator('.recent-open').waitFor();await offline.setOffline(true);await op.locator('.recent-open').click();await recentReady(op);assert.equal(new URL(op.url()).pathname,'/'+tool+'/');await save(op,'Offline revision');assert.equal((await records(op)).length,2);await offline.close();
+  const offline=await browser.newContext({...contextOptions,serviceWorkers:'allow'}),op=await offline.newPage();await op.goto(origin+'/'+tool+'/');await recentReady(op);await save(op,'Offline model');await op.evaluate(()=>navigator.serviceWorker.ready);await op.goto(origin===base?origin+'/explore/':origin+'/');if(origin===base)await op.locator('.work-disclosure-summary').click();await op.locator('.recent-open').waitFor();await offline.setOffline(true);await op.locator('.recent-open').click();await recentReady(op);assert.equal(new URL(op.url()).pathname,'/'+tool+'/');await save(op,'Offline revision');assert.equal((await records(op)).length,2);await offline.close();
  }
  console.log('PASS Recent work offline on both installed-app origins');
  if(process.env.RECENT_SCREENSHOTS)await mkdir(process.env.RECENT_SCREENSHOTS,{recursive:true});
  for(const [label,origin] of [['tools',base],['energy',energy]])for(const width of [390,1280])for(const theme of ['light','dark']){
-  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin+'/');await vp.evaluate(()=>document.fonts.ready);
+  const visual=await browser.newContext({...contextOptions,viewport:{width,height:900},colorScheme:theme}),vp=await visual.newPage();await vp.goto(origin===base?origin+'/explore/':origin+'/');await vp.evaluate(()=>document.fonts.ready);
   assert.equal(await vp.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   if(process.env.RECENT_SCREENSHOTS)await vp.screenshot({path:process.env.RECENT_SCREENSHOTS+'/'+label+'-'+width+'-'+theme+'-empty.png'});
   await vp.evaluate(async scope=>{const {recentStore}=await import('/assets/recent-store.js');const tool=scope==='tools'?'flow':'frequency';const names=scope==='tools'?['Team capacity review','Launch plan — October','Support queue scenarios']:['Winter battery scenario','Low-inertia grid','Morning dispatch'];for(let i=0;i<names.length;i++)recentStore(localStorage,scope).add({id:'visual'+i,tool,name:names[i],hash:btoa('{}'),savedAt:Date.now()+i});},label);await vp.reload();await vp.evaluate(()=>document.fonts.ready);
