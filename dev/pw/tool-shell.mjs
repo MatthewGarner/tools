@@ -136,6 +136,9 @@ Object.assign(MODEL, {why: dsl, tree: dsl, map: dsl, wardley: dsl, bets: dsl, pa
   flow: inputModel('#demand', ['', '3.5', '6', '8']),
 });
 
+/* The empty panel has two true wordings: a source tool that has already kept its draft (Roadmap writes one shortly
+   after loading) says so, the rest say nothing is saved. Which one a fresh page shows depends on timing. */
+const EMPTY_PANEL = /Nothing saved for|No saved copies of/;
 const ready = p => p.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached', timeout: 15000});
 const copies = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('mg:recent:v1:')).map(k => JSON.parse(localStorage.getItem(k))));
 const templates = p => p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('mg:template:v1:')).map(k => JSON.parse(localStorage.getItem(k))));
@@ -545,7 +548,7 @@ for(const dir of SHELLS){
         await fileItem(page, 'Your work…');
         const panel = page.getByRole('dialog', {name: 'Your work in ' + entry.name});
         await panel.waitFor({timeout: 8000});
-        ok(await until(async () => (await panel.textContent()).includes('Nothing saved'), {timeout: 6000}), `${dir}: Your work opens offline from the Energy service worker's precache`);
+        ok(await until(async () => EMPTY_PANEL.test(await panel.textContent()), {timeout: 6000}), `${dir}: Your work opens offline from the Energy service worker's precache`);
       }
       await context.close();
     }
@@ -1084,7 +1087,7 @@ for(const dir of SHELLS){
     await fileItem(page, 'Your work…');
     const offlinePanel = page.getByRole('dialog', {name: 'Your work in ' + entry.name});
     await offlinePanel.waitFor({timeout: 8000});
-    ok(await until(async () => (await offlinePanel.textContent()).includes('Nothing saved'), {timeout: 6000}), `${dir}: Your work opens offline from the precache`);
+    ok(await until(async () => EMPTY_PANEL.test(await offlinePanel.textContent()), {timeout: 6000}), `${dir}: Your work opens offline from the precache`);
     await page.keyboard.press('Escape');
     if(entry.templates){
       await fileItem(page, 'Save as template…');
