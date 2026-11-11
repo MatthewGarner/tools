@@ -90,12 +90,12 @@ if(scope.wants("paths")){
     const state = await page.evaluate(() => ({
       canonical: location.pathname === '/paths/',
       editor: !!document.querySelector('#cmhost .cm-editor'),
-      example: document.getElementById('chips')?.textContent.includes('Lantern'),
+      example: !!document.querySelector('[data-shell-ready] [data-act=examples]:not([disabled])'),
       preview: document.querySelector('#preview svg')?.textContent.includes('Lantern'),
     }));
     ok(state.canonical, 'paths (webkit): bare direct URL redirects to the canonical trailing slash');
     ok(state.editor && state.example && state.preview,
-      'paths (webkit): direct URL loads editor, example chip, and rendered artefact');
+      'paths (webkit): direct URL loads editor, File > Examples, and rendered artefact');
     ok(errs.length === 0, 'paths (webkit): direct URL has no page errors' + (errs.length ? ' — ' + errs[0] : ''));
   }catch(e){
     ok(false, 'paths (webkit): bare direct URL loads — ' + String(e).split('\n')[0]);

@@ -98,8 +98,6 @@ for(const [name, url] of ALL){
   });
   if(presetRows.count) ok(presetRows.failures.length === 0,
     `${name}: all preset chips wrap without horizontal scrolling${presetRows.failures.length ? ' — ' + presetRows.failures.join(', ') : ''}`);
-  const examples = page.locator('details.document-examples, details#examples').first();
-  if(await examples.count()) await examples.locator('summary').first().click();
   /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
      must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
      have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the

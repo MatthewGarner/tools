@@ -1,4 +1,4 @@
-import {openExamples, openFileMenu, isShellPage} from './_harness.mjs';
+import {openExamples, openFileMenu} from './_harness.mjs';
 /* Smoke checks for every tool + the landing page. The quality bar: each tool
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
@@ -1643,11 +1643,11 @@ if(scope.wants("flow")){
   await page2.close();
 }
 
-/* ---- "Start your own": every DSL tool's on-ramp chip ----
+/* ---- the blank start: every DSL tool's File > New ----
    Each tool autoloads an example, so the starter is the only way to reach a frame
    that is yours. Clicking it must replace the example, render, and warn about
-   nothing — dev/starter.test.mjs proves the text parses clean, this proves the
-   chip is actually wired and reaches the screen. */
+   nothing — dev/starter.test.mjs proves the text parses clean, this proves New
+   is actually wired and reaches the screen. */
 for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your programme'],
     ['/wardley/', 'Your landscape'], ['/map/', 'Your assumptions'], ['/why/', 'Your outcome'],
     ['/tree/', 'Your decision'], ['/bets/', 'Your bets'], ['/paths/', 'Your plan'],
@@ -1656,16 +1656,12 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
   if(!scope.wants(tool)) continue;
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);
-  /* Stamped-shell pages start from File > New; the others keep a chip in the source rail
-     (half of which open with the rail collapsed) */
-  const shell = await isShellPage(page);
-  if(shell) await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
-  else if(!['/case/'].includes(tool) && !await page.getByRole('button', {name:'Start your own',exact:true}).isVisible()) await page.locator('#railtab').click();
+  /* Every page starts from File > New */
+  await page.locator('[data-tool-header][data-shell-ready]').waitFor({state: 'attached'});
   await page.waitForTimeout(300);
-  if(shell) await openFileMenu(page);
-  const chip = shell ? page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true})
-    : page.getByRole('button', {name: tool === '/case/' ? 'New case' : 'Start your own'});
-  check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);
+  await openFileMenu(page);
+  const chip = page.locator('[data-shell-file]').getByRole('button', {name: 'New', exact: true});
+  check(tool + ' start: File > New is present', await chip.count() === 1);
   await chip.click();
   /* energy's engines settle off-thread — poll rather than guess a sleep */
   await page.waitForFunction(m => (document.querySelector('#preview svg')?.textContent || '').includes(m),

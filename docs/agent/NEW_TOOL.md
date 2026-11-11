@@ -28,3 +28,11 @@ article view; the catalogue gate enforces this. Follow [embed/README.md](../../e
 for model isolation, preview, immutable release, and article generation. Remove the
 starter's draft marker only after replacing its example semantics and completing
 native registration and checks.
+
+Page header and saving: add the tool to `dev/shell-manifest.mjs` (name equal to its
+catalogue title, anchor, and only the File items it really has), set `shell:true`,
+put `<header data-tool-header>` with a kicker slot and a `<main id="main">` in the
+page, run `npm run sync`, and hand the shell the page's abilities with `provide()`
+(see "The page header and saving" in `ARCHITECTURE.md`). Do not build save, share,
+example or start-your-own controls into the page; the shell tests fail a page that
+does. Energy tools also carry the E1-E5 strip.

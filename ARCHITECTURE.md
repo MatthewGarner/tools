@@ -228,6 +228,22 @@ question, and forgets everything after a day.
 *This file is the public companion to the repo's local working notes. It describes
 what the code **is**; how work happens here (branching, gates, deploy) is separate.*
 
+### The page header and saving
+
+Every page — Product and Energy — carries one stamped header: a kicker, then a
+title row with a File menu (New, Examples, Your work, Save a copy, Save as
+template, Backup & restore, each only where the page offers it) and Share. A
+page's facts are one entry in `dev/shell-manifest.mjs`; `npm run sync` stamps the
+header from it (`dev/sync-shell.mjs`) and `assets/tool-shell.js` wires it. The page
+hands over what it can do with `provide()` (`assets/recent-ui.js`): `getState`,
+`getHash`, `save`, `blank`, `examples`, `items`, `shareMax`; `mountRecentSave` and
+`mountModelLink` are the usual routes, and `provide({withdraw: true})` takes the
+offer back. Pages do not render their own save, share, example or start-your-own
+controls; page actions sit in one row at the top of `main`. Energy headers add the
+E1-E5 strip as a 44px first row (120px in all, the kicker hidden) and have their
+own limits. The gate (`dev/pw/first-screen.mjs`, `dev/pw/tool-shell*.mjs`) holds
+every page to its header budget, one verb each and a working File and Share.
+
 ### Your work
 
 The catalogue reads native saved-work stores without loading tool engines or

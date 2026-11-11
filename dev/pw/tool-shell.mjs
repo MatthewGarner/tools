@@ -5,8 +5,7 @@
    unwired action or a layout that shifts when the menu opens turns a line red. */
 import {chromium} from 'playwright';
 import {SHELL_MANIFEST, VIEWPORTS, isEnergy} from '../shell-manifest.mjs';
-import {shellRegion, headBlock} from '../sync-shell.mjs';
-import {checkInjectedModelLink} from './model-link-check.mjs';
+import {shellRegion} from '../sync-shell.mjs';
 import {SOURCE_TOOLS} from '../../assets/saved-work-keys.js';
 import {scopeFor} from './_scope.mjs';
 import {until, trackErrors, openFileMenu, fileItem} from './_harness.mjs';
@@ -938,40 +937,29 @@ for(const dir of SHELLS){
   }
 }
 
-/* ---- hand-off from the three mount functions, on a page that is not migrated ---- */
+/* ---- hand-off from provide() and the two mount functions, on a synthetic stamped page ---- */
 if(!scope.focused && MODE === 'core'){
   scope.unscoped();
-  {
-    /* an unmigrated page still injects its own controls */
-    const {context, page} = await (async () => { const context = await browser.newContext(laptopOpts), page = await context.newPage(); await page.goto(E + '/cycles/', {waitUntil: 'networkidle'}); return {context, page}; })();
-    await page.locator('.recent-save').waitFor();
-    ok(!(await page.locator('[data-shell-row]').count()) && await page.locator('[data-tool-header] .recent-save').count() === 1,
-      'unmigrated cycles (an Energy page, stamped in batch 3): still injects Save a copy into its header');
-    await context.close();
-  }
-  {
-    /* a synthetic stamped page on the real modules: the three mount calls must hand over, not inject */
-    const entry = {...SHELL_MANIFEST.why, shell: true};
-    const html = `<!doctype html><html lang="en" data-mg-section="tools"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  const entry = {...SHELL_MANIFEST.why, shell: true};
+  const fixture = script => `<!doctype html><html lang="en" data-mg-section="tools"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="/assets/identity/theme-init.js"></script><link rel="stylesheet" href="/assets/identity/identity.css"><link rel="stylesheet" href="/assets/identity-tools.css">
 <link rel="stylesheet" href="/assets/tool-shell.css"><script type="module" src="/assets/tool-shell.js"></script></head>
 <body class="mg-site"><div class="wrap"><header data-tool-header data-shell><p class="kicker">Fixture</p>${shellRegion('why', entry)}</header>
-<main id="main"><div id="chips" class="chips"><span class="lead">Try:</span><button class="chip start">Start your own</button><button class="chip" id="exa">Alpha example</button><button class="chip" id="exb">Beta example</button></div><p id="log"></p></main></div>
+<main id="main"><p id="log"></p>
 <script type="module">
-import {mountDocumentStart} from '/assets/document-start.js';
+import {offer as provide} from '/assets/recent-ui.js';
 import {mountModelLink} from '/assets/model-link.js';
 const log = t => { document.getElementById('log').textContent += t + ';'; };
-for(const [id, text] of [['exa', 'alpha'], ['exb', 'beta']]) document.getElementById(id).addEventListener('click', () => log(text));
-document.querySelector('.start').addEventListener('click', () => log('start'));
-window.returned = [mountDocumentStart(document.getElementById('chips')), mountModelLink(null, {getState: () => ({t: 'fixture'})})];
-</script></body></html>`;
+${script}
+</script></main></div></body></html>`;
+  {
+    const html = fixture(`provide({blank: () => log('start'), examples: [{name: 'Alpha example', pick: () => log('alpha')}, {name: 'Beta example', pick: () => log('beta')}]});
+mountModelLink({getState: () => ({t: 'fixture'})});`);
     const context = await browser.newContext(laptopOpts), page = await context.newPage(), errors = trackErrors(page);
     await context.route(T + '/why/', route => route.fulfill({contentType: 'text/html', body: html}));
     await page.goto(T + '/why/', {waitUntil: 'networkidle'});
     await ready(page);
-    ok(await page.evaluate(() => window.returned.every(r => r === null)) && !(await page.locator('.instrument-actions, .document-actions, .recent-save, button.model-link').count()),
-      'hand-off: mountDocumentStart and mountModelLink (with mountRecentSave) inject nothing into a stamped page');
-    ok(!(await page.locator('#chips').isVisible()), 'hand-off: the page\'s own example row goes quiet');
+    ok(!(await page.locator('.instrument-actions, .document-actions, .recent-save, button.model-link').count()), 'hand-off: provide() and mountModelLink put nothing into the page, only into File and Share');
     await fileItem(page, 'New');
     await openFileMenu(page);
     await page.locator('[data-act=examples]').click();
@@ -980,29 +968,13 @@ window.returned = [mountDocumentStart(document.getElementById('chips')), mountMo
     ok(await page.locator('#log').textContent() === 'start;beta;', 'hand-off: New and an example run the page\'s own handlers (log ' + JSON.stringify(await page.locator('#log').textContent()) + ')');
     await page.locator('[data-act=share]').click();
     await until(async () => (await status(page).textContent()).includes('Link copied') || (await page.getByRole('dialog', {name: 'Share link'}).count()) > 0);
-    ok(await status(page).textContent().then(t => t === 'Link copied. It opens as a separate copy.') || await page.getByRole('dialog', {name: 'Share link'}).count() === 1, 'hand-off: Share works from the state mountModelLink was given');
+    ok(await status(page).textContent().then(t => t === 'Link copied. It opens as a separate copy.') || await page.getByRole('dialog', {name: 'Share link'}).count() === 1, 'hand-off: Share works from the state mountModelLink handed over');
     ok(errors.length === 0, 'hand-off: no console errors (' + errors.join(' | ').slice(0, 120) + ')');
-    await context.close();
-  }
-
-  {
-    /* the injected "Copy model link" button, on a page that is not migrated */
-    const context = await browser.newContext(laptopOpts), page = await context.newPage();
-    await page.goto(E + '/cycles/', {waitUntil: 'networkidle'});
-    await page.locator('.recent-save').waitFor();
-    let problem = '';
-    try{ await checkInjectedModelLink(page); }catch(error){ problem = error.message.split('\n')[0]; }
-    ok(!problem, 'unmigrated cycles: mountModelLink still injects a working Copy model link button' + (problem ? ' — ' + problem : ''));
     await context.close();
   }
   {
     /* Energy hides its kicker on purpose (the E-series strip stands in); the shell must not un-hide it */
     const context = await browser.newContext(laptopOpts), page = await context.newPage();
-    await context.route(E + '/frequency/', async route => {
-      const response = await route.fetch();
-      const body = (await response.text()).replace('<header data-tool-header', '<header data-tool-header data-shell').replace('</head>', headBlock + '\n</head>');
-      await route.fulfill({response, body});
-    });
     await page.goto(E + '/frequency/', {waitUntil: 'networkidle'});
     const kicker = await page.evaluate(() => ({display: getComputedStyle(document.querySelector('[data-tool-header] > .kicker')).display, shell: document.querySelector('[data-tool-header]').hasAttribute('data-shell'),
       css: [...document.styleSheets].some(sheet => (sheet.href || '').endsWith('/assets/tool-shell.css'))}));
@@ -1011,10 +983,8 @@ window.returned = [mountDocumentStart(document.getElementById('chips')), mountMo
   }
   {
     /* a page that offers no examples must not get an Examples capability from an empty list */
-    const entry = {...SHELL_MANIFEST.why, shell: true};
-    const html = `<!doctype html><html lang="en" data-mg-section="tools"><head><meta charset="utf-8"><link rel="stylesheet" href="/assets/identity/identity.css"><link rel="stylesheet" href="/assets/tool-shell.css"><script type="module" src="/assets/tool-shell.js"></script></head>
-<body class="mg-site"><div class="wrap"><header data-tool-header data-shell><p class="kicker">Fixture</p>${shellRegion('why', entry)}</header><main id="main"><div id="chips"><button class="chip start">Start</button></div></main></div>
-<script type="module">import {mountDocumentStart} from '/assets/document-start.js'; import {mountModelLink} from '/assets/model-link.js'; mountDocumentStart(document.getElementById('chips')); mountModelLink(null, {getState: () => ({t: 'x'})});</script></body></html>`;
+    const html = fixture(`provide({blank: () => log('start'), examples: []});
+mountModelLink({getState: () => ({t: 'fixture'})});`);
     const context = await browser.newContext(laptopOpts), page = await context.newPage();
     await context.route(T + '/why/', route => route.fulfill({contentType: 'text/html', body: html}));
     await page.goto(T + '/why/', {waitUntil: 'networkidle'});
@@ -1022,7 +992,6 @@ window.returned = [mountDocumentStart(document.getElementById('chips')), mountMo
     ok(await page.locator('[data-act=examples]').isDisabled() && !(await page.locator('[data-tool-header][data-shell-ready]').count()), 'hand-off: an empty example list leaves Examples disabled and the header not ready');
     await context.close();
   }
-
 }
 
 await browser.close();
