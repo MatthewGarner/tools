@@ -46,6 +46,7 @@ if(strip){
     favs.forEach(([,title,href],i)=>{if(i)favLinks.append(', ');const a=el('a',title);a.href=href;favLinks.append(a);});
     favBox.hidden=!favs.length;
     strip.hidden=!items.length&&!favs.length;
+    strip.dataset.ready='';   // the first read has finished: a hidden strip now means nothing is stored
   }
   addEventListener('storage',refresh);addEventListener('pageshow',refresh);
   refresh();

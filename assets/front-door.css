@@ -1,11 +1,7 @@
-/* Tools Lab front door (home/index.html, served at `/`). A contents page, not a card grid:
-   five jobs as ruled rows, then models as pictured cards, workbenches and Energy as plain text.
-   Reuses the identity tokens and the catalogue intro; sketches keep the stroke/accent treatment
-   they had on the old index. Everything below the intro is generated from assets/suite-catalog.js. */
+/* Tools Lab front door (home/index.html at `/`): ruled job rows, pictured model cards, plain-text lists. Generated markup. */
 .door { padding-bottom: 1.5rem; }
 .door [hidden] { display: none !important; }
 
-/* a compact intro: the page is for choosing, the heading should not take the first screen */
 .door .catalogue-intro { grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 2.5rem; padding-block: 2rem 1.5rem; }
 .door .catalogue-intro h1 { font-size: clamp(2.5rem, 5vw, 4rem); white-space: nowrap; }
 .door .catalogue-lede > p { font-size: clamp(1.15rem, 1.8vw, 1.5rem); }
@@ -33,7 +29,7 @@
 .door-resume-list .door-line { font-size: .9375rem; }
 .door-resume-favourites, .door-resume-all { margin: 0; font-size: 1rem; }
 .door-resume-favourites { padding-top: .25rem; color: var(--mg-muted, var(--muted)); }
-.door-resume-favourites a, .door-resume-all a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: .5rem; color: var(--mg-ink, var(--ink)); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+.door-resume-favourites a, .door-resume-all a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-inline: .5rem; color: var(--mg-ink, var(--ink)); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
 .door-resume-favourites a:first-child { padding-left: 0; }
 .door-resume-all a { margin-left: -.5rem; }
 
