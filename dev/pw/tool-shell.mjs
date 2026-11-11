@@ -350,6 +350,26 @@ for(const dir of SHELLS){
       ok(await ep.locator('.recent-open').filter({hasText: `${dir} energy copy`}).count() === 1, `${dir}: the Energy catalogue lists the copy`);
       await ec.context.close();
     }
+    /* Energy keeps the 24000-character link limit its old Copy link had: a ~6.3k-character source must share and reopen */
+    if(dir === 'cycles' || dir === 'risk'){
+      const big = await open(dir, laptopOpts);
+      const marker = 'bigmodel-' + dir;
+      await big.page.evaluate(m => {
+        const view = document.querySelector('.cm-content').cmTile.view, noise = Array.from(crypto.getRandomValues(new Uint8Array(6500)), b => String.fromCharCode(33 + b % 90)).join('');
+        view.dispatch({changes: {from: 0, insert: '// ' + m + ' ' + noise + '\n'}});
+      }, marker);
+      await big.page.waitForTimeout(600);
+      await big.page.locator('[data-act=share]').click();
+      await until(async () => (await status(big.page).textContent()).length > 0);
+      const link = await big.page.evaluate(() => navigator.clipboard.readText()), said = await status(big.page).textContent();
+      ok(link.length > 6000 && /Link copied/.test(said), `${dir}: Share copies a model whose link is past 6000 characters (${link.length} chars; said ${JSON.stringify(said)})`);
+      if(link.length > 6000){
+        const fresh = await open(dir, laptopOpts, link);
+        ok(await until(async () => (await docOf(fresh.page)).includes(marker), {timeout: 8000}), `${dir}: that link reopens the same model in a fresh context`);
+        await fresh.context.close();
+      }
+      await big.context.close();
+    }
     /* the Your work module must open offline from energy/sw.js's own precache (once: every Energy page shares the worker) */
     if(dir === 'frequency'){
       const context = await browser.newContext({...laptopOpts, serviceWorkers: 'allow'}), page = await context.newPage();

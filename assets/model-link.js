@@ -2,6 +2,10 @@ import {mountRecentSave} from './recent-work.js';
 import {encodeHash} from './series.js';
 import {offer} from './recent-ui.js';
 
+/* The longest link Share will copy: the limit Case always had and the Energy pages' old Copy link allowed.
+   Pages whose models stay small keep the 6000 default in mountModelLink. */
+export const SHARE_MAX = 24000;
+
 // Snapshot the model at click time: location.hash can lag behind a recent edit.
 // Used by the shell's Share; getHash is the same hook
 // Save a copy uses, and the link never comes from location.hash.

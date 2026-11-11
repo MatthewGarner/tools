@@ -1,6 +1,7 @@
 import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 import {offer as provide} from '../assets/recent-ui.js';
+import {SHARE_MAX} from '../assets/model-link.js';
 /* Source owns the review. Inspection and export preview never change it. */
 import {parse, classifyReference, CONFIG_KEYS} from './parse.js';
 import {project, inspectReview, inspectReference} from './review-model.js';
@@ -35,7 +36,7 @@ const slug=()=>slugify(model?.title||'case');
 function scheduleHash(){clearTimeout(hashTimer);hashTimer=setTimeout(writeHash,400);}
 async function writeHash(){
   if(!shouldPersist())return false;
-  const ok=await writeHashState({t:editor.getText(),...(ws.collapsed()?{e:0}:{})},24000);
+  const ok=await writeHashState({t:editor.getText(),...(ws.collapsed()?{e:0}:{})},SHARE_MAX);
   oversize=!ok;warnings();return ok;
 }
 function warnings(){renderWarningList($('warns'),[...(model?.warnings||[]),...(oversize?['This Case exceeds the link limit. The URL has not been updated; save the complete source instead.']:[])]);}
@@ -156,7 +157,7 @@ $('adoptreference').addEventListener('click',()=>{
   editor.setText(source);$('replacedialog').close();status('Reference adopted. The previous reference is preserved in Reviews.');
 });
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',()=>$(b.dataset.close).close());
-provide({shareMax: 24000, blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => { selected = ''; editor.setText(ex.text); }}))});
+provide({shareMax: SHARE_MAX, blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => { selected = ''; editor.setText(ex.text); }}))});
 $('savesource').addEventListener('click',()=>download(slug()+'.case.txt',new Blob([editor.getText()],{type:'text/plain;charset=utf-8'})));
 $('opensource').addEventListener('change',async()=>{const file=$('opensource').files[0];if(!file)return;if(file.size>1000000){status('Source files can be up to 1 MB.');return;}editor.setText(await file.text());$('opensource').value='';status('Source opened.');});
 function markdown(){
