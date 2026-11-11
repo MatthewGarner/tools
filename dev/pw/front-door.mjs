@@ -83,6 +83,10 @@ try {
     const emptyGap = await gap();
     ok('strip: absent with empty storage', await page.locator('[data-door-resume]').isVisible() === false && await page.locator('[data-door-work] li').count() === 0 && await page.getByText('Pick up where you left off').isVisible() === false);
     ok(`strip: absent leaves no gap (${Math.round(emptyGap)}px between intro and Instruments)`, emptyGap < 60);
+    /* merely opening a tool is not work: Premortem and most Lab pages store a workspace the moment they load */
+    for(const path of ['/premortem/', '/lab/reframe/', '/lab/delay/']){ await page.goto(T + path, {waitUntil: 'networkidle'}); await page.waitForTimeout(1200); }
+    await page.goto(T + '/'); await settle(page); await stripReady(page);
+    ok('strip: opening tools without saving anything does not fill it', await page.locator('[data-door-resume]').isVisible() === false, (await page.locator('[data-door-resume]').textContent()).replace(/\s+/g, ' ').trim().slice(0, 140));
 
     /* seed with the real record shape: the store's own add() validates it */
     const hash = await encodeHash({t: 'title: Door fixture plan\nNow\n- First item'});

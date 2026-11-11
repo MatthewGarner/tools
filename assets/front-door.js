@@ -1,7 +1,8 @@
 /* The front door's returning strip: "Pick up where you left off". It reads the same stores and
-   applies the same organisation as the catalogue's Your work shelf (assets/your-work.js) — saved
-   copies, native workspaces and drafts, pins and archive — and shows at most three, plus any
-   favourites. With nothing stored the section stays hidden and takes no space. It deliberately
+   applies the same organisation as the catalogue's Your work shelf (assets/your-work.js), but lists
+   only what the visitor chose to keep: saved copies, drafts and anything pinned. Premortem and most
+   Lab pages store a workspace the moment they load, and nothing marks one as edited, so an unpinned
+   workspace is not offered as work to pick up. At most three, plus any favourites. With nothing stored the section stays hidden and takes no space. It deliberately
    does not import the work library, the work actions or the template editor: opening, renaming and
    removing work stay in Your work. Text only; storage values never reach innerHTML. */
 import {scope,store} from './recent-ui.js';
@@ -24,7 +25,7 @@ if(strip){
     let copies=[],native=[];
     try{copies=store().list().map(r=>{const key=`mg:recent:v1:${scope}:${r.id}`;return {...r,key,id:workId(key),kind:'copy',toolName:RECENT_TOOLS[scope][r.tool],href:recentRoute(scope,r.tool,location.pathname)+'#'+r.hash};});}catch{}
     try{native=readNativeWork(localStorage,{scope,pathname:location.pathname}).records;}catch{}
-    try{return decorateWork(localStorage,[...copies,...native]).records.filter(r=>!r.archived).slice(0,LIMIT);}catch{return [];}
+    try{return decorateWork(localStorage,[...copies,...native]).records.filter(r=>!r.archived&&(r.kind!=='workspace'||r.pinned)).slice(0,LIMIT);}catch{return [];}
   }
   // Items that carry model state (a named save, a Fermi estimate) need the portable hash, exactly as Your work builds it.
   async function link(record){
