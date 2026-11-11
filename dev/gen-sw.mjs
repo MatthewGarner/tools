@@ -25,7 +25,7 @@ export function workers(){
     {file: 'home/sw.js', prefix: 'tools', dirs: [...TOOL_DIRS, 'assets', 'explore', 'backup'], map: u => u, repo: toToolsPath},
     {file: 'energy/sw.js', prefix: 'energy', dirs: ['energy', 'assets', 'backup', 'roadmap/vendor'], map: toOriginUrl, repo: toRepoPath},
   ].map(({file, prefix, dirs, map, repo}) => {
-    const urls = [...new Set(['/', '/manifest.webmanifest', ...(prefix==='tools'?['/product/']:[]), ...dirs.flatMap(d => walk(d))
+    const urls = [...new Set(['/', '/manifest.webmanifest', ...dirs.flatMap(d => walk(d))
       .map(map).filter(u => u !== null && u !== '/sw.js')])];
     const entries = urls.map(url => {
       const path = repo(url);

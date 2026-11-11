@@ -185,10 +185,6 @@
       "destination": "/energy/manifest.webmanifest"
     },
     {
-      "source": "/product/",
-      "destination": "/home/"
-    },
-    {
       "source": "/lab/authority/",
       "destination": "/lab/dist/authority/"
     },
@@ -318,7 +314,7 @@
     },
     {
       "source": "/",
-      "destination": "/explore/"
+      "destination": "/home/"
     },
     {
       "source": "/sw.js",
@@ -514,11 +510,6 @@
       "permanent": false
     },
     {
-      "source": "/product",
-      "destination": "/product/",
-      "permanent": false
-    },
-    {
       "source": "/explore",
       "destination": "/explore/",
       "permanent": false
@@ -686,6 +677,16 @@
     {
       "source": "/embed/v1/flow",
       "destination": "/embed/v1/flow/",
+      "permanent": false
+    },
+    {
+      "source": "/product",
+      "destination": "/#instruments",
+      "permanent": false
+    },
+    {
+      "source": "/product/",
+      "destination": "/#instruments",
       "permanent": false
     }
   ]
