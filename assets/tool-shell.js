@@ -56,8 +56,12 @@ function init(row){
   const closeMenu = () => { file.open = false; };
   const closeAndFocus = () => { closeMenu(); summary.focus(); };
   let trapped = false;
+  /* the open menu never runs past the bottom of the viewport: it scrolls inside itself instead (12px to spare) */
+  const fitMenu = () => { if(file.open) file.style.setProperty('--tool-menu-room', Math.max(120, innerHeight - menu.getBoundingClientRect().top - 12) + 'px'); };
+  addEventListener('resize', fitMenu);
   file.addEventListener('toggle', () => {
     if(file.open){
+      fitMenu();
       for(const other of document.querySelectorAll(POPOVER + '[open]')) other.open = false;
       if(trapped) menu.querySelector('button:not(:disabled)')?.focus();
       else { trapped = true; trapPopoverFocus(menu, closeAndFocus, {trap: false, items: 'button, a[href]'}); }
@@ -83,6 +87,7 @@ function init(row){
       return b;
     }));
     list.hidden = false;
+    fitMenu();
   }
 
   const shareButton = row.querySelector('[data-act=share]');

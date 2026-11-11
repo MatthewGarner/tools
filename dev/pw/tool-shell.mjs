@@ -306,6 +306,22 @@ for(const dir of SHELLS){
       await long.context.close();
     }
 
+    /* On a short viewport the open File menu (Examples expanded) fits the screen: it scrolls inside itself and its last item is reachable */
+    if(dir === 'rank'){
+      const short = await browser.newContext({viewport: {width: 320, height: 568}, hasTouch: true, isMobile: true, reducedMotion: 'reduce', serviceWorkers: 'block'}), sp = await short.newPage();
+      await sp.goto(T + '/rank/', {waitUntil: 'networkidle'}); await ready(sp);
+      await openFileMenu(sp);
+      await sp.locator('[data-shell-file] [data-act=examples]').click();
+      await sp.waitForTimeout(250);
+      const geo = await sp.evaluate(() => { const m = document.querySelector('[data-shell-file] .tool-menu').getBoundingClientRect(); return {bottom: Math.round(m.bottom), top: Math.round(m.top)}; });
+      ok(geo.bottom <= 568, `${dir}: at 320x568 the open File menu with Examples expanded ends inside the viewport (bottom ${geo.bottom}px)`);
+      const last = sp.locator('[data-shell-file] .tool-menu').getByRole('link', {name: 'Backup & restore'});
+      await last.scrollIntoViewIfNeeded();
+      const reach = await sp.evaluate(() => { const m = document.querySelector('[data-shell-file] .tool-menu').getBoundingClientRect(), l = document.querySelector('[data-shell-file] [data-act=backup]').getBoundingClientRect(); return l.bottom <= m.bottom + 1 && l.top >= m.top - 1 && l.bottom <= innerHeight; });
+      ok(reach, `${dir}: the last File item can be scrolled into view inside the menu at 320x568`);
+      await short.close();
+    }
+
     /* Case's Appearance menu is a popover too: one popover open at a time, Escape closes it and returns focus */
     if(dir === 'case'){
       const pop = await open(dir, laptopOpts), pp = pop.page, openCount = () => pp.evaluate(() => document.querySelectorAll('[data-shell-file][open], #appearance[open]').length);
