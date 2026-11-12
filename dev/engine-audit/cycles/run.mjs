@@ -2,7 +2,7 @@
 import {readFileSync} from 'node:fs';
 import {check, done, rng} from './lib.mjs';
 import {parse} from '../../../energy/cycles/parse.js';
-import {simulate, simKey, simPolicy, makeBase, above, tauBudget, drawBeliefs, verdict, fmtUnit, N_BASE, DAYS} from '../../../energy/cycles/engine.js';
+import {simulate, simKey, simPolicy, makeBase, above, tauBudget, drawBeliefs, verdict, fmtUnit, bindTenths, N_BASE, DAYS} from '../../../energy/cycles/engine.js';
 import {mulberry32, gaussian} from '../../../assets/series.js';
 
 const near = (a, b, tol) => Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
@@ -58,27 +58,24 @@ const K = (1 / 0.9 - 1) * 20;           // round-trip penalty k = (1/rte - 1) * 
   let best = 0, by = -1;
   for(let ys = 1; ys < H; ys++){ const v = ys * (E0 * R * cal * A(H - ys) - E0 * cal * aug) / (1 + d) ** ys; if(v > best){ best = v; by = ys; } }
   check('C4a augment window = [ys*+1, ys*+1] from closed-form argmax', o.augment.window && o.augment.window[0] === by + 1 && o.augment.window[1] === by + 1, `engine ${JSON.stringify(o.augment.window)}, hand ys*=${by} => year ${by + 1}`);
-  // value of waiting one more year, same time base (PV at ys):  opt - [rev_noaug(ys)/(1+d) + late/(1+d)],  cost excluded as in the engine.
-  const pv = (from) => { let s = 0; for(let j = 0; j < H - from; j++) s += E0 * R * (1 - cal * j) / (1 + d) ** (j + 1); return s; };
-  const opt = pv(by), late = pv(by + 1), revNo = E0 * R * (1 - cal * by);
-  const correct = opt - (revNo / (1 + d) + late / (1 + d));
-  const engineFormula = Math.max(0, opt - late - revNo / (1 + d));
-  console.log(`   info: hand forgone (same time base) = ${correct.toFixed(0)}; engine formula applied to the same pieces = ${engineFormula.toFixed(0)}; engine printed forgoneP50 = ${o.augment.forgoneP50.toFixed(0)}`);
-  check('C4b forgoneP50 equals the time-consistent value of waiting one more year (hand)', near(o.augment.forgoneP50, correct, 1e-6),
-    `engine ${o.augment.forgoneP50.toFixed(0)} vs hand ${correct.toFixed(0)} (late-start NPV is not discounted one year in engine.js ~line 245)`, {known: true});
+  // ruling (spec CYC-1): forgone = v(best) - max(0, v(best+1)), v = the search's own PV net of augmentation cost
+  const v = ys => ys * (E0 * R * cal * A(H - ys) - E0 * cal * aug) / (1 + d) ** ys;
+  const correct = v(by) - Math.max(0, by + 1 < H ? v(by + 1) : 0);
+  check('C4b forgoneP50 = v(best) - max(0, v(best+1)) (ruling, hand)', near(o.augment.forgoneP50, correct, 1e-6), `engine ${o.augment.forgoneP50.toFixed(0)} vs hand ${correct.toFixed(0)}`);
 }
 {
-  // same closed form, swept: does the printed 'later forgoes £X' ever carry a real number?
-  let zero = 0, pos = 0, rows = [];
+  let bad = 0, n = 0, rows = [];
   for(const aug of [1, 2, 4, 8]) for(const cal of [1, 2, 3]) for(const dd of [6, 10]){
     const m = M(`battery: 100MW / 200MWh\nrte: 90\ncalendar: ${cal}\nspread: 50\ncharge: 20\nfade: 0\ncycles: 1000000 over 10yr\naugment: ${aug}\ndiscount: ${dd}`);
     const o = simulate(m, {seed: 3, n: 5}); if(!o.augment.window) continue;
-    const d = dd / 100, H = 10, R = 365 * (50 - K), E0 = 200, c = cal / 100, by = o.augment.window[0] - 1;
-    const pv = from => { let t = 0; for(let j = 0; j < H - from; j++) t += E0 * R * (1 - c * j) / (1 + d) ** (j + 1); return t; };
-    const correct = pv(by) - ((E0 * R * (1 - c * by)) / (1 + d) + pv(by + 1) / (1 + d));
-    if(by + 1 < H){ if(o.augment.forgoneP50 === 0 && correct > 1) zero++; else if(o.augment.forgoneP50 > 0) pos++; rows.push(`aug${aug}/cal${cal}/d${dd}: engine ${Math.round(o.augment.forgoneP50)} hand ${Math.round(correct)}`); }
+    const d = dd / 100, H = 10, R = 365 * (50 - K), E0 = 200, c = cal / 100, a = aug * 1000, by = o.augment.window[0] - 1;
+    const A = k => { let t = 0; for(let j = 1; j <= k; j++) t += (1 + d) ** -j; return t; };
+    const v = ys => ys * (E0 * R * c * A(H - ys) - E0 * c * a) / (1 + d) ** ys;
+    const want = v(by) - Math.max(0, by + 1 < H ? v(by + 1) : 0); n++;
+    if(!near(o.augment.forgoneP50, want, 1e-6) || o.augment.forgoneP50 < 0) bad++;
+    rows.push(Math.round(o.augment.forgoneP50));
   }
-  check('C4c sweep: whenever waiting a year truly costs value, the engine prints a non-zero "forgoes"', zero === 0, `${zero} of ${zero + pos} closed-form cases print £0 although hand value > 0; e.g. ${rows.slice(0, 3).join(' ; ')}`, {known: true});
+  check('C4c sweep: engine forgone equals the ruling formula and is >= 0 in every closed-form case', bad === 0, `${bad} of ${n} differ; values ${rows.slice(0, 6).join(',')}`);
   const m = M('battery: 100MW / 200MWh\nrte: 90\ncalendar: 2\nspread: 50\ncharge: 20\nfade: 0\ncycles: 1000000 over 10yr\naugment: 8\ndiscount: 8');
   console.log('   info: that case prints: ' + verdict('augment', simulate(m, {seed: 3, n: 5})));
 }
@@ -164,8 +161,8 @@ if(outs['Wexcombe base case']) { const t = outs['Wexcombe base case'].o.threshol
   // "binds: warranty a/10 . wear b/10" pill and verdict "N runs in 10": do the printed halves add to 10?
   let bad = [], total = 0;
   for(let i = 0; i <= 5000; i++){ const s = i / 5000; total++;
-    const a = Math.round(s * 10), b = Math.round((1 - s) * 10); if(a + b !== 10) bad.push(s); }
-  check('C7c pill "warranty a/10 - wear b/10" always sums to 10', bad.length === 0, `${bad.length}/${total} shares print a total != 10, e.g. ${bad.slice(0, 6).join(', ')} (reachable: share = k/5000, n=5000)`, {known: true});
+    const [a, b] = bindTenths(s); if(a + b !== 10) bad.push(s); }
+  check('C7c pill "warranty a/10 - wear b/10" always sums to 10 (bindTenths)', bad.length === 0, `${bad.length}/${total} shares print a total != 10`);
 }
 // ---------- C8. worker vs main thread; simKey -------------------------------------------
 {
@@ -178,7 +175,7 @@ if(outs['Wexcombe base case']) { const t = outs['Wexcombe base case'].o.threshol
   const base = 'battery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nrte: 88\nfade: 0.01\ncalendar: 1\ncycles: 6000 over 15yr\ndrift: -4..0';
   const k0 = simKey(M(base)), kv = simKey(M(base + '\nverdict: my own line')), kt = simKey(M('title: x\n' + base)), kmw = simKey(M(base.replace('100MW', '90MW')));
   check('C8b simKey ignores title and battery MW', k0 === kt && k0 === kmw);
-  check('C8c simKey ignores `verdict:` (display-only; typing it re-runs a ~1 s simulation per keystroke)', k0 === kv, 'verdict text is part of the key', {known: true});
+  check('C8c simKey ignores `verdict:` (display-only; typing it re-runs a ~1 s simulation per keystroke)', k0 === kv, 'verdict text is part of the key');
   check('C8d same input twice -> identical output', JSON.stringify(simulate(M(base), {seed: 1, n: 200})) === JSON.stringify(simulate(M(base), {seed: 1, n: 200})));
   // line order independence
   const shuffled = base.split('\n').reverse().join('\n');
@@ -189,26 +186,26 @@ if(outs['Wexcombe base case']) { const t = outs['Wexcombe base case'].o.threshol
   const tryit = (label, txt, n = 100) => { let r; try{ const m = M(txt); const o = simulate(m, {seed: 1, n}); r = o ? {tau: o.threshold.p50, days: o.threshold.clearingDays, fan0: o.fan[0] && o.fan[0].p50, line: verdict('threshold', o)} : {null: true, missing: m.missing}; }catch(e){ r = {threw: e.message}; } console.log(`   info: ${label}: ${JSON.stringify(r)}`); return r; };
   const B = 'rte: 90\ncalendar: 1\nspread: 35..85\ncharge: 15..45\nfade: 0.01\ndrift: -4..0\n';
   const r0 = tryit('0 MWh battery', 'battery: 100MW / 0MWh\n' + B + 'cycles: 6000 over 15yr');
-  check('C9a battery with 0 MWh gives a finite cycle price or a clear refusal', r0.null || Number.isFinite(r0.tau), JSON.stringify(r0), {known: true});
+  check('C9a battery with 0 MWh gives a finite cycle price or a clear refusal', r0.null || Number.isFinite(r0.tau), JSON.stringify(r0));
   const r1 = tryit('cycles over 0yr', 'battery: 100MW / 200MWh\n' + B + 'cycles: 6000 over 0yr');
-  check('C9b a 0-year horizon is refused or handled (no throw, no NaN)', r1.null || (!r1.threw && Number.isFinite(r1.tau)), JSON.stringify(r1), {known: true});
+  check('C9b a 0-year horizon is refused or handled (no throw, no NaN)', r1.null || (!r1.threw && Number.isFinite(r1.tau)), JSON.stringify(r1));
   const r2 = tryit('cycles over 0.4yr (rounds to 0)', 'battery: 100MW / 200MWh\n' + B + 'cycles: 6000 over 0.4yr');
   const r3 = tryit('0 cycle budget', 'battery: 100MW / 200MWh\n' + B + 'cycles: 0 over 15yr');
   check('C9c zero warranty budget gives finite output', r3.null || Number.isFinite(r3.tau), JSON.stringify(r3));
   const r4 = tryit('negative spread range', 'battery: 100MW / 200MWh\nrte: 90\ncalendar: 1\nspread: -20..30\ncharge: 5..10\nfade: 0.01\ncycles: 6000 over 15yr');
   const r5 = tryit('fade 0 and calendar 0', 'battery: 100MW / 200MWh\nrte: 90\ncalendar: 0\nspread: 35..85\ncharge: 15..45\nfade: 0\ncycles: 6000 over 15yr');
-  check('C9g with fade 0 and slack warranty the verdict does not blame "the wear cost" for a £0 bar', !/wear cost setting the bar/.test(r5.line), r5.line, {known: true});
+  check('C9g with fade 0 and slack warranty the verdict does not blame "the wear cost" for a £0 bar', !/wear cost setting the bar/.test(r5.line), r5.line);
   const r6 = tryit('spread single value', 'battery: 100MW / 200MWh\nrte: 90\ncalendar: 1\nspread: 50\nfade: 0.01\ncycles: 6000 over 15yr');
   // unit suffixes are ignored: "£/kWh" vs "£/MWh"
   const a1 = M('battery: 1MW / 2MWh\nspread: 50\nrte: 90\nfade: 0.01\ncalendar: 1\ncycles: 100 over 5yr\naugment: 150 £/MWh').augment;
   console.log(`   info: "augment: 150 £/MWh" parses as ${JSON.stringify(a1)} (always x1000, the unit word is ignored)`);
-  check('C9d an augment cost written in £/MWh is not silently multiplied by 1000', a1.lo === 150, `parsed ${a1.lo} £/MWh`, {known: true});
+  check('C9d an augment cost written in £/MWh is not silently multiplied by 1000', a1.lo === 150, `parsed ${a1.lo} £/MWh`);
   const sp = M('battery: 1MW / 2MWh\nspread: 0.05 £/kWh\nrte: 90\nfade: 0.01\ncalendar: 1\ncycles: 100 over 5yr').spread;
-  check('C9e a spread written in £/kWh is not read as £/MWh', sp.lo > 1, `parsed ${sp.lo}`, {known: true});
+  check('C9e a spread written in £/kWh is not read as £/MWh', sp.lo > 1, `parsed ${sp.lo}`);
   const rt = M('battery: 1MW / 2MWh\nspread: 50\nrte: 0.9\nfade: 0.01\ncalendar: 1\ncycles: 100 over 5yr');
   const b = drawBeliefs(rt, mulberry32(1), gaussian(mulberry32(1)));
   console.log(`   info: "rte: 0.9" (fraction instead of percent) -> rte ${rt.rte.lo}, drawn ${b.rte} (silently clamped to 0.5)`);
-  check('C9f rte written as a fraction (0.9) is not silently turned into 50 %', b.rte > 0.8, `drawn rte ${b.rte}`, {known: true});
+  check('C9f rte written as a fraction (0.9) is not silently turned into 50 %', b.rte > 0.8, `drawn rte ${b.rte}`);
   const rte100 = M('battery: 1MW / 2MWh\nspread: 50\nrte: 100\nfade: 0.01\ncalendar: 1\ncycles: 100 over 5yr');
   const b2 = drawBeliefs(rte100, mulberry32(1), gaussian(mulberry32(1)));
   console.log(`   info: rte 100% -> engine uses ${b2.rte} with no warning`);

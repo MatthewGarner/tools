@@ -7,10 +7,11 @@
    attributes (numbers and escaped strings only inside them). */
 import {esc, txt, tint, wrapText, editTarget} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
-import {fmtUnit, verdict, makeBase, above, N_BASE, DAYS} from './engine.js';
+import {fmtUnit, verdict, makeBase, above, N_BASE, DAYS, RUN, baseSeed, bindTenths, bindPercents} from './engine.js';
 import {resolveVerdict} from '../../assets/verdict-core.js';
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
+const bindPill = share => { const [w, e] = bindTenths(share); return 'binds in yr 1: warranty ' + w + '/10 · wear ' + e + '/10'; };
 const numStr = v => String(Number(Number(v).toPrecision(4)));
 
 /* nice axis ticks: ≤6 steps of 1/2/5×10^k */
@@ -41,7 +42,7 @@ export function render(model, out, ctx, {edit = false} = {}){
   const P = [];   // deferred: parts helper functions below push here then join
 
   /* base samples for the ribbons (illustrative day shapes; numbers come from out) */
-  const base = makeBase(model, 1 ^ 0x9e3779b9);
+  const base = makeBase(model, baseSeed(RUN.seed));
   const kMid = (1 / ((model.rte.lo + model.rte.hi) / 2) - 1) * ((model.charge.lo + model.charge.hi) / 2);
   /* shared £/MWh NET axis domain for bands 1–2 */
   const netMax = base.S1.v[base.S1.n - 1] - kMid;
@@ -155,8 +156,7 @@ export function render(model, out, ctx, {edit = false} = {}){
     ...(!model.chargeDefaulted ? [rangePW('charge', numStr(model.charge.lo), numStr(model.charge.hi))] : []),
     rangePW('rte', numStr(model.rte.lo * 100), numStr(model.rte.hi * 100), '%'),
     rangePW('calendar', numStr(model.calendar.lo * 100), numStr(model.calendar.hi * 100), '%'),
-    pillW('binds: warranty ' + Math.round(out.threshold.bindingShare * 10) + '/10 · wear ' +
-      Math.round((1 - out.threshold.bindingShare) * 10) + '/10')];   // exact drawn string (matches the pill below)
+    pillW(bindPill(out.threshold.bindingShare))];   // exact drawn string (matches the pill below)
   const b2w = (model.second && out.second) ? [
     pillW('second ' + Math.round(model.second.lo * 100) + '..' + Math.round(model.second.hi * 100) + '%'),
     pillW('+' + fmtUnit(out.second.dRev, '£/yr') + ' gross'), pillW('−' + fmtUnit(out.second.dWear, '£/yr') + ' wear'),
@@ -232,8 +232,7 @@ export function render(model, out, ctx, {edit = false} = {}){
     px += rangePill(px, row2, 'rte', numStr(model.rte.lo * 100), numStr(model.rte.hi * 100), 'rte', ln('rte'), '%');
     px += rangePill(px, row2, 'calendar', numStr(model.calendar.lo * 100), numStr(model.calendar.hi * 100), 'cal', ln('calendar'), '%');
     pill(px, row2,
-      'binds: warranty ' + Math.round(out.threshold.bindingShare * 10) + '/10 · wear ' +
-      Math.round((1 - out.threshold.bindingShare) * 10) + '/10', {col: C.muted});
+      bindPill(out.threshold.bindingShare), {col: C.muted});
     if(vT){
       parts.push('<rect x=\'48\' y=\'' + (y + B1H - wrapN(vT) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vT) * 22) + '\' fill=\'' + accent + '\'/>');
       verdictLines(y + B1H - wrapN(vT) * 22 + 10, vT, vw);
@@ -358,9 +357,9 @@ export function toMarkdown(model, out){
   const t = out.threshold;
   const lines = [
     '| Fact | Value |', '|---|---|',
-    '| Cycle price (τ) | ' + fmtUnit(t.p10, '£/MWh') + ' / ' + fmtUnit(t.p50, '£/MWh') + ' / ' + fmtUnit(t.p90, '£/MWh') + ' (P10/P50/P90) |',
-    '| Days clearing | ' + Math.round(t.clearingDays) + '/yr |',
-    '| Binding | warranty ' + Math.round(t.bindingShare * 100) + '% · wear ' + Math.round((1 - t.bindingShare) * 100) + '% |',
+    '| Cycle price in year 1 (τ) | ' + fmtUnit(t.p10, '£/MWh') + ' / ' + fmtUnit(t.p50, '£/MWh') + ' / ' + fmtUnit(t.p90, '£/MWh') + ' (P10/P50/P90) |',
+    '| Days clearing in year 1 | ' + Math.round(t.clearingDays) + '/yr |',
+    '| Binding in year 1 | warranty ' + bindPercents(t.bindingShare)[0] + '% · wear ' + bindPercents(t.bindingShare)[1] + '% |',
   ];
   if(out.second) lines.push('| Second cycle | +' + fmtUnit(out.second.dRev, '£/yr') + ' gross, −' +
     fmtUnit(out.second.dWear, '£/yr') + ' wear, ' + fmtUnit(out.second.dNet, '£/yr') + ' net |');

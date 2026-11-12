@@ -4,7 +4,7 @@ import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
 import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
 /* State, refresh loop, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
-import {simulate, verdict, thresholdFigure, simKey, fmtUnit} from './engine.js';
+import {simulate, verdict, thresholdFigure, simKey, fmtUnit, RUN} from './engine.js';
 import {render as renderSvg, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField, addKeyLine, removeKeyLine, addedKeyTarget,
@@ -152,9 +152,11 @@ function abandonInFlight(){
   if(worker){ worker.terminate(); worker = spawnWorker(); }   // stop wasted CPU; fresh worker for next
 }
 
+/* the model `out` was computed from: a model error (below) restores it, so out and model never disagree */
+let goodModel = null;
 function commit(res, key, revision){
   if(!previewRevision.settle(revision)) return;
-  out = res; lastKey = key; pendingKey = null;
+  out = res; lastKey = key; pendingKey = null; goodModel = model;
   render();                                     // renders out + sets actions ON (via setActionsEnabled(!!out))
 }
 
@@ -162,16 +164,32 @@ function runSync(key, id){
   if(id !== seq) return;                        // superseded before we ran
   clearTimeout(timeoutId);
   __cyclesSimCount++;
-  commit(simulate(model, {seed: 1, n: 5000}), key, id);
+  let res;
+  try{ res = simulate(model, RUN); }
+  catch(e){ return modelError(String((e && e.message) || e), id); }
+  commit(res, key, id);
+}
+
+/* The engine could not solve these numbers. That is a MODEL error, not a worker failure: keep the last
+   good picture, say so in the warnings, and leave the worker alone (audit CYC-4). */
+function modelError(message, revision){
+  clearTimeout(timeoutId);
+  pendingKey = null;
+  previewRevision.clear(revision);
+  const failed = model;
+  if(goodModel) model = goodModel; else { out = null; lastKey = null; }
+  render();
+  renderWarningList($('warns'), [...(failed ? failed.warnings : []), 'the simulation could not solve these numbers (' + message + ') — the picture is the last one that worked']);
 }
 
 function markWorkerDead(){
   if(worker){ worker.terminate(); worker = null; }   // all subsequent dispatches take runSync directly
 }
 
-function onWorkerMessage({out: res, reqId}){
+function onWorkerMessage({out: res, error, reqId}){
   if(reqId !== seq) return;                     // superseded/abandoned
   clearTimeout(timeoutId);
+  if(error !== undefined) return modelError(error, reqId);
   commit(res, pendingKey, reqId);
 }
 
@@ -197,7 +215,7 @@ function dispatch(key){
   if(!worker) return runSync(key, id);          // sync path commits instantly — no wait to signal
   __cyclesSimCount++;
   busy(true);                                   // the MC is 0.5–2s off-thread; acknowledge the wait
-  worker.postMessage({model, seed: 1, n: 5000, reqId: id});
+  worker.postMessage({model, seed: RUN.seed, n: RUN.n, reqId: id});
   timeoutId = setTimeout(() => { markWorkerDead(); dispatch(key); }, simTimeoutMs());
 }
 
@@ -264,7 +282,7 @@ function render(){
   if(!out){
     lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
-      ? 'Missing: ' + model.missing.join(', ') + ' — or load an example.'
+      ? (model.refused.length ? 'Can’t simulate: ' + model.refused.join('; ') + '.' : 'Missing: ' + model.missing.join(', ') + ' — or load an example.')
       : 'Start typing — or load an example.') + '</p>';
   } else {
     const svg = activeRender(false, true);
@@ -283,9 +301,17 @@ function persistAndScheduleHash(text){
 function doRefresh(){
   const text = editor.getText();
   lastText = text;
-  model = parse(text);
-  const key = simKey(model);
+  const parsed = parse(text);
   persistAndScheduleHash(text);                 // the existing localStorage + writeHash timer, always
+  /* a REFUSED model (0 MWh, a horizon under a year ...) keeps the last good picture and shows only the
+     new warnings — while the user types through such a state the page does not blank (audit CYC-4) */
+  if(parsed.refused.length && out){
+    render();                                   // repaint the good picture (theme/width may have changed)
+    renderWarningList($('warns'), parsed.warnings);
+    return;
+  }
+  model = parsed;
+  const key = simKey(model);
   if(key === null){ abandonInFlight(); previewRevision.clear(seq); out = null; lastKey = null; render(); return; }
   if(key === pendingKey) return;                // in-flight request will render this
   if(key === lastKey){ abandonInFlight(); previewRevision.clear(seq); render(); return; }   // memoised: theme/rotation/no-op/revert
