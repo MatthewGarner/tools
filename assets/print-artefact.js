@@ -18,7 +18,8 @@ const TRAIL = 12;
 /* Where a sheet from `start` stops when the next begins at `cut`: just under its last row. */
 export function sliceEnd(boxes, start, cut){
   const bottoms = boxes.filter(b => b.bottom <= cut + .5 && b.bottom > start + .5).map(b => b.bottom + TRAIL);
-  return Math.min(cut, ...bottoms.length ? [Math.max(...bottoms)] : []);
+  // the next row or lane heading starts at `cut`: its own top rule is half a unit either side, so stop a unit short
+  return Math.min(boxes.some(b => Math.abs(b.top - cut) < .5) ? cut - 1 : cut, ...bottoms.length ? [Math.max(...bottoms)] : []);
 }
 
 /* Where each later sheet starts: at the top of its first row (or lane heading), crossing no row, so a sheet shows nothing of a
@@ -113,6 +114,10 @@ export function printPages(svgText, doc = document){
       g.setAttribute('data-continued', prev.name);
       g.removeAttribute('data-lane-heading');
       g.setAttribute('transform', `translate(0 ${h - prev.bboxTop})`);
+      // paper behind the strip, edge to edge (the root's first rect is the paper)
+      const paper = root.querySelector('rect').cloneNode();
+      for(const [k, v] of [['x', 0], ['y', h], ['width', vw], ['height', contH]]) paper.setAttribute(k, v);
+      wrap.appendChild(paper);
       const t = [...g.querySelectorAll('text')].at(-1);
       if(t) t.textContent += ' (continued)';
       wrap.appendChild(g);

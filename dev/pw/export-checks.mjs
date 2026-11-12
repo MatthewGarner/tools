@@ -669,7 +669,7 @@ export function printProbe(){
     const body = [vb(bodySvg).y, vb(bodySvg).y + vb(bodySvg).height];
     const total = vb(root).height;
     const rows = [...bodySvg.querySelectorAll('[data-key],[data-field-item]')].map(g => { const b = g.getBBox(); return [b.y, b.y + b.height]; }).filter(([t, b]) => t >= body[0] - .5 && b <= body[1] + .5);
-    const headings = [...bodySvg.querySelectorAll('[data-lane-heading]')].map(g => { const b = g.getBBox(), t = parseFloat(g.getAttribute('data-lane-top')); return {top: Number.isFinite(t) ? t : b.y, bottom: b.y + b.height, name: g.getAttribute('data-lane-heading')}; });
+    const headings = [...bodySvg.querySelectorAll('[data-lane-heading]')].map(g => { const b = g.getBBox(), t = parseFloat(g.getAttribute('data-lane-top')); return {top: Number.isFinite(t) ? t : b.y, bboxTop: b.y, bottom: b.y + b.height, name: g.getAttribute('data-lane-heading')}; });
     const cont = root.querySelector('[data-continued]');
     const slivers = [];
     for(const el of bodySvg.querySelectorAll('line,rect,circle,ellipse,path,polygon,polyline')){
@@ -679,9 +679,12 @@ export function printProbe(){
       const crossing = b.y < body[0] - .01 || b.y + b.height > body[1] + .01;
       if(crossing && over > .4 && over < 12 && !(b.width > vb(root).width * .9 && b.height > 100)) slivers.push({tag: el.tagName, top: Math.round(b.y * 10) / 10, bottom: Math.round((b.y + b.height) * 10) / 10});
     }
+    const hh = headerSvg ? vb(headerSvg).height : 0, ch = total ? Math.max(0, total - hh - (body[1] - body[0])) : 0;
+    // K2: the strip a continuing lane's heading sits in has paper behind it, edge to edge: a rect child of the sheet covering [header, header + strip]
+    const paperStrip = ch > 0 ? [...root.children].some(e => e.tagName.toLowerCase() === 'rect' && +e.getAttribute('y') <= hh + .5 && +e.getAttribute('y') + +e.getAttribute('height') >= hh + ch - .5 && +e.getAttribute('x') <= .5 && +e.getAttribute('width') >= vb(root).width - .5) : null;
     sheets.push({vbW: vb(root).width, header: headerSvg ? [vb(headerSvg).y, vb(headerSvg).y + vb(headerSvg).height] : null,
       headerH: headerSvg ? vb(headerSvg).height : 0, contH: total ? Math.max(0, total - (headerSvg ? vb(headerSvg).height : 0) - (body[1] - body[0])) : 0,
-      contLabel: cont ? cont.textContent.replace(/\s+/g, ' ').trim() : null, body, rows, headings, slivers});
+      contLabel: cont ? cont.textContent.replace(/\s+/g, ' ').trim() : null, paperStrip, body, rows, headings, slivers});
   }
   return sheets;
 }
@@ -690,7 +693,7 @@ export function printProbe(){
 const PAPER_RATIO = .68, TRAIL = 12;
 
 export function checkPrintSheets(sheets, {ratio = PAPER_RATIO} = {}){
-  const early = [], neighbours = [], unnamed = [];
+  const early = [], neighbours = [], unnamed = [], bare = [];
   const all = sheets.flatMap(s => s.headings);
   sheets.forEach((s, i) => {
     const used = s.headerH + s.contH + (s.body[1] - s.body[0]);
@@ -716,11 +719,15 @@ export function checkPrintSheets(sheets, {ratio = PAPER_RATIO} = {}){
       const prev = all.filter(h => h.top < s.body[0] - .5).at(-1);
       if(!own && prev && prev.name && !(s.contLabel && s.contLabel.toLowerCase().includes((prev.name + ' (continued)').toLowerCase()))) unnamed.push({sheet: i + 1, lane: prev.name, label: s.contLabel});
     }
+    // K3: a lane heading that is not on this sheet shows nothing: its top rule must lie at least a unit past where the sheet stops
+    if(next){ const edge = s.headings.filter(h => h.bottom > s.body[1] + .5 && h.bboxTop > s.body[0] && h.bboxTop < s.body[1] + .99); if(edge.length) neighbours.push({sheet: i + 1, headingTopWithinAUnitOfEnd: edge.map(h => ({lane: h.name.slice(0, 20), top: Math.round(h.bboxTop * 10) / 10, sheetEnd: Math.round(s.body[1] * 10) / 10}))}); }
+    if(s.paperStrip === false) bare.push({sheet: i + 1, strip: Math.round(s.contH)});
     if(s.slivers.length) neighbours.push({sheet: i + 1, slivers: s.slivers.slice(0, 4)});
   });
   return [
     {check: 'print:no-early-close', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 6)}, note: 'H4: a sheet is not closed while the next row fits (A4 landscape body)'},
     {check: 'print:no-neighbour-slivers', pass: neighbours.length === 0, values: {count: neighbours.length, hits: neighbours.slice(0, 6)}, note: 'H5: a sheet shows nothing of a row that is not on it'},
+    {check: 'print:continued-on-paper', pass: bare.length === 0, values: {count: bare.length, hits: bare.slice(0, 6)}, note: 'K2: the (continued) strip has the paper behind it, edge to edge'},
     {check: 'print:lane-continued-named', pass: unnamed.length === 0, values: {count: unnamed.length, hits: unnamed.slice(0, 6)}, note: 'H6: a lane that continues on a later sheet is named again, with (continued)'},
   ];
 }
