@@ -6,4 +6,6 @@
   #print-artefact{display:block}
   .print-page{break-after:page;break-inside:avoid;page-break-after:always}
   .print-page:last-child{break-after:auto;page-break-after:auto}
+  /* never taller than the paper (A4 or Letter landscape less 10mm margins): the picture shrinks to fit rather than overflow a sheet */
+  .print-page>svg{max-height:184mm;width:100%}
 }

@@ -34,3 +34,10 @@ test('F8: otherwise it is cut between rows, later sheets repeat the header, and 
   const last = cuts.at(-1);
   assert.ok(rows.filter(r => r.top >= last - .5).length >= 2, 'the last sheet has at least two rows');
 });
+
+test('F8: rows that abut (no gap between them) still allow a sheet to end on a row edge', () => {
+  const abutting = Array.from({length: 14}, (_, i) => ({top: i * 76, bottom: (i + 1) * 76}));
+  const cuts = cutPoints(abutting, 14 * 76, 500);
+  assert.ok(cuts.length >= 1);
+  for(const c of cuts) assert.equal(c % 76, 0, `cut ${c} is on a row edge, not through a row`);
+});

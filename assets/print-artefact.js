@@ -16,7 +16,7 @@ export function cutPoints(boxes, total, pageHeight, headerH = 0, minRows = 2){
   let start = 0, room = pageHeight;
   while(total - start > room + .5){
     const limit = start + room;
-    const valid = boxes.map(b => b.bottom + 1)
+    const valid = boxes.map(b => b.bottom)   // rows can abut (no gap), so a sheet may end exactly on a row's bottom edge
       .filter(y => y > start + room * .3 && y <= limit && !boxes.some(b => b.top < y - .5 && b.bottom > y + .5));
     const cut = valid.length ? Math.max(...valid) : limit;   // a row taller than a sheet is the only thing that is cut
     cuts.push(cut); start = cut; room = pageHeight - headerH;
@@ -26,7 +26,7 @@ export function cutPoints(boxes, total, pageHeight, headerH = 0, minRows = 2){
     const after = c => boxes.filter(b => b.top >= c - .5).length;
     while(after(cuts.at(-1)) < minRows){
       const prev = cuts.length > 1 ? cuts.at(-2) : 0;
-      const earlier = boxes.map(b => b.bottom + 1).filter(y => y > prev + room * .3 && y < cuts.at(-1) - .5 && after(y) >= minRows && !boxes.some(b => b.top < y - .5 && b.bottom > y + .5));
+      const earlier = boxes.map(b => b.bottom).filter(y => y > prev + room * .3 && y < cuts.at(-1) - .5 && after(y) >= minRows && !boxes.some(b => b.top < y - .5 && b.bottom > y + .5));
       if(!earlier.length) break;
       cuts[cuts.length - 1] = Math.max(...earlier);
     }

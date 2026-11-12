@@ -228,8 +228,10 @@ try{
           tall: ratios.some(r => r > .66 + .001), narrowest: Math.min(...widths)};
       });
       ok(`${tool}: print shows the artefact alone, in the light theme, in sheets that fit (R1)`, info.pages >= 1 && info.shown.join() === 'print-artefact' && info.light && !info.tall, JSON.stringify(info));
-      ok(`${tool}: no row is cut by a page break, the last sheet is not just the legend, and a short artefact is shrunk onto one sheet (F8)`,
-        info.cut.length === 0 && (info.pages === 1 ? info.narrowest >= .69 : info.rowsPer.at(-1) >= 1), JSON.stringify(info));
+      const pdf = (await page.pdf({landscape: true, preferCSSPageSize: true, printBackground: true})).toString('latin1');
+      const pdfPages = (pdf.match(/\/Type\s*\/Page\b/g) || []).length;
+      ok(`${tool}: no row is cut by a page break, the last sheet is not just the legend, a short artefact is shrunk onto one sheet, and the PDF has one page per sheet (F8)`,
+        info.cut.length === 0 && (info.pages === 1 ? info.narrowest >= .69 : info.rowsPer.at(-1) >= 1) && pdfPages === info.pages, JSON.stringify({...info, pdfPages}));
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
       await page.emulateMedia({media: 'screen'});
       ok(`${tool}: afterprint puts the page back`, await page.locator('#print-artefact').count() === 0);
