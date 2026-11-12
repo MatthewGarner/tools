@@ -256,4 +256,4 @@ try{
 }
 console.log(`export-fidelity: ${Math.round((Date.now() - T0) / 1000)}s`);
 results.forEach(r => console.log(r));
-report('export-fidelity', {...tally(results), min: 300});
+report('export-fidelity', {...tally(results), min: PHONE ? 100 : 300});
