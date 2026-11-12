@@ -18,11 +18,18 @@ function blockSvg(block,x,y,fill,extra={}){
 function editAttrs(kind,item,label,raw){
   return {'data-edit':kind,'data-line':item.srcLine,'data-raw':raw??item[kind]??'',role:'button',tabindex:0,'aria-label':label};
 }
+// A footer label is offered longest first; the first that fits the room is used, so nothing is cut.
+function pickScope(options,room,measure,small){
+  const list=[].concat(options||[]).filter(Boolean);
+  const width=t=>(measure||((text,font)=>String(text).length*small.size*.53))(t,`${small.weight} ${small.size}px "${small.family}"`);
+  return list.find(t=>width(t)<=room)||list.at(-1)||'';
+}
 export function renderChapter(model,ctx={}){
   const layout=ctx.layout || layoutChapter(model,ctx),C=chapterColors(model,ctx);
   const {width:W,height:H,margin:M}=layout;
   const slide=!!ctx.slide,scale=slide?4/3:1;
-  const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null})}>`,
+  const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null,
+    'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
     `<title>${e(model.title||'Roadmap')}</title>`,
     `<desc>${e(model.headline||'')} ${e(model.basis?JSON.stringify(model.basis):'')}</desc>`,rect(0,0,W,H,C.bg)];
   for(const p of layout.panels)s.push(rect(p.x,p.y,p.w,p.h,C[p.role]));
@@ -43,7 +50,7 @@ export function renderChapter(model,ctx={}){
   }
   for(const row of layout.rows){
     const item=row.item, edit=ctx.edit&&!item.ghost;
-    s.push(`<g${attrs({'data-key':item.title.toLowerCase().replace(/\s+/g,' ').trim(),'data-line':edit?item.srcLine:null,'data-edit':edit?'cardmenu':null,'data-menu':edit?'':null,'data-title-raw':edit?item.title:null,'data-note-raw':edit?item.note:null,'data-status-raw':edit?item.status:null,'data-lane-raw':edit?item.lane:null,'data-source-index':item.export?.sourceIndex,'data-context':item.export?.repeatedContext?'repeated':null,'data-item-title':item.title,'data-world-state':item.worldState||'live'})}${edit?btnAttrs('More options: '+item.title):''}>`);
+    s.push(`<g${attrs({'data-key':item.title.toLowerCase().replace(/\s+/g,' ').trim(),'data-line':edit?item.srcLine:null,'data-edit':edit?'cardmenu':null,'data-menu':edit?'':null,'data-title-raw':edit?item.title:null,'data-note-raw':edit?item.note:null,'data-status-raw':edit?item.status:null,'data-lane-raw':edit?item.lane:null,'data-source-index':item.export?.sourceIndex,'data-fragment':item.export?.fragment?.total>1?`${item.export.fragment.index+1}/${item.export.fragment.total}`:null,'data-context':item.export?.repeatedContext?'repeated':null,'data-item-title':item.title,'data-world-state':item.worldState||'live'})}${edit?btnAttrs('More options: '+item.title):''}>`);
     // Dropped work stays editable. Transparent paint preserves the whole-card
     // hit area; fill="none" makes its padding invisible to pointer hit testing.
     if(layout.style==='grid'&&!layout.phone)s.push(rect(row.x,row.y,row.w,row.h,item.worldState==='dropped'?'transparent':C.band,
@@ -81,13 +88,43 @@ export function renderChapter(model,ctx={}){
   const fy=layout.footerY;
   const rail=layout.panels.find(p=>p.role==='rail');
   const footerW=(rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
-  const scope=ctx.page?.total>1?`Page ${ctx.page.index+1} of ${ctx.page.total}`:'';
+  // Footer: left says which part of the plan this slide shows, right says "2 of 4". A single slide has neither.
   const small={family:layout.type.body,size:layout.phone?12:15,step:20,weight:400};
-  const context=[ctx.page?.progression,ctx.page?.parts>1 ? `Continued · ${ctx.page.part+1} of ${ctx.page.parts}` : ''].filter(Boolean).join(' · ');
-  const detail=[ctx.titlesOnly?'Titles only':'',context].filter(Boolean).join(' · ');
+  const many=ctx.page?.total>1;
+  const where=many?pickScope(ctx.page.scope,footerW-M-110,ctx.measure,small):'';
+  const detail=[ctx.titlesOnly?'Titles only':'',where].filter(Boolean).join(' · ');
   if(detail)s.push(blockSvg({...small,lines:[detail]},M,fy-15,C.muted));
-  if(scope)s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':layout.phone?12:15,fill:C.muted,'text-anchor':'end'})}>${e(scope)}</text>`);
+  if(many)s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':small.size,fill:C.muted,'text-anchor':'end'})}>${e(`${ctx.page.index+1} of ${ctx.page.total}`)}</text>`);
   s.push('</svg>');return s.join('');
+}
+
+const SCALE_MIN=.88,SCALE_MAX=1.35,SCALE_STEP=.01;
+const andList=names=>{const l=names.filter(Boolean);return l.length<2?(l[0]||''):l.slice(0,-1).join(', ')+' and '+l.at(-1);};
+const range=names=>names.length>1?`${names[0]} to ${names.at(-1)}`:(names[0]||'');
+
+// The footer's own words for which part of the plan a slide shows, longest form first.
+function scopeOptions(page,pages,style){
+  if(pages.length<2)return [];
+  const lanes=(page.lanes||[]).filter(Boolean);
+  const laneKeys=new Set(pages.map(p=>(p.lanes||[]).join('\u0000')));
+  const windowKeys=new Set(pages.map(p=>p.start+'-'+p.end));
+  const cont=page.parts>1&&page.part>0;
+  const withTail=label=>cont?(label?label+', continued':'Continued'):label;
+  const out=[];
+  if(style==='focus'){out.push(andList(page.horizons),range(page.horizons));}
+  else if(style==='register'){
+    const names=[...new Set(page.model.items.map(i=>i.h))].sort((x,y)=>x-y).map(h=>page.horizons[h]);
+    out.push(andList(names),range(names));
+  }
+  else{
+    const time=windowKeys.size>1||style==='register'&&pages.length>1?range(page.horizons):'';
+    const who=lanes.length&&laneKeys.size>1?andList(lanes):'';
+    out.push([who,time].filter(Boolean).join(' · '));
+    if(lanes.length>1&&laneKeys.size>1)out.push([lanes[0]+' and '+(lanes.length-1)+' more',time].filter(Boolean).join(' · '));
+    if(who&&time)out.push(time);
+  }
+  const forms=[...new Set(out.map(withTail).filter(Boolean))];
+  return forms.length?forms:[withTail('')||'Continued'].filter(Boolean);
 }
 
 export function renderChapterPages(model,ctx={}){
@@ -103,8 +140,29 @@ export function renderChapterPages(model,ctx={}){
     }};
   }
   const style=model.style||'grid';
-  const layoutFor=(pageModel)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model});
   const content=ctx.titlesOnly ? {...model,items:model.items.map(item=>({...item,note:''}))} : model;
+  const built=new Map();
+  const buildAt=index=>{
+    if(!built.has(index))built.set(index,buildPlan(model,content,style,ctx,Math.round((SCALE_MIN+index*SCALE_STEP)*100)/100));
+    return built.get(index);
+  };
+  // One scale per set. Take the fewest slides reachable inside the range, then the largest type that keeps them.
+  const steps=Math.round((SCALE_MAX-SCALE_MIN)/SCALE_STEP);
+  const unit=Math.round((1-SCALE_MIN)/SCALE_STEP);
+  const count=r=>r.complete?r.plan.pages.length:Infinity;
+  let target=count(buildAt(unit));
+  if(target>1&&count(buildAt(0))<target)target=count(buildAt(0));
+  let lo=target===count(buildAt(unit))?unit:0,hi=steps;
+  if(!Number.isFinite(target)){lo=unit;hi=unit;}
+  while(lo<hi){
+    const mid=Math.ceil((lo+hi)/2);
+    if(count(buildAt(mid))<=target)lo=mid;else hi=mid-1;
+  }
+  return buildAt(lo);
+}
+
+function buildPlan(model,content,style,ctx,scale){
+  const layoutFor=(pageModel,windowSize)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model,scale,windowSize});
   let horizonsPerPage=['grid','board'].includes(style)?4:style==='register'?model.horizons.length:3;
   if(style==='board'){
     // Quiet five-column plans may fit at the same type floor. Dense plans
@@ -116,19 +174,25 @@ export function renderChapterPages(model,ctx={}){
   // Equal temporal windows avoid a narrow final page that exaggerates duration:
   // six quarters become two three-quarter windows, rather than four then two.
   if(style==='board'||style==='grid')horizonsPerPage=Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/horizonsPerPage));
-  const planFor = (count,stableThemes=true) => exportPages(content,{style,horizonsPerPage:count,stableThemes,groupThemes:['board','grid'].includes(style),
-    pageGeometryFits:(items,_,horizons,options={})=>layoutFor({...model,horizons,items,...options,...(options.lanes?{exportLanes:options.lanes}:{})}).fits,
-    pageGeometryHeight:(items,_,horizons,options={})=>layoutFor({...model,horizons,items,...options,...(options.lanes?{exportLanes:options.lanes}:{})}).contentBottom});
+  const splitCaches=new Map();
+  const planFor = (count,stableThemes=true) => {
+    if(!splitCaches.has(count))splitCaches.set(count,new Map());
+    // An undefined `lanes` must not overwrite the model's own: that once emptied the grid and made every item "fit".
+    const lf=(items,horizons,options={})=>layoutFor({...model,horizons,items,...(options.lanes?{lanes:options.lanes,exportLanes:options.lanes}:{}),...(options.focus?{focus:options.focus}:{})},count);
+    const plan=exportPages(content,{style,horizonsPerPage:count,stableThemes,splitCache:splitCaches.get(count),groupThemes:['board','grid'].includes(style),
+      pageGeometryFits:(items,_,horizons,options={})=>lf(items,horizons,options).fits,
+      pageGeometryHeight:(items,_,horizons,options={})=>{const l=lf(items,horizons,options);return {bottom:l.inkBottom,top:l.bodyTop,limit:l.bodyBottom};}});
+    return {...plan,windowSize:count,stable:stableThemes};
+  };
   let base=planFor(horizonsPerPage);
   if(['board','grid'].includes(style) && base.pages.length>1){
     // Compare whole, balanced time-window plans. A narrower window can fit more
     // themes without reducing type or forcing arbitrary item slices.
     const sizes=[...new Set([horizonsPerPage,3,2,1].map(n=>Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/n))))];
-    const score=plan=>[exportPageCoverage(plan).complete?0:1,plan.pages.length,
+    const score=plan=>[exportPageCoverage(plan).complete?0:1,plan.pages.length,plan.pages.filter(p=>!p.model.items.length).length,plan.pages.filter(p=>p.orphan).length,plan.stable?0:1,
       plan.pages.reduce((sum,p)=>sum+p.model.items.length,0),new Set(plan.pages.map(p=>p.start)).size];
     const better=(a,b)=>{const left=score(a),right=score(b);for(let i=0;i<left.length;i++)if(left[i]!==right[i])return left[i]<right[i];return false;};
     for(const stableThemes of [true,false])for(const size of sizes){
-
       const candidate=planFor(size,stableThemes);
       if(better(candidate,base))base=candidate;
     }
@@ -138,10 +202,11 @@ export function renderChapterPages(model,ctx={}){
   let pages=base.pages;
   if(dropped.length){
     const dm={...model,style:'board',horizons:['Changed work'],lanes:[''],items:dropped.map((title,index)=>({title,lane:'',h:0,span:1,status:null,note:'',srcLine:-1-index,export:{dropped:true}}))};
-    const dp=exportPages(dm,{pageUnits:1000000,style:'board',pageGeometryFits:(items)=>layoutChapter({...dm,items},{...ctx,slide:true,width:1440,sourceModel:dm}).fits});
+    const dp=exportPages(dm,{pageUnits:1000000,style:'board',pageGeometryFits:(items)=>layoutChapter({...dm,items},{...ctx,slide:true,width:1440,sourceModel:dm,scale}).fits});
     pages=[...pages,...dp.pages.map(p=>({...p,dropped:true,comparisonItemIndices:p.sourceItemIndices,sourceItemIndices:[]}))];
   }
-  const plan={...base,comparisonSourceItemCount:dropped.length,pages:pages.map((p,index)=>({...p,index,total:pages.length}))};
-  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page}));
-  return {plan,pages:rendered,complete:exportPageCoverage(plan).complete};
+  const plan={...base,scale,comparisonSourceItemCount:dropped.length,pages:pages.map((p,index)=>({...p,index,total:pages.length}))};
+  plan.pages=plan.pages.map(p=>({...p,scope:scopeOptions(p,plan.pages.filter(q=>!q.dropped),style)}));
+  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize}));
+  return {plan,pages:rendered,complete:exportPageCoverage(plan).complete,scale};
 }

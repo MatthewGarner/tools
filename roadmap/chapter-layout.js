@@ -45,7 +45,10 @@ export function chapterFacts(model, item, {showLane = true, showRun = true, diff
   if((showRun && end > start) || item.spanEnd) facts.push({text:'Runs ' + source.horizons[start] + ' — ' + (item.spanEnd || source.horizons[end]), kind:'run'});
   if(!showRun && ex?.continuesBefore) facts.push({text:'Continues from ' + source.horizons[start], kind:'continuation'});
   if(!showRun && ex?.continuesAfter) facts.push({text:'Continues to ' + source.horizons[end], kind:'continuation'});
-  if(ex?.fragment?.total > 1) facts.push({text:'R' + String((ex.sourceIndex ?? 0) + 1).padStart(2,'0') + ' · Item part ' + (ex.fragment.index + 1) + ' of ' + ex.fragment.total, kind:'continuation'});
+  if(ex?.fragment?.total > 1){
+    if(ex.fragment.index > 0) facts.push({text:'Continued', kind:'continuation'});
+    if(ex.fragment.index < ex.fragment.total - 1) facts.push({text:'Continues on the next slide', kind:'continuation'});
+  }
   if(ex?.dropped) facts.push({text:'Dropped', kind:'change'});
   const badge = item.worldState !== 'dropped' && diff?.badge?.(item);
   if(badge) facts.push({text:badge.label, kind:'change'});
@@ -62,10 +65,17 @@ export function layoutChapter(model, ctx = {}){
   const inner = width - margin - (phone ? 20 : 48);
   const gap = phone ? 24 : 36;
   const compactSlide=ctx.slide && (ctx.sourceModel || model).items.length > 8;
-  const meta = phone ? 12 : compactSlide ? 14 : CHAPTER_TYPE.meta;
-  const itemSize = phone ? 20 : compactSlide ? 20 : style === 'grid' ? 22 : CHAPTER_TYPE.item;
-  const noteSize = phone ? 16 : compactSlide ? 16 : CHAPTER_TYPE.note;
-  const headingSize = phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section;
+  // One scale per slide set (ctx.scale): the body type and its spacing scale together, while the
+  // title block and footer keep the base sizes, so furniture never moves between slides.
+  const k = ctx.slide ? ctx.scale || 1 : 1;
+  const q = v => ctx.slide ? Math.round(v * k * 4) / 4 : v;
+  const sp = v => ctx.slide ? Math.round(v * k) : v;
+  const metaBase = phone ? 12 : compactSlide ? 14 : CHAPTER_TYPE.meta;
+  const noteBase = phone ? 16 : compactSlide ? 16 : CHAPTER_TYPE.note;
+  const meta = q(metaBase);
+  const itemSize = q(phone ? 20 : compactSlide ? 20 : style === 'grid' ? 22 : CHAPTER_TYPE.item);
+  const noteSize = q(noteBase);
+  const headingSize = q(phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section);
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
   const dense = (ctx.sourceModel || model).items.length > 8;
@@ -77,7 +87,7 @@ export function layoutChapter(model, ctx = {}){
   const hero = chapterHero(focusModel);
   const heroName = focusModel.horizons[hero];
   const localHero = Math.max(0, model.horizons.indexOf(heroName));
-  const hasRail = style === 'focus' && !phone && model.horizons.length > 1;
+  const hasRail = style === 'focus' && !phone && (model.horizons.length > 1 || (ctx.slide && (ctx.sourceModel || model).horizons.length > 1));
   const railColumns=hasRail && !ctx.slide && model.horizons.length>4 ? 2 : 1;
   const heroWidth = hasRail ? Math.round(inner * (railColumns===2 ? .46 : dense ? .59 : .64)) - gap : inner;
   const railX = hasRail ? margin + heroWidth + gap : null;
@@ -94,7 +104,7 @@ export function layoutChapter(model, ctx = {}){
   const sourceModel = ctx.sourceModel || model;
   const date = model.dateStr === 'off' ? '' : model.dateStr || ctx.today || new Date().toISOString().slice(0,10);
   if(model.headline){
-    headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
+    headerText(model.title || 'Roadmap', heroWidth, metaBase, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
   }
   let mainSize = phone ? 38 : compactSlide ? 40 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
   const mainWidth=hasRail && !dense ? heroWidth*.82 : heroWidth;
@@ -102,7 +112,7 @@ export function layoutChapter(model, ctx = {}){
   // Long authored framing spends header space before it takes space from work.
   // Keep the headline prominent, but use a smaller display size when real wrapping demands it.
   if(!phone){
-    const story=ctx.diff?.any && model.story ? text(model.story,heroWidth,noteSize) : null;
+    const story=ctx.diff?.any && model.story ? text(model.story,heroWidth,noteBase) : null;
     const reserve=82+(story?14+story.lines.length*story.step:0);
     while(mainSize>44){
       const b=text(mainTitle,mainWidth,mainSize,{family:type.display,weight:type.displayWeight});
@@ -113,15 +123,15 @@ export function layoutChapter(model, ctx = {}){
   headerText(mainTitle, mainWidth, mainSize,
     {family:type.display, weight:type.displayWeight, role:'ink', edit:model.headline ? 'headline' : null});
   y += phone ? 12 : compactSlide ? 8 : 20;
-  headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, meta, {role:'muted'});
-  if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteSize, {role:'muted'}); }
+  headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, metaBase, {role:'muted'});
+  if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteBase, {role:'muted'}); }
   if(model.basis){
     y += 16;
     const basis = model.basis;
-    headerText('Delivery projection · From Paths: ' + basis.source, heroWidth, meta, {weight:600,role:'accent'});
+    headerText('Delivery projection · From Paths: ' + basis.source, heroWidth, metaBase, {weight:600,role:'accent'});
     for(const kind of ['answered','assumed']){
       const entries = basis[kind] || [];
-      if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, meta, {role:'muted'});
+      if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, metaBase, {role:'muted'});
     }
   }
   y += phone ? 30 : compactSlide ? 14 : style === 'grid' ? 24 : 42;
@@ -129,7 +139,7 @@ export function layoutChapter(model, ctx = {}){
   const titleOf = item => item.export?.fragment?.title ?? item.title;
   const noteOf = item => ctx.titlesOnly ? '' : item.export?.fragment?.note ?? item.note;
   function itemRow(item, w, {rail = false, showLane = true, showRun = true, compact = false} = {}){
-    const pad = style === 'grid' && !phone ? compactGrid ? 4 : 12 : 0;
+    const pad = style === 'grid' && !phone ? sp(compactGrid ? 4 : 12) : 0;
     const sideFacts = style === 'focus' && !phone && !rail;
     const contentW = sideFacts ? w * .70 - 24 : w - pad * 2;
     const title = text(titleOf(item), contentW, compact && !compactSlide ? Math.max(itemSize - 2, 21) : itemSize, {weight:500});
@@ -142,7 +152,7 @@ export function layoutChapter(model, ctx = {}){
     let cursor = pad;
     const blocks = [{...title, y:cursor, kind:'title'}];
     cursor += title.lines.length * title.step;
-    if(note){ cursor += compactGrid ? 5 : 7; blocks.push({...note, y:cursor, kind:'note'}); cursor += note.lines.length * note.step; }
+    if(note){ cursor += sp(compactGrid ? 5 : 7); blocks.push({...note, y:cursor, kind:'note'}); cursor += note.lines.length * note.step; }
     if(facts.length && sideFacts){
       let fy = 0;
       for(const fact of facts){
@@ -152,19 +162,19 @@ export function layoutChapter(model, ctx = {}){
       }
       cursor=Math.max(cursor,fy);
     }else if(facts.length){
-      cursor += compactGrid ? 6 : 10;
+      cursor += sp(compactGrid ? 6 : 10);
       // Pack metadata by measured width; a long condition gets its own wrapped line.
       let fx = 0, lineHeight = 0;
       for(const fact of facts){
         const b = text(fact.text, w - pad * 2, meta, {weight:fact.kind === 'status' ? 600 : 400});
         const bw = Math.min(w - pad * 2, Math.max(...b.lines.map(t => measure(t,b.font)),0));
-        if(fx && fx + bw > w - pad * 2){cursor += lineHeight + 5; fx = 0; lineHeight = 0;}
+        if(fx && fx + bw > w - pad * 2){cursor += lineHeight + sp(5); fx = 0; lineHeight = 0;}
         blocks.push({...b, x:fx, y:cursor, kind:fact.kind, status:fact.status});
         lineHeight = Math.max(lineHeight,b.lines.length * b.step); fx += bw + 24;
       }
       cursor += lineHeight;
     }
-    return {item, w, h:Math.max(phone ? 60 : 62, cursor + pad + (phone ? 18 : style === 'grid' ? (compactGrid ? 4 : 10) : compactSlide ? 14 : 22)), blocks,pad,rail};
+    return {item, w, h:Math.max(phone ? 60 : sp(62), cursor + pad + (phone ? 18 : sp(style === 'grid' ? (compactGrid ? 4 : 10) : compactSlide ? 14 : 22))), blocks,pad,rail};
   }
   function horizonHint(name,w){
     const h=sourceModel.horizons.indexOf(name), active=activeCount(sourceModel,h), conditional=condCount(sourceModel,h);
@@ -180,7 +190,7 @@ export function layoutChapter(model, ctx = {}){
   }
   function list(items,x,top,w,options = {}){
     let bottom = top;
-    for(const item of items){ const row=itemRow(item,w,options); row.x=x;row.y=bottom;rows.push(row);bottom += row.h + (phone ? 12 : compactSlide ? 10 : 16); }
+    for(const item of items){ const row=itemRow(item,w,options); row.x=x;row.y=bottom;rows.push(row);bottom += row.h + (phone ? 12 : sp(compactSlide ? 10 : 16)); }
     return bottom;
   }
   const allIndices = model.horizons.map((_,i)=>i);
@@ -291,10 +301,21 @@ export function layoutChapter(model, ctx = {}){
     }
   }else{
     const lanes=model.exportLanes || (ctx.slide ? (model.lanes || ['']).filter(l=>model.items.some(i=>i.lane===l)) : model.lanes?.length ? model.lanes : ['']);
-    const longLanes=lanes.some(l=>text(l,182,28,{family:type.display}).lines.length>3);
-    const rail=!longLanes && lanes.some(Boolean)?Math.min(210,inner*.16):0;
+    // On a slide the rail and the column-header band come from the whole plan, not this slide's
+    // lanes and horizons, so the furniture sits in the same place on every slide of the set.
+    const railLanes=ctx.slide ? [...new Set(sourceModel.items.map(i=>i.lane||''))] : lanes;
+    const longLanes=railLanes.some(l=>text(l,182,28,{family:type.display}).lines.length>3);
+    const rail=!longLanes && railLanes.some(Boolean)?Math.min(210,inner*.16):0;
     const gx=margin+rail, cw=(inner-rail)/model.horizons.length;
     let headerH=0;
+    if(ctx.slide){
+      const cwMin=(inner-rail)/Math.max(model.horizons.length,ctx.windowSize||0,1);
+      for(const name of sourceModel.horizons){
+        let label=text(name,cwMin-28,24,{family:type.display,weight:type.displayWeight});
+        if(label.lines.length>3)label=text(name,cwMin-28,meta,{weight:500});
+        headerH=Math.max(headerH,label.lines.length*label.step+24);
+      }
+    }
     allIndices.forEach(h=>{
       let label=text(model.horizons[h],cw-28,24,{family:type.display,weight:type.displayWeight});
       if(label.lines.length>3)label=text(model.horizons[h],cw-28,meta,{weight:500});
@@ -332,20 +353,25 @@ export function layoutChapter(model, ctx = {}){
     y+=label.lines.length*label.step;
   }
   const authored=resolveVerdict(sourceModel.verdict,{line:'',fig:''});
+  let verdictBlock=null;
   if(authored?.line){
-    y+=22; const b=text(authored.line,heroWidth,noteSize,{weight:500});
-    header.push({...b,x:margin,y,role:'ink',kind:'verdict'});y+=b.lines.length*b.step;
+    verdictBlock=text(authored.line,heroWidth,noteBase,{weight:500});
+    // A slide pins the verdict above the footer so it sits in the same place on every slide.
+    if(!ctx.slide){ y+=22; header.push({...verdictBlock,x:margin,y,role:'ink',kind:'verdict'});y+=verdictBlock.lines.length*verdictBlock.step; }
   }
   if(!ctx.slide && ctx.diff?.dropped?.length){
-    y+=24; const b=text('Dropped: '+ctx.diff.dropped.join(' · '),heroWidth,noteSize);
+    y+=24; const b=text('Dropped: '+ctx.diff.dropped.join(' · '),heroWidth,noteBase);
     header.push({...b,x:margin,y,role:'muted',kind:'dropped'}); y+=b.lines.length*b.step;
   }
   // Empty states are still composed artifacts with meaningful horizon structure.
   let bottom=Math.max(y,bodyTop+100);
   const footerY=bottom+24;
   const height=ctx.slide ? CHAPTER_SLIDE.height : Math.max(phone?0:style==='focus'?760:650,footerY+48);
+  const verdictH=verdictBlock ? verdictBlock.lines.length*verdictBlock.step : 0;
+  const bodyBottom=ctx.slide ? (verdictBlock ? height-72-verdictH-22 : height-60) : null;
+  if(ctx.slide && verdictBlock)header.push({...verdictBlock,x:margin,y:height-72-verdictH,role:'ink',kind:'verdict'});
   for(const p of panels)if(p.role==='rail'||p.role==='spine')p.h=height;
   const allText=[...header,...sections.map(s=>({...s.label,x:s.x,y:s.y})),...rows.flatMap(r=>r.blocks.map(b=>({...b,x:r.x+r.pad+(b.x||0),y:r.y+b.y})))];
-  const fits=footerY+36<=height && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
-  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,contentBottom:bottom,boardIndices};
+  const fits=(ctx.slide ? bottom<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
+  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,contentBottom:bottom,inkBottom:Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0))),bodyBottom,scale:k,boardIndices};
 }

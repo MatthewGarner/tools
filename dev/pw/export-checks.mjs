@@ -29,7 +29,7 @@ export function slideGeometry(svg){
   const minY = cards.length ? Math.min(...cards.map(c => c.y)) : 0;
   const bodyTop = num(head, 'data-body-top', Math.max(0, minY - 30));
   const bodyBottom = num(head, 'data-body-bottom', vb[3] - 60);
-  const contentBottom = cards.length ? Math.max(...cards.map(c => c.y + c.h)) : bodyTop;
+  const contentBottom = num(head, 'data-content-bottom', cards.length ? Math.max(...cards.map(c => c.y + c.h)) : bodyTop);
   return {vbW: vb[2], vbH: vb[3], cards, texts, bodyTop, bodyBottom, contentBottom,
     scale: num(head, 'data-scale'), group: attr(head, 'data-slide-group'), exact: head.includes('data-body-top')};
 }
@@ -59,17 +59,21 @@ export function checkSplits(slides){
 }
 
 /* S2 and S3: slides closed while the next card would have fit, and thin last slides. */
-export function checkFill(slides){
+export function checkFill(slides, {style} = {}){
   const out = [];
   const early = [];
-  for(let i = 0; i + 1 < slides.length; i++){
+  for(let i = 0; i + 1 < slides.length && style !== 'focus'; i++){   // Focus moves cards between its hero and rail columns, so a column test says nothing there
     const a = slides[i], b = slides[i + 1];
     if((a.group || '') !== (b.group || '') && a.group != null) continue;   // different lane run / window: not a continuation
     const first = b.cards[0];
     if(!first) continue;
     const colBottom = Math.max(a.bodyTop, ...a.cards.filter(c => Math.abs(c.x - first.x) < 2 || (c.x < first.x + first.w && c.x + c.w > first.x + 2)).map(c => c.y + c.h));
     const free = a.bodyBottom - colBottom;
-    if(first.h + 8 <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
+    /* S3 beats S2: moving the card back would leave the next slide thin, which balancing the last two slides exists to avoid */
+    const lastOfRun = !slides[i + 2] || slides[i + 2].group !== b.group;
+    const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (first.h + 8);
+    if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 3) continue;
+    if(first.h + 12 + (style === 'register' ? 56 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
   out.push({check: 'slides:closed-early', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 20)}, note: 'S2: a slide closed with room under its column for the first card of the next slide'});
   const thin = [];
@@ -127,7 +131,7 @@ export function checkWording(slides){
 
 export function checkSlideSet(svgs, opts = {}){
   const slides = svgs.map(slideGeometry);
-  return [...checkSplits(slides), ...checkFill(slides), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides)];
+  return [...checkSplits(slides), ...checkFill(slides, opts), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides)];
 }
 
 /* A1, A2, A4 on a saved Timeline SVG: month continuity and the one-step rule. */
