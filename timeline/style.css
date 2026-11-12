@@ -57,3 +57,5 @@ body{padding-top:0;font-family:'DM Sans',system-ui,sans-serif}
 .inspector-close{border:0}.milestone-inspector{margin-top:120px}
 
 #stylepicker{border:0}.inspector-facts dt{font-size:14px}.inspector-facts:has(>div:only-child){grid-template-columns:1fr}
+
+.export-status{margin:8px 28px 0;font-size:13px}.export-status[hidden]{display:none}.slide-preview .export-status{margin:12px 0 0}

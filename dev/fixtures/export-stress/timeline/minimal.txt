@@ -1,0 +1,2 @@
+// stresses: the smallest valid document - one milestone with a range
+Ship it 2026-12 .. 2027-01

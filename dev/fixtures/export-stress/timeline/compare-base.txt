@@ -1,0 +1,11 @@
+// stresses: BASE for snapshot comparison - snapshot this, then load compare-changed (Review view)
+title: Lantern - change review
+today: 2026-09-05
+style: review
+App: Beta cut 2026-09-18 .. 2026-10-02
+App: Store review 2026-10-19 .. 2026-11-16
+Assurance: Privacy audit 2026-10-12 .. 2026-11-23
+Launch: Campaign ready 2026-11-02 .. 2026-11-16
+Launch: Launch forecast 2026-11-20 .. 2026-12-11
+Launch: Conference 2026-12-15 [fixed]
+Launch: Press embargo 2026-12-01 .. 2026-12-08

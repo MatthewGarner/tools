@@ -11,14 +11,25 @@ function readable(col,bg){
   for(let t=.05;t<=1;t+=.05){const adjusted=mix(col,to,t);if(chapterContrast(adjusted,bg)>=4.5)return adjusted;}
   return to;
 }
+/* Light theme only: small text also sits on the card band and the column tint, which are darker than the page.
+   Raise an ink just far enough that it reaches 4.6:1 on every surface it can sit on (dark already passes). */
+function readableOn(col,surfaces,min=4.6){
+  const worst=c=>Math.min(...surfaces.map(b=>chapterContrast(c,b)));
+  if(worst(col)>=min)return col;
+  const to=surfaces.every(b=>chapterContrast('#111111',b)>chapterContrast('#ffffff',b))?'#111111':'#ffffff';
+  for(let t=.02;t<=1;t+=.02){const adjusted=mix(col,to,t);if(worst(adjusted)>=min)return adjusted;}
+  return to;
+}
 export function chapterColors(model,ctx={}){
   const dark=!!ctx.dark;
   const accent=/^#[0-9a-f]{6}$/i.test(model.accent||'') ? model.accent : (PALETTES[model.palette] || PALETTES.ocean)[dark?'dark':'light'];
   const bg=dark?'#171A18':'#F6F3ED',ink=dark?'#F6F3ED':'#171914';
   const rail=accent,railInk=chapterContrast('#ffffff',rail)>=4.5?'#ffffff':'#111111';
   const status=dark?{doing:'#93A8FF',risk:'#D2AE5B',blocked:'#EE9B94',done:'#80BD94'}:{doing:'#1A44C2',risk:'#8E6200',blocked:'#B3403A',done:'#1C753C'};
-  return {bg,ink,muted:readable(dark?'#B8BDB8':'#686B65',bg),accent:readable(accent,bg),rail,spine:rail,railInk,
-    border:mix(bg,ink,.2),tint:mix(bg,accent,dark?.14:.055),band:mix(bg,accent,dark?.18:.075),
-    status:Object.fromEntries(Object.entries(status).map(([k,v])=>[k,readable(v,bg)])),
+  const tint=mix(bg,accent,dark?.14:.055),band=mix(bg,accent,dark?.18:.075);
+  const ink2=(col)=>dark?readable(col,bg):readableOn(readable(col,bg),[bg,tint,band]);
+  return {bg,ink,muted:ink2(dark?'#B8BDB8':'#686B65'),accent:ink2(accent),rail,spine:rail,railInk,
+    border:mix(bg,ink,.2),tint,band,
+    status:Object.fromEntries(Object.entries(status).map(([k,v])=>[k,ink2(v)])),
     railStatus:Object.fromEntries(Object.entries(status).map(([k,v])=>[k,readable(v,rail)]))};
 }

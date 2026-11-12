@@ -1,0 +1,23 @@
+// stresses: a 60-character unbroken word, URL, & < > quotes apostrophes, emoji, accents, CJK, RTL, numbers with units and currency, NBSP, punctuation-only title
+title: Awkward & "quoted" <plan> - it's O'Brien's
+headline: R&D <beta> vs "GA" - 5 > 3 & 2 < 4, café naïve, 日本語, שלום
+horizons: Now, Next, Later
+
+NOW
+Core: Antidisestablishmentarianismpneumonoultramicroscopicsilicovo -- an unbroken 60-character word in the title above
+Docs: Read the spec at https://example.com/a/very/long/path/that/keeps/going/and/going?utm_source=tools&utm_medium=audit&q=a%20b#section-12 now [doing]
+Ops: R&D <beta> "quoted" 'single' it's O'Brien's Q&A > FAQ & so < on -- note with <b>tags</b> & &amp; entities and "quotes"
+Growth: 🚀 Launch 🎉 with family 👨‍👩‍👧‍👦 and flag 🇬🇧 and skin tone 👍🏽 -- 😀😀😀😀😀😀😀😀😀😀😀😀
+
+NEXT
+Équipe: Café résumé naïve façade Zürich Ångström Łódź Šibenik Ñandú -- accented Latin throughout: àéîõü ÀÉÎÕÜ ß œ æ
+Global: 日本語のタイトルと中文标题と한국어 제목 [risk] -- 東京・上海・서울 の ローンチ計画
+Global: שלום עולם — مرحبا بالعالم [blocked] -- right-to-left phrases: مرحبا بكم
+Finance: Raise £1,250,000 (≈ $1.6m / €1.45m) at 12.5% over 36 months -- 99.95% uptime, 5 km/h, 2.4 GHz, 30 °C, 1,024 MiB, 3×4, ±0.5%
+
+LATER
+Core: 10 000 users by Q4 for the new cohort -- non-breaking space note here
+Misc: …?!—*
+Misc: ¿?!#@%^()
+Quotes: “Curly quotes” and ‘single curly’ — en–dash and em—dash -- «guillemets» „low quotes“
+AntidisestablishmentarianismpneumonoultramicroscopicsilicovoAntidisestablishmentarianismpneumonoultramicroscopicsilicovo -- 120 unbroken characters, no lane

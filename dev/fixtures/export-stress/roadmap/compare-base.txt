@@ -1,0 +1,20 @@
+// stresses: BASE for snapshot comparison - snapshot this, then load compare-changed
+title: Lantern - change review
+headline: Reminders first
+horizons: Now, Next, Later
+
+NOW
+Core: Resume where you left off [doing]
+Core: Curated shelves [doing]
+Growth: Referral flow [risk]
+Platform: Sync engine rewrite
+
+NEXT
+Core: Reading reminders
+Growth: Widget gallery
+Platform: Offline downloads
+
+LATER
+Core: Book clubs
+Growth: Publisher storefront
+Platform: E-reader sync

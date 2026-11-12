@@ -1,0 +1,10 @@
+// stresses: milestone labels of 100-160+ characters, long lane names, long notes, long title and authored verdict
+title: Lantern reading app - the complete cross-team launch forecast for the second half of the planning year, including every dependency we know about
+verdict: The widest uncertainty is the external store review and the legacy sync migration, and if either of them slips the launch conference date no longer holds without cutting scope
+today: 2026-09-05
+style: field
+Reader Experience and Daily Habit Formation: Migrate every reader library, shelf, highlight, bookmark and reading position from the legacy sync service to the new conflict-free store without losing a single annotation 2026-10-12 .. 2026-12-18 [started: 2026-08-17] // This note is intentionally long so it has to wrap beneath the label and then be carried, whole, into the slide and the markdown export without being clipped at the card edge or silently dropped when the page runs out of room
+Platform Reliability, Sync and Storage Infrastructure: Roll out the new background scheduler to one percent, ten percent and then every device while watching crash-free sessions and battery drain 2026-11-02 .. 2027-01-29 // Depends on the sync migration finishing and on the store accepting the new background-mode entitlement
+Growth, Acquisition and Publisher Partnerships Programme: Sign and onboard the first three launch publishers including catalogue ingestion, royalty reporting, takedown handling and a joint announcement 2026-10-26 .. 2027-02-12 [risk] // Legal review is the long pole
+Reader Experience and Daily Habit Formation: Daily reading goal that adapts to actual finishing rate rather than a fixed target 2026-11-16 .. 2027-01-08
+Launch Readiness, Press and Community Engagement Workstream: Conference demo is the fixed external commitment that every other date in this plan is working backwards from 2027-02-24 [fixed] [lead: 10w] // The date cannot move

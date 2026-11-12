@@ -43,7 +43,7 @@ test('complete slides retain every note fragment and every item at readable type
    const note=ordered.map(it=>it.export.fragment?.note??it.note).join(' ').trim();
    assert.equal(note,m.items[i].note,style+' note '+i);
   }
-  for(const page of set.plan.pages){const l=layoutChapter(page.model,{...ctx,slide:true,sourceModel:m});assert.ok(l.fits);assert.equal(l.height,810);for(const r of l.rows)for(const b of r.blocks)assert.ok(b.size >= (b.kind==='title' ? 20 : b.kind==='note' ? 16 : 14));}
+  for(const page of set.plan.pages){const l=layoutChapter(page.model,{...ctx,slide:true,sourceModel:m,scale:set.scale,windowSize:set.plan.windowSize});assert.ok(l.fits);assert.equal(l.height,810);for(const r of l.rows)for(const b of r.blocks)assert.ok(b.size >= (b.kind==='title' ? 20 : b.kind==='note' ? 16 : 14)*.88-.3);}
  }
 });
 test('overlapping spans occupy separate tracks and retain proportional width',()=>{
@@ -85,14 +85,16 @@ test('titles-only export does not paginate commentary that was explicitly omitte
 });
 
 test('long titles and commentary share measured continuation space in every reading region',()=>{
- const title='Reading with confidence '.repeat(18).trim(),note='Keep every reader informed about what changes and why. '.repeat(30).trim();
+ const title='Reading with confidence '.repeat(6).trim(),note='Keep every reader informed about what changes and why. '.repeat(90).trim();
  for(const style of ['board','grid','focus','register'])for(const horizon of ['NOW','NEXT']){
   const m=parse(`style: ${style}\nNOW\nCore: Anchor\n${horizon}\nCore: ${title} -- ${note}`),set=renderChapterPages(m,ctx);
   assert.ok(set.complete,style+' '+horizon);
   const target=m.items.length-1;
   const fragments=[...new Map(set.plan.pages.flatMap(p=>p.model.items).filter(i=>i.export.sourceIndex===target).map(i=>[i.export.fragment?.index||0,i])).values()].sort((a,b)=>a.export.fragment.index-b.export.fragment.index);
+  assert.ok(fragments.length>1,style+' '+horizon+' is too big for one slide and is continued');
   assert.equal(fragments.map(i=>i.export.fragment.note).join(' ').trim(),note);
-  assert.equal(fragments.map(i=>i.export.fragment.title).filter(t=>t!=='Item continued').join(' ').trim(),title);
+  // The title fits a slide, so it repeats whole on every part rather than being cut.
+  assert.ok(fragments.every(i=>i.export.fragment.title===title),style+' '+horizon);
  }
 });
 
@@ -119,11 +121,11 @@ test('empty future-horizon pages state their planning status explicitly',()=>{
 test('Chapter omits document counts and decorative narration, retaining useful pagination',()=>{
  for(const style of ['board','grid','focus','register']){
   const m={...parse(fixture('sparse')),style};
-  for(const width of [1440,390])assert.doesNotMatch(renderChapter(m,{...ctx,width}),/>\d+ (initiatives?|horizons|conditional items?)<|>Review<|Page 1 of 1/);
-  assert.doesNotMatch(renderChapterPages(m,ctx).pages[0],/>\d+ initiatives?<|Page 1 of 1/);
+  for(const width of [1440,390])assert.doesNotMatch(renderChapter(m,{...ctx,width}),/>\d+ (initiatives?|horizons|conditional items?)<|>Review<|>1 of 1</);
+  assert.doesNotMatch(renderChapterPages(m,ctx).pages[0],/>\d+ initiatives?<|>1 of 1</);
  }
  const many=renderChapterPages({...parse(fixture('crowded')),style:'register'},ctx);
- assert.match(many.pages[0],/Page 1 of/);
+ assert.match(many.pages[0],/>1 of \d+</);
 });
 
 test('six quarters use balanced export windows and a compact two-column Spotlight rail',()=>{

@@ -1,0 +1,23 @@
+// stresses: one track with 16 milestones beside empty-ish and single-item tracks, and a long stretch of months with nothing in it
+title: Lantern - uneven tracks
+today: 2026-09-05
+style: field
+App: Resume where you left off 2026-09-18 .. 2026-10-02
+App: Curated shelves 2026-09-25 .. 2026-10-16
+App: Reading goals 2026-10-05 .. 2026-10-23
+App: Reading streaks 2026-10-12 .. 2026-10-30
+App: Bookmarks 2026-10-14 .. 2026-11-06
+App: Highlights 2026-10-20 .. 2026-11-13
+App: Margin notes 2026-10-27 .. 2026-11-20
+App: Search inside a book 2026-11-02 .. 2026-11-27
+App: Dictionary lookup 2026-11-09 .. 2026-12-04
+App: Font controls 2026-11-16 .. 2026-12-11
+App: Line spacing 2026-11-23 .. 2026-12-18
+App: Page-turn animation 2026-11-30 .. 2027-01-08
+App: Night mode scheduling 2026-12-07 .. 2027-01-15
+App: Tap zones 2026-12-14 .. 2027-01-22
+App: Reading speed estimate 2026-12-21 .. 2027-01-29
+App: Chapter progress 2027-01-04 .. 2027-02-05
+Platform: Sync engine rewrite 2026-10-01 .. 2027-01-30 [risk]
+Growth: Press kit 2027-06-01 .. 2027-06-30
+Launch: Conference 2027-09-15 [fixed]

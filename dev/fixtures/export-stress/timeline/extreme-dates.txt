@@ -1,0 +1,24 @@
+// stresses: a five-year span, several milestones on the same day, one very wide range beside very narrow ones, dates well in the past (NOTE: a lane called Today is read as the today: setting by the DSL, so the same-day lane is "Same day")
+title: Northstar - five-year view
+today: 2026-09-05
+style: field
+Past: Founded 2022-03-14 [done]
+Past: Seed round closed 2022-09-30 [done]
+Past: First release 2023-04-12 [done]
+Past: Series A 2024-01-25 [done]
+Past: Old launch that slipped 2024-06 [done]
+Same day: Same-day alpha 2026-10-15 .. 2026-10-15
+Same day: Same-day beta 2026-10-15 .. 2026-10-15
+Same day: Same-day gamma 2026-10-15 .. 2026-10-15
+Same day: Same-day delta 2026-10-15 .. 2026-10-15
+Same day: Same-day fixed 2026-10-15 [fixed]
+Same day: Same-day done 2026-10-15 [done]
+Wide: Platform replatform 2026-10 .. 2029-12
+Narrow: One-day range 2026-11-02 .. 2026-11-03
+Narrow: Two-day range 2026-11-09 .. 2026-11-11
+Narrow: Three-day range 2026-12-01 .. 2026-12-04
+Future: Series B 2027-06 .. 2027-09
+Future: International 2028-03 .. 2028-06
+Future: IPO window 2029-09 .. 2030-03
+Future: Strategic review 2030-06-30 [fixed]
+Ancient: Prehistoric milestone 2019-01-01 [done]

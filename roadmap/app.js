@@ -31,6 +31,7 @@ import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
 import {roadmapConditionalityHealth} from './handoff-paths.js';
 import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
+import {wirePrintArtefact} from '../assets/print-artefact.js';
 import {resolveBoardWindow, boardCapacityFor} from './board-window.js';
 import {layoutRoadmap} from './layout.js';
 import {inspectionFacts, inspectionIdentity} from './inspect-item.js';
@@ -819,12 +820,13 @@ provide({
 });
 
 /* ---------- exports ---------- */
-/* Download SVG/PNG = the current STYLE's plain, content-sized artefact (WYSIWYG),
-   independent of phone reflow. Copy PNG uses the selected 16:9 composition. */
-function plainStyleSvg(){
+/* Download SVG/PNG and Copy PNG are one picture: the current STYLE's plain, content-sized artefact
+   (WYSIWYG), independent of phone reflow, the window and the slide dialog. Slides live in the dialog. */
+function plainStyleSvg({dark = isDark()} = {}){
   if(!model || !model.items.length || !chapterFontsReady()) return null;
-  return embedChapterFonts(renderChapter(model,{measure,diff:makeDiff(model),dark:isDark(),today:todayISO()}));
+  return embedChapterFonts(renderChapter(model,{measure,diff:makeDiff(model),dark,today:todayISO()}));
 }
+wirePrintArtefact({getSvg: () => plainStyleSvg({dark: false})});   // R1: print is the light artefact alone
 
 /* A compact source stays a single, style-faithful 16:9 slide. A genuinely dense
    roadmap earns a complete slide set, available through the exact export preview. */
@@ -840,15 +842,8 @@ function deckSet(){
   return set;
 }
 
-function deckSvgString(){ return deckSet()?.pages[0] || null; }
-function deckPageCount(){
-  return deckSet()?.pages.length || 0;
-}
 function syncDeckActions(){
-  const pages = deckPageCount();
   const comparison = makeDiff(model);
-  $('copypng').hidden = pages !== 1;
-  $('fullslideexport').hidden = false;
   $('exportdeck').disabled = !model?.items.length;
   $('changepreview').hidden = !comparison?.any;
 }
@@ -858,7 +853,6 @@ function slug(){
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => plainStyleSvg(),
-  getCopy: () => deckSvgString(),      // Copy PNG hands over the deck-shaped render
   slug,
 });
 
@@ -878,7 +872,7 @@ function renderSlidePage(index){
     : 'Download ' + set.pages.length + '-slide ZIP';
 }
 function openSlidePreview(change = false){
-  const available=deckPageCount()>0;
+  const available=!!deckSet();
   $('slideerror').hidden=available;
   $('slidecanvas').hidden=!available;
   for(const id of ['slideprev','slidenext','slidecopyimage','slidedownload'])$(id).hidden=!available;
@@ -888,6 +882,7 @@ function openSlidePreview(change = false){
   $('slidecopy').textContent = change
     ? 'This is the exact comparison slide set: current work, change markers, dropped work, and the authored story.'
     : ($('exportdetail').value === 'titles' ? 'Every item is included. Commentary is omitted by your choice.' : 'Every horizon, item and commentary is included.');
+  slideStatus('');
   if(available)renderSlidePage(0);
   else $('slidecopy').textContent='Your roadmap is preserved. Adjust the framing and try again.';
   const dialog = $('slidepreviewdialog');
@@ -903,7 +898,9 @@ function pngFromSvg(svg){
     }, error => reject(new Error(error.detail)));
   });
 }
+const slideStatus = text => { const line = $('slidestatus'); line.textContent = text || ''; line.hidden = !text; };
 async function downloadSlideSet(){
+  slideStatus('');
   const set = deckSet();
   if(!set) return;
   const button = $('slidedownload');
@@ -918,13 +915,13 @@ async function downloadSlideSet(){
     if(files.length===1)download(files[0].name,new Blob([files[0].bytes],{type:'image/png'}));
     else download(slug()+'-slides.zip',createSlideZip(files));
     button.textContent = files.length===1 ? 'Downloaded PNG' : 'Downloaded '+files.length+' slides';
-  }catch(_){
+  }catch(error){
     button.textContent = 'Could not prepare slides';
+    slideStatus('Could not prepare the slides: ' + (error?.message || 'the browser could not make the PNG') + ' Nothing was downloaded.');
   }finally{
     setTimeout(() => { button.textContent = original; button.disabled = false; }, 1800);
   }
 }
-$('fullslideexport').addEventListener('click', () => openSlidePreview());
 $('changepreview').addEventListener('click', () => openSlidePreview(true));
 $('slideclose').addEventListener('click', () => $('slidepreviewdialog').close());
 $('slideprev').addEventListener('click', () => renderSlidePage(slidePageIndex - 1));
@@ -932,13 +929,14 @@ $('slidenext').addEventListener('click', () => renderSlidePage(slidePageIndex + 
 $('slidedownload').addEventListener('click', downloadSlideSet);
 $('slidecopyimage').addEventListener('click',()=>{
   const svg=deckSet()?.pages[slidePageIndex],button=$('slidecopyimage');
+  slideStatus('');
   if(!svg)return;
-  if(!navigator.clipboard || !window.ClipboardItem){button.textContent='Use Download on this browser';return;}
+  if(!navigator.clipboard || !window.ClipboardItem){button.textContent='Use Download on this browser';slideStatus('This browser cannot copy images. Use Download.');return;}
   try{navigator.clipboard.write([new ClipboardItem({'image/png':pngFromSvg(svg)})])
     .then(()=>{button.textContent='Copied — paste into your deck';})
-    .catch(()=>{button.textContent='Copy blocked — use Download';})
+    .catch(()=>{button.textContent='Copy blocked — use Download';slideStatus('The browser blocked copying this slide. Use Download.');})
     .finally(()=>setTimeout(()=>{button.textContent='Copy slide PNG';},1800));
-  }catch(_){button.textContent='Copy blocked — use Download';}
+  }catch(_){button.textContent='Copy blocked — use Download';slideStatus('The browser blocked copying this slide. Use Download.');}
 });
 /* Native modal focus handling is not consistent across every embedded browser
    surface. Keep the small export dialog self-contained: a backwards Tab from
@@ -1030,7 +1028,11 @@ $('importgo').addEventListener('click', () => {
   if(!dsl.trim()) return;
   $('importbox').classList.remove('open');
   $('importarea').value = '';
-  editor.setText(dsl);
+  /* A Markdown copy does not carry the editor's own settings (wip, fade): an import keeps the ones already set,
+     and basis too when the pasted copy has none. */
+  const have = key => new RegExp('^' + key + '\\s*:', 'im').test(dsl);
+  const kept = editor.getText().split('\n').filter(line => /^(wip|fade|basis)\s*:/i.test(line.trim()) && !have(line.trim().split(':')[0].toLowerCase()));
+  editor.setText([...kept, dsl].join('\n'));
 });
 
 /* ---------- drag-and-drop: a drop is a text edit ---------- */

@@ -1,0 +1,10 @@
+// stresses: appearance variant - DM Sans, plum palette, register view
+title: Lantern - DM Sans plum
+font: DM Sans
+palette: plum
+style: register
+today: 2026-09-05
+App: Beta cut 2026-09-18 .. 2026-10-02 [started: 2026-08-14] // note
+App: Store review 2026-10-19 .. 2026-11-16 [risk]
+Launch: Launch forecast 2026-11-20 .. 2026-12-11
+Launch: Conference 2026-12-15 [fixed] [lead: 6w]

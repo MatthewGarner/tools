@@ -1,0 +1,24 @@
+// stresses: titles of 100-160+ characters, a long headline/story/verdict, long lane names, long commentary
+title: Lantern reading app - the full multi-quarter product roadmap for the next three planning cycles
+headline: We are betting the whole next half-year on turning casual readers into daily readers, because retention is the only number that has moved in the last three cycles
+story: After the pilot we chose depth over breadth: fewer surfaces, more finished reading features, and a deliberate pause on anything that needs a new storefront relationship
+verdict: The plan is honest about being overloaded now, and the biggest single risk is the sync rewrite landing late and dragging every offline feature with it
+horizons: Now, Next, Later
+wip: 4
+
+NOW
+Reader Experience and Daily Habit Formation: Rebuild the offline reading experience so that downloaded books, highlights, bookmarks and reading position all stay consistent across phones, tablets and e-readers even when the network drops mid-sync [doing] -- Commentary that is deliberately long so that it has to wrap over several lines inside the card and then, on the slide export, continue across slides without being dropped or clipped by the card boundary or the page edge, which is exactly what this document exists to stress.
+Platform Reliability, Sync and Storage Infrastructure: Consolidate the three separate notification services into one scheduler that respects quiet hours, time zones, reader preferences and the new family-sharing rules without double-sending [risk] -- The support team reports that conflicts are now the number one driver of tickets, and the longer this slips the more it costs.
+Reader Experience and Daily Habit Formation: Add a shelf-level reading goal that adapts to how much a reader actually finishes each week instead of a fixed target [doing]
+Growth, Acquisition and Publisher Partnerships Programme: Publisher storefront pilot with three launch partners including contract, catalogue ingestion, royalty reporting and takedown handling [blocked] -- waiting on legal
+
+NEXT
+Reader Experience and Daily Habit Formation: Reading reminders that learn each reader's natural time of day and quietly back off after two ignored nudges in a row [bet: reminders] -- learn the right moment
+Platform Reliability, Sync and Storage Infrastructure: Offline downloads with per-book storage budgets, automatic eviction of finished books and a clear explanation of what was removed and why
+Growth, Acquisition and Publisher Partnerships Programme: Home-screen widget gallery with six sizes, three themes and a streak widget that never shames a reader for missing a day
+
+LATER
+Reader Experience and Daily Habit Formation: Reminder personalisation that uses finished-chapter timing, time of day and device context to suggest the next sitting [if reminders] -- only if reminders work
+Reader Experience and Daily Habit Formation: Digest emails summarising the week's reading and surfacing one quote the reader highlighted [unless reminders] -- the fallback nudge channel
+Growth, Acquisition and Publisher Partnerships Programme: Book clubs with small groups, shared shelves, spoiler-safe discussion threads and a gentle weekly pace-setting prompt
+Platform Reliability, Sync and Storage Infrastructure: E-reader sync supporting the three most common e-ink devices over local network or cloud, with conflict resolution that never loses a highlight

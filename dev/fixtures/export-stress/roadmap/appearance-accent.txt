@@ -1,0 +1,16 @@
+// stresses: appearance variant - a very light custom accent (yellow) whose text/stroke contrast is weak on light paper, and an extremely dark accent is the dark-theme twin
+title: Lantern - light accent
+accent: #F2E64A
+headline: Accent contrast check
+style: grid
+horizons: Now, Next, Later
+
+NOW
+Core: Resume where you left off [doing] -- note text
+Growth: Referral flow [risk]
+NEXT
+Core: Reading reminders [bet: reminders]
+Platform: Offline downloads [blocked]
+LATER
+Core: Reminder personalisation [if reminders]
+Growth: Publisher storefront [done]

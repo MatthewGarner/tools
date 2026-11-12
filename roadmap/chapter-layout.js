@@ -45,7 +45,10 @@ export function chapterFacts(model, item, {showLane = true, showRun = true, diff
   if((showRun && end > start) || item.spanEnd) facts.push({text:'Runs ' + source.horizons[start] + ' — ' + (item.spanEnd || source.horizons[end]), kind:'run'});
   if(!showRun && ex?.continuesBefore) facts.push({text:'Continues from ' + source.horizons[start], kind:'continuation'});
   if(!showRun && ex?.continuesAfter) facts.push({text:'Continues to ' + source.horizons[end], kind:'continuation'});
-  if(ex?.fragment?.total > 1) facts.push({text:'R' + String((ex.sourceIndex ?? 0) + 1).padStart(2,'0') + ' · Item part ' + (ex.fragment.index + 1) + ' of ' + ex.fragment.total, kind:'continuation'});
+  if(ex?.fragment?.total > 1){
+    if(ex.fragment.index > 0) facts.push({text:'Continued', kind:'continuation'});
+    if(ex.fragment.index < ex.fragment.total - 1) facts.push({text:'Continues on the next slide', kind:'continuation'});
+  }
   if(ex?.dropped) facts.push({text:'Dropped', kind:'change'});
   const badge = item.worldState !== 'dropped' && diff?.badge?.(item);
   if(badge) facts.push({text:badge.label, kind:'change'});
@@ -59,16 +62,28 @@ export function layoutChapter(model, ctx = {}){
   const width = ctx.width || (ctx.slide ? 1440 : chapterNativeWidth(model));
   const phone = width < 520;
   const margin = phone ? 20 : style === 'register' ? 128 : 48;
-  const inner = width - margin - (phone ? 20 : 48);
+  // The time grid's accent bars sit 14 left of the margin, so its right edge does the same: left margin equals right margin.
+  const rightPad = phone ? 20 : style === 'grid' ? margin - 14 : style === 'register' ? margin : 48;
+  const inner = width - margin - rightPad;
   const gap = phone ? 24 : 36;
-  const compactSlide=ctx.slide && (ctx.sourceModel || model).items.length > 8;
-  const meta = phone ? 12 : compactSlide ? 14 : CHAPTER_TYPE.meta;
-  const itemSize = phone ? 20 : compactSlide ? 20 : style === 'grid' ? 22 : CHAPTER_TYPE.item;
-  const noteSize = phone ? 16 : compactSlide ? 16 : CHAPTER_TYPE.note;
-  const headingSize = phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section;
+  // Density is a property of the whole plan, so every slide of a set (including a comparison's dropped-work slides) agrees on it.
+  const planItems = ctx.compactItems ?? (ctx.sourceModel || model).items.length;
+  const compactSlide=ctx.slide && planItems > 8;
+  // One scale per slide set (ctx.scale): the body type and its spacing scale together, while the
+  // title block and footer keep the base sizes, so furniture never moves between slides.
+  const k = ctx.slide ? ctx.scale || 1 : 1;
+  const q = v => ctx.slide ? Math.round(v * k * 4) / 4 : v;
+  const sp = v => ctx.slide ? Math.round(v * k) : v;
+  const metaBase = phone ? 12 : compactSlide ? 14 : CHAPTER_TYPE.meta;
+  const noteBase = phone ? 16 : compactSlide ? 16 : CHAPTER_TYPE.note;
+  const meta = q(metaBase);
+  const itemSize = q(phone ? 20 : compactSlide ? 20 : style === 'grid' ? 22 : CHAPTER_TYPE.item);
+  const noteSize = q(noteBase);
+  const headingSize = q(phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section);
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
-  const dense = (ctx.sourceModel || model).items.length > 8;
+  let headerBand = null;   // the column/axis header a printed continuation repeats
+  const dense = planItems > 8;
   // Dense exports use the reviewed 20/16/14 type floor and tighter framing.
   // These sizes are fixed: pagination never shrinks text to force a fit.
   const compactGrid=compactSlide && style==='grid';
@@ -77,9 +92,15 @@ export function layoutChapter(model, ctx = {}){
   const hero = chapterHero(focusModel);
   const heroName = focusModel.horizons[hero];
   const localHero = Math.max(0, model.horizons.indexOf(heroName));
+  // A Focus slide with nothing for the rail has no rail (the paper takes the full width), but its title block and
+  // footer sit where they do on the slides that have one: they are measured as if the rail were there.
   const hasRail = style === 'focus' && !phone && model.horizons.length > 1;
+  const headerRail = style === 'focus' && !phone && (hasRail || (ctx.slide && (ctx.sourceModel || model).horizons.length > 1));
   const railColumns=hasRail && !ctx.slide && model.horizons.length>4 ? 2 : 1;
-  const heroWidth = hasRail ? Math.round(inner * (railColumns===2 ? .46 : dense ? .59 : .64)) - gap : inner;
+  const railShare = Math.round(inner * (railColumns===2 ? .46 : dense ? .59 : .64)) - gap;
+  const heroWidth = hasRail ? railShare : inner;
+  const headerWidth = headerRail ? railShare : inner;
+  const railXFurniture = headerRail ? margin + railShare + gap : null;
   const railX = hasRail ? margin + heroWidth + gap : null;
   const railWidth = hasRail ? width - railX : 0;
   const text = (value, maxWidth, size, {family = type.body, weight = 400} = {}) => {
@@ -94,15 +115,15 @@ export function layoutChapter(model, ctx = {}){
   const sourceModel = ctx.sourceModel || model;
   const date = model.dateStr === 'off' ? '' : model.dateStr || ctx.today || new Date().toISOString().slice(0,10);
   if(model.headline){
-    headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
+    headerText(model.title || 'Roadmap', headerWidth, metaBase, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
   }
-  let mainSize = phone ? 38 : compactSlide ? 40 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
-  const mainWidth=hasRail && !dense ? heroWidth*.82 : heroWidth;
+  let mainSize = phone ? 38 : compactSlide ? 40 : headerRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
+  const mainWidth=headerRail && !dense ? headerWidth*.82 : headerWidth;
   const mainTitle=model.headline || model.title || 'Your roadmap';
   // Long authored framing spends header space before it takes space from work.
   // Keep the headline prominent, but use a smaller display size when real wrapping demands it.
   if(!phone){
-    const story=ctx.diff?.any && model.story ? text(model.story,heroWidth,noteSize) : null;
+    const story=ctx.diff?.any && model.story ? text(model.story,headerWidth,noteBase) : null;
     const reserve=82+(story?14+story.lines.length*story.step:0);
     while(mainSize>44){
       const b=text(mainTitle,mainWidth,mainSize,{family:type.display,weight:type.displayWeight});
@@ -113,15 +134,15 @@ export function layoutChapter(model, ctx = {}){
   headerText(mainTitle, mainWidth, mainSize,
     {family:type.display, weight:type.displayWeight, role:'ink', edit:model.headline ? 'headline' : null});
   y += phone ? 12 : compactSlide ? 8 : 20;
-  headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, meta, {role:'muted'});
-  if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteSize, {role:'muted'}); }
+  headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), headerWidth, metaBase, {role:'muted'});
+  if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, headerWidth, noteBase, {role:'muted'}); }
   if(model.basis){
     y += 16;
     const basis = model.basis;
-    headerText('Delivery projection · From Paths: ' + basis.source, heroWidth, meta, {weight:600,role:'accent'});
+    headerText('Delivery projection · From Paths: ' + basis.source, headerWidth, metaBase, {weight:600,role:'accent'});
     for(const kind of ['answered','assumed']){
       const entries = basis[kind] || [];
-      if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, meta, {role:'muted'});
+      if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), headerWidth, metaBase, {role:'muted'});
     }
   }
   y += phone ? 30 : compactSlide ? 14 : style === 'grid' ? 24 : 42;
@@ -129,7 +150,7 @@ export function layoutChapter(model, ctx = {}){
   const titleOf = item => item.export?.fragment?.title ?? item.title;
   const noteOf = item => ctx.titlesOnly ? '' : item.export?.fragment?.note ?? item.note;
   function itemRow(item, w, {rail = false, showLane = true, showRun = true, compact = false} = {}){
-    const pad = style === 'grid' && !phone ? compactGrid ? 4 : 12 : 0;
+    const pad = style === 'grid' && !phone ? sp(compactGrid ? 4 : 12) : 0;
     const sideFacts = style === 'focus' && !phone && !rail;
     const contentW = sideFacts ? w * .70 - 24 : w - pad * 2;
     const title = text(titleOf(item), contentW, compact && !compactSlide ? Math.max(itemSize - 2, 21) : itemSize, {weight:500});
@@ -142,7 +163,7 @@ export function layoutChapter(model, ctx = {}){
     let cursor = pad;
     const blocks = [{...title, y:cursor, kind:'title'}];
     cursor += title.lines.length * title.step;
-    if(note){ cursor += compactGrid ? 5 : 7; blocks.push({...note, y:cursor, kind:'note'}); cursor += note.lines.length * note.step; }
+    if(note){ cursor += sp(compactGrid ? 5 : 7); blocks.push({...note, y:cursor, kind:'note'}); cursor += note.lines.length * note.step; }
     if(facts.length && sideFacts){
       let fy = 0;
       for(const fact of facts){
@@ -152,19 +173,19 @@ export function layoutChapter(model, ctx = {}){
       }
       cursor=Math.max(cursor,fy);
     }else if(facts.length){
-      cursor += compactGrid ? 6 : 10;
+      cursor += sp(compactGrid ? 6 : 10);
       // Pack metadata by measured width; a long condition gets its own wrapped line.
       let fx = 0, lineHeight = 0;
       for(const fact of facts){
         const b = text(fact.text, w - pad * 2, meta, {weight:fact.kind === 'status' ? 600 : 400});
         const bw = Math.min(w - pad * 2, Math.max(...b.lines.map(t => measure(t,b.font)),0));
-        if(fx && fx + bw > w - pad * 2){cursor += lineHeight + 5; fx = 0; lineHeight = 0;}
+        if(fx && fx + bw > w - pad * 2){cursor += lineHeight + sp(5); fx = 0; lineHeight = 0;}
         blocks.push({...b, x:fx, y:cursor, kind:fact.kind, status:fact.status});
         lineHeight = Math.max(lineHeight,b.lines.length * b.step); fx += bw + 24;
       }
       cursor += lineHeight;
     }
-    return {item, w, h:Math.max(phone ? 60 : 62, cursor + pad + (phone ? 18 : style === 'grid' ? (compactGrid ? 4 : 10) : compactSlide ? 14 : 22)), blocks,pad,rail};
+    return {item, w, h:Math.max(phone ? 60 : sp(62), cursor + pad + (phone ? 18 : sp(style === 'grid' ? (compactGrid ? 4 : 10) : compactSlide ? 14 : 22))), blocks,pad,rail};
   }
   function horizonHint(name,w){
     const h=sourceModel.horizons.indexOf(name), active=activeCount(sourceModel,h), conditional=condCount(sourceModel,h);
@@ -180,7 +201,7 @@ export function layoutChapter(model, ctx = {}){
   }
   function list(items,x,top,w,options = {}){
     let bottom = top;
-    for(const item of items){ const row=itemRow(item,w,options); row.x=x;row.y=bottom;rows.push(row);bottom += row.h + (phone ? 12 : compactSlide ? 10 : 16); }
+    for(const item of items){ const row=itemRow(item,w,options); row.x=x;row.y=bottom;rows.push(row);bottom += row.h + (phone ? 12 : sp(compactSlide ? 10 : 16)); }
     return bottom;
   }
   const allIndices = model.horizons.map((_,i)=>i);
@@ -211,7 +232,7 @@ export function layoutChapter(model, ctx = {}){
     dropzones.push({x:margin,y:top,w:heroWidth,h:Math.max(y-top,120),horizon:localHero});
     y+=addSpace;
     let ry=52, rowTop=52, rowBottom=52;
-    const rw=(railWidth-60-gap*(railColumns-1))/railColumns;
+    const rw=(railWidth-30-48-gap*(railColumns-1))/railColumns;   // the rail's content ends at the same margin the left edge starts at
     for(const [index,h] of allIndices.filter(i=>i!==localHero).entries()){
       const column=index%railColumns;
       if(column===0)rowTop=rowBottom;
@@ -235,7 +256,14 @@ export function layoutChapter(model, ctx = {}){
     boardIndices.forEach((h,index)=>{
       const x=margin+index*(cw+gap);
       let cy=section(model.horizons[h],x,top,cw,h);
+      headerBand={y0:top,y1:Math.max(headerBand?.y1||0,cy)};
       cy=list(model.items.filter(i=>i.h===h),x,cy,cw);
+      // On a slide a column with nothing to show says why, rather than standing empty
+      if(ctx.slide && !model.items.some(i=>i.h===h)){
+        const here=sourceModel.horizons[sourceModel.horizons.indexOf(model.horizons[h])];
+        const b=text(sourceModel.items.some(i=>sourceModel.horizons[i.h]===here)?'Shown on another slide':'No work planned',cw,noteBase);
+        sections.push({name:b.text,x,y:cy,w:cw,h:b.lines.length*b.step,label:b,small:true});cy+=b.lines.length*b.step+12;
+      }
       bottom=Math.max(bottom,cy);dropzones.push({x,y:top,w:cw,h:Math.max(120,cy-top),horizon:h});
     });
     y=bottom+addSpace;
@@ -246,6 +274,7 @@ export function layoutChapter(model, ctx = {}){
     const widths=[inner*.43,inner*.13,inner*.13,inner*.31];
     const names=['Initiative & commentary','Workstream','Horizon','Status & condition'];
     let cx=margin;
+    headerBand={y0:y-4,y1:y+38};
     names.forEach((name,i)=>{const label=text(name,widths[i]-20,meta,{weight:600});sections.push({name,x:cx,y,w:widths[i],h:26,label,small:true});cx+=widths[i];});y+=38;
     if(ctx.slide && model.group!=='outcome'){
       const empty=model.horizons.filter(name=>!sourceModel.items.some(i=>sourceModel.horizons[i.h]===name));
@@ -280,7 +309,7 @@ export function layoutChapter(model, ctx = {}){
         let x=widths[0];
         const values=[item.lane || '—',model.horizons[item.h],chapterFacts({...model,sourceModel:ctx.sourceModel},item,{showLane:false,diff:ctx.diff})];
         values.forEach((value,index)=>{
-          const facts=Array.isArray(value)?value:[{text:value,kind:index===0?'lane':'horizon'}];let fy=0;
+          const facts=Array.isArray(value)?value:[{text:value,kind:index===0?'lane':'horizon'}];let fy=(b.blocks.find(t=>t.kind==='title')?.size||meta)-meta;   // the metadata shares the title's baseline
           for(const fact of facts){let t=text(fact.text,widths[index+1]-24,meta,{weight:fact.kind==='status'?600:400});if(index<2 && t.lines.length>5){wideFields.push({...text((index===0?'Workstream: ':'Horizon: ')+fact.text,inner,meta),kind:fact.kind});t=text('See below',widths[index+1]-24,meta);}b.blocks.push({...t,x,y:fy,kind:fact.kind,status:fact.status});fy+=t.lines.length*t.step+5;}
           maxH=Math.max(maxH,fy+(compactSlide?14:22));x+=widths[index+1];
         });
@@ -290,11 +319,25 @@ export function layoutChapter(model, ctx = {}){
       if(model.group!=='outcome'){dropzones.push({x:margin,y:top,w:inner,h:y-top,horizon:group.h});y+=addSpace;}
     }
   }else{
-    const lanes=model.exportLanes || (ctx.slide ? (model.lanes || ['']).filter(l=>model.items.some(i=>i.lane===l)) : model.lanes?.length ? model.lanes : ['']);
-    const longLanes=lanes.some(l=>text(l,182,28,{family:type.display}).lines.length>3);
-    const rail=!longLanes && lanes.some(Boolean)?Math.min(210,inner*.16):0;
+    const slideLanes = l => model.items.some(i=>i.lane===l);
+    const lanes=ctx.slide && model.items.length ? (model.exportLanes || model.lanes || ['']).filter(slideLanes) : model.exportLanes || (ctx.slide ? (model.lanes || ['']).filter(slideLanes) : model.lanes?.length ? model.lanes : ['']);
+    // On a slide the rail and the column-header band come from the whole plan, not this slide's
+    // lanes and horizons, so the furniture sits in the same place on every slide of the set.
+    const railLanes=ctx.slide ? [...new Set(sourceModel.items.map(i=>i.lane||''))] : lanes;
+    const longLanes=railLanes.some(l=>text(l,182,28,{family:type.display}).lines.length>3);
+    const rail=!longLanes && railLanes.some(Boolean)?Math.min(210,inner*.16):0;
     const gx=margin+rail, cw=(inner-rail)/model.horizons.length;
     let headerH=0;
+    if(ctx.slide){
+      const cwMin=(inner-rail)/Math.max(model.horizons.length,ctx.windowSize||0,1);
+      for(const name of sourceModel.horizons){
+        let label=text(name,cwMin-28,24,{family:type.display,weight:type.displayWeight});
+        if(label.lines.length>3)label=text(name,cwMin-28,meta,{weight:500});
+        headerH=Math.max(headerH,label.lines.length*label.step+24);
+      }
+      // room for a Today label at the set's scale, on every slide so the band never moves
+      if(sourceModel.timeAxis && sourceModel.dateStr!=='off')headerH+=Math.max(0,meta-metaBase)+2;
+    }
     allIndices.forEach(h=>{
       let label=text(model.horizons[h],cw-28,24,{family:type.display,weight:type.displayWeight});
       if(label.lines.length>3)label=text(model.horizons[h],cw-28,meta,{weight:500});
@@ -304,9 +347,11 @@ export function layoutChapter(model, ctx = {}){
       headerH=Math.max(headerH,height);
     });y+=headerH;
     const gridTop=y;
+    headerBand={y0:gridTop-headerH,y1:gridTop};
+    const laneLabelRows=[];   // a long lane name sits across the columns, so the column rules stop short of it
     for(const lane of lanes){
       const top=y, tracks=[];
-      if(lane && longLanes){const label=text(lane,inner,18,{weight:500});sections.push({name:lane,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true});y+=label.lines.length*label.step+18;}
+      if(lane && longLanes){const label=text(lane,inner,18,{weight:500});sections.push({name:lane,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true,lane,laneTop:top});laneLabelRows.push([y,y+label.lines.length*label.step+8]);y+=label.lines.length*label.step+18;}
       const items=model.items.filter(i=>i.lane===lane).slice().sort((a,b)=>a.h-b.h||a.srcLine-b.srcLine);
       for(const item of items){
         const span=Math.max(1,Math.min(item.span||1,model.horizons.length-item.h));
@@ -316,15 +361,22 @@ export function layoutChapter(model, ctx = {}){
       }
       for(const track of tracks){for(const row of track.rows){row.y=y;row.h=track.height;rows.push(row);} y+=track.height+(compactGrid?4:8);}
       y=Math.max(y,top+80);
-      if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
+      if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,lane,laneTop:top,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
       for(const h of allIndices)dropzones.push({x:gx+h*cw,y:top,w:cw,h:y-top,horizon:h,lane});
       if(lane)panels.push({x:margin-14,y:top+6,w:3,h:Math.max(44,y-top-12),role:'accent'});
-      y+=addSpace;lines.push({x:margin,y,x2:width,y2:y});y+=10;
+      y+=addSpace;lines.push({x:margin-14,y,x2:width-rightPad,y2:y});y+=10;
     }
     if(lanes.length)y-=10; // No trailing lane gap after the final rule.
-    allIndices.forEach(h=>lines.push({x:gx+h*cw,y:gridTop-headerH,x2:gx+h*cw,y2:y}));
+    [...allIndices,model.horizons.length].forEach(h=>{
+      let from=gridTop-headerH;
+      for(const [a,b] of [...laneLabelRows,[y,y]]){ if(a>from)lines.push({x:gx+h*cw,y:from,x2:gx+h*cw,y2:a}); from=Math.max(from,b); }
+    });   // the last column is closed like the others
+    // Today is a label with a short tick under it in the header band; nothing runs through the cards.
     const marker=model.dateStr==='off'?null:chapterDatePosition(model,ctx.today || new Date().toISOString().slice(0,10));
-    if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-4,x2:x,y2:y,role:'accent'});const label=text(marker.label,cw-20,meta,{weight:500});sections.push({name:marker.label,x:Math.min(width-margin-cw,Math.max(gx,x-40)),y:gridTop-24,w:cw-20,h:20,label,small:true,role:'accent'});}
+    if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-5,x2:x,y2:gridTop-1,role:'accent'});const label=text(marker.label,cw-20,meta,{weight:500});const labelW=Math.max(...label.lines.map(t=>measure(t,label.font)),0),colL=gx+marker.index*cw;
+      // The label sits inside its own column, so no column rule runs through it.
+      const lx=cw-24>=labelW?Math.min(colL+cw-12-labelW,Math.max(colL+12,x-40)):Math.min(width-margin-cw,Math.max(gx,x-40));
+      sections.push({name:marker.label,x:lx,y:gridTop-9-label.size,w:cw-20,h:20,label,small:true,role:'accent'});}
   }
   if(ctx.slide && !model.items.length && (style==='board'||style==='grid')){
     const label=text('No work planned in these horizons',inner,itemSize,{weight:500});
@@ -332,20 +384,37 @@ export function layoutChapter(model, ctx = {}){
     y+=label.lines.length*label.step;
   }
   const authored=resolveVerdict(sourceModel.verdict,{line:'',fig:''});
+  let verdictBlock=null;
   if(authored?.line){
-    y+=22; const b=text(authored.line,heroWidth,noteSize,{weight:500});
-    header.push({...b,x:margin,y,role:'ink',kind:'verdict'});y+=b.lines.length*b.step;
+    verdictBlock=text(authored.line,headerWidth,noteBase,{weight:500});
+    // A slide pins the verdict above the footer so it sits in the same place on every slide.
+    if(!ctx.slide){ y+=22; header.push({...verdictBlock,x:margin,y,role:'ink',kind:'verdict'});y+=verdictBlock.lines.length*verdictBlock.step; }
   }
   if(!ctx.slide && ctx.diff?.dropped?.length){
-    y+=24; const b=text('Dropped: '+ctx.diff.dropped.join(' · '),heroWidth,noteSize);
+    y+=24; const b=text('Dropped: '+ctx.diff.dropped.join(' · '),heroWidth,noteBase);
     header.push({...b,x:margin,y,role:'muted',kind:'dropped'}); y+=b.lines.length*b.step;
   }
   // Empty states are still composed artifacts with meaningful horizon structure.
   let bottom=Math.max(y,bodyTop+100);
   const footerY=bottom+24;
-  const height=ctx.slide ? CHAPTER_SLIDE.height : Math.max(phone?0:style==='focus'?760:650,footerY+48);
+  // A picture is sized to its content: the house margin (the top margin) below the last paint, no band of empty paper.
+  // Margins are measured on ink, not boxes: the bottom margin equals the top margin (the first text's ink top).
+  const inkBottomOf=(blk,top)=>top+blk.size+(blk.lines.length-1)*blk.step+blk.size*.22;
+  const topInk=Math.min(...header.filter(b=>b.kind!=='verdict'&&b.kind!=='dropped').map(b=>b.y+b.size*.26));
+  const lastInk=Math.max(0,
+    ...lines.map(l=>Math.max(l.y,l.y2)),
+    ...rows.map(r=>r.y+r.h),   // a card's bottom, or the rule that closes a ledger row
+    ...panels.filter(p=>p.role!=='rail'&&p.role!=='spine').map(p=>p.y+p.h),
+    ...sections.map(x=>inkBottomOf(x.label,x.y)),
+    ...header.map(b=>inkBottomOf(b,b.y)));
+  const height=ctx.slide ? CHAPTER_SLIDE.height : phone ? Math.max(0,footerY+48) : Math.ceil(Math.max(lastInk,bodyTop+100) + topInk);   // whole pixels: a fractional canvas edge paints half-transparent
+  const verdictH=verdictBlock ? verdictBlock.lines.length*verdictBlock.step : 0;
+  const bodyBottom=ctx.slide ? (verdictBlock ? height-72-verdictH-22 : height-60) : null;
+  if(ctx.slide && verdictBlock)header.push({...verdictBlock,x:margin,y:height-72-verdictH,role:'ink',kind:'verdict'});
   for(const p of panels)if(p.role==='rail'||p.role==='spine')p.h=height;
   const allText=[...header,...sections.map(s=>({...s.label,x:s.x,y:s.y})),...rows.flatMap(r=>r.blocks.map(b=>({...b,x:r.x+r.pad+(b.x||0),y:r.y+b.y})))];
-  const fits=footerY+36<=height && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
-  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,contentBottom:bottom,boardIndices};
+  // A Focus slide fits when its ink does: the space the cursor keeps after the last rule is not content (nine rows fit one slide)
+  const inkBottom=Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0)));
+  const fits=(ctx.slide ? (style==='focus' ? inkBottom : bottom)<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
+  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,headerBand,contentBottom:bottom,inkBottom,bodyBottom,scale:k,boardIndices};
 }

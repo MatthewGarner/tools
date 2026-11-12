@@ -1,0 +1,32 @@
+// stresses: one lane with 16 items beside an empty-ish lane and single-item lanes; LATER has nothing in it; NEXT only one item
+title: Lantern - uneven load
+horizons: Now, Next, Later, Someday
+headline: Everything is in Core; nothing is planned past Next
+
+NOW
+Core: Resume where you left off [doing]
+Core: Curated shelves [doing]
+Core: Reading goals
+Core: Reading streaks
+Core: Bookmarks
+Core: Highlights
+Core: Margin notes
+Core: Search inside a book
+Core: Dictionary lookup
+Core: Font controls
+Core: Line spacing
+Core: Page-turn animation
+Core: Night mode scheduling
+Core: Tap zones
+Core: Reading speed estimate
+Core: Chapter progress
+Platform: Sync engine rewrite [risk]
+Growth: Referral flow
+
+NEXT
+Core: Reading reminders
+
+LATER
+
+SOMEDAY
+Design: A whole new brand [blocked]

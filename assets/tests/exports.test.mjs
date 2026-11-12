@@ -84,20 +84,23 @@ test('a tool may name a specific Copy PNG handoff without changing shared defaul
   assert.equal(button['aria-label'], 'Copy PNG — day + stack summary');
 });
 
-test('Download PNG reports an over-budget native artboard without constructing a canvas', async () => {
+test('Download PNG refuses only a picture that cannot be made at 1x, and says so in a status line that stays', async () => {
   const {wireExports} = await import('../exports.js');
   const handlers = {};
   const btn = {textContent: 'PNG',
     addEventListener: (ev, fn) => { handlers[ev] = fn; },
     setAttribute(name, value){ this[name] = value; }};
+  const status = {textContent: '', hidden: true};
   const previousTimeout = globalThis.setTimeout;
   globalThis.setTimeout = () => 0;
   try {
-    wireExports({buttons: {dlpng: btn}, getSvg: () => '<svg width="2000" height="2000"/>',
-      slug: () => 'large'});
+    wireExports({buttons: {dlpng: btn}, getSvg: () => '<svg width="5000" height="5000"/>',
+      slug: () => 'large', status});
     handlers.click();
-    assert.equal(btn.textContent, 'PNG exceeds 3M-unit area — download SVG');
-    assert.equal(btn['aria-label'], 'PNG exceeds 3M-unit area — download SVG');
+    assert.equal(btn.textContent, 'PNG too large even at 1x — download SVG');
+    assert.equal(btn['aria-label'], 'PNG too large even at 1x — download SVG');
+    assert.equal(status.textContent, 'PNG too large even at 1x — download SVG.', 'the status line keeps the failure after the label reverts');
+    assert.equal(status.hidden, false);
   }finally {
     globalThis.setTimeout = previousTimeout;
   }
@@ -122,10 +125,10 @@ test('Copy PNG rejects an oversized render before ClipboardItem or clipboard.wri
   Object.defineProperty(globalThis, 'window', {configurable: true, value: {ClipboardItem: ClipboardItemStub}});
   globalThis.setTimeout = () => 0;
   try {
-    wireExports({buttons: {copypng: btn}, getSvg: () => '<svg width="4097" height="1"/>',
+    wireExports({buttons: {copypng: btn}, getSvg: () => '<svg width="16385" height="1"/>',
       slug: () => 'wide'});
     handlers.click();
-    assert.equal(btn.textContent, 'PNG exceeds 4,096px side — download SVG');
+    assert.equal(btn.textContent, 'PNG too large even at 1x — download SVG');
     assert.equal(items, 0);
     assert.equal(writes, 0);
   }finally {

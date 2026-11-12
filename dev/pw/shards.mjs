@@ -7,7 +7,7 @@
 export const SHARDS = [
   {name:'smoke', suites:['standard-embeds.mjs','lab-article-origin.mjs','lab-migration.mjs','backup.mjs','suite.mjs','templates.mjs','identity.mjs','front-door.mjs','lab-phone.mjs','smoke.mjs','gauge.mjs','timeline.mjs'], browsers:'chromium'},
   {name:'eip', suites:['check-eip.mjs','tool-shell-pages-1.mjs','tool-shell-pages-4.mjs'], browsers:'chromium'},
-  {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs','design-bar.mjs','tool-shell-pages-2.mjs'], browsers:'chromium'},
+  {name:'mobile-core', suites:['mobile.mjs','pwa.mjs','pwa-upgrade.mjs','recent-work.mjs','chapter-interactions.mjs','export-fidelity.mjs','design-bar.mjs','tool-shell-pages-2.mjs'], browsers:'chromium'},
   {name:'motion-webkit', suites:['motion.mjs','webkit.mjs','check.mjs','paths-budget.mjs','map.mjs','tool-shell-pages-3.mjs'], browsers:'chromium webkit'},
   {name:'layout-gauge', suites:['chapter.mjs','energy-design-bar.mjs','workshop-design.mjs','first-screen.mjs','tool-shell.mjs','layout.mjs','signal.mjs','intraday-export.mjs','frequency.mjs','case.mjs'], browsers:'chromium'},
 ];
@@ -28,7 +28,7 @@ export const SUITE_SECONDS = {
   // Initial ordering hints for the design-bar regressions; refine from the complete gate.
   'identity.mjs': 12, 'design-bar.mjs': 10, 'energy-design-bar.mjs': 12, 'workshop-design.mjs': 25, 'first-screen.mjs': 50, 'tool-shell.mjs': 110, 'tool-shell-pages-1.mjs': 70, 'tool-shell-pages-2.mjs': 70, 'tool-shell-pages-3.mjs': 70, 'tool-shell-pages-4.mjs': 90,
   // Initial ordering hints for Chapter; update from the first complete gate run.
-  'chapter.mjs': 45, 'chapter-interactions.mjs': 20, 'timeline.mjs': 20,
+  'chapter.mjs': 45, 'chapter-interactions.mjs': 20, 'timeline.mjs': 20, 'export-fidelity.mjs': 50,
   'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 103, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
   'pwa.mjs': 15, 'pwa-upgrade.mjs': 4, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,

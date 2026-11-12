@@ -1,0 +1,12 @@
+// stresses: baseline - the tool's own default example (first entry in timeline/app.js EXAMPLES), unchanged
+title: Lantern — launch forecast
+today: 2026-09-05
+style: field
+font: Chapter
+accent: #326752
+App: Beta cut 2026-09-18 .. 2026-10-02 [started: 2026-08-14]
+App: Store review 2026-10-19 .. 2026-11-16 // External review timing
+Assurance: Privacy audit 2026-10-12 .. 2026-11-23 [started: 2026-08-24] // Independent assessment
+Launch: Campaign ready 2026-11-02 .. 2026-11-16
+Launch: Launch forecast 2026-11-20 .. 2026-12-11
+Launch: Conference 2026-12-15 [fixed]

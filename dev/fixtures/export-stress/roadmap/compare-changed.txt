@@ -1,0 +1,20 @@
+// stresses: CHANGED version compared against compare-base - moved items, a status change, a new item, dropped items, an authored story
+title: Lantern - change review
+headline: Reminders first
+story: Sync moved up after the support data came in; referrals and the storefront were dropped to make room
+horizons: Now, Next, Later
+
+NOW
+Core: Resume where you left off [done]
+Core: Curated shelves [doing]
+Platform: Sync engine rewrite [doing]
+Core: Reading reminders [doing]
+
+NEXT
+Growth: Widget gallery
+Platform: Offline downloads
+Core: Search inside a book
+
+LATER
+Core: Book clubs
+Platform: E-reader sync

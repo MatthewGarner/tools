@@ -1,0 +1,49 @@
+// stresses: every documented roadmap key and marker - time axis, spans, bet/if/unless (open, won, lost, moot), all statuses and aliases, wip, links, notes, date, headline, story, verdict, group, focus, font, palette, accent, basis
+title: Lantern - every feature
+date: 12 Nov 2026
+headline: Every marker the roadmap language documents, once
+story: Reminders paid off, referrals did not, so the nudge work moved up and the referral work was dropped
+verdict: Retention work leads; the referral bet has been called and the plan reflects it
+horizons: quarterly from Q4 2026 x5
+wip: 4
+fade: off
+palette: ember
+accent: #C05621
+font: Chapter
+style: focus
+focus: Q1 2027
+group: outcome
+basis: paths "Growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12
+
+Q4 2026
+Core: Resume where you left off [doing] -- plain doing
+Core: Shipped shelves [shipped] -- alias shipped (done)
+Core: Referral flow [bet: referrals lost] -- resolved lost
+Core: Reminders [bet: reminders won] -- resolved won
+Growth: Widget gallery [in-progress] -- alias in-progress
+Growth: Review blocker [stuck] -- alias stuck
+
+Q1 2027
+Core: Reminder personalisation [if reminders] -- survives the won bet
+Core: Digest emails [unless reminders] -- dropped by the won bet
+Growth: Referral rewards [if referrals] -- dropped by the lost bet (never ran)
+Growth: Manual outreach [unless referrals] -- stays live
+Platform: Sync engine rewrite x3 [doing] -- a three-quarter span
+Platform: Offline downloads [at-risk] -- alias at-risk
+Platform: E-reader sync [wip] -- alias wip
+Growth: Open question [bet: pricing] -- unresolved bet
+Growth: Premium tier [if pricing] -- conditional on the open bet
+Growth: Free tier cap [unless pricing] -- the fallback
+
+Q2 2027
+Platform: Linked item -> https://example.com/tickets/LANTERN-42
+Core: Book clubs [blocked] -- plain blocked
+Design: Brand refresh x2 -- two-quarter span
+Design: A shipped thing [done] x1
+
+Q3 2027
+Growth: Publisher storefront [risk] -- plain risk
+Data: Analytics rebuild
+
+Q4 2027
+Data: Warehouse migration [doing] x2 -- span clamped at the end of the axis

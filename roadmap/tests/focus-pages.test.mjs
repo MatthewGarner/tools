@@ -13,9 +13,9 @@ function verify(model,out){
     if(index===0)assert.equal(page.model.focus,model.focus,'the chosen horizon leads the deck');
     assert.equal(page.model.focus,model.horizons[page.focusHeroIndex]);
     assert.equal(page.model.items.some(i=>i.export.repeatedContext),false,'exhausted content is never repeated');
-    const geometry=layoutChapter(page.model,{...ctx,sourceModel:model,slide:true});
+    const geometry=layoutChapter(page.model,{...ctx,sourceModel:model,slide:true,scale:out.scale});
     assert.equal(geometry.fits,true,'every paired hero and rail fits');
-    for(const row of geometry.rows){assert.ok(row.y+row.h<geometry.footerY);for(const block of row.blocks)assert.ok(block.size >= (block.kind==='title' ? 20 : block.kind==='note' ? 16 : 14));}
+    for(const row of geometry.rows){assert.ok(row.y+row.h<geometry.footerY);for(const block of row.blocks)assert.ok(block.size >= (block.kind==='title' ? 20 : block.kind==='note' ? 16 : 14)*.88-.3);}
     page.horizonIndices.forEach(h=>horizons.add(h));
     page.sourceItemIndices.forEach(i=>seen.add(i));
   }

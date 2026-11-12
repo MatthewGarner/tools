@@ -7,10 +7,16 @@ import {previewableBet} from './cond-parts.js';
 
 const e = value => esc(String(value ?? ''));
 const n = value => Math.round(value * 100) / 100;
-const attrs = values => Object.entries(values).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(v)}"`).join('');
+const attrs = values => Object.entries(values).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(k==='font-family'?fontStack(v):v)}"`).join('');
 const rect = (x,y,w,h,fill,more={}) => `<rect${attrs({x:n(x),y:n(y),width:n(w),height:n(h),fill,...more})}/>`;
-const rule = (x,y,x2,y2,stroke) => `<line${attrs({x1:n(x),y1:n(y),x2:n(x2),y2:n(y2),stroke,'stroke-width':1})}/>`;
+// A hairline sits on n + .5 so it is one crisp pixel at 1x.
+const snap = v => Math.floor(v) + .5;
+const rule = (x,y,x2,y2,stroke) => {
+  const vertical = x === x2, horizontal = y === y2;
+  return `<line${attrs({x1:n(vertical?snap(x):x),y1:n(horizontal?snap(y):y),x2:n(vertical?snap(x2):x2),y2:n(horizontal?snap(y2):y2),stroke,'stroke-width':1})}/>`;
+};
 import {chapterColors} from '../assets/chapter-colors.js';
+import {fontStack} from '../assets/chapter-fonts.js';
 export {chapterColors, chapterContrast} from '../assets/chapter-colors.js';
 function blockSvg(block,x,y,fill,extra={}){
   return block.lines.map((line,index)=>`<text${attrs({x:n(x),y:n(y+block.size+index*block.step),'font-family':block.family,'font-size':block.size,'font-weight':block.weight,fill,...(index===0?extra:{})})}>${e(line)}</text>`).join('');
@@ -18,13 +24,22 @@ function blockSvg(block,x,y,fill,extra={}){
 function editAttrs(kind,item,label,raw){
   return {'data-edit':kind,'data-line':item.srcLine,'data-raw':raw??item[kind]??'',role:'button',tabindex:0,'aria-label':label};
 }
+// A footer label is offered longest first; the first that fits the room is used, so nothing is cut.
+function pickScope(options,room,measure,small){
+  const list=[].concat(options||[]).filter(Boolean);
+  const width=t=>(measure||((text,font)=>String(text).length*small.size*.53))(t,`${small.weight} ${small.size}px "${small.family}"`);
+  return list.find(t=>width(t)<=room)||list.at(-1)||'';
+}
+// The projection's provenance in words, for the picture's own description.
+const basisSummary=basis=>basis?['Delivery projection from Paths: '+basis.source,...['answered','assumed'].filter(k=>(basis[k]||[]).length).map(k=>(k==='answered'?'Known: ':'Assumed: ')+basis[k].map(x=>`${x.key} = ${x.direction} (${x.date})`).join('; '))].join('. '):'';
 export function renderChapter(model,ctx={}){
   const layout=ctx.layout || layoutChapter(model,ctx),C=chapterColors(model,ctx);
   const {width:W,height:H,margin:M}=layout;
   const slide=!!ctx.slide,scale=slide?4/3:1;
-  const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null})}>`,
+  const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null,
+    'data-header-band':layout.headerBand&&!slide?`${n(layout.headerBand.y0)} ${n(layout.headerBand.y1)}`:null,'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
     `<title>${e(model.title||'Roadmap')}</title>`,
-    `<desc>${e(model.headline||'')} ${e(model.basis?JSON.stringify(model.basis):'')}</desc>`,rect(0,0,W,H,C.bg)];
+    `<desc>${e([model.headline,model.story,basisSummary(model.basis)].filter(Boolean).join(' — ')||model.title||'Roadmap')}</desc>`,rect(0,0,W,H,C.bg)];
   for(const p of layout.panels)s.push(rect(p.x,p.y,p.w,p.h,C[p.role]));
   for(const l of layout.lines)s.push(rule(l.x,l.y,l.x2,l.y2,C[l.role]||C.border));
   if(ctx.edit)for(const z of layout.dropzones){
@@ -36,14 +51,17 @@ export function renderChapter(model,ctx={}){
     const ink=section.rail?C.railInk:C[section.role]||C.ink;
     const extra=ctx.edit&&section.lens?{'data-lens':section.name,role:'button',tabindex:0,'aria-label':'Focus on '+section.name}:{};
     if(extra['data-lens'])s.push(`<g${attrs(extra)}>${rect(section.x,section.y,section.w,Math.max(44,section.label.lines.length*section.label.step),'transparent')}`);
+    // a lane's heading is marked so print can keep it with its first row and name the lane again where it continues on a later sheet
+    if(section.lane)s.push(`<g data-lane-heading="${e(section.lane)}" data-lane-top="${Math.round((section.laneTop??section.y)*10)/10}">`);
     s.push(blockSvg(section.label,section.x,section.y,ink));
     if(extra['data-lens'])s.push('</g>');
     if(section.hint)s.push(blockSvg(section.hint,section.x,section.y+section.label.lines.length*section.label.step+4,ink));
+    if(section.lane)s.push('</g>');
     if(!section.small && layout.style!=='grid')s.push(rule(section.x,section.y+section.h-12,section.x+section.w,section.y+section.h-12,section.rail?mix(C.rail,C.railInk,.3):C.border));
   }
   for(const row of layout.rows){
     const item=row.item, edit=ctx.edit&&!item.ghost;
-    s.push(`<g${attrs({'data-key':item.title.toLowerCase().replace(/\s+/g,' ').trim(),'data-line':edit?item.srcLine:null,'data-edit':edit?'cardmenu':null,'data-menu':edit?'':null,'data-title-raw':edit?item.title:null,'data-note-raw':edit?item.note:null,'data-status-raw':edit?item.status:null,'data-lane-raw':edit?item.lane:null,'data-source-index':item.export?.sourceIndex,'data-context':item.export?.repeatedContext?'repeated':null,'data-item-title':item.title,'data-world-state':item.worldState||'live'})}${edit?btnAttrs('More options: '+item.title):''}>`);
+    s.push(`<g${attrs({'data-key':item.title.toLowerCase().replace(/\s+/g,' ').trim(),'data-line':edit?item.srcLine:null,'data-edit':edit?'cardmenu':null,'data-menu':edit?'':null,'data-title-raw':edit?item.title:null,'data-note-raw':edit?item.note:null,'data-status-raw':edit?item.status:null,'data-lane-raw':edit?item.lane:null,'data-source-index':item.export?.sourceIndex,'data-fragment':item.export?.fragment?.total>1?`${item.export.fragment.index+1}/${item.export.fragment.total}`:null,'data-context':item.export?.repeatedContext?'repeated':null,'data-item-title':item.title,'data-world-state':item.worldState||'live'})}${edit?btnAttrs('More options: '+item.title):''}>`);
     // Dropped work stays editable. Transparent paint preserves the whole-card
     // hit area; fill="none" makes its padding invisible to pointer hit testing.
     if(layout.style==='grid'&&!layout.phone)s.push(rect(row.x,row.y,row.w,row.h,item.worldState==='dropped'?'transparent':C.band,
@@ -80,14 +98,44 @@ export function renderChapter(model,ctx={}){
   }
   const fy=layout.footerY;
   const rail=layout.panels.find(p=>p.role==='rail');
-  const footerW=(rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
-  const scope=ctx.page?.total>1?`Page ${ctx.page.index+1} of ${ctx.page.total}`:'';
+  const footerW=ctx.footerRight ?? (layout.railXFurniture ?? (rail?rail.x:W))-(layout.style==='register'&&!layout.phone?48:M);
+  // Footer: left says which part of the plan this slide shows, right says "2 of 4". A single slide has neither.
   const small={family:layout.type.body,size:layout.phone?12:15,step:20,weight:400};
-  const context=[ctx.page?.progression,ctx.page?.parts>1 ? `Continued · ${ctx.page.part+1} of ${ctx.page.parts}` : ''].filter(Boolean).join(' · ');
-  const detail=[ctx.titlesOnly?'Titles only':'',context].filter(Boolean).join(' · ');
+  const many=ctx.page?.total>1;
+  const where=many?pickScope(ctx.page.scope,footerW-M-110,ctx.measure,small):'';
+  const detail=[ctx.titlesOnly?'Titles only':'',where].filter(Boolean).join(' · ');
   if(detail)s.push(blockSvg({...small,lines:[detail]},M,fy-15,C.muted));
-  if(scope)s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':layout.phone?12:15,fill:C.muted,'text-anchor':'end'})}>${e(scope)}</text>`);
+  // a slide with no rail ends its page number at the right content edge, where the rules end; with a rail it stays left of the rail
+  const numberX=ctx.numberRight??(layout.railXFurniture!=null&&!rail?W-M:footerW);
+  if(many)s.push(`<text${attrs({x:numberX,y:fy,'font-family':layout.type.body,'font-size':small.size,fill:C.muted,'text-anchor':'end'})}>${e(`${ctx.page.index+1} of ${ctx.page.total}`)}</text>`);
   s.push('</svg>');return s.join('');
+}
+
+const SCALE_MIN=.88,SCALE_MAX=1.35,SCALE_STEP=.01;
+const andList=names=>{const l=names.filter(Boolean);return l.length<2?(l[0]||''):l.slice(0,-1).join(', ')+' and '+l.at(-1);};
+const range=names=>names.length>1?`${names[0]} to ${names.at(-1)}`:(names[0]||'');
+
+// The footer's own words for which part of the plan a slide shows, longest form first. A name is marked
+// "(continued)" only when it began on an earlier slide of the same time window, and the mark sits on the name.
+function scopeOptions(page,pages,style){
+  if(pages.length<2)return [];
+  const names=p=>{
+    if(style==='grid')return (p.lanes||[]).filter(l=>l&&p.model.items.some(i=>i.lane===l));
+    if(style==='focus')return p.horizons;
+    const idx=[...new Set(p.model.items.map(i=>i.h))].sort((x,y)=>x-y);
+    return idx.map(h=>p.horizons[h]);
+  };
+  const windowKey=p=>p.start+'-'+p.end;
+  const here=names(page).length?names(page):page.horizons;
+  const earlier=pages.filter(p=>p.index<page.index&&(style==='focus'||windowKey(p)===windowKey(page)));
+  const marked=here.map(n=>(style==='focus'?(page.continuedHorizons||[]).includes(n):earlier.some(p=>names(p).includes(n)))?n+' (continued)':n);
+  const windowKeys=new Set(pages.map(windowKey));
+  const time=style==='grid'&&windowKeys.size>1?range(page.horizons):'';   // elsewhere the names are the horizons themselves
+  const join=(who)=>[who,time].filter(Boolean).join(' · ');
+  const out=[join(andList(marked))];
+  if(marked.length>1)out.push(join(marked[0]+' and '+(marked.length-1)+' more'));
+  if(time)out.push(time);
+  return [...new Set(out.filter(Boolean))];
 }
 
 export function renderChapterPages(model,ctx={}){
@@ -103,32 +151,58 @@ export function renderChapterPages(model,ctx={}){
     }};
   }
   const style=model.style||'grid';
-  const layoutFor=(pageModel)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model});
   const content=ctx.titlesOnly ? {...model,items:model.items.map(item=>({...item,note:''}))} : model;
-  let horizonsPerPage=['grid','board'].includes(style)?4:style==='register'?model.horizons.length:3;
-  if(style==='board'){
-    // Quiet five-column plans may fit at the same type floor. Dense plans
-    // compare wider columns and smaller theme groups below.
-    const count=Math.min(5,model.horizons.length);
-    const first={...content,horizons:content.horizons.slice(0,count),items:content.items.filter(i=>i.h<count)};
-    if(count>3 && layoutFor(first).fits)horizonsPerPage=count;
+  const built=new Map();
+  const buildAt=index=>{
+    if(!built.has(index))built.set(index,buildPlan(model,content,style,ctx,Math.round((SCALE_MIN+index*SCALE_STEP)*100)/100));
+    return built.get(index);
+  };
+  // One scale per set. Take the fewest slides reachable inside the range, then the largest type that keeps them.
+  const steps=Math.round((SCALE_MAX-SCALE_MIN)/SCALE_STEP);
+  const unit=Math.round((1-SCALE_MIN)/SCALE_STEP);
+  const count=r=>r.complete?r.plan.pages.length:Infinity;
+  let target=count(buildAt(unit));
+  if(target>1&&count(buildAt(0))<target)target=count(buildAt(0));
+  let lo=target===count(buildAt(unit))?unit:0,hi=steps;
+  if(!Number.isFinite(target)){lo=unit;hi=unit;}
+  while(lo<hi){
+    const mid=Math.ceil((lo+hi)/2);
+    if(count(buildAt(mid))<=target)lo=mid;else hi=mid-1;
   }
+  // S3 by scale: if the largest scale leaves a slide thin, step the type down (never below 0.88) to the first scale that keeps the
+  // slide count and leaves none.
+  const orphans=r=>r.plan.pages.filter(p=>p.orphan).length;
+  let pick=lo;
+  if(orphans(buildAt(lo))>0)for(let i=lo-1;i>=Math.max(0,lo-16);i--)if(count(buildAt(i))<=target&&orphans(buildAt(i))===0){pick=i;break;}
+  return buildAt(pick);
+}
+
+function buildPlan(model,content,style,ctx,scale){
+  const layoutFor=(pageModel,windowSize)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model,scale,windowSize,compactItems:model.items.length});
+  // Up to five horizons stay on one slide. (Grid was capped at four, which windowed five quarters 3 + 2.)
+  let horizonsPerPage=['grid','board'].includes(style)?5:style==='register'?model.horizons.length:3;
   // Equal temporal windows avoid a narrow final page that exaggerates duration:
   // six quarters become two three-quarter windows, rather than four then two.
   if(style==='board'||style==='grid')horizonsPerPage=Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/horizonsPerPage));
-  const planFor = (count,stableThemes=true) => exportPages(content,{style,horizonsPerPage:count,stableThemes,groupThemes:['board','grid'].includes(style),
-    pageGeometryFits:(items,_,horizons,options={})=>layoutFor({...model,horizons,items,...options,...(options.lanes?{exportLanes:options.lanes}:{})}).fits,
-    pageGeometryHeight:(items,_,horizons,options={})=>layoutFor({...model,horizons,items,...options,...(options.lanes?{exportLanes:options.lanes}:{})}).contentBottom});
+  const splitCaches=new Map();
+  const planFor = (count,stableThemes=true) => {
+    if(!splitCaches.has(count))splitCaches.set(count,new Map());
+    // An undefined `lanes` must not overwrite the model's own: that once emptied the grid and made every item "fit".
+    const lf=(items,horizons,options={})=>layoutFor({...model,horizons,items,...(options.lanes?{lanes:options.lanes,exportLanes:options.lanes}:{}),...(options.focus?{focus:options.focus}:{})},count);
+    const plan=exportPages(content,{style,horizonsPerPage:count,stableThemes,splitCache:splitCaches.get(count),groupThemes:['board','grid'].includes(style),
+      pageGeometryFits:(items,_,horizons,options={})=>lf(items,horizons,options).fits,
+      pageGeometryHeight:(items,_,horizons,options={})=>{const l=lf(items,horizons,options);return {bottom:l.inkBottom,top:l.bodyTop,limit:l.bodyBottom};}});
+    return {...plan,windowSize:count,stable:stableThemes};
+  };
   let base=planFor(horizonsPerPage);
-  if(['board','grid'].includes(style) && base.pages.length>1){
+  if(['board','grid'].includes(style) && base.pages.length>1 && model.horizons.length>5){
     // Compare whole, balanced time-window plans. A narrower window can fit more
     // themes without reducing type or forcing arbitrary item slices.
     const sizes=[...new Set([horizonsPerPage,3,2,1].map(n=>Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/n))))];
-    const score=plan=>[exportPageCoverage(plan).complete?0:1,plan.pages.length,
+    const score=plan=>[exportPageCoverage(plan).complete?0:1,plan.pages.length,plan.pages.filter(p=>!p.model.items.length).length,plan.pages.filter(p=>p.orphan).length,plan.stable?0:1,
       plan.pages.reduce((sum,p)=>sum+p.model.items.length,0),new Set(plan.pages.map(p=>p.start)).size];
     const better=(a,b)=>{const left=score(a),right=score(b);for(let i=0;i<left.length;i++)if(left[i]!==right[i])return left[i]<right[i];return false;};
     for(const stableThemes of [true,false])for(const size of sizes){
-
       const candidate=planFor(size,stableThemes);
       if(better(candidate,base))base=candidate;
     }
@@ -138,10 +212,16 @@ export function renderChapterPages(model,ctx={}){
   let pages=base.pages;
   if(dropped.length){
     const dm={...model,style:'board',horizons:['Changed work'],lanes:[''],items:dropped.map((title,index)=>({title,lane:'',h:0,span:1,status:null,note:'',srcLine:-1-index,export:{dropped:true}}))};
-    const dp=exportPages(dm,{pageUnits:1000000,style:'board',pageGeometryFits:(items)=>layoutChapter({...dm,items},{...ctx,slide:true,width:1440,sourceModel:dm}).fits});
+    const dp=exportPages(dm,{pageUnits:1000000,style:'board',pageGeometryFits:(items)=>layoutChapter({...dm,items},{...ctx,slide:true,width:1440,sourceModel:dm,scale,compactItems:model.items.length}).fits});
     pages=[...pages,...dp.pages.map(p=>({...p,dropped:true,comparisonItemIndices:p.sourceItemIndices,sourceItemIndices:[]}))];
   }
-  const plan={...base,comparisonSourceItemCount:dropped.length,pages:pages.map((p,index)=>({...p,index,total:pages.length}))};
-  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page}));
-  return {plan,pages:rendered,complete:exportPageCoverage(plan).complete};
+  const plan={...base,scale,comparisonSourceItemCount:dropped.length,pages:pages.map((p,index)=>({...p,index,total:pages.length}))};
+  plan.pages=plan.pages.map(p=>({...p,scope:scopeOptions(p,plan.pages.filter(q=>!q.dropped),style)}));
+  // Furniture agrees across the set: a comparison's dropped-work slides are laid out as a board, but their footer sits where the set's own slides put it.
+  const first=plan.pages.find(p=>!p.dropped);
+  const ref=first&&layoutFor(first.model,plan.windowSize),refRail=ref?.panels.find(p=>p.role==='rail');
+  const footerRight=ref?(ref.railXFurniture ?? (refRail?refRail.x:1440))-48:undefined;
+  const numberRight=ref&&(!refRail||plan.pages.some(p=>p.dropped))?1440-48:undefined;   // a dropped-work slide has no rail: its number ends at the content edge
+  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize,compactItems:model.items.length,...(page.dropped?{footerRight,numberRight}:{})}));
+  return {plan,pages:rendered,complete:exportPageCoverage(plan).complete,scale};
 }

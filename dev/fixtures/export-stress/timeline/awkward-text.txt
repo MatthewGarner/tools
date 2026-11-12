@@ -1,0 +1,19 @@
+// stresses: 60-char unbroken word, & < > quotes apostrophes, emoji, accents, CJK, RTL, numbers/currency, NBSP, punctuation-only label. NOTE: the DSL has no URL-safe label - a URL in a label contains // and the rest becomes a note (see the last item, which the parser rejects), so the URL lives in a note
+title: Awkward & "quoted" <plan> - it's O'Brien's
+today: 2026-09-05
+style: field
+verdict: R&D <beta> vs "GA" - 5 > 3 & 2 < 4, café naïve, 日本語, שלום
+Core: Antidisestablishmentarianismpneumonoultramicroscopicsilicovo 2026-10-05 .. 2026-10-30 // an unbroken 60-character word in the label
+Docs: Read the spec 2026-10-12 .. 2026-11-02 // see https://example.com/a/very/long/path/that/keeps/going/and/going?utm_source=tools&utm_medium=audit&q=a%20b#section-12
+Ops: R&D <beta> "quoted" 'single' it's O'Brien's Q&A > FAQ & so < on 2026-10-14 .. 2026-11-09 // note with <b>tags</b> & &amp; entities and "quotes"
+Growth: 🚀 Launch 🎉 with family 👨‍👩‍👧‍👦 and flag 🇬🇧 and skin tone 👍🏽 2026-10-20 .. 2026-11-13 // 😀😀😀😀😀😀😀😀😀😀😀😀
+Équipe: Café résumé naïve façade Zürich Ångström Łódź Šibenik Ñandú 2026-11-02 .. 2026-11-27 // accented Latin: àéîõü ÀÉÎÕÜ ß œ æ
+Global: 日本語のタイトルと中文标题と한국어 제목 2026-11-09 .. 2026-12-04 [risk] // 東京・上海・서울 の ローンチ計画
+Global: שלום עולם — مرحبا بالعالم 2026-11-16 .. 2026-12-11 // right-to-left phrases: مرحبا بكم
+Finance: Raise £1,250,000 (≈ $1.6m / €1.45m) at 12.5% over 36 months 2026-11-23 .. 2027-01-08 // 99.95% uptime, 5 km/h, 2.4 GHz, 30 °C, 1,024 MiB, 3×4, ±0.5%
+Core: 10 000 users by Q4 for the new cohort 2026-12-01 .. 2027-01-15 // non-breaking space note here
+Misc: …?!—* 2026-12-07 .. 2027-01-22
+Misc: ¿?!#@%^() 2026-12-14 .. 2027-01-29
+Quotes: “Curly quotes” and ‘single curly’ — en–dash and em—dash 2027-01-04 .. 2027-02-05 // «guillemets» „low quotes“
+AntidisestablishmentarianismpneumonoultramicroscopicsilicovoAntidisestablishmentarianismpneumonoultramicroscopicsilicovo 2027-01-11 .. 2027-02-12 // 120 unbroken characters, no lane
+Docs: Spec at https://example.com/spec 2027-02-01 .. 2027-02-28

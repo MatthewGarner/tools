@@ -5,6 +5,12 @@ import {STATUS_LABEL, DEFAULT_HORIZONS, genHorizons} from './parse.js';
 
 const STATUS_FROM_LABEL = {'done':'done','in progress':'doing','doing':'doing','at risk':'risk','risk':'risk','blocked':'blocked'};
 
+/* Text inside a title or note never changes how it is read back: the separator between title and note is
+   " — ", so a literal one in the text is written as the entity (&mdash;), which every Markdown viewer draws
+   as the same dash, and read back as one. A literal "&mdash;" is written as "&amp;mdash;". */
+const encodeText = text => String(text ?? '').replace(/&mdash;/g, '&amp;mdash;').replace(/ — /g, ' &mdash; ');
+const decodeText = text => String(text ?? '').replace(/&mdash;/g, '—').replace(/&amp;mdash;/g, '&mdash;');
+
 const same = (a, b) => a.length === b.length && a.every((value, i) => value === b[i]);
 
 /* Keep Markdown readable by omitting the ordinary Now/Next/Later axis, but
@@ -53,20 +59,22 @@ export function roadmapToMarkdown(model, {href = '', includeStory = false} = {})
   for(const key of ['font', 'palette', 'accent', 'style', 'focus', 'group']){
     if(model[key] && model[key] !== ({font:'Chapter',palette:'ocean',group:'lane'})[key]) lines.push('`' + key + ': ' + model[key] + '`', '');
   }
+  if(model.dateStr) lines.push('`date: ' + model.dateStr + '`', '');
+  if(model.verdict != null && String(model.verdict).trim()) lines.push('`verdict: ' + String(model.verdict).replace(/`/g, "'") + '`', '');
   const axis = horizonsLine(model);
   if(axis) lines.push('`horizons: ' + axis + '`', '');
   const basis = basisLine(model.basis);
   if(basis) lines.push('`basis: ' + basis + '`', '');
   if(model.headline) lines.push('_' + model.headline + '_', '');
-  if(includeStory && model.story) lines.push('> ' + model.story, '');
+  if(model.story) lines.push('> ' + model.story, '');
   model.horizons.forEach((hName, h) => {
     const inH = model.items.filter(it => it.h === h);
     if(!inH.length) return;
     lines.push('### ' + hName, '');
     for(const lane of model.lanes){
       for(const it of inH.filter(item => item.lane === lane)){
-        let line = '- ' + (lane ? '**' + lane + ':** ' : '') + it.title + itemMetadata(it);
-        if(it.note) line += ' — ' + it.note;
+        let line = '- ' + (lane ? '**' + lane + ':** ' : '') + encodeText(it.title) + itemMetadata(it);
+        if(it.note) line += ' — ' + encodeText(it.note);
         if(it.url && /^https?:\/\/\S+$/i.test(it.url)) line += ' -> ' + it.url;
         lines.push(line);
       }
@@ -86,11 +94,13 @@ export function markdownToRoadmapDsl(md){
     if(!line) continue;
     let m;
     if((m = line.match(/^##\s+(.*)$/)) && !line.startsWith('###')){ config.push('title: ' + m[1].trim()); continue; }
-    if((m = line.match(/^`?(horizons|basis|font|palette|accent|style|focus|group):\s*(.*?)`?$/i))){
+    if((m = line.match(/^`?(horizons|basis|font|palette|accent|style|focus|group|date|verdict):\s*(.*?)`?$/i))){
       const rawValue = m[2].trim().replace(/`$/, '');
       config.push(m[1].toLowerCase() + ': ' + rawValue); continue;
     }
     if((m = line.match(/^###\s+(.*)$/))){ out.push('', m[1].trim()); continue; }
+    if((m = line.match(/^>\s+(.*)$/))){ config.push('story: ' + m[1].trim()); continue; }
+    if((m = line.match(/^_(.+)_$/)) && !/^_\[Live roadmap\]/.test(line)){ config.push('headline: ' + m[1].trim()); continue; }
     if((m = line.match(/^[-*]\s+(.*)$/))){
       let item = m[1].trim();
       let lane = '', status = '', note = '', url = '';
@@ -107,7 +117,7 @@ export function markdownToRoadmapDsl(md){
       }
       const noteM = item.match(/^(.*?)\s+—\s+(.*)$/);
       if(noteM){ item = noteM[1].trim(); note = ' -- ' + noteM[2].trim(); }
-      out.push((lane ? lane + ': ' : '') + item + status + note + url);
+      out.push((lane ? lane + ': ' : '') + decodeText(item) + status + (note ? ' -- ' + decodeText(note.slice(4)) : '') + url);
     }
   }
   return [...config, ...out].join('\n');

@@ -1,0 +1,65 @@
+// stresses: time axis with 6 quarters, 48 items over 7 lanes, many spans (xN) crossing columns and a WIP limit of 6 that several quarters breach
+title: Lantern - dense quarterly plan
+headline: Six quarters, seven teams, one very full board
+horizons: quarterly from Q1 2027 x6
+wip: 6
+
+Q1 2027
+Core: Workstream 1 alpha [doing] x2 -- scope note 1
+Data: Workstream 2 beta
+Support: Workstream 3 gamma
+Platform: Workstream 4 delta
+Design: Workstream 5 epsilon -- scope note 5
+Growth: Workstream 6 alpha
+Quality: Workstream 7 beta x2
+Core: Workstream 8 gamma [doing]
+Data: Workstream 9 delta -- scope note 9
+Support: Workstream 10 epsilon [risk]
+Platform: Workstream 11 alpha
+Design: Workstream 12 beta x3
+
+Q2 2027
+Platform: Workstream 13 gamma x2 -- scope note 13
+Design: Workstream 14 delta
+Growth: Workstream 15 epsilon [doing]
+Quality: Workstream 16 alpha
+Core: Workstream 17 beta -- scope note 17
+Data: Workstream 18 gamma
+Support: Workstream 19 delta [risk] x2
+Platform: Workstream 20 epsilon
+Design: Workstream 21 alpha -- scope note 21
+Growth: Workstream 22 beta [doing]
+Quality: Workstream 23 gamma x3
+
+Q3 2027
+Growth: Workstream 24 delta
+Quality: Workstream 25 epsilon x2 -- scope note 25
+Core: Workstream 26 alpha
+Data: Workstream 27 beta
+Support: Workstream 28 gamma [risk]
+Platform: Workstream 29 delta [doing] -- scope note 29
+Design: Workstream 30 epsilon
+Growth: Workstream 31 alpha x2
+Quality: Workstream 32 beta
+
+Q4 2027
+Growth: Workstream 33 gamma -- scope note 33
+Quality: Workstream 34 delta x3
+Core: Workstream 35 epsilon
+Data: Workstream 36 alpha [doing]
+Support: Workstream 37 beta [risk] x2 -- scope note 37
+Platform: Workstream 38 gamma
+Design: Workstream 39 delta
+Growth: Workstream 40 epsilon
+
+Q1 2028
+Design: Workstream 41 alpha -- scope note 41
+Growth: Workstream 42 beta
+Quality: Workstream 43 gamma [doing] x2
+Core: Workstream 44 delta
+Data: Workstream 45 epsilon x3 -- scope note 45
+
+Q2 2028
+Core: Workstream 46 alpha [risk]
+Data: Workstream 47 beta
+Support: Workstream 48 gamma

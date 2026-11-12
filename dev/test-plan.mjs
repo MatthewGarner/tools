@@ -41,7 +41,7 @@ export const SUITE_TOOLS = {
   'workshop-design.mjs': ['flow','alarm','duel','premortem','gauge'],
   'intraday-export.mjs': ['energy/intraday'], 'frequency.mjs': ['energy/frequency'],
   'check.mjs': ['roadmap'], 'chapter.mjs': ['roadmap','case'],
-  'chapter-interactions.mjs': ['roadmap'], 'timeline.mjs': ['timeline'],
+  'chapter-interactions.mjs': ['roadmap'], 'timeline.mjs': ['timeline'], 'export-fidelity.mjs': ['roadmap','timeline'],
   'paths-budget.mjs': ['paths'], 'map.mjs': ['map','gauge'], 'case.mjs': ['case'],
   'gauge.mjs': ['gauge','fermi'], 'signal.mjs': ['signal-vs-noise'],
   'pwa.mjs': CORE_TOOLS, 'pwa-upgrade.mjs': CORE_TOOLS,
