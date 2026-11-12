@@ -413,6 +413,8 @@ export function layoutChapter(model, ctx = {}){
   if(ctx.slide && verdictBlock)header.push({...verdictBlock,x:margin,y:height-72-verdictH,role:'ink',kind:'verdict'});
   for(const p of panels)if(p.role==='rail'||p.role==='spine')p.h=height;
   const allText=[...header,...sections.map(s=>({...s.label,x:s.x,y:s.y})),...rows.flatMap(r=>r.blocks.map(b=>({...b,x:r.x+r.pad+(b.x||0),y:r.y+b.y})))];
-  const fits=(ctx.slide ? bottom<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
-  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,headerBand,contentBottom:bottom,inkBottom:Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0))),bodyBottom,scale:k,boardIndices};
+  // A Focus slide fits when its ink does: the space the cursor keeps after the last rule is not content (nine rows fit one slide)
+  const inkBottom=Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0)));
+  const fits=(ctx.slide ? (style==='focus' ? inkBottom : bottom)<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
+  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,headerBand,contentBottom:bottom,inkBottom,bodyBottom,scale:k,boardIndices};
 }

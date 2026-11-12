@@ -160,7 +160,7 @@ function isThin(items, measureOf){
   const m = measureOf(items);
   return rowsOf(items) < 3 && (m.bottom - m.top) < (m.limit - m.top) / 2 - .5;   // round 2: under three cards and under half the body
 }
-function balanceTail(groups, style, fits, measureOf){
+function balanceTail(groups, style, fits, measureOf, even = false){
   const pages = groups.map(items => items.slice());
   if(pages.length < 2) return pages;
   const last = pages.length - 1;
@@ -168,6 +168,21 @@ function balanceTail(groups, style, fits, measureOf){
     const left = pages[last - 1].slice(0, -1), right = [pages[last - 1].at(-1), ...pages[last]];
     if(!fits(left, style) || !fits(right, style)) break;
     pages[last - 1] = left; pages[last] = right;
+  }
+  // a split that cannot be avoided is balanced (6 + 6 + 6, not 8 + 7 + 3): the first slide hands its last row on while that evens the counts and both still fit
+  if(even){
+    const all = pages.flat(), n = pages.length, base = Math.floor(all.length / n), extra = all.length % n;
+    let at = 0;
+    const evened = pages.map((_, i) => { const size = base + (i < extra ? 1 : 0), part = all.slice(at, at + size); at += size; return part; });
+    if(evened.every(part => part.length && fits(part, style))) return evened;
+  }
+  for(let moved = even; moved;){
+    moved = false;
+    for(let i = 0; i < last; i++){
+      if(pages[i].length - pages[i + 1].length < 2) continue;
+      const left = pages[i].slice(0, -1), right = [pages[i].at(-1), ...pages[i + 1]];
+      if(fits(left, style) && fits(right, style)){ pages[i] = left; pages[i + 1] = right; moved = true; }
+    }
   }
   return pages;
 }
@@ -204,7 +219,7 @@ function focusPages(model, {horizonsPerPage, pageGeometryFits, pageGeometryHeigh
       // A horizon that alone exceeds a slide is cut into slides once, and its last slide is balanced against the one before it.
       const all=queue.map(i=>({...i,h:0}));
       let chunks=all.length?geometryChunks(all,'focus',items=>fit(items,[featured])):[[]];
-      if(pageGeometryHeight&&chunks.length>1)chunks=balanceTail(chunks,'focus',items=>fit(items,[featured]),items=>pageGeometryHeight(items,'focus',[model.horizons[featured]],{focus:model.horizons[featured]}));
+      if(pageGeometryHeight&&chunks.length>1)chunks=balanceTail(chunks,'focus',items=>fit(items,[featured]),items=>pageGeometryHeight(items,'focus',[model.horizons[featured]],{focus:model.horizons[featured]}),true);
       heroChunks.set(featured,chunks);
     }
     const chunks=heroChunks.get(featured), hero=chunks.shift()||[];

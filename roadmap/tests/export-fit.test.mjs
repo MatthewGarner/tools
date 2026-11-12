@@ -141,3 +141,21 @@ test('H1: the page number of a rail-less Focus slide ends at the content edge, w
   const last = out.pages.at(-1);
   assert.match(last, /<text[^>]*x="1392"[^>]*text-anchor="end"[^>]*>2 of 2<\/text>/, 'right-aligned at the right content edge');
 });
+
+/* ---- round 4 (K1) ---- */
+test('K1: a Focus slide fits when its ink does, and a horizon that must split is split evenly', () => {
+  // the space the cursor keeps after the last rule is not content: nine short rows in one horizon fit one slide
+  const m = {...parse('style: focus\ntitle: T\nNow\n' + Array.from({length: 9}, (_, i) => `Core: Row ${i}`).join('\n')), style: 'focus'};
+  for(const n of [6, 7, 8, 9, 10, 11, 12]){
+    const model = {...m, items: m.items.slice(0, 1).flatMap(() => Array.from({length: n}, (_, i) => ({...m.items[0], title: 'Row ' + i, srcLine: i})))};
+    const l = layoutChapter(model, {...ctx, slide: true, sourceModel: model, scale: .88, compactItems: n});
+    assert.equal(l.fits, l.inkBottom <= l.bodyBottom, `${n} rows: fits ${l.fits}, ink ${l.inkBottom} of ${l.bodyBottom}`);
+  }
+  // a split that cannot be avoided is balanced: no horizon has slides whose counts differ by more than one
+  for(const name of ['dense', 'dense-quarterly']){
+    const out = renderChapterPages({...fixture(name), style: 'focus'}, ctx);
+    const per = new Map();
+    for(const p of out.plan.pages) if(p.horizons.length === 1) per.set(p.horizons[0], [...(per.get(p.horizons[0]) || []), p.model.items.length]);
+    for(const [h, counts] of per) assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${name}/${h}: ${counts}`);
+  }
+});
