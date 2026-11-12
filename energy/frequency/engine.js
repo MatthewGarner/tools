@@ -121,7 +121,10 @@ export function simulate(p){
   };
 }
 
-const hz = v => (Math.round(v * 100) / 100).toFixed(2);
+/* THE formatter for every Hz and Hz/s figure the page prints (verdict, tiles, SVG label,
+   markdown). Rounds the decimal value half-up: 0.075 -> "0.08", where toFixed(2) said "0.07". */
+export const fmtHz = v => (Math.round(v * 100 + 1e-7) / 100).toFixed(2);
+const hz = fmtHz;
 
 /* Isolate each lever's effect against a baseline with every lever off
    (drMw/dmMw/dcMw/eGfm all zero). */
@@ -154,6 +157,9 @@ export function verdict(r, p){
   const shed = r.shedOccurred
     ? ` Load shedding catches it — ~${Math.round(r.shedTotal * 100)}% of demand disconnected to save the rest.`
     : ` The nadir holds at ${hz(r.nadir.f)} Hz, clear of the ${UFLS_STAGES[0].f} Hz shedding line.`;
-  return `A ${p.trip} GW loss on a ${Math.round(p.eSync)} GVA·s grid falls at ` +
+  const gfm = Math.round(r.eEff - p.eSync);
+  const grid = gfm > 0 ? `${Math.round(r.eEff)} GVA·s grid (${Math.round(p.eSync)} synchronous + ${gfm} grid-forming)`
+    : `${Math.round(p.eSync)} GVA·s grid`;
+  return `A ${p.trip} GW loss on a ${grid} falls at ` +
     `${hz(r.rocof)} Hz/s and bottoms at ${hz(r.nadir.f)} Hz.${shed}`;
 }

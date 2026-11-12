@@ -5,7 +5,7 @@
    numbers only. Root <svg> carries double-quoted integer width/height so the
    PNG export path (svgToCanvas) can read them. */
 import {txt, esc} from '../../assets/svg.js';
-import {verdict, effectiveInertia} from './engine.js';
+import {verdict, effectiveInertia, fmtHz} from './engine.js';
 import {buildTraceScene} from './scene.js';
 
 const FONT = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss Phase 4
@@ -88,13 +88,16 @@ export function renderTrace(result, params, ctx){
 
 export function assumptionLines(p){
   const effective = effectiveInertia(p.eSync, p.eGfm ?? 0, p.battMW ?? 0);
+  /* the grid-forming basis is floored at 1 GW (grid-forming plant need not sit in a response service) */
+  const floored = (p.drMw || 0) + (p.dmMw || 0) + (p.dcMw || 0) < p.battMW - 1e-9;
+  const basis = floored ? `grid-forming basis: ${p.battMW} GW minimum` : `grid-forming capacity basis ${p.battMW} GW`;
   return [
     `${p.eSync} GVA·s synchronous + ${effective-p.eSync} GVA·s effective grid-forming = ${effective} GVA·s effective inertia (${p.eGfm || 0} requested).`,
-    `Trip ${p.trip} GW · load ${p.load} GW · battery response: DR ${p.drMw || 0}, DM ${p.dmMw || 0}, DC ${p.dcMw || 0} GW · grid-forming capacity basis ${p.battMW} GW.`,
+    `Trip ${p.trip} GW · load ${p.load} GW · battery response: DR ${p.drMw || 0}, DM ${p.dmMw || 0}, DC ${p.dcMw || 0} GW · ${basis}.`,
   ];
 }
 export function toMarkdown(result, p, link = 'https://energy.matthewgarner.me/frequency/'){
   return `**Frequency & inertia** — ${verdict(result, p)}\n\n` +
-    `RoCoF ${result.rocof.toFixed(2)} Hz/s · nadir ${result.nadir.f.toFixed(2)} Hz ` +
-    `· settle ${result.settle.toFixed(2)} Hz\n\n` + assumptionLines(p).join('\n\n') + `\n\nIllustrative single-area model; no network constraints.\n\n[Open this model](${link})`;
+    `RoCoF ${fmtHz(result.rocof)} Hz/s · nadir ${fmtHz(result.nadir.f)} Hz ` +
+    `· settle ${fmtHz(result.settle)} Hz\n\n` + assumptionLines(p).join('\n\n') + `\n\nIllustrative single-area model; no network constraints.\n\n[Open this model](${link})`;
 }

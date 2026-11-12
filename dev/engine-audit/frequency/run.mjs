@@ -2,7 +2,7 @@
 // Units: GW, GVA·s (== GW·s of stored kinetic energy), Hz, s.
 // Swing identity used throughout: df/dt = F0 * dP / (2 * E)   (E in GVA·s, dP in GW)
 import {check, done, rng} from './lib.mjs';
-import {simulate, verdict, leverDeltas, effectiveInertia, UFLS_STAGES} from '../../../energy/frequency/engine.js';
+import {simulate, verdict, leverDeltas, effectiveInertia, UFLS_STAGES, fmtHz} from '../../../energy/frequency/engine.js';
 import {PRESETS, paramsFromControls} from '../../../energy/frequency/state.js';
 import {assumptionLines} from '../../../energy/frequency/render.js';
 
@@ -206,16 +206,17 @@ function refSim(c, dt){          // slow reference: RK4, fresh implementation of
 
 // ---------- A9. what the page prints vs the engine --------------------------------------
 {
-  const hz = v => (Math.round(v * 100) / 100).toFixed(2);       // engine verdict's own formatter (copied)
+  const hz = fmtHz;       // the one formatter, now shared by verdict, tiles, SVG, markdown
   let mism = [], negZero = 0, negDelta = 0, ndeltas = 0, exNeg = null, clearLine = [], verdGrid = 0;
   for(let ti = 0; ti <= 8; ti++) for(let ii = 40; ii <= 300; ii += 5){
     const c = {inertia: ii, trip: r1(0.2 + 0.2 * ti), dr: 0, dm: 0, dc: 0, gfm: 0}, r = simulate(P(c));
     verdGrid++;
-    if(hz(r.rocof) !== r.rocof.toFixed(2)) mism.push(['rocof', c, hz(r.rocof), r.rocof.toFixed(2)]);
-    if(hz(r.nadir.f) !== r.nadir.f.toFixed(2)) mism.push(['nadir', c, hz(r.nadir.f), r.nadir.f.toFixed(2)]);
+    const pp = P(c), vt = verdict(r, pp);
+    if(vt.match(/falls at ([\d.]+) Hz\/s/)[1] !== hz(r.rocof)) mism.push(['rocof', c, vt, hz(r.rocof)]);
+    if(vt.match(/bottoms at ([\d.]+) Hz/)[1] !== hz(r.nadir.f)) mism.push(['nadir', c, vt, hz(r.nadir.f)]);
     if(!r.shedOccurred && hz(r.nadir.f) === '48.80') clearLine.push(c);
   }
-  check('A9a verdict hz() and tile toFixed(2) print the same digits (no-response grid)', mism.length === 0, `${mism.length}/${verdGrid * 2} differ; all ${JSON.stringify(mism.map(m=>[m[0],m[1].inertia,m[1].trip,m[2],m[3]]))}`, {known: true});
+  check('A9a verdict text and the shared tile formatter print the same digits (no-response grid)', mism.length === 0, `${mism.length}/${verdGrid * 2} differ`);
   check('A9b "holds at X, clear of the 48.8 Hz line" never prints X = 48.80', clearLine.length === 0, `${clearLine.length} cases; first ${JSON.stringify(clearLine[0])}`);
   // lever deltas: sign and the text "lifts the nadir X Hz"
   let sign = 0, exs = null, exZ = null;
@@ -229,17 +230,17 @@ function refSim(c, dt){          // slow reference: RK4, fresh implementation of
   check('A9d lever delta never prints "-0.00 Hz"', negZero === 0, `${negZero} occurrences (gfm nadir delta is not printed; it was -7e-5 once, noise)`);
   // verdict sentence quotes eSync as "grid" inertia while RoCoF uses eEff
   const p = P({inertia: 80, trip: 1.8, dr: 0.5, dm: 0.5, dc: 1.5, gfm: 20}), r = simulate(p), v = verdict(r, p);
-  const quoted = 1.8 * 50 / (2 * 80);
+  const quoted = 1.8 * 50 / (2 * +v.match(/on a (\d+) GVA·s grid/)[1]);
   console.log('   info: stack preset verdict:', v, `| hand RoCoF from the quoted 80 GVA·s = ${quoted.toFixed(2)}`);
   check('A9e verdict RoCoF is reproducible from the inertia the same sentence quotes', Math.abs(parseFloat(v.match(/falls at ([\d.]+) Hz\/s/)[1]) - quoted) < 0.005,
-    `sentence quotes 80 GVA·s but RoCoF ${r.rocof.toFixed(2)} uses ${r.eEff} GVA·s effective`, {known: true});
+    `sentence: ${v.slice(0, 90)}`);
 }
 
 // ---------- A10. edges the controls can reach / not reach -------------------------------
 {
   // phantom 1 GW battery: grid-forming inertia with NO contracted response
   const c = {inertia: 80, trip: 1.8, dr: 0, dm: 0, dc: 0, gfm: 40}, p = P(c), r = simulate(p);
-  check('A10a grid-forming inertia with zero battery response adds nothing', r.eEff === 80, `eEff=${r.eEff} (battMW=${p.battMW}); assumptionLines: ${assumptionLines(p)[1]}`, {known: true});
+  check('A10a (ruling: model kept) the 1 GW grid-forming floor is labelled as a minimum, not as response capacity', r.eEff === 100 && /grid-forming basis: 1 GW minimum/.test(assumptionLines(p)[1]), `eEff=${r.eEff}; ${assumptionLines(p)[1]}`);
   // zero / negative / unreachable
   const z = simulate({eSync: 0.0001, trip: 1, load: 30});
   check('A10b tiny inertia stays finite (slider min is 40 so unreachable)', Number.isFinite(z.nadir.f));
