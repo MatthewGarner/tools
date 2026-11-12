@@ -5,3 +5,7 @@
 
 /* phones: the jump to the comparison is a control, not a sentence link (44px floor) */
 @media(max-width:640px){.scene-versions a[href="#scene-comparison"]{display:inline-flex;align-items:center;min-height:44px}}
+
+/* Phones: the track shows the current moment only; Previous / n of N / Next walk it (view state is the
+   saved selection, as before). The comparison below still covers every moment. */
+@media(max-width:640px){.scene-track>.moment:not(.current){display:none!important}}
