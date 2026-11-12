@@ -38,7 +38,7 @@ import {readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSyn
 import {join, dirname, resolve, basename} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {startServer} from './session.mjs';
-import {checkSlideSet, checkPngScale, measureSvgInPage, contrast, checkSelfContained, checkWidthParity, checkGeometry, checkAxisMonths, checkPicture} from './export-checks.mjs';
+import {checkSlideSet, checkPngScale, measureSvgInPage, contrast, checkSelfContained, checkWidthParity, checkGeometry, checkAxisMonths, checkPicture, printProbe, checkPrintSheets} from './export-checks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -640,10 +640,12 @@ async function captureCase(browser, base, {tool, doc, source, theme, views, outR
         }
         return {vbs, rows, w: sheet.getBoundingClientRect().width, h: sheet.getBoundingClientRect().height};
       }));
+      writeFileSync(join(printDir, 'print-probe.json'), JSON.stringify(await page.evaluate(printProbe)));   // H4-H6: what each printed sheet shows
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
       writeFileSync(join(printDir, 'print-geometry.json'), JSON.stringify(geometry));
     }catch(e){ runtime.push('print capture: ' + e.message); }
     await page.pdf({path: join(printDir, 'print.pdf'), landscape: true, preferCSSPageSize: true, printBackground: true}).catch(e => runtime.push('print pdf: ' + e.message));
+    await page.pdf({path: join(printDir, 'print-a4.pdf'), format: 'A4', landscape: true, printBackground: true, margin: {top: '10mm', right: '10mm', bottom: '10mm', left: '10mm'}}).catch(e => runtime.push('print a4 pdf: ' + e.message));
     await page.emulateMedia({media: 'screen'});
     await page.evaluate(() => window.dispatchEvent(new Event('afterprint'))).catch(() => {});
     const loadState = await pageState(page);
@@ -1064,6 +1066,10 @@ async function analyseDoc(ctx, tool, doc, themes, outRoot, parse){
       geo.forEach((sh, i) => sh.rows.forEach(([y0, y1, top, bottom]) => { if(top < y0 - .5 && bottom > y0 + .5 || top < y1 - .5 && bottom > y1 + .5) cut.push({sheet: i + 1}); }));
       const rowsPer = geo.map(sh => sh.rows.filter(([y0, y1, top, bottom]) => top >= y0 - .5 && bottom <= y1 + .5).length);
       const base = {tool, doc: doc.name, theme, view: '(source style)', format: 'print', artefact: `raw/${tool}/${doc.name}/${theme}/print/`};
+      const probePath = join(caseRoot, 'print', 'print-probe.json');
+      if(existsSync(probePath)) for(const r of checkPrintSheets(JSON.parse(readFileSync(probePath, 'utf8')))) ctx.findings.add({...base, ...r});
+      const a4 = join(caseRoot, 'print', 'print-a4.pdf');
+      if(existsSync(a4)){ const n = (readFileSync(a4, 'latin1').match(/\/Type\s*\/Page\b/g) || []).length; ctx.findings.add({...base, check: 'print:pdf-a4-matches-sheets', pass: n === pr.sheets.length, values: {a4Pages: n, sheets: pr.sheets.length}, note: 'H4: on A4 paper the PDF has one page per sheet'}); }
       ctx.findings.add({...base, check: 'print:sheets', pass: pr.sheets.length >= 1 && tones.every(t => t.nonBg > .002), values: {sheets: tones, pdfPages: pr.pdfPages}, note: 'F8: every printed sheet photographed under print media (the old print.png was the unprinted page, blank white); each must show something'});
       ctx.findings.add({...base, check: 'print:light-theme', pass: tones.every(t => t.meanLum > 150), values: {meanLuminance: tones.map(t => t.meanLum)}, note: 'R1: light paper whatever the page theme'});
       ctx.findings.add({...base, check: 'print:rows-not-cut', pass: cut.length === 0, values: {cut: cut.slice(0, 6)}, note: 'F8: no row or card is cut by a page break'});

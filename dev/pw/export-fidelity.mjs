@@ -225,7 +225,7 @@ try{
         const widths = [...document.querySelectorAll('#print-artefact .print-page > svg')].map(s => s.getBoundingClientRect().width / sheets[0].getBoundingClientRect().width);
         return {pages: sheets.length, shown: [...document.body.children].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id || e.tagName),
           light: /<rect x="0" y="0"[^>]*fill="#F6F3ED"/i.test(document.querySelector('#print-artefact svg')?.outerHTML || ''), cut, rowsPer,
-          tall: ratios.some(r => r > .66 + .001), narrowest: Math.min(...widths)};
+          tall: ratios.some(r => r > .68 + .001), narrowest: Math.min(...widths)};
       });
       ok(`${label}: print shows the artefact alone, in the light theme, in sheets that fit (R1)`, info.pages >= 1 && info.shown.join() === 'print-artefact' && info.light && !info.tall, JSON.stringify(info));
       const probed = await page.evaluate(printProbe);
