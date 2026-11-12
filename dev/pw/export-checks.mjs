@@ -73,8 +73,6 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     const free = a.bodyBottom - colBottom;
     /* S3 beats S2: moving the card back would leave the next slide thin, which balancing the last two slides exists to avoid */
     const lastOfRun = !slides[i + 2] || slides[i + 2].group !== b.group;
-    const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (first.h + 8);
-    if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 2) continue;
     /* Timeline: a lane of three rows or fewer moves as one unit (F5), so the unit is the lane's leading rows */
     if(laneBand && String(first.key).split('|')[0] !== String(a.cards.at(-1)?.key).split('|')[0]) continue;   // F5 prefers a lane boundary to a fuller slide
     let unit = style === 'board' ? first.drawnBottom - first.y : first.h;
@@ -83,14 +81,16 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     /* Register by outcome: the card travels with its group heading */
     if(style === 'register'){ const head = b.texts.filter(t => t.y < first.y && t.y > first.y - 90 && t.x <= first.x + 6).sort((p, q) => q.y - p.y)[0]; if(head) unit = first.y + first.h - (head.y - head.size); }
     if(laneBand){ const lane = String(first.key).split('|')[0]; const lead = []; for(const x of b.cards){ if(String(x.key).split('|')[0] !== lane) break; lead.push(x); } if(lead.length <= 3) unit = lead.reduce((n, x) => n + x.h, 0); }
-    /* Board: the layout keeps one card gap above a card and one below it, so "would have fit" needs both. A flat 12 was
-       stricter than the layout and misfired on other fonts (CI: card 185, room 202, gap 16). The gap is read from the column. */
-    let pad = 12;
-    if(style === 'board'){
-      const gaps = [a, b].flatMap(s => { const col = s.cards.filter(x => Math.abs(x.x - first.x) < 2).sort((p, q) => p.y - q.y); return col.slice(1).map((x, n) => x.y - (col[n].y + col[n].h)); }).filter(g => g > 0);
-      if(gaps.length) pad = 2 * Math.min(...gaps);
-    }
-    if(unit + pad + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
+    /* The layout's rule is ink-based: a slide fits when its last card or row does. A card that would have fit needs one gap above it
+       (Board, Register) or one gap above and the closing lane rule one gap below (Grid). The gap is read from the column; 12 stands
+       only where no column on either slide has two cards to read it from. */
+    const gaps = [a, b].flatMap(s => { const col = s.cards.filter(x => Math.abs(x.x - first.x) < 2).sort((p, q) => p.y - q.y); return col.slice(1).map((x, n) => x.y - (col[n].y + col[n].h)); }).filter(g => g > 0);
+    const gap = gaps.length ? Math.min(...gaps) : 12;
+    const pad = style === 'grid' ? 2 * gap : gap;
+    // the layout's own thin rule (S3): the card with its heading and the gap above it leaves the next slide under three cards and under half full
+    const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (unit + gap);
+    if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 2) continue;
+    if(unit + pad + laneBand <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
   out.push({check: 'slides:closed-early', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 20)}, note: 'S2: a slide closed with room under its column for the first card of the next slide'});
   const thin = [];
