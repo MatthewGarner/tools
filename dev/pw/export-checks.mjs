@@ -21,7 +21,9 @@ export function slideGeometry(svg){
     const g = m[1], r = m[2], inner = m[3];
     const legacy = /Item part (\d+) of (\d+)/.exec(inner);
     cards.push({key: unesc(attr(g, 'data-key') ?? attr(g, 'data-field-item')), src: num(g, 'data-source-index'), frag: attr(g, 'data-fragment') || (legacy ? legacy[1] + '/' + legacy[2] : null),
-      x: num(r, 'x'), y: num(r, 'y'), w: num(r, 'width'), h: num(r, 'height')});
+      x: num(r, 'x'), y: num(r, 'y'), w: num(r, 'width'), h: num(r, 'height'),
+      // what the card draws: a board card's rect can be shorter than its text, so closed-early reads the drawn extent
+      drawnBottom: Math.max(num(r, 'y') + num(r, 'height'), ...[...inner.matchAll(/<text\b[^>]*\by="(-?[\d.]+)"[^>]*font-size="([\d.]+)"|<text\b[^>]*font-size="([\d.]+)"[^>]*\by="(-?[\d.]+)"/g)].map(t => +(t[1] ?? t[4]) + .3 * +(t[2] ?? t[3])))});
   }
   const texts = [];
   for(const m of svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g))
@@ -67,7 +69,7 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     if((a.group || '') !== (b.group || '') && a.group != null) continue;   // different lane run / window: not a continuation
     const first = b.cards[0];
     if(!first) continue;
-    const colBottom = Math.max(a.bodyTop, ...a.cards.filter(c => Math.abs(c.x - first.x) < 2 || (c.x < first.x + first.w && c.x + c.w > first.x + 2)).map(c => c.y + c.h));
+    const colBottom = Math.max(a.bodyTop, ...a.cards.filter(c => Math.abs(c.x - first.x) < 2 || (c.x < first.x + first.w && c.x + c.w > first.x + 2)).map(c => style === 'board' ? c.drawnBottom : c.y + c.h));
     const free = a.bodyBottom - colBottom;
     /* S3 beats S2: moving the card back would leave the next slide thin, which balancing the last two slides exists to avoid */
     const lastOfRun = !slides[i + 2] || slides[i + 2].group !== b.group;
@@ -75,7 +77,7 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 2) continue;
     /* Timeline: a lane of three rows or fewer moves as one unit (F5), so the unit is the lane's leading rows */
     if(laneBand && String(first.key).split('|')[0] !== String(a.cards.at(-1)?.key).split('|')[0]) continue;   // F5 prefers a lane boundary to a fuller slide
-    let unit = first.h;
+    let unit = style === 'board' ? first.drawnBottom - first.y : first.h;
     /* Board: if moving the card back would leave its column on the next slide with fewer than two cards, the column was balanced (S3) */
     if(style === 'board'){ const same = b.cards.filter(x => Math.abs(x.x - first.x) < 2).length; if(same - 1 < 2) continue; }
     /* Register by outcome: the card travels with its group heading */
@@ -694,11 +696,17 @@ export function checkPrintSheets(sheets, {ratio = PAPER_RATIO} = {}){
     const used = s.headerH + s.contH + (s.body[1] - s.body[0]);
     const next = sheets[i + 1];
     if(next && next.rows.length){
-      const topOf = Math.min(...next.rows.map(r => r[0]));
-      const first = next.rows.filter(r => Math.abs(r[0] - topOf) < 1);
-      const need = Math.max(...first.map(r => r[1])) + TRAIL - s.body[0] + s.headerH + s.contH;
-      const onlyRowLeft = i + 1 === sheets.length - 1 && first.length === next.rows.length;   // taking it would leave the legend alone on the last sheet
-      if(!onlyRowLeft && need <= ratio * s.vbW - .5 && first.every(r => r[1] - r[0] < ratio * s.vbW - s.headerH)) early.push({sheet: i + 1, usedOf: Math.round(ratio * s.vbW), used: Math.round(used), nextRowFitsWithin: Math.round(need)});
+      // could the cut move down to a later row top, crossing no row, and still fit this sheet? Then it closed early.
+      const rows = [...s.rows, ...next.rows], cut = next.body[0];
+      const tops = [...new Set(next.rows.map(r => r[0]))].filter(y => y > cut + .5 && !rows.some(r => r[0] < y - .5 && r[1] > y + .5));
+      for(const y of tops){
+        const bottoms = rows.filter(r => r[1] <= y + .5 && r[1] > s.body[0] + .5).map(r => r[1] + TRAIL);
+        const end = Math.min(y, Math.max(...bottoms));
+        const left = next.rows.filter(r => r[0] >= y - .5).length;
+        const lastSheet = i + 1 === sheets.length - 1;
+        const moves = next.rows.some(r => r[0] >= cut - .5 && r[1] <= y + .5);   // a row of the next sheet would come up onto this one
+        if(moves && end - s.body[0] + s.headerH + s.contH <= ratio * s.vbW - .5 && !(lastSheet && left < 2)){ early.push({sheet: i + 1, usedOf: Math.round(ratio * s.vbW), used: Math.round(used), couldEndAt: Math.round(end)}); break; }
+      }
     }
     if(i > 0){
       const tops = [...s.rows.map(r => r[0]), ...s.headings.filter(h => h.top >= s.body[0] - 1).map(h => h.top)];

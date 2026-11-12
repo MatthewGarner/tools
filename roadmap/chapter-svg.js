@@ -221,7 +221,7 @@ function buildPlan(model,content,style,ctx,scale){
   const first=plan.pages.find(p=>!p.dropped);
   const ref=first&&layoutFor(first.model,plan.windowSize),refRail=ref?.panels.find(p=>p.role==='rail');
   const footerRight=ref?(ref.railXFurniture ?? (refRail?refRail.x:1440))-48:undefined;
-  const numberRight=ref&&!refRail&&ref.railXFurniture!=null?1440-48:undefined;   // the set's own slides end the number at the content edge when they have no rail
+  const numberRight=ref&&(!refRail||plan.pages.some(p=>p.dropped))?1440-48:undefined;   // a dropped-work slide has no rail: its number ends at the content edge
   const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize,compactItems:model.items.length,...(page.dropped?{footerRight,numberRight}:{})}));
   return {plan,pages:rendered,complete:exportPageCoverage(plan).complete,scale};
 }
