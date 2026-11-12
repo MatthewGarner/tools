@@ -17,10 +17,10 @@ export function slideGeometry(svg){
   const head = /<svg\b[^>]*>/.exec(svg)?.[0] || '';
   const vb = (attr(head, 'viewBox') || '0 0 1440 810').split(/\s+/).map(Number);
   const cards = [];
-  for(const m of svg.matchAll(/<g\b([^>]*\bdata-key="[^"]*"[^>]*)>\s*<rect\b([^>]*)>([\s\S]*?)<\/g>/g)){
+  for(const m of svg.matchAll(/<g\b([^>]*\bdata-(?:key|field-item)="[^"]*"[^>]*)>\s*<rect\b([^>]*)>([\s\S]*?)<\/g>/g)){
     const g = m[1], r = m[2], inner = m[3];
     const legacy = /Item part (\d+) of (\d+)/.exec(inner);
-    cards.push({key: unesc(attr(g, 'data-key')), src: num(g, 'data-source-index'), frag: attr(g, 'data-fragment') || (legacy ? legacy[1] + '/' + legacy[2] : null),
+    cards.push({key: unesc(attr(g, 'data-key') ?? attr(g, 'data-field-item')), src: num(g, 'data-source-index'), frag: attr(g, 'data-fragment') || (legacy ? legacy[1] + '/' + legacy[2] : null),
       x: num(r, 'x'), y: num(r, 'y'), w: num(r, 'width'), h: num(r, 'height')});
   }
   const texts = [];
@@ -59,7 +59,7 @@ export function checkSplits(slides){
 }
 
 /* S2 and S3: slides closed while the next card would have fit, and thin last slides. */
-export function checkFill(slides, {style} = {}){
+export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: height a new lane heading needs (Timeline), which travels with the card
   const out = [];
   const early = [];
   for(let i = 0; i + 1 < slides.length && style !== 'focus'; i++){   // Focus moves cards between its hero and rail columns, so a column test says nothing there
@@ -73,7 +73,7 @@ export function checkFill(slides, {style} = {}){
     const lastOfRun = !slides[i + 2] || slides[i + 2].group !== b.group;
     const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (first.h + 8);
     if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 3) continue;
-    if(first.h + 12 + (style === 'register' ? 56 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
+    if(first.h + 12 + laneBand + (style === 'register' ? 56 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
   out.push({check: 'slides:closed-early', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 20)}, note: 'S2: a slide closed with room under its column for the first card of the next slide'});
   const thin = [];

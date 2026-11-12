@@ -40,7 +40,7 @@ test('long and busy page sets repeat the same scale and cover all source rows',(
  const deck=observatoryPages(m,ctx);assert.equal(deck.complete,true);assert.ok(deck.pages.length>1);
  const keys=deck.pages.flatMap(p=>p.sourceKeys);assert.equal(keys.length,40);assert.equal(new Set(keys).size,40);
  const domains=new Set(deck.pages.map(p=>p.svg.match(/data-domain-lo="[^"]+" data-domain-hi="[^"]+"/)[0]));assert.equal(domains.size,1);
- for(const p of deck.pages){assert.match(p.svg,/width="1920" height="1080"/);assert.equal(count(p.svg,'data-today=""'),1);assert.match(p.svg,/Page \d+ of \d+/);}
+ for(const p of deck.pages){assert.match(p.svg,/width="1920" height="1080"/);assert.equal(count(p.svg,'data-today=""'),1);assert.match(p.svg,/>\d+ of \d+</);assert.doesNotMatch(p.svg,/Page \d+ of/);}
  assert.match(render(m,{...ctx,intent:'presentation'}),/data-copy-field="unavailable"/);
 });
 test('oversized commentary continues without losing words or splitting the timing interval',()=>{

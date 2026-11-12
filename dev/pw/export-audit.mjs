@@ -1173,7 +1173,7 @@ async function analyseView(ctx, m, state){
     /* set-level checks (S1-S6): the whole slide set, as the dialog showed it */
     if(domSvgs.length && domSvgs.length === pageFiles.length){
       const furniture = [state.parsed?.title, ...(state.parsed?.horizons || [])].filter(Boolean);
-      for(const c of checkSlideSet(domSvgs, {furniture})) rec('deck', `${name}`, c.check, {pass: c.pass, values: c.values, note: c.note});
+      for(const c of checkSlideSet(domSvgs, {furniture, style: view.split('+')[0], laneBand: tool === 'timeline' ? 110 : 0})) rec('deck', `${name}`, c.check, {pass: c.pass, values: c.values, note: c.note});
     }
   }
   /* ---- on-screen vs export, per view */
