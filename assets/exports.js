@@ -6,8 +6,7 @@ const buttonText = (btn, fallback) => btn.textContent || fallback;
 const buttonDescriptions = new WeakMap();
 
 const rasterMessage = error => {
-  if(error?.code === 'side') return 'PNG exceeds 4,096px side — download SVG';
-  if(error?.code === 'area') return 'PNG exceeds 3M-unit area — download SVG';
+  if(error?.code === 'side' || error?.code === 'area') return 'PNG too large even at 1x — download SVG';
   if(error?.code === 'dimensions' || error?.code === 'root') return 'PNG has no valid size — download SVG';
   if(error?.code === 'decode' || error?.code === 'encode') return 'SVG could not be rasterised — download SVG';
   return 'PNG could not be created — download SVG';
@@ -23,7 +22,12 @@ const describe = (btn, description) => {
   }
 };
 
-export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels = {}, descriptions = {}}){
+export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels = {}, descriptions = {}, status}){
+  // A status line, where the page has one, keeps what happened until the next export action; the button
+  // label alone reverts after two seconds. Pages without one keep the label.
+  const line = status || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('exportstatus') : null);
+  const say = text => { if(line){ line.textContent = text || ''; line.hidden = !text; } };
+  const scaleNote = (plan, what) => plan.reduced ? `${what} at ${plan.scale}x, not 2x: the picture is too large for 2x in this browser.` : '';
   const flash = (btn, msg, revert) => {
     btn.textContent = msg;
     if(btn.setAttribute) btn.setAttribute('aria-label', msg);
@@ -48,26 +52,28 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
     const svg = getSvg();
     if(!svg) return;
     const revert = buttonText(buttons.dlpng, 'PNG');
+    say('');
     const plan = pngRasterPlan(svg);
-    if(!plan.ok) return flash(buttons.dlpng, rasterMessage(plan), revert);
+    const fail = msg => { flash(buttons.dlpng, msg, revert); say(msg + '.'); };
+    if(!plan.ok) return fail(rasterMessage(plan));
     svgToCanvas(svg, c => {
       try {
-        c.toBlob(b => b
-          ? download(slug() + '.png', b)
-          : flash(buttons.dlpng, 'PNG could not be encoded — download SVG', revert), 'image/png');
+        c.toBlob(b => { if(b){ download(slug() + '.png', b); say(scaleNote(plan, 'PNG saved')); } else fail('PNG could not be encoded — download SVG'); }, 'image/png');
       }catch(_){
-        flash(buttons.dlpng, 'PNG could not be encoded — download SVG', revert);
+        fail('PNG could not be encoded — download SVG');
       }
-    }, error => flash(buttons.dlpng, rasterMessage(error), revert));
+    }, error => fail(rasterMessage(error)));
   });
   if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
     const svg = (getCopy || getSvg)();
     const revert = buttonText(buttons.copypng, copyLabel);
-    if(!svg) return flash(buttons.copypng, 'Copy PNG unavailable — download SVG', revert);
+    say('');
+    const fail = msg => { flash(buttons.copypng, msg, revert); say(msg + '.'); };
+    if(!svg) return fail('Copy PNG unavailable — download SVG');
     if(!navigator.clipboard || !window.ClipboardItem)
-      return flash(buttons.copypng, 'Clipboard unavailable — use Download', revert);
+      return fail('Clipboard unavailable — use Download');
     const plan = pngRasterPlan(svg);
-    if(!plan.ok) return flash(buttons.copypng, rasterMessage(plan), revert);
+    if(!plan.ok) return fail(rasterMessage(plan));
 
     // clipboard.write remains in this synchronous click turn: awaiting Image
     // decode first loses Safari's transient-activation window.
@@ -89,11 +95,10 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
       }, error => { rasterError = error; reject(error); }));
     try {
       navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-        .then(() => flash(buttons.copypng, 'Copied — paste into your deck', revert))
-        .catch(() => flash(buttons.copypng,
-          rasterError ? rasterMessage(rasterError) : 'Copy blocked — use Download', revert));
+        .then(() => { flash(buttons.copypng, 'Copied — paste into your deck', revert); say(scaleNote(plan, 'PNG copied')); })
+        .catch(() => fail(rasterError ? rasterMessage(rasterError) : 'Copy blocked — use Download'));
     }catch(_){
-      flash(buttons.copypng, 'Copy blocked — use Download', revert);
+      fail('Copy blocked — use Download');
     }
   });
   if(buttons.copymd) buttons.copymd.addEventListener('click', () => {

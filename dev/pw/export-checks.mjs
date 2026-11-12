@@ -144,3 +144,16 @@ export function checkAxisMonths(svg){
   for(let i = 1; i < ticks.length; i++) if((ticks[i].mo - ticks[i - 1].mo + 12) % 12 !== 1) gaps.push(`${ticks[i - 1].label} -> ${ticks[i].label}`);
   return {ticks: ticks.length, gaps};
 }
+
+/* P3: the PNG is the SVG at 2x; only when 2x would pass the canvas limit may the scale drop (floor 1x). */
+export const CANVAS_PIXELS = 16_777_216;
+export function checkPngScale(stats, svgW, svgH){
+  const sx = stats.w / svgW, sy = stats.h / svgH;
+  const at2x = svgW * 2 * svgH * 2;
+  const same = Math.abs(sx - sy) < .02;
+  const full = Math.abs(sx - 2) < .01 && at2x <= CANVAS_PIXELS;
+  const reduced = sx >= .99 && sx < 2 && at2x > CANVAS_PIXELS && stats.w * stats.h <= CANVAS_PIXELS + svgW + svgH + 1 && stats.w * stats.h >= CANVAS_PIXELS * .9;
+  const oneX = Math.abs(sx - 1) < .01 && svgW * svgH * 4 > CANVAS_PIXELS;
+  return {check: 'png:scale-vs-svg', pass: same && (full || reduced || oneX), values: {scaleX: Math.round(sx * 100) / 100, scaleY: Math.round(sy * 100) / 100, pixels: stats.w * stats.h, at2x},
+    note: 'P3: 2x unless 2x would exceed the 16,777,216-pixel canvas, then the largest scale that fits (not below 1x)'};
+}

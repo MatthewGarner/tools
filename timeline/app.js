@@ -110,7 +110,6 @@ function doRefresh(){
   $('readout').textContent = timelineReadout(model, model.today ?? todayDay());
   setActionsEnabled(!!lastSvg);
   $('exportdeck').disabled = !model.items.length;
-  $('copypng').hidden = deckSet()?.pages.length !== 1;
   /* #93: the hop appears only when there is a merge to premortem (never a dead link) */
   $('topremortem').hidden = !(model && model.items.length && premortemHandoff(model, todayDay()));
   if(shouldPersist()){ try{ saveTrackedWork(localStorage,'timeline-src', text); }catch(e){} }
@@ -255,8 +254,6 @@ function deckSet(){
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString('native'),
-  getCopy: () => {const set=deckSet(); return set?.pages.length === 1 ? set.pages[0] : null;},
-  descriptions:{copypng:'Copy the complete timeline as one slide PNG'},
   slug,
 });
 let slidePageIndex = 0;
@@ -272,7 +269,8 @@ function renderSlidePage(index){
 function openSlidePreview(){
   const available=!!deckSet();
   $('slideerror').hidden=available;
-  for(const id of ['slidecanvas','slideposition','slideprev','slidenext','slidedownload']) $(id).hidden=!available;
+  for(const id of ['slidecanvas','slideposition','slideprev','slidenext','slidecopyimage','slidedownload']) $(id).hidden=!available;
+  slideStatus('');
   if(available)renderSlidePage(0);
   $('slidepreviewdialog').showModal();
 }
@@ -286,8 +284,21 @@ $('exportdeck').addEventListener('click',openSlidePreview);
 $('slideclose').addEventListener('click',()=>$('slidepreviewdialog').close());
 $('slideprev').addEventListener('click',()=>renderSlidePage(slidePageIndex-1));
 $('slidenext').addEventListener('click',()=>renderSlidePage(slidePageIndex+1));
+const slideStatus=text=>{const line=$('slidestatus');line.textContent=text||'';line.hidden=!text;};
+$('slidecopyimage').addEventListener('click',()=>{
+  const svg=deckSet()?.pages[slidePageIndex],button=$('slidecopyimage');
+  slideStatus('');
+  if(!svg)return;
+  if(!navigator.clipboard||!window.ClipboardItem){button.textContent='Use Download on this browser';slideStatus('This browser cannot copy images. Use Download.');return;}
+  try{navigator.clipboard.write([new ClipboardItem({'image/png':pngFromSvg(svg)})])
+    .then(()=>{button.textContent='Copied — paste into your deck';})
+    .catch(()=>{button.textContent='Copy blocked — use Download';slideStatus('The browser blocked copying this slide. Use Download.');})
+    .finally(()=>setTimeout(()=>{button.textContent='Copy slide PNG';},1800));
+  }catch(_){button.textContent='Copy blocked — use Download';slideStatus('The browser blocked copying this slide. Use Download.');}
+});
 $('slidedownload').addEventListener('click',async()=>{
   const set=deckSet();if(!set)return;
+  slideStatus('');
   const button=$('slidedownload'),label=button.textContent;
   button.disabled=true;
   try{
@@ -299,7 +310,7 @@ $('slidedownload').addEventListener('click',async()=>{
     if(files.length===1)download(files[0].name,new Blob([files[0].bytes],{type:'image/png'}));
     else download(`${slug()}-slides.zip`,createSlideZip(files));
     button.textContent='Downloaded';
-  }catch(error){button.textContent='Could not prepare slides — use SVG';}
+  }catch(error){button.textContent='Could not prepare slides — use SVG';slideStatus('Could not prepare the slides: '+(error?.message||'the browser could not make the PNG')+' Nothing was downloaded; use Download SVG on the page instead.');}
   finally{setTimeout(()=>{button.textContent=label;button.disabled=false;},1800);}
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

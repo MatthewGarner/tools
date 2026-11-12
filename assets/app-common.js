@@ -36,13 +36,12 @@ export function download(name, blob){
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-/* Native PNG is deliberately bounded. SVG remains the exhaustive format for
-   artefacts beyond this budget; attempting a browser canvas above it is both
-   unreliable and liable to consume a surprising amount of memory. The side
-   limit applies to the root artboard before the existing 2x raster scale. */
+/* PNG is the SVG rasterised at up to 2x. The canvas, not a fixed artboard budget, is the limit: Safari
+   caps a canvas at 16,777,216 pixels, so a larger picture is drawn at a lower scale (floor 1x) and the
+   caller says so. Only a picture that cannot be made at 1x is refused. */
 export const PNG_RASTER_SCALE = 2;
-export const PNG_MAX_ARTBOARD_AREA = 3_000_000;
-export const PNG_MAX_ARTBOARD_SIDE = 4_096;
+export const PNG_MAX_ARTBOARD_AREA = 16_777_216;   // canvas pixels
+export const PNG_MAX_ARTBOARD_SIDE = 16_384;
 
 const dimension = (root, name) => {
   const m = root.match(new RegExp(`\\b${name}\\s*=\\s*(['"])(\\d+(?:\\.\\d+)?)\\1`, 'i'));
@@ -61,13 +60,16 @@ export function pngRasterPlan(svg){
     return {ok: false, code: 'dimensions', detail: 'The root <svg> needs positive numeric width and height attributes.'};
   if(width > PNG_MAX_ARTBOARD_SIDE || height > PNG_MAX_ARTBOARD_SIDE)
     return {ok: false, code: 'side', width, height,
-      detail: `${width} × ${height} exceeds the ${PNG_MAX_ARTBOARD_SIDE}px artboard-side limit.`};
+      detail: `${width} × ${height} exceeds the ${PNG_MAX_ARTBOARD_SIDE.toLocaleString('en')}px canvas-side limit even at 1x.`};
   if(width * height > PNG_MAX_ARTBOARD_AREA)
     return {ok: false, code: 'area', width, height,
-      detail: `${width} × ${height} exceeds the ${PNG_MAX_ARTBOARD_AREA.toLocaleString('en')} unit² artboard limit.`};
-  return {ok: true, width, height, scale: PNG_RASTER_SCALE,
-    canvasWidth: Math.ceil(width * PNG_RASTER_SCALE),
-    canvasHeight: Math.ceil(height * PNG_RASTER_SCALE)};
+      detail: `${width} × ${height} exceeds the ${PNG_MAX_ARTBOARD_AREA.toLocaleString('en')}-pixel canvas limit even at 1x.`};
+  let scale = Math.min(PNG_RASTER_SCALE, Math.sqrt(PNG_MAX_ARTBOARD_AREA / (width * height)), PNG_MAX_ARTBOARD_SIDE / Math.max(width, height));
+  scale = Math.max(1, Math.floor(scale * 100) / 100);
+  while(scale > 1 && (Math.ceil(width * scale) * Math.ceil(height * scale) > PNG_MAX_ARTBOARD_AREA || Math.ceil(Math.max(width, height) * scale) > PNG_MAX_ARTBOARD_SIDE)) scale = Math.max(1, Math.round((scale - .01) * 100) / 100);
+  return {ok: true, width, height, scale, reduced: scale < PNG_RASTER_SCALE,
+    canvasWidth: Math.ceil(width * scale),
+    canvasHeight: Math.ceil(height * scale)};
 }
 
 /* Callback compatibility is retained for all current callers. The optional
@@ -90,8 +92,8 @@ export function svgToCanvas(svg, cb, onError){
       c.width = plan.canvasWidth; c.height = plan.canvasHeight;
       const cctx = c.getContext('2d');
       if(!cctx) return fail({ok: false, code: 'canvas', detail: 'The browser could not create a PNG canvas.'});
-      cctx.scale(plan.scale, plan.scale);
-      cctx.drawImage(img, 0, 0);
+      // Fill the whole canvas: at a fractional scale the artboard is a pixel short of it, which left a transparent edge.
+      cctx.drawImage(img, 0, 0, c.width, c.height);
       cb(c);
     }catch(_){
       fail({ok: false, code: 'canvas', detail: 'The browser could not render this SVG to a PNG canvas.'});

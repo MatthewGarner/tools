@@ -241,11 +241,11 @@ await wipPage.close();
     return {text: menu.textContent, opensAbove: rect.bottom <= summary.top};
   });
   const exportText = exportMenu.text.toUpperCase();
-  check('Export distinguishes full-detail source artefacts and keeps its menu out of the editorial copy',
-    /FULL-DETAIL ARTEFACT/.test(exportText) && /FULL-DETAIL PNG/.test(exportText) &&
-    /FULL-DETAIL SVG/.test(exportText) && /COPY SOURCE AS MARKDOWN/.test(exportText) && exportMenu.opensAbove);
-  check('a complete multi-slide deck is an explicit Export-menu action', await fullPage.locator('#fullslideexport').isVisible());
-  await fullPage.locator('#fullslideexport').click();
+  check('Export names its rows plainly (Download PNG, Download SVG, Copy as Markdown) and keeps its menu out of the editorial copy',
+    /DOWNLOAD PNG/.test(exportText) && /DOWNLOAD SVG/.test(exportText) && /COPY AS MARKDOWN/.test(exportText) &&
+    !/FULL-DETAIL|REVIEW 16:9/.test(exportText) && exportMenu.opensAbove);
+  check('Copy PNG is always present, and the one Export deck opener is enabled', await fullPage.locator('#copypng').isVisible() && await fullPage.locator('#exportdeck').isEnabled());
+  await fullPage.locator('#exportdeck').click();
   await holds(fullPage, p => p.locator('#slidepreviewdialog').evaluate(d => d.open));
   check('full deck review opens the actual page set',
     await fullPage.locator('#slidepreviewdialog').evaluate(d => d.open) &&

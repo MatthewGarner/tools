@@ -37,7 +37,7 @@ import {readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSyn
 import {join, dirname, resolve, basename} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {startServer} from './session.mjs';
-import {checkSlideSet} from './export-checks.mjs';
+import {checkSlideSet, checkPngScale} from './export-checks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -238,13 +238,15 @@ async function diffPngInPage(args){
     const cv = new OffscreenCanvas(bm.width, bm.height), g = cv.getContext('2d', {willReadFrequently: true}); g.drawImage(bm, 0, 0);
     return {w: bm.width, h: bm.height, d: g.getImageData(0, 0, bm.width, bm.height).data}; };
   const A = await load(a64), B = await load(b64);
-  if(A.w !== B.w || A.h !== B.h) return {sizeMismatch: true, a: [A.w, A.h], b: [B.w, B.h]};
-  const T = 32, tw = Math.ceil(A.w / T), th = Math.ceil(A.h / T);
+  /* a one-pixel difference is the rounding of a fractional scale; compare the common area */
+  if(Math.abs(A.w - B.w) > 1 || Math.abs(A.h - B.h) > 1) return {sizeMismatch: true, a: [A.w, A.h], b: [B.w, B.h]};
+  const CW = Math.min(A.w, B.w), CH = Math.min(A.h, B.h);
+  const T = 32, tw = Math.ceil(CW / T), th = Math.ceil(CH / T);
   const tiles = new Uint32Array(tw * th);
   let count = 0, maxDiff = 0, sum = 0;
-  for(let y = 0; y < A.h; y++) for(let x = 0; x < A.w; x++){
-    const o = (y * A.w + x) * 4;
-    const dd = Math.max(Math.abs(A.d[o] - B.d[o]), Math.abs(A.d[o + 1] - B.d[o + 1]), Math.abs(A.d[o + 2] - B.d[o + 2]), Math.abs(A.d[o + 3] - B.d[o + 3]));
+  for(let y = 0; y < CH; y++) for(let x = 0; x < CW; x++){
+    const o = (y * A.w + x) * 4, q = (y * B.w + x) * 4;
+    const dd = Math.max(Math.abs(A.d[o] - B.d[q]), Math.abs(A.d[o + 1] - B.d[q + 1]), Math.abs(A.d[o + 2] - B.d[q + 2]), Math.abs(A.d[o + 3] - B.d[q + 3]));
     if(dd > maxDiff) maxDiff = dd;
     if(dd > tol){ count++; sum += dd; tiles[(Math.floor(y / T)) * tw + Math.floor(x / T)]++; }
   }
@@ -608,12 +610,6 @@ async function captureView(page, ctx){
     });
     await page.evaluate(() => { const s = document.getElementById('exportdetail'); if(s.value !== 'complete'){ s.value = 'complete'; s.dispatchEvent(new Event('change', {bubbles: true})); } });
     await sleep(200);
-  }
-  if(tool === 'roadmap' && ctx.fullSlideOnce){
-    await guard('deck-fullslide', async () => {
-      const rec = await captureDeck(page, {tool, dir: ensure(join(dir, 'deck-fullslide')), label: 'deck-fullslide (Export > Review 16:9 slide set…)', detail: 'complete', timeout, opener: '#fullslideexport'});
-      m.decks = {...(m.decks || {}), 'deck-fullslide': rec};
-    });
   }
   if(ctx.compare){
     await guard('deck-changes', async () => {
@@ -994,9 +990,9 @@ export async function measureStandalone(browser, file, dsf){
 async function measureInApp(appPage, svg){ return appPage.evaluate(measureSvgInPage, svg); }
 
 /* Rasterise a standalone SVG in the browser at 2x (the PNG's scale) with its embedded fonts. */
-export async function rasteriseFile(browser, file, w, h){
-  if(!(w > 0 && h > 0) || h * 2 > 15000 || w * 2 > 15000) return null;
-  const ctx = await pooled(browser, 'raster2', () => browser.newContext({viewport: {width: 1300, height: 900}, deviceScaleFactor: 2, colorScheme: 'light'}));
+export async function rasteriseFile(browser, file, w, h, scale = 2){
+  if(!(w > 0 && h > 0) || h * scale > 15000 || w * scale > 15000) return null;
+  const ctx = await pooled(browser, 'raster' + scale, () => browser.newContext({viewport: {width: 1300, height: 900}, deviceScaleFactor: scale, colorScheme: 'light'}));
   const page = await ctx.newPage();
   try{
     await page.setViewportSize({width: Math.ceil(w), height: Math.ceil(h)});
@@ -1028,8 +1024,8 @@ async function pngDiff(lab, a, b, tol = 24){ return lab.evaluate(diffPngInPage, 
 function pngChecks(stats, {svgW, svgH, kind, expectScale = 2, centred = true}){
   const out = [];
   out.push({check: 'png:dimensions', pass: true, values: {w: stats.w, h: stats.h, svgW, svgH, scaleX: svgW ? r1(stats.w / svgW) : null, scaleY: svgH ? r1(stats.h / svgH) : null}});
-  if(svgW) out.push({check: 'png:scale-vs-svg', pass: Math.abs(stats.w / svgW - expectScale) < .01 && Math.abs(stats.h / svgH - expectScale) < .01, values: {expected: expectScale, scaleX: r1(stats.w / svgW), scaleY: r1(stats.h / svgH)}});
-  if(kind === 'deck' || kind === 'copy') out.push({check: 'png:aspect-16x9', pass: stats.w * 9 === stats.h * 16, values: {w: stats.w, h: stats.h, ratio: r1(stats.w / stats.h), exact16x9: stats.w * 9 === stats.h * 16}});
+  if(svgW) out.push(checkPngScale(stats, svgW, svgH));
+  if(kind === 'deck') out.push({check: 'png:aspect-16x9', pass: stats.w * 9 === stats.h * 16, values: {w: stats.w, h: stats.h, ratio: r1(stats.w / stats.h), exact16x9: stats.w * 9 === stats.h * 16}});
   out.push({check: 'png:transparency', pass: stats.minAlpha === 255, values: {minAlpha: stats.minAlpha, nonOpaquePixels: stats.nonOpaquePixels}});
   out.push({check: 'png:blank', pass: stats.nonBgFraction > .002 && stats.distinctColours > 3, values: {nonBgFraction: round(stats.nonBgFraction, 4), distinctColours: stats.distinctColours}});
   if(stats.margins){
@@ -1094,7 +1090,9 @@ async function analyseView(ctx, m, state){
     const buf = readFileSync(join(dir, pngA.file));
     const stats = await pngStats(lab, buf);
     recs('png', pngA.file, pngChecks(stats, {svgW: svgInfo?.w, svgH: svgInfo?.h, kind: 'plain'}));
-    const ref = state.refs.get(dir + '|svg');
+    let ref = state.refs.get(dir + '|svg');
+    const pngScale = svgInfo?.w ? Math.round(stats.w / svgInfo.w * 100) / 100 : 2;
+    if(svgA && Math.abs(pngScale - 2) > .01) ref = await rasteriseFile(browser, join(dir, svgA.file), svgInfo.w, svgInfo.h, pngScale);   // P3: a reduced-scale PNG is compared with the SVG at that scale
     if(ref){
       const d = await pngDiff(lab, buf, ref);
       rec('png', pngA.file, 'png-vs-svg-raster', {pass: d.sizeMismatch ? false : d.ratio < 0.001, values: d, note: 'PNG download vs the same SVG rasterised by the browser (embedded fonts, 2x); pixels differing by >24/255 on any channel; regions are 32px-tile clusters'});
@@ -1106,18 +1104,12 @@ async function analyseView(ctx, m, state){
   if(copyA){
     const buf = readFileSync(join(dir, copyA.file));
     const stats = await pngStats(lab, buf);
-    recs('copy-png', copyA.file, pngChecks(stats, {svgW: 1920, svgH: 1080, kind: 'copy'}));
-    const deck = m.decks?.['deck-complete'] || m.decks?.deck;
-    const p1 = deck?.zipEntries?.[0] ? join(dir, deck === m.decks.deck ? 'deck' : 'deck-complete', deck.zipEntries[0].name) : null;
-    if(p1 && existsSync(p1)){
-      const other = readFileSync(p1);
-      const dd = await pngDiff(lab, buf, other);
-      rec('copy-png', copyA.file, 'copy-png-equals-deck-page-1', {pass: dd.sizeMismatch ? false : dd.diffPixels === 0, values: {copyBytes: buf.length, deckPage1Bytes: other.length, byteIdentical: Buffer.compare(buf, other) === 0, ...dd}, note: 'Copy PNG is wired to the deck slide (not the full-detail PNG download); pixel comparison with page 1 of the downloaded slide set'});
-    }
+    recs('copy-png', copyA.file, pngChecks(stats, {svgW: svgInfo?.w, svgH: svgInfo?.h, kind: 'copy'}));
     if(pngA){
       const dl = readFileSync(join(dir, pngA.file));
       const ds = await pngStats(lab, dl);
-      rec('copy-png', copyA.file, 'copy-png-equals-png-download', {pass: Buffer.compare(buf, dl) === 0, values: {byteIdentical: Buffer.compare(buf, dl) === 0, copySize: [stats.w, stats.h], downloadSize: [ds.w, ds.h]}, note: 'the brief assumed the clipboard image and the PNG download are the same bytes; in code they come from different SVGs (slide vs full-detail)'});
+      const dd = await pngDiff(lab, buf, dl);
+      rec('copy-png', copyA.file, 'copy-png-equals-png-download', {pass: dd.sizeMismatch ? false : dd.diffPixels === 0, values: {byteIdentical: Buffer.compare(buf, dl) === 0, copySize: [stats.w, stats.h], downloadSize: [ds.w, ds.h], ...dd}, note: 'P4: Copy PNG is the picture Download PNG gives (pixel comparison)'});
     }
     const cat = art('copy-after-titles');
     const titlesDeck = m.decks?.['deck-titles'];
@@ -1272,10 +1264,10 @@ function mirrorAndMarkdown(ctx, tool, doc, theme, state, source){
       const dcheck = {...base, format: 'deck', artefact: `raw/${tool}/${doc}/${theme}/${slug(view)}/${d.name}/`};
       findings.add({...dcheck, check: 'deck:item-coverage', pass: missing.length === 0 && (titlesOnly || noteMissing.length === 0), values: {deck: d.name, pages: geos.length, documentItems: parsed.items.length, itemsMissingFromAllPages: missing.slice(0, 20), missingCount: missing.length, titlesOnlyAcrossBreaks: fragmented.length, fragmentedTitles: fragmented.slice(0, 5), commentaryMissing: noteMissing.slice(0, 10)}, note: 'every parsed item title found in the text of some slide (titles split into numbered continuations counted separately); commentary checked for complete decks'});
       /* paging labels */
-      const pageLabels = geos.map(g => g.texts.map(t => normText(t.text)).filter(t => /^Page \d+ of \d+$/.test(t)));
+      const pageLabels = geos.map(g => g.texts.map(t => normText(t.text)).filter(t => /^\d+ of \d+$/.test(t)));
       const n = geos.length;
-      const okLabels = n === 1 ? true : pageLabels.every((l, i) => l.length === 1 && l[0] === `Page ${i + 1} of ${n}`);
-      findings.add({...dcheck, check: 'deck:page-numbering', pass: okLabels, values: {deck: d.name, pages: n, labels: pageLabels}, note: 'multi-page decks must label each slide "Page k of N"; a single slide carries none'});
+      const okLabels = n === 1 ? true : pageLabels.every((l, i) => l.length === 1 && l[0] === `${i + 1} of ${n}`);
+      findings.add({...dcheck, check: 'deck:page-numbering', pass: okLabels, values: {deck: d.name, pages: n, labels: pageLabels}, note: 'multi-slide sets must label each slide "k of N" in the footer; a single slide carries none'});
       /* repeated header consistency: texts in the top 22% with identical position across pages */
       const hdr = geos.map(g => g.texts.filter(t => t.ink[1] < g.viewBox[3] * .22).map(t => `${normText(t.text)}@${Math.round(t.ink[0])},${Math.round(t.ink[1])}`));
       const set0 = new Set(hdr[0]);

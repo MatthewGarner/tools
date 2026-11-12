@@ -207,11 +207,9 @@
           <details class="action-disclosure">
             <summary class="btn">Export</summary>
             <div class="action-menu">
-              <p class="action-menu-label">Full-detail artefact</p>
-              <button class="btn" id="dlpng" data-capability="presentationExports.png">Full-detail PNG</button>
-              <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Full-detail SVG</button>
-              <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy source as Markdown</button>
-              <button class="btn" id="fullslideexport" data-capability="presentationExports.slide-set" type="button" hidden>Review 16:9 slide set…</button>
+              <button class="btn" id="dlpng" data-capability="presentationExports.png">Download PNG</button>
+              <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Download SVG</button>
+              <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as Markdown</button>
             </div>
           </details>
           <details class="action-disclosure history">
@@ -224,6 +222,7 @@
             </div>
           </details>
         </div>
+        <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
       </section>
     </section>
 </div>
@@ -255,6 +254,7 @@
   </div>
   <label class="chapter-setting">Include <select id="exportdetail" class="ctl"><option value="complete">Titles and commentary</option><option value="titles">Titles only</option></select></label>
   <p class="slide-set-copy" id="slidecopy">Every horizon and item is included.</p>
+  <p class="slide-set-copy" id="slidestatus" role="status" aria-live="polite" hidden></p>
   <p id="slideerror" role="alert" hidden>This plan cannot fit readable slides yet. Shorten the headline or story, or move supporting detail into item commentary, which can continue across slides. You can still download the full SVG from Export +.</p>
   <div class="slide-set-art" id="slidecanvas" aria-live="polite" aria-atomic="true"></div>
   <div class="slide-set-actions">

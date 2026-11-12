@@ -141,9 +141,9 @@
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as markdown</button>
-            <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
-            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
+            <button class="btn" id="dlpng" data-capability="presentationExports.png">Download PNG</button>
+            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Download SVG</button>
+            <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as Markdown</button>
           </div>
         </details>
         <details class="action-disclosure history">
@@ -156,6 +156,7 @@
         </details>
 
       </div>
+      <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
       <details class="forecast-analysis"><summary>Forecast analysis</summary><p id="readout"></p></details>
     </section>
 </div>
@@ -176,7 +177,8 @@
   <div class="slide-heading"><h2 id="slidepreviewtitle">Timeline slide set</h2><button class="btn" id="slideclose" type="button" data-icon="close">Close</button></div>
   <p id="slideerror" role="status" hidden>The complete timeline could not fit. Download the full SVG or shorten long commentary.</p>
   <div id="slidecanvas"></div>
-  <div class="slide-actions"><button class="btn" id="slideprev">Previous</button><span id="slideposition" aria-live="polite"></span><button class="btn" id="slidenext">Next</button><button class="btn primary" id="slidedownload">Download slides</button></div>
+  <p class="export-status" id="slidestatus" role="status" aria-live="polite" hidden></p>
+  <div class="slide-actions"><button class="btn" id="slideprev">Previous</button><span id="slideposition" aria-live="polite"></span><button class="btn" id="slidenext">Next</button><button class="btn" id="slidecopyimage" type="button">Copy slide PNG</button><button class="btn primary" id="slidedownload">Download slides</button></div>
 </dialog>
 <script type="module" src="app.js"></script>
 <!-- identity:footer:start -->
