@@ -158,7 +158,7 @@ function columnChunks(items, style, fits){
 const rowsOf = items => items.length;
 function isThin(items, measureOf){
   const m = measureOf(items);
-  return rowsOf(items) < 3 && (m.bottom - m.top) < (m.limit - m.top) / 3 - .5;
+  return rowsOf(items) < 3 && (m.bottom - m.top) < (m.limit - m.top) / 2 - .5;   // round 2: under three cards and under half the body
 }
 function balanceTail(groups, style, fits, measureOf){
   const pages = groups.map(items => items.slice());
@@ -175,7 +175,7 @@ function balanceTail(groups, style, fits, measureOf){
 // Spotlight leads with the chosen horizon, then reads the remaining horizons
 // in time order. Exhausted work is never replayed to fill an empty region: the
 // next supporting horizon becomes the next slide's featured reading surface.
-function focusPages(model, {horizonsPerPage, pageGeometryFits, splitCache}){
+function focusPages(model, {horizonsPerPage, pageGeometryFits, pageGeometryHeight, splitCache}){
   const named=model.horizons.findIndex(h=>h.toLowerCase()===String(model.focus||'').toLowerCase());
   const hero=named>=0?named:Math.max(0,model.horizons.findIndex((_,h)=>model.items.some(i=>i.h===h)));
   const order=[hero,...model.horizons.map((_,h)=>h).filter(h=>h!==hero)];
@@ -194,38 +194,39 @@ function focusPages(model, {horizonsPerPage, pageGeometryFits, splitCache}){
     const localH=0;
     queues.get(item.h)?.push(...cached(splitCache,`focus|${sourceIndex}`,()=>fittedLongItem(projected,'focus',parts=>fit(parts.map(i=>({...i,h:localH})),indices))));
   }
-  const pending=new Set(order), drafts=[];
+  const pending=new Set(order), drafts=[], seen=new Set(), heroChunks=new Map();
   while(pending.size){
     const featured=order.find(h=>pending.has(h));
     const rest=order.filter(h=>h!==featured&&pending.has(h));
-    // Reserve final hero width even if supporting rows cannot fit this page.
-    let indices=[featured,...rest.slice(0,1)],items=[];
-    const take=(h,localH)=>{
-      const queue=queues.get(h);
-      while(queue.length && fit([...items,{...queue[0],h:localH}],indices))
-        items.push({...queue.shift(),h:localH});
-      if(!queue.length)pending.delete(h);
-    };
-    take(featured,0);
-    if(queues.get(featured).length && !items.length){
-      const item=queues.get(featured).shift();
-      items.push({...item,h:0,export:{...item.export,geometryOverflow:true}});
-      if(!queues.get(featured).length)pending.delete(featured);
+    // The featured horizon first, on its own at full width. If it alone exceeds a slide it continues on the next one.
+    const queue=queues.get(featured);
+    if(!heroChunks.has(featured)){
+      // A horizon that alone exceeds a slide is cut into slides once, and its last slide is balanced against the one before it.
+      const all=queue.map(i=>({...i,h:0}));
+      let chunks=all.length?geometryChunks(all,'focus',items=>fit(items,[featured])):[[]];
+      if(pageGeometryHeight&&chunks.length>1)chunks=balanceTail(chunks,'focus',items=>fit(items,[featured]),items=>pageGeometryHeight(items,'focus',[model.horizons[featured]],{focus:model.horizons[featured]}));
+      heroChunks.set(featured,chunks);
     }
-    for(const h of rest){
-      if(!indices.includes(h)){
+    const chunks=heroChunks.get(featured), hero=chunks.shift()||[];
+    queue.splice(0,hero.length);
+    let indices=[featured], items=hero;
+    if(!queue.length){
+      pending.delete(featured);
+      // A supporting horizon is placed whole in the rail or not at all; a slide with nothing for the rail has no rail.
+      for(const h of rest){
+        if(indices.length>capacity)break;
         const next=[...indices,h];
-        if(next.length>capacity+1 || !fit(items,next))break;
-        indices=next;
+        const all=[...hero.map(i=>({...i,h:0})),...next.slice(1).flatMap((x,k)=>queues.get(x).map(i=>({...i,h:k+1})))];
+        if(!fit(all,next))break;
+        indices=next; items=all;
       }
-      const before=queues.get(h).length;
-      take(h,indices.indexOf(h));
-      if(queues.get(h).length===before && before>0)break;
-      if(queues.get(h).length)break;
+      for(const h of indices.slice(1)){queues.set(h,[]);pending.delete(h);}
     }
     const horizons=indices.map(h=>model.horizons[h]);
+    const continued=indices.filter(h=>seen.has(h));
+    indices.forEach(h=>{if(items.some(i=>i.h===indices.indexOf(h))||h===featured)seen.add(h);});
     drafts.push({start:Math.min(...indices),end:Math.max(...indices),part:0,
-      horizonIndices:indices,horizons,focusHeroIndex:featured,
+      horizonIndices:indices,horizons,focusHeroIndex:featured,continuedHorizons:continued.map(h=>model.horizons[h]),
       sourceItemIndices:items.map(i=>i.export.sourceIndex),contextSourceItemIndices:[],
       geometryComplete:!items.some(i=>i.export.geometryOverflow)&&fit(items,indices),
       model:{...model,focus:model.horizons[featured],horizons,items}});
@@ -241,10 +242,12 @@ function themedPages(model, windows, style, fitsPage, heightPage, stableThemes){
   const lanes = [...new Set([...(model.lanes || []), ...model.items.map(i => i.lane || '')])];
   const groupWindows = current => {
     const fitsGroup = group => current.every(w => fitsPage(w.items.filter(i => group.includes(i.lane || '')), w.horizons, group));
+    // Lanes keep plan order: a lane joins the group before it or starts the next, never an earlier group
+    // (first-fit over every group used to pack Platform beside Core and leave Growth for a later slide).
     const groups = [];
     for(const lane of lanes){
-      const previous = groups.find(group => fitsGroup([...group, lane]));
-      if(previous) previous.push(lane);
+      const last = groups.at(-1);
+      if(last && fitsGroup([...last, lane])) last.push(lane);
       else groups.push([lane]);
     }
     return groups;
@@ -272,6 +275,29 @@ function themedPages(model, windows, style, fitsPage, heightPage, stableThemes){
   return heightPage ? absorbThin(drafts, model, fitsPage, heightPage) : drafts;
 }
 
+// Board: each column is its own flow. Slide k shows the k-th page of every column, so a column is never
+// empty on a slide while it has cards on a later one, and the slide count is the longest column's.
+function boardFlowPages(windows, style, fitsPage, heightPage){
+  const drafts = [];
+  for(const [windowIndex, window] of windows.entries()){
+    const columns = window.horizonIndices.map((_, local) => window.items.filter(i => i.h === local)
+      .sort((a, b) => a.export.sourceIndex - b.export.sourceIndex));
+    const chunked = columns.map(items => {
+      const fits = list => fitsPage(list, window.horizons);
+      let parts = items.length ? geometryChunks(items, style, fits) : [[]];
+      if(heightPage && parts.length > 1) parts = balanceTail(parts, style, fits, list => heightPage(list, window.horizons));
+      return parts;
+    });
+    const count = Math.max(1, ...chunked.map(c => c.length));
+    for(let part = 0; part < count; part++){
+      drafts.push({...window, items: chunked.flatMap(c => c[part] || []), lanes: undefined,
+        windowIndex, part, parts: count, groupId: `${windowIndex}`,
+        columnsDone: chunked.map(c => part >= c.length)});
+    }
+  }
+  return drafts;
+}
+
 // A lane group that ends on a thin slide borrows its neighbour's slide when the two fit together in the
 // same time window: "Core, continued" with one card becomes part of the slide before or after it.
 function absorbThin(drafts, model, fitsPage, heightPage){
@@ -283,17 +309,33 @@ function absorbThin(drafts, model, fitsPage, heightPage){
     again = false;
     for(let i = 0; i < list.length && !again; i++){
       const d = list[i];
-      if(list.length < 2 || !lastOfRun(i) || !thin(d)) continue;
+      if(list.length < 2 || !thin(d)) continue;
       for(const j of [i - 1, i + 1]){
         const o = list[j];
-        if(!o || o.windowIndex !== d.windowIndex || o.groupId === d.groupId) continue;
+        if(!o || o.windowIndex !== d.windowIndex) continue;
         const lanes = laneOrder.filter(l => o.lanes.includes(l) || d.lanes.includes(l));
         const items = [...o.items, ...d.items].sort((a, b) => lanes.indexOf(a.lane || '') - lanes.indexOf(b.lane || '') || a.h - b.h || a.export.sourceIndex - b.export.sourceIndex);
-        if(!fitsPage(items, d.horizons, lanes)) continue;
-        list[Math.min(i, j)] = {...o, items, lanes};
-        list.splice(Math.max(i, j), 1);
-        again = true;
-        break;
+        if(fitsPage(items, d.horizons, lanes)){
+          list[Math.min(i, j)] = {...o, items, lanes};
+          list.splice(Math.max(i, j), 1);
+          again = true;
+          break;
+        }
+        // Otherwise move one lane across the boundary, in plan order, so neither slide is thin:
+        // "Platform and Design | Data" becomes "Platform | Design and Data".
+        if(o.lanes.length > 1){
+          const lane = j < i ? o.lanes.at(-1) : o.lanes[0];
+          const keepO = o.lanes.filter(l => l !== lane), moved = o.items.filter(x => (x.lane || '') === lane);
+          const newD = laneOrder.filter(l => d.lanes.includes(l) || l === lane);
+          const dItems = [...moved, ...d.items].sort((a, b) => newD.indexOf(a.lane || '') - newD.indexOf(b.lane || '') || a.h - b.h || a.export.sourceIndex - b.export.sourceIndex);
+          const oItems = o.items.filter(x => (x.lane || '') !== lane);
+          const nd = {...d, items: dItems, lanes: newD}, no = {...o, items: oItems, lanes: keepO};
+          if(oItems.length && fitsPage(dItems, d.horizons, newD) && fitsPage(oItems, o.horizons, keepO) && !thin(nd) && !thin(no)){
+            list[i] = nd; list[j] = no;
+            again = true;
+            break;
+          }
+        }
       }
     }
   }
@@ -311,7 +353,7 @@ export function exportPages(model, {
   stableThemes = true,
   splitCache,
 } = {}){
-  if(style==='focus')return focusPages(model,{horizonsPerPage,pageGeometryFits,splitCache});
+  if(style==='focus')return focusPages(model,{horizonsPerPage,pageGeometryFits,pageGeometryHeight,splitCache});
   const perPage = style === 'register' ? Math.max(1, model.horizons.length) : Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
   const unitLimit = Math.max(1, Math.floor(pageUnits) || EXPORT_PAGE_UNITS);
   const fitsPage = (items, horizons, lanes) => pageGeometryFits
@@ -328,7 +370,9 @@ export function exportPages(model, {
     }).filter(Boolean).flatMap(item => cached(splitCache, `${style}|${item.export.sourceIndex}|${horizons.join('\u0001')}`, () => fittedLongItem(item, style, parts => fitsPage(parts, horizons, [...new Set([item.lane || ''])]))));
     return {start, end, horizonIndices:indices, horizons, items};
   });
-  const drafts = groupThemes && ['grid','board'].includes(style)
+  const drafts = groupThemes && style === 'board'
+    ? boardFlowPages(windows, style, fitsPage, heightPage)
+    : groupThemes && style === 'grid'
     ? themedPages(model, windows, style, fitsPage, heightPage, stableThemes)
     : windows.flatMap(window => {
       const fits = items => fitsPage(items, window.horizons);
@@ -342,7 +386,7 @@ export function exportPages(model, {
     });
   const lastOfRun = i => !drafts[i + 1] || drafts[i + 1].groupId !== drafts[i].groupId;
   const pages = drafts.map(({items, ...page}, index) => ({...page,index,total:drafts.length,
-    orphan:!!heightPage && drafts.length>1 && lastOfRun(index) && isThin(items,m=>heightPage(m,page.horizons,page.lanes)),
+    orphan:!!heightPage && drafts.length>1 && isThin(items,m=>heightPage(m,page.horizons,page.lanes)),
     sourceItemIndices:items.map(item=>item.export.sourceIndex),
     geometryComplete:!items.some(item=>item.export.geometryOverflow) && fitsPage(items,page.horizons,page.lanes),
     model:{...model,horizons:page.horizons,items,...(page.lanes ? {lanes:page.lanes,exportLanes:page.lanes} : {})},

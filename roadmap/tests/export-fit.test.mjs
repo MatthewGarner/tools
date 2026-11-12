@@ -64,7 +64,7 @@ test('S6: furniture carries the plan\'s own words and "2 of 4" only when there a
     assert.match(svg, new RegExp(`>${i + 1} of ${out.pages.length}<`));
     assert.doesNotMatch(svg, /Theme group|Item part|Featured horizon|Supporting horizons|Page \d+ of/);
   });
-  assert.match(out.pages[1].replace(/<[^>]+>/g, '|'), /Alpha, continued\|/);
+  assert.match(out.pages[1].replace(/<[^>]+>/g, '|'), /Core \(continued\)\|/);
 });
 
 test('S5: a comparison\'s dropped-work slides carry the same furniture as the set\'s own slides', () => {
@@ -76,5 +76,56 @@ test('S5: a comparison\'s dropped-work slides carry the same furniture as the se
     const footer = svg => /<text x="([\d.]+)" y="[\d.]+"[^>]*text-anchor="end"/.exec(svg)?.[1];
     assert.equal(new Set(out.pages.map(kicker)).size, 1, style + ': one kicker size');
     assert.equal(new Set(out.pages.map(footer)).size, 1, style + ': one footer position');
+  }
+});
+
+/* ---- round 2 (F1-F4): written against the stress documents the contact sheets showed ---- */
+import {readFileSync} from 'node:fs';
+const fixture = name => parse(readFileSync(new URL(`../../dev/fixtures/export-stress/roadmap/${name}.txt`, import.meta.url), 'utf8'));
+const railOf = (page, model, out) => layoutChapter(page.model, {...ctx, slide: true, sourceModel: model, scale: out.scale, windowSize: out.plan.windowSize, compactItems: model.items.length}).panels.some(p => p.role === 'rail');
+
+test('F1: Focus places a supporting horizon whole, and a slide with nothing for the rail has no rail', () => {
+  const m = {...fixture('example'), style: 'focus'};
+  const out = renderChapterPages(m, ctx);
+  assert.deepEqual(out.plan.pages.map(p => p.horizons), [['Now', 'Next'], ['Later']]);
+  assert.deepEqual(out.plan.pages.map(p => railOf(p, m, out)), [true, false]);
+  assert.deepEqual(out.plan.pages.map(p => p.scope[0]), ['Now and Next', 'Later']);
+  // no horizon is split between a rail and the next slide
+  const home = new Map();
+  out.plan.pages.forEach((p, i) => p.model.items.forEach(item => { const h = p.horizons[item.h]; home.set(h, new Set([...(home.get(h) || []), i])); }));
+  for(const [h, slides] of home) assert.equal(slides.size, 1, `${h} is on ${slides.size} slides`);
+});
+
+test('F2: "continued" is attached to the name and only where that name began earlier', () => {
+  for(const name of ['example', 'every-feature', 'uneven', 'dense']) for(const style of ['grid', 'board', 'focus', 'register']){
+    const out = renderChapterPages({...fixture(name), style}, ctx);
+    out.plan.pages.forEach((p, i) => {
+      const label = p.scope[0] || '';
+      assert.doesNotMatch(label, /, continued|^Continued/, `${name}/${style} slide ${i + 1}: ${label}`);
+      if(i === 0) assert.doesNotMatch(label, /continued/, `${name}/${style}: nothing is continued on slide 1`);
+    });
+  }
+  const reg = renderChapterPages({...fixture('example'), style: 'register'}, ctx);
+  assert.equal(reg.plan.pages[1].scope[0], 'Later', 'Later begins on slide 2 and is not "continued"');
+});
+
+test('F3: Board columns flow independently, so no column is empty while it has cards on a later slide', () => {
+  const m = {...fixture('uneven'), style: 'board'};
+  const out = renderChapterPages(m, ctx);
+  const cols = out.plan.pages.map(p => new Set(p.model.items.map(i => p.horizons[i.h])));
+  assert.ok(cols[0].has('Next') && cols[0].has('Someday'), 'slide 1 shows Next and Someday, which have items');
+  for(const h of ['Next', 'Someday']) assert.equal(cols.filter(c => c.has(h)).length, 1, h + ' appears once');
+  assert.ok(out.pages.length <= 3, 'uneven board in three slides or fewer');
+});
+
+test('F4: Grid keeps plan order, shows up to five horizons whole, and leaves no thin slide', () => {
+  const m = {...fixture('every-feature'), style: 'grid'};
+  for(const titlesOnly of [false, true]){
+    const out = renderChapterPages(m, {...ctx, titlesOnly});
+    assert.ok(out.plan.pages.every(p => p.horizons.length === 5), 'five quarters on every slide');
+    const order = out.plan.pages.flatMap(p => (p.lanes || []).filter(l => p.model.items.some(i => i.lane === l)));
+    const plan = [...new Set(m.items.map(i => i.lane))];
+    assert.deepEqual(order, plan.filter(l => order.includes(l)), 'lanes in plan order');
+    assert.ok(out.plan.pages.every(p => !p.orphan), 'no thin slide in the set');
   }
 });

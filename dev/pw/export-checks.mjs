@@ -72,23 +72,18 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     /* S3 beats S2: moving the card back would leave the next slide thin, which balancing the last two slides exists to avoid */
     const lastOfRun = !slides[i + 2] || slides[i + 2].group !== b.group;
     const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (first.h + 8);
-    if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 3) continue;
-    if(first.h + 12 + laneBand + (style === 'register' ? 56 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
+    if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 2) continue;
+    if(first.h + 12 + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
   out.push({check: 'slides:closed-early', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 20)}, note: 'S2: a slide closed with room under its column for the first card of the next slide'});
   const thin = [];
-  const thinRule = (s, label, index) => {
+  /* S3 (round 2: ANY slide of a multi-slide set, not only the last) fewer than 3 cards and under a third of the usable height */
+  if(slides.length > 1) slides.forEach((s, i) => {
     const usable = s.bodyBottom - s.bodyTop, used = s.contentBottom - s.bodyTop;
-    if(s.cards.length < 3 && used < usable / 3 - 0.5) thin.push({slide: index + 1, where: label, cards: s.cards.length, fill: r1(used / usable)});
-  };
-  if(slides.length > 1){
-    thinRule(slides.at(-1), 'last slide of set', slides.length - 1);
-    for(let i = 0; i < slides.length; i++){
-      const g = slides[i].group;
-      if(g != null && g !== '' && slides[i + 1]?.group !== g && i !== slides.length - 1) thinRule(slides[i], 'last slide of its run', i);
-    }
-  }
-  out.push({check: 'slides:orphans', pass: thin.length === 0, values: {count: thin.length, hits: thin}, note: 'S3: the last slide of a set or of a lane run has fewer than 3 cards and less than a third of the usable height'});
+    if(style === 'focus' && !/\(continued\)/.test(footerLeft(s))) return;   // a Focus slide is a whole horizon; only a continued one can be an orphan
+    if(s.cards.length < 3 && used < usable / 2 - 0.5) thin.push({slide: i + 1, cards: s.cards.length, fill: r1(used / usable)});
+  });
+  out.push({check: 'slides:orphans', pass: thin.length === 0, values: {count: thin.length, hits: thin}, note: 'S3 (round 2): no slide of a multi-slide set has fewer than 3 cards and less than half the usable height'});
   return out;
 }
 
@@ -129,9 +124,83 @@ export function checkWording(slides){
   return [{check: 'slides:plain-words', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 20)}, note: 'S6: no "Theme group", "Item part", "R01", "Featured horizon", "Supporting horizons", "Page n of m"'}];
 }
 
+/* footer left text of a slide: the lowest-left text that is not "k of n" */
+const footerLeft = s => s.texts.filter(t => t.y >= s.vbH - 60 && t.anchor !== 'end' && !/^\d+ of \d+$/.test(t.text)).map(t => t.text).join(' ');
+const laneOf = c => String(c.key).split('|')[0];
+
+/* F2: "continued" is attached to the name it belongs to, and only where that name began on an earlier slide */
+export function checkContinued(slides){
+  const bad = [];
+  slides.forEach((s, i) => {
+    const f = footerLeft(s);
+    if(/, continued\b|^Continued\b/.test(f)) bad.push({slide: i + 1, footer: f, problem: 'continued is not attached to a name'});
+    for(const m of f.matchAll(/([^,()·]+?) \(continued\)/g)){
+      const name = m[1].trim().replace(/^and\s+/, '');
+      if(!slides.slice(0, i).some(p => footerLeft(p).includes(name))) bad.push({slide: i + 1, footer: f, problem: name + ' did not appear on an earlier slide'});
+    }
+  });
+  return [{check: 'slides:continued-honest', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 10)}, note: 'F2: "continued" only for a name that began on an earlier slide, written "Name (continued)"'}];
+}
+
+/* F4a/F4b: lanes keep plan order; up to five horizons stay on one slide */
+export function checkGridPlan(slides, {lanes = [], horizons = []}){
+  const out = [];
+  const order = [];
+  const sig = s => horizons.filter(h => s.texts.some(t => t.text.trim() === h)).join('|');
+  let runSig = null, highest = -1;
+  slides.forEach((s, i) => {
+    const seq = s.texts.filter(t => lanes.includes(t.text.trim()) && t.x < s.vbW * .3).sort((a, b) => a.y - b.y).map(t => lanes.indexOf(t.text.trim()));
+    if(sig(s) !== runSig){ runSig = sig(s); highest = -1; }
+    for(const n of seq){ if(n < highest) order.push({slide: i + 1, lane: lanes[n], after: lanes[highest]}); highest = Math.max(highest, n); }
+  });
+  out.push({check: 'slides:lane-order', pass: order.length === 0, values: {count: order.length, hits: order.slice(0, 8)}, note: 'F4a: lanes appear in plan order on every slide and across the slides of one time window'});
+  const split = [];
+  if(horizons.length > 1 && horizons.length <= 5) slides.forEach((s, i) => { const have = horizons.filter(h => s.texts.some(t => t.text.trim() === h)); if(have.length !== horizons.length) split.push({slide: i + 1, shows: have.length, of: horizons.length}); });
+  out.push({check: 'slides:columns-whole', pass: split.length === 0, values: {count: split.length, hits: split.slice(0, 8)}, note: 'F4b: a plan of up to five horizons shows every horizon on every slide'});
+  return out;
+}
+
+/* F3: board columns flow independently: a column is never empty on a slide while it has cards on a later one */
+export function checkBoardFlow(slides, {horizons = []}){
+  const bad = [];
+  const columns = s => horizons.map(h => s.texts.find(t => t.text.trim() === h && t.size >= 24)).filter(Boolean).sort((a, b) => a.x - b.x);
+  const counts = slides.map(s => {
+    const cols = columns(s), n = new Map();
+    for(const c of s.cards){ let idx = -1; cols.forEach((h, k) => { if(c.x >= h.x - 14) idx = k; }); if(idx >= 0) n.set(cols[idx].text.trim(), (n.get(cols[idx].text.trim()) || 0) + 1); }
+    return n;
+  });
+  slides.forEach((s, i) => { for(const h of horizons){ if(!columns(s).some(t => t.text.trim() === h)) continue; if(!(counts[i].get(h) > 0) && counts.slice(i + 1).some(n => n.get(h) > 0)) bad.push({slide: i + 1, column: h}); } });
+  return [{check: 'slides:board-flow', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'F3: slide k shows the k-th page of every column; no column is empty while it has cards on a later slide'}];
+}
+
+/* F5/F6/F7 on Timeline slides */
+export function checkTimelineSlides(slides, svgs){
+  const out = [];
+  const lanes = new Map();
+  slides.forEach((s, i) => { for(const c of s.cards){ const k = laneOf(c); (lanes.get(k) || lanes.set(k, new Map()).get(k)).set(i, (lanes.get(k).get(i) || 0) + 1); } });
+  const bad = [];
+  for(const [lane, per] of lanes){ const at = [...per.keys()].sort((a, b) => a - b); if(at.length > 1) at.forEach((i, n) => { if(per.get(i) < 2) bad.push({lane, slide: i + 1, rows: per.get(i)}); }); }
+  out.push({check: 'slides:lane-split', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'F5: a lane split across slides leaves at least two rows on each side'});
+  const wrapped = [];
+  slides.forEach((s, i) => { const ts = s.texts; for(let k = 0; k + 1 < ts.length; k++) if(/^\d{1,2}$/.test(ts[k].text) && /^[A-Z][a-z]{2} \d{4}$/.test(ts[k + 1].text) && Math.abs(ts[k].x - ts[k + 1].x) < 1 && ts[k + 1].y > ts[k].y && ts[k + 1].y - ts[k].y < ts[k].size * 1.6) wrapped.push({slide: i + 1, date: ts[k].text + ' ' + ts[k + 1].text}); });
+  out.push({check: 'slides:date-never-wraps', pass: wrapped.length === 0, values: {count: wrapped.length, hits: wrapped.slice(0, 8)}, note: 'F6: a date in a P50/P90 column is one line'});
+  const legend = [];
+  svgs.forEach((svg, i) => {
+    const text = [...svg.matchAll(/<text\b[^>]*>([^<]*)<\/text>/g)].map(m => m[1]).join(' | ');
+    if(/data-ms="lrm"/.test(svg) && !/Decide by/.test(text.split('P50 finish')[1] || '')) legend.push({slide: i + 1, missing: 'Decide by'});
+    if(/data-field-history=/.test(svg) && !/Previous/.test(text)) legend.push({slide: i + 1, missing: 'Previous forecast'});
+  });
+  out.push({check: 'slides:legend-marks', pass: legend.length === 0, values: {count: legend.length, hits: legend.slice(0, 8)}, note: 'F7: the legend names every mark drawn on the slide'});
+  return out;
+}
+
 export function checkSlideSet(svgs, opts = {}){
   const slides = svgs.map(slideGeometry);
-  return [...checkSplits(slides), ...checkFill(slides, opts), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides)];
+  const out = [...checkSplits(slides), ...checkFill(slides, opts), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides), ...checkContinued(slides)];
+  if(opts.tool === 'timeline') out.push(...checkTimelineSlides(slides, svgs));
+  if(opts.tool === 'roadmap' && opts.style === 'grid') out.push(...checkGridPlan(slides, opts));
+  if(opts.tool === 'roadmap' && opts.style === 'board') out.push(...checkBoardFlow(slides, opts), ...checkGridPlan(slides, {horizons: opts.horizons, lanes: []}).filter(c => c.check === 'slides:columns-whole'));
+  return out;
 }
 
 /* P3: the PNG is the SVG at 2x; only when 2x would pass the canvas limit may the scale drop (floor 1x). */

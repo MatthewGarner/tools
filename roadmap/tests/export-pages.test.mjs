@@ -204,13 +204,19 @@ test('70-item Grid and Board decks use stable theme groups across balanced time 
     assert.ok(out.plan.pages.every(p => p.model.items.length > 1), 'no stranded one-item slide');
     const windows = Map.groupBy(out.plan.pages, p => p.start);
     assert.ok(windows.size >= 2);
-    const groups = [...windows.values()].map(pages => pages.map(p => p.lanes));
-    // Groups are planned once for every window; a slide that would end thin may absorb its neighbour's
-    // lanes (S3), so groups can differ between windows, but a lane never appears in two groups of a window.
-    for(const group of groups){
-      const runs = group.filter((lanes, i) => i === 0 || lanes.join() !== group[i - 1].join());
-      const flat = runs.flat();
-      assert.equal(new Set(flat).size, flat.length, 'each theme sits in one group per time window');
+    if(style === 'board'){
+      // Columns flow independently: slides are not cut by lane group (round 2, F3)
+      assert.ok(out.plan.pages.every(p => p.lanes === undefined), 'a Board slide is a page of every column, not a lane group');
+    } else {
+      const groups = [...windows.values()].map(pages => pages.map(p => p.lanes));
+      // Groups are planned once for every window; a slide that would end thin may absorb its neighbour's
+      // lanes (S3), so groups can differ between windows, but a lane never appears in two groups of a window.
+      for(const group of groups){
+        const runs = group.filter((lanes, i) => i === 0 || lanes.join() !== group[i - 1].join());
+        const flat = runs.flat();
+        assert.equal(new Set(flat).size, flat.length, 'each theme sits in one group per time window');
+      }
+
     }
     assert.deepEqual(out.plan.pages.flatMap(p => p.sourceItemIndices).sort((a,b) => a-b),
       Array.from({length:70}, (_, i) => i));
@@ -222,7 +228,8 @@ test('Board, Register and Focus do not repeat spanning items at horizon boundari
   for(const style of ['board','register','focus']){
     const out = renderChapterPages({...source, style}, ctx);
     assert.equal(out.complete, true);
-    assert.ok(out.pages.length <= (style === 'register' ? 9 : 8), `${style}: ${out.pages.length} pages`);
+    // Focus places a supporting horizon whole (round 2, F1), so a 70-item plan needs a few more slides than when it was split
+    assert.ok(out.pages.length <= (style === 'register' ? 9 : style === 'focus' ? 11 : 8), `${style}: ${out.pages.length} pages`);
     assert.equal(out.plan.pages.flatMap(p => p.model.items).filter(i => i.export.repeatedContext).length, 0);
     assert.deepEqual(out.plan.pages.flatMap(p => p.sourceItemIndices).sort((a,b) => a-b),
       Array.from({length:70}, (_, i) => i));
