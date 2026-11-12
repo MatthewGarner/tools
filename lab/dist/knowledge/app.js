@@ -1,6 +1,6 @@
 import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
 await prepareArticleModel('knowledge','thinking-lab:knowledge:v1');
-import {mountShell} from '../shared/shell.js?v=0.22.0';
+import {mountShell} from '../shared/shell.js?v=0.26.0';
 import {escapeHtml as e,downloadText,writeStore} from '../shared/utils.js?v=0.24.0';
 import {PEOPLE,SKILLS,DEFAULT_TRAINING,workloadFor} from './engine.js?v=0.21.0';
 import {KEY,initial,validate,pin,replay,template,portable,parse,markdown} from './state.js?v=0.21.0';

@@ -1,4 +1,4 @@
-import {mountShell} from '../shared/shell.js?v=0.25.0';
+import {mountShell} from '../shared/shell.js?v=0.26.0';
 import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
 import {readStore,writeStore,downloadText} from '../shared/utils.js?v=0.24.0';
 import {validateState} from '../../../embed/core/schema.js';

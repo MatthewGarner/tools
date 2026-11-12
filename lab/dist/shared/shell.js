@@ -1,4 +1,4 @@
-import{mountShell as mountLegacyShell}from'./legacy-shell.js?v=0.21.0';
+import{mountShell as mountLegacyShell}from'./legacy-shell.js?v=0.26.0';
 import{experiments}from'./catalog.js?v=0.21.0';
 export function mountShell({active}={}) {
   if(!document.querySelector('.mg-masthead'))return mountLegacyShell({active});

@@ -1,4 +1,4 @@
-import {start,e,field,select,uid} from '../workshop-kit/ui.js?v=0.22.0';
+import {start,e,field,select,uid} from '../workshop-kit/ui.js?v=0.26.0';
 import {decisionNote} from './decision-note.js?v=0.23.0';
 import {model,LEVELS,STATUS,TEST_DECISIONS,ATTEMPT_LIMIT,attemptSourceStatus,linkTitle,markdown} from './state.js?v=0.22.0';
 import {sourceDetails,familyMap} from '../shared/ancestry-ui.js?v=0.21.0';

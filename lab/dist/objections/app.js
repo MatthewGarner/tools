@@ -1,9 +1,9 @@
-import {criteriaComparison,editCriterion,assessCriterion} from './criteria-ui.js?v=0.22.0';
+import {criteriaComparison,editCriterion,assessCriterion} from './criteria-ui.js?v=0.26.0';
 import {decisionNote} from './decision-note.js?v=0.23.0';
 import {sourceDetails,familyMap,parentChoices} from '../shared/ancestry-ui.js?v=0.21.0';
 import {hasDescendants} from '../shared/ancestry.js?v=0.21.0';
 import {markdown as familyMarkdown} from '../family/state.js?v=0.21.0';
-import {boot,e,field,editAttrs} from '../creative-kit/ui.js?v=0.22.0';
+import {boot,e,field,editAttrs} from '../creative-kit/ui.js?v=0.26.0';
 import {make,validate,apply,markdown,METHODS,ENTRIES,ENTRY_METHODS,CONCERN_FIELDS,DESIGN_FIELDS,SIDE_FIELDS} from './state.js?v=0.22.0';
 import {parseImport,legacySession,migrate} from './import.js?v=0.22.0';
 const prompts={first:'What would you try first? Make the mechanism concrete.',refine:'Which part could work differently while the main mechanism stays?',different:'What could replace the mechanism rather than polish it?',need:'Could the concern disappear because this requirement is no longer needed?',delivery:'Could the benefit arrive through a different channel, moment or actor?',exposure:'Could a smaller scope, limit or reversible trial contain the concern?',context:'Under which observable conditions would each approach make sense?',sequence:'Could one approach create the conditions for the other?',invent:'What different mechanism might protect both useful intentions?'};

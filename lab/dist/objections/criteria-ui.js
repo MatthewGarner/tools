@@ -1,4 +1,4 @@
-import {e,field,select,editAttrs} from '../creative-kit/ui.js?v=0.22.0';
+import {e,field,select,editAttrs} from '../creative-kit/ui.js?v=0.26.0';
 import {MAX_CRITERIA,CRITERION_KINDS,JUDGEMENTS,assessmentFor,assessmentStatus,needsReassessment} from './criteria.js?v=0.22.0';
 
 const title = d => d.title || 'Untitled alternative';
