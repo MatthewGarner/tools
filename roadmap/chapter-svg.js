@@ -37,7 +37,7 @@ export function renderChapter(model,ctx={}){
   const {width:W,height:H,margin:M}=layout;
   const slide=!!ctx.slide,scale=slide?4/3:1;
   const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null,
-    'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
+    'data-header-band':layout.headerBand&&!slide?`${n(layout.headerBand.y0)} ${n(layout.headerBand.y1)}`:null,'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
     `<title>${e(model.title||'Roadmap')}</title>`,
     `<desc>${e([model.headline,model.story,basisSummary(model.basis)].filter(Boolean).join(' — ')||model.title||'Roadmap')}</desc>`,rect(0,0,W,H,C.bg)];
   for(const p of layout.panels)s.push(rect(p.x,p.y,p.w,p.h,C[p.role]));

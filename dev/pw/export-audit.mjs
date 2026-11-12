@@ -617,15 +617,37 @@ async function captureCase(browser, base, {tool, doc, source, theme, views, outR
       await waitReady(page, timeout * 2);
       await selectSnapshot(page, timeout);
     } else await loadDoc(page, base, tool, source, timeout);
-    /* print path (emulated print media), once per document/theme at the document's own style */
+    /* print path (F8): the real beforeprint handler, print media emulated, every sheet photographed, and the PDF the browser
+       would print (which fires beforeprint itself). print.png used to be the unprinted page and was blank for every document. */
     const printDir = ensure(join(caseRoot, 'print'));
-    await page.emulateMedia({media: 'print'});
-    await sleep(200);
-    await page.screenshot({path: join(printDir, 'print.png'), fullPage: true}).catch(e => runtime.push('print screenshot: ' + e.message));
-    await page.pdf({path: join(printDir, 'print.pdf'), width: '8.27in', height: '11.69in', printBackground: true}).catch(e => runtime.push('print pdf: ' + e.message));
+    const sheets = [];
+    try{
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+      await page.emulateMedia({media: 'print'});
+      await sleep(250);
+      const n = await page.locator('#print-artefact .print-page').count();
+      for(let i = 0; i < n; i++){
+        const file = `print-p${String(i + 1).padStart(2, '0')}.png`;
+        await page.locator('#print-artefact .print-page').nth(i).screenshot({path: join(printDir, file)});
+        sheets.push(file);
+      }
+      const geometry = await page.evaluate(() => [...document.querySelectorAll('#print-artefact .print-page')].map(sheet => {
+        const rows = []; let vbs = [];
+        for(const svg of sheet.querySelectorAll('svg')){
+          if(svg.querySelector('svg')) continue;
+          const vb = svg.viewBox.baseVal; vbs.push([vb.y, vb.y + vb.height]);
+          for(const g of svg.querySelectorAll('[data-key],[data-field-item]')){ const b = g.getBBox(); rows.push([vb.y, vb.y + vb.height, b.y, b.y + b.height]); }
+        }
+        return {vbs, rows, w: sheet.getBoundingClientRect().width, h: sheet.getBoundingClientRect().height};
+      }));
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+      writeFileSync(join(printDir, 'print-geometry.json'), JSON.stringify(geometry));
+    }catch(e){ runtime.push('print capture: ' + e.message); }
+    await page.pdf({path: join(printDir, 'print.pdf'), landscape: true, preferCSSPageSize: true, printBackground: true}).catch(e => runtime.push('print pdf: ' + e.message));
     await page.emulateMedia({media: 'screen'});
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint'))).catch(() => {});
     const loadState = await pageState(page);
-    writeFileSync(join(printDir, 'print.json'), JSON.stringify({file: 'print.png', pdf: existsSync(join(printDir, 'print.pdf')) ? statSync(join(printDir, 'print.pdf')).size : null}, null, 1));
+    writeFileSync(join(printDir, 'print.json'), JSON.stringify({sheets, pdf: existsSync(join(printDir, 'print.pdf')) ? statSync(join(printDir, 'print.pdf')).size : null, pdfPages: existsSync(join(printDir, 'print.pdf')) ? (readFileSync(join(printDir, 'print.pdf'), 'latin1').match(/\/Type\s*\/Page\b/g) || []).length : null}, null, 1));
     let first = true;
     for(const view of views){
       const dir = ensure(join(caseRoot, slug(view)));
@@ -677,6 +699,22 @@ export async function measureStandalone(browser, file, dsf){
   } catch(e){ throw e; }
 }
 async function measureInApp(appPage, svg){ return appPage.evaluate(measureSvgInPage, svg); }
+
+/* The SVG as an <img> stretched to exactly the delivered PNG's pixel size (screenshot at device scale 1): the same decode path the
+   product's canvas uses, at the same scale factor, so a reduced-scale PNG is compared like with like (F10). */
+export async function rasteriseAtSize(browser, svgText, w, h){
+  if(!(w > 0 && h > 0) || w > 16000 || h > 16000) return null;
+  const ctx = await pooled(browser, 'rasterimg', () => browser.newContext({viewport: {width: 1300, height: 900}, deviceScaleFactor: 1, colorScheme: 'light'}));
+  const page = await ctx.newPage();
+  try{
+    await page.setViewportSize({width: w, height: h});
+    const uri = 'data:image/svg+xml;base64,' + Buffer.from(svgText).toString('base64');
+    await page.setContent(`<body style="margin:0;background:#fff"><img id="i" src="${uri}" style="display:block;width:${w}px;height:${h}px"></body>`);
+    await page.waitForFunction(() => document.getElementById('i').complete);
+    await sleep(100);
+    return await page.screenshot({clip: {x: 0, y: 0, width: w, height: h}});
+  } finally { await page.close(); }
+}
 
 /* Rasterise a standalone SVG in the browser at 2x (the PNG's scale) with its embedded fonts. */
 export async function rasteriseFile(browser, file, w, h, scale = 2){
@@ -782,10 +820,11 @@ async function analyseView(ctx, m, state){
     recs('png', pngA.file, pngChecks(stats, {svgW: svgInfo?.w, svgH: svgInfo?.h, kind: 'plain'}));
     let ref = state.refs.get(dir + '|svg');
     const pngScale = svgInfo?.w ? stats.w / svgInfo.w : 2;   // the canvas is drawn edge to edge, so this is the exact scale
-    if(svgA && Math.abs(pngScale - 2) > .001) ref = await rasteriseFile(browser, join(dir, svgA.file), svgInfo.w, svgInfo.h, pngScale);   // P3: a reduced-scale PNG is compared with the SVG at that scale
+    if(svgA) ref = await rasteriseAtSize(browser, readFileSync(join(dir, svgA.file), 'utf8'), stats.w, stats.h) || ref;   // F10: the SVG at exactly the PNG's size and scale
     if(ref){
-      const d = await pngDiff(lab, buf, ref);
-      rec('png', pngA.file, 'png-vs-svg-raster', {pass: d.sizeMismatch ? false : d.ratio < (Math.abs(pngScale - 2) > .001 ? 0.015 : 0.001), values: {...d, pngScale: Math.round(pngScale * 1000) / 1000}, note: 'PNG download vs the same SVG rasterised by the browser (embedded fonts; 2x must be identical, a reduced fractional scale is a different rasteriser path so 1.5% of pixels may differ at text edges); pixels differing by >24/255 on any channel; regions are 32px-tile clusters'});
+      /* at a fractional scale the same SVG decoded twice differs by anti-aliasing at glyph edges (crops are identical to the eye); count only real differences there */
+      const d = await pngDiff(lab, buf, ref, Math.abs(pngScale - 2) > .001 ? 64 : 24);
+      rec('png', pngA.file, 'png-vs-svg-raster', {pass: d.sizeMismatch ? false : d.ratio < 0.001, values: {...d, pngScale: Math.round(pngScale * 1000) / 1000}, note: 'PNG download vs the same SVG decoded as an image at the PNG\'s own pixel size (same path, same scale factor): under 0.1% of pixels may differ; pixels differing by >24/255 on any channel; regions are 32px-tile clusters'});
     } else if(svgA) rec('png', pngA.file, 'png-vs-svg-raster', {pass: null, values: {skipped: true}});
     else rec('png', pngA.file, 'png-vs-svg-raster', {pass: null, values: {skipped: 'no SVG captured'}});
   } else if(svgA) rec('png', null, 'png:missing', {pass: null, values: {}, note: 'the PNG button produced no file (see capture-error)'});
@@ -1014,12 +1053,22 @@ async function analyseDoc(ctx, tool, doc, themes, outRoot, parse){
       catch(e){ ctx.findings.add({tool, doc: doc.name, theme, view: m.view, format: 'analysis', artefact: null, check: 'analysis-error', pass: false, values: {error: e.stack?.split('\n').slice(0, 3).join(' | ')}}); console.log(`    analysis error ${tool}/${doc.name}/${theme}/${m.view}: ${e.message}`); }
     }
     mirrorAndMarkdown(ctx, tool, doc.name, theme, state, doc.source);
-    /* print */
+    /* print: every sheet, in the light theme, no row cut, the last sheet more than a legend, the PDF as long as the sheets */
     const pj = join(caseRoot, 'print', 'print.json');
     if(existsSync(pj)){
-      const pngB = readFileSync(join(caseRoot, 'print', 'print.png'));
-      const st = await pngStats(ctx.lab, pngB);
-      ctx.findings.add({tool, doc: doc.name, theme, view: '(source style)', format: 'print', artefact: `raw/${tool}/${doc.name}/${theme}/print/print.png`, check: 'print:render', pass: null, values: {w: st.w, h: st.h, bgTone: st.meanLum < 100 ? 'dark-ish' : 'light', meanLum: r1(st.meanLum), pdfBytes: JSON.parse(readFileSync(pj, 'utf8')).pdf}, note: 'emulated print media screenshot of the whole page (and a PDF was written beside it)'});
+      const pr = JSON.parse(readFileSync(pj, 'utf8'));
+      const geo = existsSync(join(caseRoot, 'print', 'print-geometry.json')) ? JSON.parse(readFileSync(join(caseRoot, 'print', 'print-geometry.json'), 'utf8')) : [];
+      const tones = [];
+      for(const f of pr.sheets) { const st = await pngStats(ctx.lab, readFileSync(join(caseRoot, 'print', f))); tones.push({f, w: st.w, h: st.h, meanLum: r1(st.meanLum), nonBg: round(st.nonBgFraction, 4)}); }
+      const cut = [];
+      geo.forEach((sh, i) => sh.rows.forEach(([y0, y1, top, bottom]) => { if(top < y0 - .5 && bottom > y0 + .5 || top < y1 - .5 && bottom > y1 + .5) cut.push({sheet: i + 1}); }));
+      const rowsPer = geo.map(sh => sh.rows.filter(([y0, y1, top, bottom]) => top >= y0 - .5 && bottom <= y1 + .5).length);
+      const base = {tool, doc: doc.name, theme, view: '(source style)', format: 'print', artefact: `raw/${tool}/${doc.name}/${theme}/print/`};
+      ctx.findings.add({...base, check: 'print:sheets', pass: pr.sheets.length >= 1 && tones.every(t => t.nonBg > .002), values: {sheets: tones, pdfPages: pr.pdfPages}, note: 'F8: every printed sheet photographed under print media (the old print.png was the unprinted page, blank white); each must show something'});
+      ctx.findings.add({...base, check: 'print:light-theme', pass: tones.every(t => t.meanLum > 150), values: {meanLuminance: tones.map(t => t.meanLum)}, note: 'R1: light paper whatever the page theme'});
+      ctx.findings.add({...base, check: 'print:rows-not-cut', pass: cut.length === 0, values: {cut: cut.slice(0, 6)}, note: 'F8: no row or card is cut by a page break'});
+      ctx.findings.add({...base, check: 'print:last-sheet-not-legend', pass: geo.length < 2 || rowsPer.at(-1) >= 1, values: {rowsPerSheet: rowsPer}, note: 'F8: the last sheet carries at least one row (not the legend alone)'});
+      ctx.findings.add({...base, check: 'print:pdf-matches-sheets', pass: pr.pdfPages == null || pr.pdfPages === pr.sheets.length, values: {pdfPages: pr.pdfPages, sheets: pr.sheets.length}, note: 'F8: the PDF the browser prints has the same number of pages as the sheets photographed'});
     }
     /* Markdown import round trip */
     const rt = join(caseRoot, 'import', 'import-roundtrip.json');

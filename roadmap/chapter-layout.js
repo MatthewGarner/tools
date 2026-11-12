@@ -82,6 +82,7 @@ export function layoutChapter(model, ctx = {}){
   const headingSize = q(phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section);
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
+  let headerBand = null;   // the column/axis header a printed continuation repeats
   const dense = planItems > 8;
   // Dense exports use the reviewed 20/16/14 type floor and tighter framing.
   // These sizes are fixed: pagination never shrinks text to force a fit.
@@ -255,6 +256,7 @@ export function layoutChapter(model, ctx = {}){
     boardIndices.forEach((h,index)=>{
       const x=margin+index*(cw+gap);
       let cy=section(model.horizons[h],x,top,cw,h);
+      headerBand={y0:top,y1:Math.max(headerBand?.y1||0,cy)};
       cy=list(model.items.filter(i=>i.h===h),x,cy,cw);
       // On a slide a column with nothing to show says why, rather than standing empty
       if(ctx.slide && !model.items.some(i=>i.h===h)){
@@ -272,6 +274,7 @@ export function layoutChapter(model, ctx = {}){
     const widths=[inner*.43,inner*.13,inner*.13,inner*.31];
     const names=['Initiative & commentary','Workstream','Horizon','Status & condition'];
     let cx=margin;
+    headerBand={y0:y-4,y1:y+38};
     names.forEach((name,i)=>{const label=text(name,widths[i]-20,meta,{weight:600});sections.push({name,x:cx,y,w:widths[i],h:26,label,small:true});cx+=widths[i];});y+=38;
     if(ctx.slide && model.group!=='outcome'){
       const empty=model.horizons.filter(name=>!sourceModel.items.some(i=>sourceModel.horizons[i.h]===name));
@@ -344,6 +347,7 @@ export function layoutChapter(model, ctx = {}){
       headerH=Math.max(headerH,height);
     });y+=headerH;
     const gridTop=y;
+    headerBand={y0:gridTop-headerH,y1:gridTop};
     const laneLabelRows=[];   // a long lane name sits across the columns, so the column rules stop short of it
     for(const lane of lanes){
       const top=y, tracks=[];
@@ -410,5 +414,5 @@ export function layoutChapter(model, ctx = {}){
   for(const p of panels)if(p.role==='rail'||p.role==='spine')p.h=height;
   const allText=[...header,...sections.map(s=>({...s.label,x:s.x,y:s.y})),...rows.flatMap(r=>r.blocks.map(b=>({...b,x:r.x+r.pad+(b.x||0),y:r.y+b.y})))];
   const fits=(ctx.slide ? bottom<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
-  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,contentBottom:bottom,inkBottom:Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0))),bodyBottom,scale:k,boardIndices};
+  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,headerBand,contentBottom:bottom,inkBottom:Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0))),bodyBottom,scale:k,boardIndices};
 }

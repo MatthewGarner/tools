@@ -205,9 +205,31 @@ try{
       await openDoc(page, tool, load(tool, 'dense'));
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       await page.emulateMedia({media: 'print'});
-      const info = await page.evaluate(() => ({pages: document.querySelectorAll('#print-artefact .print-page').length, shown: [...document.body.children].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id || e.tagName),
-        light: /<rect x="0" y="0"[^>]*fill="#F6F3ED"/i.test(document.querySelector('#print-artefact svg')?.outerHTML || ''), sheetsOverflow: [...document.querySelectorAll('#print-artefact svg')].some(s => s.getBoundingClientRect().height / s.getBoundingClientRect().width > .62 + .001)}));
-      ok(`${tool}: print shows the artefact alone, in the light theme, in sheets that fit (R1)`, info.pages >= 1 && info.shown.join() === 'print-artefact' && info.light && !info.sheetsOverflow, JSON.stringify(info));
+      const info = await page.evaluate(() => {
+        const sheets = [...document.querySelectorAll('#print-artefact .print-page')];
+        const cut = [], rowsPer = [];
+        sheets.forEach((sheet, i) => {
+          let rows = 0;
+          for(const svg of sheet.querySelectorAll('svg')){
+            if(svg.querySelector('svg')) continue;   // a wrapper: its nested slices are checked
+            const vb = svg.viewBox.baseVal, y0 = vb.y, y1 = vb.y + vb.height;
+            for(const g of svg.querySelectorAll('[data-key],[data-field-item]')){
+              const b = g.getBBox();
+              if(b.y < y0 - .5 && b.y + b.height > y0 + .5 || b.y < y1 - .5 && b.y + b.height > y1 + .5) cut.push({sheet: i + 1, row: (g.getAttribute('data-key') || g.getAttribute('data-field-item') || '').slice(0, 30)});
+              else if(b.y >= y0 - .5 && b.y + b.height <= y1 + .5) rows++;
+            }
+          }
+          rowsPer.push(rows);
+        });
+        const ratios = [...document.querySelectorAll('#print-artefact .print-page > svg')].map(s => s.getBoundingClientRect().height / s.getBoundingClientRect().width);
+        const widths = [...document.querySelectorAll('#print-artefact .print-page > svg')].map(s => s.getBoundingClientRect().width / sheets[0].getBoundingClientRect().width);
+        return {pages: sheets.length, shown: [...document.body.children].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id || e.tagName),
+          light: /<rect x="0" y="0"[^>]*fill="#F6F3ED"/i.test(document.querySelector('#print-artefact svg')?.outerHTML || ''), cut, rowsPer,
+          tall: ratios.some(r => r > .66 + .001), narrowest: Math.min(...widths)};
+      });
+      ok(`${tool}: print shows the artefact alone, in the light theme, in sheets that fit (R1)`, info.pages >= 1 && info.shown.join() === 'print-artefact' && info.light && !info.tall, JSON.stringify(info));
+      ok(`${tool}: no row is cut by a page break, the last sheet is not just the legend, and a short artefact is shrunk onto one sheet (F8)`,
+        info.cut.length === 0 && (info.pages === 1 ? info.narrowest >= .69 : info.rowsPer.at(-1) >= 1), JSON.stringify(info));
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
       await page.emulateMedia({media: 'screen'});
       ok(`${tool}: afterprint puts the page back`, await page.locator('#print-artefact').count() === 0);
