@@ -159,3 +159,20 @@ test('K1: a Focus slide fits when its ink does, and a horizon that must split is
     for(const [h, counts] of per) assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${name}/${h}: ${counts}`);
   }
 });
+
+/* ---- round 5: one fit rule for every view ---- */
+test('R5: a slide fits when its ink does, in Board, Grid and Register as in Focus', () => {
+  for(const style of ['focus', 'board', 'grid', 'register']){
+    let tested = 0, between = 0;
+    for(let k = 0; k <= 47; k++) for(let n = 3; n <= 24; n++){
+      const scale = Math.round((.88 + k * .01) * 100) / 100;
+      const text = `style: ${style}\ntitle: T\nNow\n` + Array.from({length: n}, (_, i) => `Core: Row ${i} with a note // note ${i}`).join('\n');
+      const model = {...parse(text), style};
+      const l = layoutChapter(model, {...ctx, slide: true, sourceModel: model, scale, compactItems: n});
+      assert.equal(l.fits, l.inkBottom <= l.bodyBottom, `${style} ${n} rows at ${scale}: fits ${l.fits}, ink ${l.inkBottom}, cursor ${l.contentBottom}, body ${l.bodyBottom}`);
+      tested++; if(l.contentBottom > l.bodyBottom && l.inkBottom <= l.bodyBottom) between++;
+    }
+    assert.ok(tested > 0);
+    if(style === 'board' || style === 'register') assert.ok(between > 0, style + ': some size has its ink inside the body and its cursor beyond it (otherwise the test proves nothing)');
+  }
+});

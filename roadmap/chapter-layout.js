@@ -413,8 +413,11 @@ export function layoutChapter(model, ctx = {}){
   if(ctx.slide && verdictBlock)header.push({...verdictBlock,x:margin,y:height-72-verdictH,role:'ink',kind:'verdict'});
   for(const p of panels)if(p.role==='rail'||p.role==='spine')p.h=height;
   const allText=[...header,...sections.map(s=>({...s.label,x:s.x,y:s.y})),...rows.flatMap(r=>r.blocks.map(b=>({...b,x:r.x+r.pad+(b.x||0),y:r.y+b.y})))];
-  // A Focus slide fits when its ink does: the space the cursor keeps after the last rule is not content (nine rows fit one slide)
-  const inkBottom=Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0)));
-  const fits=(ctx.slide ? (style==='focus' ? inkBottom : bottom)<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
+  // A slide fits when its ink does, in every view: the gap the cursor keeps after the last card or row is not content. Ink is a card's
+  // bottom, the rule that closes a row or lane, a section label or note, and the column rules: everything the body paints.
+  const inkBottom=Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0)),...lines.map(l=>Math.max(l.y,l.y2)));
+  // The Board's accent bar and tint panel run to the cursor (a card gap below the last card); on a slide they stop at the body bottom
+  if(ctx.slide)for(const p of panels)if(p.role==='accent'||p.role==='tint')p.h=Math.min(p.h,bodyBottom-p.y);
+  const fits=(ctx.slide ? inkBottom<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
   return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,headerBand,contentBottom:bottom,inkBottom,bodyBottom,scale:k,boardIndices};
 }
