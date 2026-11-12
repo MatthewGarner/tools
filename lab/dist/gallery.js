@@ -11,7 +11,7 @@ for(const item of experiments){
   const card=document.createElement('a');card.className=`experiment ${item.route} new`;card.href=`${item.route}/`;
   card.dataset.id=item.id;card.dataset.kind=item.kind;card.dataset.new='true';
   const part=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;n.textContent=text;return n;};
-  const top=part('div','experiment-top','');top.append(part('span','type',`${item.id} · ${item.kind.toUpperCase()} · NEW`));
+  const top=part('div','experiment-top','');top.append(part('span','type',`${item.id} · ${item.kind==='scaffold'?'WORKBENCH':item.kind.toUpperCase()} · NEW`));
   const specimen=part('div','specimen new-art','');specimen.setAttribute('aria-hidden','true');specimen.append(part('span','art-caption',item.caption));
   const copy=part('div','experiment-copy','');copy.append(part('h3','',item.title),part('p','',item.question));
   const move=part('div','try','');move.append(part('strong','','First move'),` ${item.move}`);copy.append(move);
