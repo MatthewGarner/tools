@@ -113,13 +113,13 @@ const T0 = 'merchant: 60..180\n';
   // more share kept -> more upside kept
   const s1 = sim(T0 + 'floor: 70 share 40%', {seed: 2, n: 5000}).rows[1], s2 = sim(T0 + 'floor: 70 share 80%', {seed: 2, n: 5000}).rows[1];
   check('R5c higher floor share sells less upside and raises P90', s2.trade.upsideSold < s1.trade.upsideSold && s2.p90 > s1.p90);
-  check('R5d seeded: same seed, same output; different seed, different output', JSON.stringify(sim(T0 + 'toll: 95', {seed: 4, n: 500}).rows.map(r => r.p50)) === JSON.stringify(sim(T0 + 'toll: 95', {seed: 4, n: 500}).rows.map(r => r.p50)) && sim(T0, {seed: 4, n: 500}).rows[0].p50 !== sim(T0, {seed: 5, n: 500}).rows[0].p50);
+  check('R5d deterministic: seed is ignored (no sampling left), any seed gives the same output', JSON.stringify(sim(T0 + 'toll: 95', {seed: 4, n: 500}).rows.map(r => r.p50)) === JSON.stringify(sim(T0 + 'toll: 95', {seed: 4, n: 500}).rows.map(r => r.p50)) && sim(T0, {seed: 4, n: 500}).rows[0].p50 === sim(T0, {seed: 5, n: 500}).rows[0].p50);
 }
 // ---------- R6. printed rounding / units ---------------------------------------------------------
 {
   const cases = [[2500, '£k/MW/yr'], [1500000, '£/MW/yr'], [0.0004, '£/MWh'], [95, 'GBP/MWh'], [-0.0000000001, '£k']];
   console.log('   info: fmtUnit samples: ' + cases.map(([v, u]) => JSON.stringify(fmtUnit(v, u))).join(' '));
-  check('R6a a value >= 1000 in a "£k/..." unit prints one k suffix, not two ("£2.5kk")', !/kk/.test(fmtUnit(2500, '£k/MW/yr')), fmtUnit(2500, '£k/MW/yr'), {known: true});
+  check('R6a a value >= 1000 in a "£k/..." unit prints one k suffix, not two ("£2.5kk")', !/kk/.test(fmtUnit(2500, '£k/MW/yr')), fmtUnit(2500, '£k/MW/yr'));
   check('R6b tiny negative noise prints as 0 not "-0"', fmtUnit(-1e-10, '£k') === '£0k');
 }
 // ---------- R7. edges the text format can produce -----------------------------------------------
@@ -127,8 +127,8 @@ const T0 = 'merchant: 60..180\n';
   const warnOf = t => M(t).warnings;
   const p = M('merchant: 60..180\nfloor: 70 share 0.6\ntoll: 95 coffee 5\nfloor: 70 fee 5%\ninsure: 5 premium 6 attach 65');
   console.log('   info: "share 0.6" ->', p.structures[0].params.share, '| "toll: 95 coffee 5" ->', JSON.stringify(p.structures[1].params), '| "fee 5%" ->', p.structures[2].params.fee, '| insure with a stray leading number ->', JSON.stringify(p.structures[3].params));
-  check('R7a "share 0.6" (a fraction) is not read as 0.6 %', p.structures[0].params.share >= 0.5 || warnOf('merchant: 60..180\nfloor: 70 share 0.6').length > 0, `share=${p.structures[0].params.share}, warnings: ${JSON.stringify(warnOf('merchant: 60..180\nfloor: 70 share 0.6'))}`, {known: true});
-  check('R7b a word merely ending in "fee" ("coffee 5") is not parsed as a fee', p.structures[1].params.fee === 0, `fee=${p.structures[1].params.fee}`, {known: true});
+  check('R7a "share 0.6" (a fraction) is not read as 0.6 %', p.structures[0].params.share >= 0.5 || warnOf('merchant: 60..180\nfloor: 70 share 0.6').length > 0, `share=${p.structures[0].params.share}, warnings: ${JSON.stringify(warnOf('merchant: 60..180\nfloor: 70 share 0.6'))}`);
+  check('R7b a word merely ending in "fee" ("coffee 5") is not parsed as a fee', p.structures[1].params.fee === 0, `fee=${p.structures[1].params.fee}`);
   const neg = M('merchant: 60..180\ntoll: 95 fee -5\ninsure: premium -6 attach 65');
   console.log('   info: negative fee -> toll fee', neg.structures[0].params.fee, '(clamped silently); negative premium ->', neg.structures[1].params.premium, '(kept) warnings', JSON.stringify(neg.warnings));
   const z = (t) => { try{ const o = sim(t, {n: 2000}); return o.rows.every(r => Number.isFinite(r.p50) && r.ribbon.every(Number.isFinite)); }catch(e){ return 'threw ' + e.message; } };

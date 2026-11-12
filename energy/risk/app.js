@@ -38,8 +38,8 @@ insure: premium 6 attach 65 limit 30`},
 merchant: 60..180
 
 floor: 0 share 88% "Pure share 88/12"
-floor: 55 share 75% "Floor 55 + 75/25"
-toll: 92 "Fixed-fee equivalent"`},
+floor: 70 share 65% "Floor 70 + 65/35"
+toll: 96.7 "Fixed-fee equivalent"`},
   {name: 'Wind PPA floor', src:
 `title: Wind PPA — floor or merchant
 unit: £/MWh

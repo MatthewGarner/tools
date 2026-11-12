@@ -22,8 +22,9 @@ test('deterministic under seed; merchant quantiles track the 90% range', () => {
   const m = parse('merchant: 60..180\nfloor: 70');
   const a = simulate(m, {seed: 7}), b = simulate(m, {seed: 7});
   assert.deepEqual(a.rows[0].p50, b.rows[0].p50);
-  close(a.rows[0].p10, 60, 12, 'p10 near lo');   // p10 sits just inside the p5..p95 range
-  close(a.rows[0].p90, 180, 20, 'p90 near hi');
+  /* exact since the stratified grid (RISK-3): P10/P90 of the lognormal fitted to P5=60, P95=180 */
+  close(a.rows[0].p10, 67.74, 0.05, 'p10 closed form');
+  close(a.rows[0].p90, 159.43, 0.2, 'p90 closed form');
 });
 
 test('trade decomposition: identities hold and fees stay out of the risk terms', () => {
@@ -75,7 +76,7 @@ test('verdict: one sentence, quotable, tail-caveat when sensitive', () => {
   const s = simulate(parse('merchant: 60..180\nfloor: 70 share 60% fee 5'));
   const v = verdict(s.rows[1], '£k/MW/yr');
   assert.match(v, /The floor binds /);
-  assert.match(v, /upside/); assert.match(v, /fees/); assert.match(v, /worst-year/);
+  assert.match(v, /upside/); assert.match(v, /fees/); assert.match(v, /bad year \(P10\)/);
   const sens = simulate(parse('merchant: 20..400\nfloor: 60')).rows[1];
   if(sens.bind.sensitive) assert.match(verdict(sens, '£k/MW/yr'), /depending on tail shape/);
   assert.equal(verdict(s.rows[0], '£k/MW/yr'), null);
