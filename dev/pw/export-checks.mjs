@@ -83,7 +83,14 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     /* Register by outcome: the card travels with its group heading */
     if(style === 'register'){ const head = b.texts.filter(t => t.y < first.y && t.y > first.y - 90 && t.x <= first.x + 6).sort((p, q) => q.y - p.y)[0]; if(head) unit = first.y + first.h - (head.y - head.size); }
     if(laneBand){ const lane = String(first.key).split('|')[0]; const lead = []; for(const x of b.cards){ if(String(x.key).split('|')[0] !== lane) break; lead.push(x); } if(lead.length <= 3) unit = lead.reduce((n, x) => n + x.h, 0); }
-    if(unit + 12 + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
+    /* Board: the layout keeps one card gap above a card and one below it, so "would have fit" needs both. A flat 12 was
+       stricter than the layout and misfired on other fonts (CI: card 185, room 202, gap 16). The gap is read from the column. */
+    let pad = 12;
+    if(style === 'board'){
+      const gaps = [a, b].flatMap(s => { const col = s.cards.filter(x => Math.abs(x.x - first.x) < 2).sort((p, q) => p.y - q.y); return col.slice(1).map((x, n) => x.y - (col[n].y + col[n].h)); }).filter(g => g > 0);
+      if(gaps.length) pad = 2 * Math.min(...gaps);
+    }
+    if(unit + pad + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
   out.push({check: 'slides:closed-early', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 20)}, note: 'S2: a slide closed with room under its column for the first card of the next slide'});
   const thin = [];
