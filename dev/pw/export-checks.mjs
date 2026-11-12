@@ -78,8 +78,8 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     /* Timeline: a lane of three rows or fewer moves as one unit (F5), so the unit is the lane's leading rows */
     if(laneBand && String(first.key).split('|')[0] !== String(a.cards.at(-1)?.key).split('|')[0]) continue;   // F5 prefers a lane boundary to a fuller slide
     let unit = style === 'board' ? first.drawnBottom - first.y : first.h;
-    /* Board: if moving the card back would leave its column on the next slide with fewer than two cards, the column was balanced (S3) */
-    if(style === 'board'){ const same = b.cards.filter(x => Math.abs(x.x - first.x) < 2).length; if(same - 1 < 2) continue; }
+    /* Board: a column split evenly across slides, or left with under two cards on the next, was balanced (S3) */
+    if(style === 'board'){ const same = b.cards.filter(x => Math.abs(x.x - first.x) < 2).length, here = a.cards.filter(x => Math.abs(x.x - first.x) < 2).length; if(same - 1 < 2 || same <= here) continue; }   // or the column is split evenly (3 + 3): a balanced tail beats a fuller first slide
     /* Register by outcome: the card travels with its group heading */
     if(style === 'register'){ const head = b.texts.filter(t => t.y < first.y && t.y > first.y - 90 && t.x <= first.x + 6).sort((p, q) => q.y - p.y)[0]; if(head) unit = first.y + first.h - (head.y - head.size); }
     if(laneBand){ const lane = String(first.key).split('|')[0]; const lead = []; for(const x of b.cards){ if(String(x.key).split('|')[0] !== lane) break; lead.push(x); } if(lead.length <= 3) unit = lead.reduce((n, x) => n + x.h, 0); }
