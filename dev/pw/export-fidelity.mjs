@@ -4,7 +4,7 @@
    shared with the full release-time matrix, dev/pw/export-audit.mjs (every document, theme, view and format).
    Run from dev/pw with the server up (BASE), like the sibling suites. Every wait is bounded; a failure names the document,
    view and rule. Budget: 90 seconds at --jobs 3. */
-import {chromium} from 'playwright';
+import {chromium, webkit} from 'playwright';
 import {readFileSync, readdirSync, mkdtempSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -33,7 +33,11 @@ const TOOLS = {
 /* big documents get the views that stress the layout; the built-in examples get every view */
 const VIEWS_FOR = (tool, doc) => ['example', 'example-2', 'example-quarterly', 'minimal'].includes(doc) || ['long-text', 'every-feature'].includes(doc) ? TOOLS[tool].views : TOOLS[tool].views.slice(0, 2);
 
-const browser = await chromium.launch();
+/* EXPORT_BROWSER=webkit and EXPORT_VIEWPORT=375x812 re-run the same contract in Safari's engine and at phone width (U7 pass; not part of the gate) */
+const WEBKIT = process.env.EXPORT_BROWSER === 'webkit';
+const [VW, VH] = (process.env.EXPORT_VIEWPORT || '1280x800').split('x').map(Number);
+const PHONE = VW < 600;
+const browser = await (WEBKIT ? webkit : chromium).launch();
 const fail = [];
 
 async function ready(page){
@@ -93,8 +97,10 @@ async function checkDoc(page, tool, doc, theme){
   await openDoc(page, tool, source);
   const horizons = tool === 'roadmap' ? parseRoadmap(source).horizons : [];
   const title = tool === 'roadmap' ? parseRoadmap(source).title : '';
-  for(const view of VIEWS_FOR(tool, doc)){
-    await setView(page, tool, view);
+  /* at phone width the view picker is not offered: the document's own view is exported (the picture is independent of the window, E5) */
+  for(const wanted of PHONE ? [null] : VIEWS_FOR(tool, doc)){
+    if(wanted) await setView(page, tool, wanted);
+    const view = wanted || await page.evaluate(t => { const svg = document.querySelector('#preview svg'); return (t === 'roadmap' ? svg.dataset.chapterLayout : svg.dataset.direction) + (t === 'roadmap' && document.querySelector('#grouppicker [aria-pressed=true][data-group=outcome]') ? '+outcome' : ''); }, tool);
     /* ---- the picture (SVG download): E2 E3 E4 P1 P2 G1 A1-A5 */
     const file = await downloadFrom(page, '#dlsvg');
     const svg = readFileSync(file, 'utf8');
@@ -127,8 +133,8 @@ async function checkDoc(page, tool, doc, theme){
 try{
   /* ---- documents, light and dark */
   for(const theme of ['light', 'dark']){
-    const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, reducedMotion: 'reduce', acceptDownloads: true, colorScheme: theme});
-    await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(T).origin});
+    const ctx = await browser.newContext({viewport: {width: VW, height: VH}, reducedMotion: 'reduce', acceptDownloads: true, colorScheme: theme});
+    if(!WEBKIT) await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(T).origin});
     ctx.setDefaultTimeout(10000);
     const page = await ctx.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
@@ -142,8 +148,8 @@ try{
 
   /* ---- E5, E6, P3, P4, E7 on the real buttons */
   {
-    const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, reducedMotion: 'reduce', acceptDownloads: true});
-    await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(T).origin});
+    const ctx = await browser.newContext({viewport: {width: VW, height: VH}, reducedMotion: 'reduce', acceptDownloads: true});
+    if(!WEBKIT) await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(T).origin});
     const page = await ctx.newPage();
     for(const tool of Object.keys(TOOLS)){
       await openDoc(page, tool, load(tool, 'example'));
@@ -163,9 +169,9 @@ try{
       await page.evaluate(() => navigator.clipboard.writeText('')).catch(() => {});
       await page.locator('#copypng').click();
       await page.waitForFunction(() => /^Copied/.test(document.getElementById('copypng').textContent), null, {timeout: 8000}).catch(() => {});
-      const copied = await page.evaluate(async () => { const items = await navigator.clipboard.read(); for(const i of items) if(i.types.includes('image/png')){ const buf = new Uint8Array(await (await i.getType('image/png')).arrayBuffer()); return Array.from(buf.slice(0, 24)); } return null; });
+      const copied = WEBKIT ? 'unreadable' : await page.evaluate(async () => { const items = await navigator.clipboard.read(); for(const i of items) if(i.types.includes('image/png')){ const buf = new Uint8Array(await (await i.getType('image/png')).arrayBuffer()); return Array.from(buf.slice(0, 24)); } return null; });
       const dl = readFileSync(pngFile);
-      ok(`${tool}: Copy PNG is present and copies the picture Download PNG gives (P4), whatever the dialog last chose (E5)`, !!copied && Buffer.from(copied).readUInt32BE(16) === dl.readUInt32BE(16) && Buffer.from(copied).readUInt32BE(20) === dl.readUInt32BE(20) && !(await page.locator('#copypng').isHidden()));
+      ok(`${tool}: Copy PNG is present and copies the picture Download PNG gives (P4), whatever the dialog last chose (E5)`, !!copied && (copied === 'unreadable' || (Buffer.from(copied).readUInt32BE(16) === dl.readUInt32BE(16) && Buffer.from(copied).readUInt32BE(20) === dl.readUInt32BE(20))) && !(await page.locator('#copypng').isHidden()));   // WebKit: the clipboard cannot be read back by the harness, so only presence is checked
     }
     /* P3 + E7: a plan too large for 2x is saved at a lower scale and the status line says so and stays */
     await openDoc(page, 'roadmap', load('roadmap', 'dense-quarterly'));
@@ -183,7 +189,7 @@ try{
 
   /* ---- R1: print prints the artefact alone, light, whatever the page shows */
   {
-    const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, reducedMotion: 'reduce', colorScheme: 'dark'});
+    const ctx = await browser.newContext({viewport: {width: VW, height: VH}, reducedMotion: 'reduce', colorScheme: 'dark'});
     const page = await ctx.newPage();
     for(const tool of Object.keys(TOOLS)){
       await openDoc(page, tool, load(tool, 'dense'));

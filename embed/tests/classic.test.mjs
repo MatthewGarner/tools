@@ -12,7 +12,7 @@ const colors={card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg
 const context=(dark=false,width=390)=>({width,dark,theme:dark?'dark':'light',today:'2026-10-03',colors:{...colors,...dark?{card:'#1a1a19',bg:'#121212',ink:'#f1f1ee',muted:'#aaa',border:'#333'}:{}},measure:t=>String(t).length*7});
 for(const id of ids)test(id+' has a bounded native state, portable handoff and deterministic views',async()=>{
  const d=definitions[id],before=JSON.stringify(d.initialState);definitionMetadata(d);
- assert.equal(d.id,id);assert.equal(d.version,id==='flow'?2:1);
+ assert.equal(d.id,id);assert.equal(d.version,id==='flow'||['roadmap','timeline','case'].includes(id)?2:1);   // roadmap/timeline/case: v2 carries the export fixes; v1 stays frozen
  const s=validateState(d,d.initialState),href=fullToolURL(d,s);
  assert.deepEqual(await decodeHash(new URL(href).hash.slice(1)),s);
  const projected=d.project?d.project(s):undefined;
