@@ -40,6 +40,8 @@ export function printPages(svgText, doc = document){
   return pages;
 }
 
+import {stripEmbeddedFonts} from './chapter-fonts.js';
+
 export function wirePrintArtefact({getSvg}){
   let holder = null;
   addEventListener('beforeprint', () => {
@@ -48,7 +50,8 @@ export function wirePrintArtefact({getSvg}){
     if(!svg) return;
     holder = document.createElement('div');
     holder.id = 'print-artefact';
-    for(const page of printPages(svg)){
+    // the page's own CSS already carries the faces; a data: font inside the page would be refused by its CSP
+    for(const page of printPages(stripEmbeddedFonts(svg))){
       const sheet = document.createElement('div');
       sheet.className = 'print-page';
       sheet.appendChild(page);

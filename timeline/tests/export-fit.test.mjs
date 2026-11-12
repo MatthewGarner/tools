@@ -87,3 +87,13 @@ test('E3: every font-family ends in a generic family; the picture carries a titl
     assert.match(svg, /<title>Northstar<\/title><desc>/);
   }
 });
+
+test('register rows are tall enough for their wrapped date columns, at every scale', () => {
+  const src = 'today: 2026-09-05\n' + Array.from({length: 14}, (_, i) => `Lane ${i % 3}: Outcome ${i} 2026-10-1${i % 9} .. 2027-0${1 + i % 8}-2${i % 8}`).join('\n');
+  const deck = observatoryPages(parse('style: register\n' + src), ctx);
+  for(const page of deck.pages) for(const g of page.svg.matchAll(/<g data-field-item="[^"]*"[^>]*>([\s\S]*?)<\/g>/g)){
+    const rect = /<rect[^>]*\by="([\d.]+)"[^>]*height="([\d.]+)"/.exec(g[1]);
+    const bottom = +rect[1] + +rect[2];
+    for(const t of g[1].matchAll(/<text[^>]*\by="([\d.]+)"/g)) assert.ok(+t[1] <= bottom, `a text baseline ${t[1]} is below its row bottom ${bottom}`);
+  }
+});

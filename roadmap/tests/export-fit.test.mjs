@@ -66,3 +66,15 @@ test('S6: furniture carries the plan\'s own words and "2 of 4" only when there a
   });
   assert.match(out.pages[1].replace(/<[^>]+>/g, '|'), /Alpha, continued\|/);
 });
+
+test('S5: a comparison\'s dropped-work slides carry the same furniture as the set\'s own slides', () => {
+  for(const style of ['grid', 'focus', 'register']){
+    const m = {...parse('style: ' + style + '\ntitle: Lantern\nheadline: Retention first\nNow\n' + Array.from({length: 10}, (_, i) => `Core: Item ${i}`).join('\n')), style};
+    const out = renderChapterPages(m, {...ctx, diff: {since: 'Baseline', any: true, badge: () => null, dropped: ['Retired one', 'Retired two']}});
+    assert.ok(out.plan.pages.some(p => p.dropped) && out.pages.length > 1);
+    const kicker = svg => /<text\b[^>]*font-size="([\d.]+)"/.exec(svg)?.[1];   // the first text of the title block
+    const footer = svg => /<text x="([\d.]+)" y="[\d.]+"[^>]*text-anchor="end"/.exec(svg)?.[1];
+    assert.equal(new Set(out.pages.map(kicker)).size, 1, style + ': one kicker size');
+    assert.equal(new Set(out.pages.map(footer)).size, 1, style + ': one footer position');
+  }
+});

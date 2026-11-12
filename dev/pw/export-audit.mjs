@@ -18,6 +18,7 @@
    Flags
      --tool roadmap|timeline   --doc a,b (substring match)   --theme light|dark
      --view grid,board,...     --phase capture,analyse,sheets   --out <dir>
+     --browser chromium|webkit   --viewport 375x812   (default chromium 1280x800)
      --base http://host:port   (default: start our own dev/serve.mjs on a free port)
      --timeout 10000           default per-action bound in ms
 
@@ -31,7 +32,7 @@
      <out>/findings/<tool>--<doc>.json         one record per artefact per check
      <out>/findings.json                       all of the above merged
      <out>/sheets/…                            contact sheets                   */
-import {chromium} from 'playwright';
+import {chromium, webkit} from 'playwright';
 import {deflateRawSync, inflateRawSync} from 'node:zlib';
 import {readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync, rmSync} from 'node:fs';
 import {join, dirname, resolve, basename} from 'node:path';
@@ -149,8 +150,8 @@ async function diffPngInPage(args){
     const cv = new OffscreenCanvas(bm.width, bm.height), g = cv.getContext('2d', {willReadFrequently: true}); g.drawImage(bm, 0, 0);
     return {w: bm.width, h: bm.height, d: g.getImageData(0, 0, bm.width, bm.height).data}; };
   const A = await load(a64), B = await load(b64);
-  /* a one-pixel difference is the rounding of a fractional scale; compare the common area */
-  if(Math.abs(A.w - B.w) > 1 || Math.abs(A.h - B.h) > 1) return {sizeMismatch: true, a: [A.w, A.h], b: [B.w, B.h]};
+  /* a one- or two-pixel difference is the rounding of a fractional scale; compare the common area */
+  if(Math.abs(A.w - B.w) > 2 || Math.abs(A.h - B.h) > 2) return {sizeMismatch: true, a: [A.w, A.h], b: [B.w, B.h]};
   const CW = Math.min(A.w, B.w), CH = Math.min(A.h, B.h);
   const T = 32, tw = Math.ceil(CW / T), th = Math.ceil(CH / T);
   const tiles = new Uint32Array(tw * th);
@@ -232,7 +233,10 @@ async function composeSheetInPage(spec){
 }
 
 /* -------------------------------------------------------------- browser plumbing */
-async function launch(){ return chromium.launch(); }
+/* --browser chromium|webkit and --viewport WxH (e.g. 375x812: a phone, touch) re-run the same captures and checks */
+const BROWSER = arg('browser', 'chromium');
+const [VW, VH] = String(arg('viewport', '1280x800')).split('x').map(Number);
+async function launch(){ return (BROWSER === 'webkit' ? webkit : chromium).launch(); }
 async function withRetry(browserRef, label, fn){
   for(let attempt = 1; attempt <= 2; attempt++){
     try{ return await fn(browserRef.browser); }
@@ -248,8 +252,8 @@ async function withRetry(browserRef, label, fn){
   }
 }
 async function newAppContext(browser, base, theme, {dsf = 1} = {}){
-  const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, deviceScaleFactor: dsf, reducedMotion: 'reduce', acceptDownloads: true, colorScheme: theme});
-  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(base).origin});
+  const ctx = await browser.newContext({viewport: {width: VW, height: VH}, deviceScaleFactor: dsf, reducedMotion: 'reduce', acceptDownloads: true, colorScheme: theme, ...(VW < 600 ? {isMobile: true, hasTouch: true} : {})});
+  if(BROWSER !== 'webkit') await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], {origin: new URL(base).origin});   // WebKit has no such permission: its clipboard reads may fail, and the audit records that
   await ctx.clock.setFixedTime(FIXED_NOW);
   return ctx;
 }
@@ -916,7 +920,7 @@ function mirrorAndMarkdown(ctx, tool, doc, theme, state, source){
     /* markdown: every title present */
     const md = state.md.get(view);
     if(md){
-      const mdN = normText(md);
+      const mdN = normText(md.replace(/&mdash;/g, '—').replace(/&amp;mdash;/g, '&mdash;'));   // a literal dash in a title is written as an entity (M2)
       const miss = itemTitles.filter(t => !mdN.includes(t));
       const bullets = tool === 'roadmap' ? md.split('\n').filter(l => /^- /.test(l)).length : null;
       findings.add({...base, format: 'markdown', artefact: `raw/${tool}/${doc}/${theme}/${slug(view)}/copy.md`, check: 'markdown:titles', pass: miss.length === 0 && (bullets === null || bullets === parsed.items.length),
@@ -972,8 +976,10 @@ function compareModels(a, b, tool){
     ? ['title', 'headline', 'story', 'verdict', 'dateStr', 'horizons', 'wip', 'style', 'focus', 'group', 'palette', 'accent', 'font', 'timeAxis', 'fade', 'basis']
     : ['title', 'verdict', 'style', 'palette', 'accent', 'font', 'today'];
   const diffs = [];
-  for(const f of fields) if(JSON.stringify(a[f] ?? null) !== JSON.stringify(b[f] ?? null)) diffs.push({field: f, before: a[f] ?? null, after: b[f] ?? null});
-  const ik = i => JSON.stringify([i.lane, i.h, i.title, i.note, i.status, i.url, i.span, i.declaredSpan, i.bet, i.cond]);
+  /* source line numbers move when lines are added; basis is an editor setting the Markdown copy need not carry (M1) */
+  const plain = v => JSON.stringify(v ?? null, (k, x) => k === 'srcLine' ? undefined : x);
+  for(const f of fields) if(plain(a[f]) !== plain(b[f]) && !(f === 'basis' && b[f] == null)) diffs.push({field: f, before: a[f] ?? null, after: b[f] ?? null});
+  const ik = i => JSON.stringify([i.lane, i.h, i.title, i.note, i.status, i.url, i.span, i.declaredSpan, i.bet, i.cond], (k, v) => k === 'srcLine' ? undefined : v);
   const A = a.items.map(ik), B = b.items.map(ik);
   if(A.length !== B.length) diffs.push({field: 'items.length', before: A.length, after: B.length});
   /* Markdown regroups items by horizon then lane, so compare as multisets and report order separately */

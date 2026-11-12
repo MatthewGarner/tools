@@ -66,7 +66,9 @@ export function layoutChapter(model, ctx = {}){
   const rightPad = phone ? 20 : style === 'grid' ? margin - 14 : style === 'register' ? margin : 48;
   const inner = width - margin - rightPad;
   const gap = phone ? 24 : 36;
-  const compactSlide=ctx.slide && (ctx.sourceModel || model).items.length > 8;
+  // Density is a property of the whole plan, so every slide of a set (including a comparison's dropped-work slides) agrees on it.
+  const planItems = ctx.compactItems ?? (ctx.sourceModel || model).items.length;
+  const compactSlide=ctx.slide && planItems > 8;
   // One scale per slide set (ctx.scale): the body type and its spacing scale together, while the
   // title block and footer keep the base sizes, so furniture never moves between slides.
   const k = ctx.slide ? ctx.scale || 1 : 1;
@@ -80,7 +82,7 @@ export function layoutChapter(model, ctx = {}){
   const headingSize = q(phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section);
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
-  const dense = (ctx.sourceModel || model).items.length > 8;
+  const dense = planItems > 8;
   // Dense exports use the reviewed 20/16/14 type floor and tighter framing.
   // These sizes are fixed: pagination never shrinks text to force a fit.
   const compactGrid=compactSlide && style==='grid';

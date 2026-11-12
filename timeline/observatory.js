@@ -24,6 +24,8 @@ const date=(it,end='p50')=>fmtDay(it[end],{month:(it.rawDates||'').split(/\s*(?:
 const finish=it=>it.status==='fixed'?`${date(it)} · Fixed`:it.status==='done'?`${date(it)} · Done`:it.single?`${date(it)} · Range needed`:date(it)===date(it,'p90')?`Finish ${date(it)}`:`Finish ${date(it)} – ${date(it,'p90')}`;
 const signed=days=>`${days>0?'+':'−'}${Math.abs(days)} ${Math.abs(days)===1?'day':'days'}`;
 
+// The register's two date columns; their wrapped height is part of the row.
+const p90Label=it=>it.single?it.status==='fixed'?'Fixed':it.status==='done'?'Done':'Range needed':date(it,'p90');
 function state(it,today){return it.status==='fixed'&&it.p50<today?'OVERDUE':it.status==='risk'?'RISK':it.ghost?'DROPPED':'';}
 function block(value,w,size,type,measure,{weight=400,family=type.body,kind='text'}={}){
   const lines=wrapText(String(value||''),font(family,size,weight),Math.max(20,w),measure);
@@ -131,7 +133,9 @@ export function layoutObservatory(model,ctx={},diff=null,{intent,edit=false,entr
     let by=sp(slide?6:14);
     for(const b of actual){b.y=by;by+=b.lines.length*b.step+(slide?sp(2):b.kind==='label'?5:3);}
     const graph=phone?42:0;
-    const h=Math.max(slide?sp(48):72,by+sp(slide?6:14)+graph);
+    let regH=0;
+    if(register)for(const v of [date(it),p90Label(it)]){const b=block(v,dateW-14,noteSize,type,measure);regH=Math.max(regH,18+b.lines.length*b.step+sp(slide?6:14));}
+    const h=Math.max(slide?sp(48):72,by+sp(slide?6:14)+graph,regH);
     const row={it,blocks:actual,x:M,y,w:inner,h,cy:phone?y+h-24:y+h/2,clock};rows.push(row);y+=h;
   }
   if(!source.length){const b=block('Add your first milestone to begin.',inner,size,type,measure);header.push({...b,x:M,y});y+=70;}
@@ -217,7 +221,7 @@ function paint(model,L,ctx,diff,page){
       const x=L.M+L.rail,dy=row.y+18;
       const value=block(date(it),L.dateW-14,L.noteSize,L.type,L.measure);
       s.push(paintBlock(value,x,dy,C.muted));
-      s.push(paintBlock(block(it.single?it.status==='fixed'?'Fixed':it.status==='done'?'Done':'Range needed':date(it,'p90'),L.dateW-14,L.noteSize,L.type,L.measure),x+L.dateW,dy,C.muted));
+      s.push(paintBlock(block(p90Label(it),L.dateW-14,L.noteSize,L.type,L.measure),x+L.dateW,dy,C.muted));
     }
     if(L.phone)s.push(line(todayX,row.cy-12,todayX,row.cy+12,C.accent));
     s.push(`<g pointer-events="none">${drawMarks(it,row,L,C,diff)}</g>`);

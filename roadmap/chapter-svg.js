@@ -95,7 +95,7 @@ export function renderChapter(model,ctx={}){
   }
   const fy=layout.footerY;
   const rail=layout.panels.find(p=>p.role==='rail');
-  const footerW=(rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
+  const footerW=ctx.footerRight ?? (rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
   // Footer: left says which part of the plan this slide shows, right says "2 of 4". A single slide has neither.
   const small={family:layout.type.body,size:layout.phone?12:15,step:20,weight:400};
   const many=ctx.page?.total>1;
@@ -170,7 +170,7 @@ export function renderChapterPages(model,ctx={}){
 }
 
 function buildPlan(model,content,style,ctx,scale){
-  const layoutFor=(pageModel,windowSize)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model,scale,windowSize});
+  const layoutFor=(pageModel,windowSize)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model,scale,windowSize,compactItems:model.items.length});
   let horizonsPerPage=['grid','board'].includes(style)?4:style==='register'?model.horizons.length:3;
   if(style==='board'){
     // Quiet five-column plans may fit at the same type floor. Dense plans
@@ -210,11 +210,15 @@ function buildPlan(model,content,style,ctx,scale){
   let pages=base.pages;
   if(dropped.length){
     const dm={...model,style:'board',horizons:['Changed work'],lanes:[''],items:dropped.map((title,index)=>({title,lane:'',h:0,span:1,status:null,note:'',srcLine:-1-index,export:{dropped:true}}))};
-    const dp=exportPages(dm,{pageUnits:1000000,style:'board',pageGeometryFits:(items)=>layoutChapter({...dm,items},{...ctx,slide:true,width:1440,sourceModel:dm,scale}).fits});
+    const dp=exportPages(dm,{pageUnits:1000000,style:'board',pageGeometryFits:(items)=>layoutChapter({...dm,items},{...ctx,slide:true,width:1440,sourceModel:dm,scale,compactItems:model.items.length}).fits});
     pages=[...pages,...dp.pages.map(p=>({...p,dropped:true,comparisonItemIndices:p.sourceItemIndices,sourceItemIndices:[]}))];
   }
   const plan={...base,scale,comparisonSourceItemCount:dropped.length,pages:pages.map((p,index)=>({...p,index,total:pages.length}))};
   plan.pages=plan.pages.map(p=>({...p,scope:scopeOptions(p,plan.pages.filter(q=>!q.dropped),style)}));
-  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize}));
+  // Furniture agrees across the set: a comparison's dropped-work slides are laid out as a board, but their footer sits where the set's own slides put it.
+  const first=plan.pages.find(p=>!p.dropped);
+  const ref=first&&layoutFor(first.model,plan.windowSize),refRail=ref?.panels.find(p=>p.role==='rail');
+  const footerRight=ref?(refRail?refRail.x:1440)-48:undefined;
+  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize,compactItems:model.items.length,...(page.dropped?{footerRight}:{})}));
   return {plan,pages:rendered,complete:exportPageCoverage(plan).complete,scale};
 }
