@@ -667,7 +667,7 @@ export function printProbe(){
     const body = [vb(bodySvg).y, vb(bodySvg).y + vb(bodySvg).height];
     const total = vb(root).height;
     const rows = [...bodySvg.querySelectorAll('[data-key],[data-field-item]')].map(g => { const b = g.getBBox(); return [b.y, b.y + b.height]; }).filter(([t, b]) => t >= body[0] - .5 && b <= body[1] + .5);
-    const headings = [...bodySvg.querySelectorAll('[data-lane-heading]')].map(g => { const b = g.getBBox(), t = +g.getAttribute('data-lane-top'); return {top: Number.isFinite(t) ? t : b.y, bottom: b.y + b.height, name: g.getAttribute('data-lane-heading')}; });
+    const headings = [...bodySvg.querySelectorAll('[data-lane-heading]')].map(g => { const b = g.getBBox(), t = parseFloat(g.getAttribute('data-lane-top')); return {top: Number.isFinite(t) ? t : b.y, bottom: b.y + b.height, name: g.getAttribute('data-lane-heading')}; });
     const cont = root.querySelector('[data-continued]');
     const slivers = [];
     for(const el of bodySvg.querySelectorAll('line,rect,circle,ellipse,path,polygon,polyline')){
