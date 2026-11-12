@@ -25,7 +25,7 @@ export function slideGeometry(svg){
   }
   const texts = [];
   for(const m of svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g))
-    texts.push({x: num(m[1], 'x'), y: num(m[1], 'y'), size: num(m[1], 'font-size'), text: unesc(m[2]), anchor: attr(m[1], 'text-anchor')});
+    texts.push({x: num(m[1], 'x'), y: num(m[1], 'y'), size: num(m[1], 'font-size'), text: unesc(m[2]), anchor: attr(m[1], 'text-anchor'), weight: attr(m[1], 'font-weight')});
   const minY = cards.length ? Math.min(...cards.map(c => c.y)) : 0;
   const bodyTop = num(head, 'data-body-top', Math.max(0, minY - 30));
   const bodyBottom = num(head, 'data-body-bottom', vb[3] - 60);
@@ -118,7 +118,7 @@ export function checkFurniture(slides, {furniture = [], windowKey = s => s.cards
       const isFooter = /^(Page )?\d+ of \d+$/.test(t.text);
       if(!names.has(t.text.trim()) && !isFooter) continue;
       const k = isFooter ? 'footer-right' : t.text.trim();
-      const pos = [r1(t.y), t.size, isFooter ? r1(t.x) : null];
+      const pos = [r1(t.y), t.size, null];   // the page number's x depends on whether the slide has a rail: slides:page-number-edge covers it
       if(!first.has(k)) first.set(k, {pos, slide: i + 1});
       else { const f = first.get(k); if(f.pos[0] !== pos[0] || f.pos[1] !== pos[1] || f.pos[2] !== pos[2]) moved.push({text: k.slice(0, 40), slide: i + 1, vs: f.slide, y: [f.pos[0], pos[0]], size: [f.pos[1], pos[1]]}); }
     }
@@ -184,6 +184,20 @@ export function checkBoardFlow(slides, {horizons = []}){
   return [{check: 'slides:board-flow', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'F3: slide k shows the k-th page of every column; no column is empty while it has cards on a later slide'}];
 }
 
+/* H1: "2 of 3" ends at the right content edge of its slide: never left of the rightmost card, which on a slide with no rail is the edge the rules end on. */
+export function checkPageNumber(slides, svgs = []){
+  const bad = [];
+  slides.forEach((s, i) => {
+    const n = s.texts.find(t => t.anchor === 'end' && /^\d+ of \d+$/.test(t.text));
+    if(!n || !s.cards.length) return;
+    // a slide with a rail (a full-height panel to the right of x = 400) puts its number left of the rail by design
+    if([...(svgs[i] || '').matchAll(/<rect\b([^>]*)>/g)].some(m => num(m[1], 'x', 0) > 400 && num(m[1], 'y', 1) === 0 && num(m[1], 'height', 0) >= s.vbH - 1)) return;
+    const right = Math.max(...s.cards.map(c => c.x + c.w));
+    if(right - n.x > 6) bad.push({slide: i + 1, numberEdge: r1(n.x), contentEdge: r1(right)});
+  });
+  return [{check: 'slides:page-number-edge', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'H1: the page number is right-aligned to the content edge of its slide'}];
+}
+
 /* F5/F6/F7 on Timeline slides */
 export function checkTimelineSlides(slides, svgs, {style} = {}){
   const out = [];
@@ -192,6 +206,19 @@ export function checkTimelineSlides(slides, svgs, {style} = {}){
   const bad = [];
   for(const [lane, per] of lanes){ const at = [...per.keys()].sort((a, b) => a - b); if(at.length > 1) at.forEach((i, n) => { if(per.get(i) < 2) bad.push({lane, slide: i + 1, rows: per.get(i)}); }); }
   out.push({check: 'slides:lane-split', pass: style === 'decisions' || bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'F5: a lane split across slides leaves at least two rows on each side'});
+  if(style === 'register'){
+    const off = [];
+    slides.forEach((s, i) => {
+      const head = s.texts.find(t => t.text === 'P50');
+      if(!head) return;
+      const labels = s.texts.filter(t => t.weight === '500' && t.x < head.x);
+      for(const d of s.texts.filter(t => t.x === head.x && t.y > head.y && /^\d{1,2} [A-Z][a-z]{2} \d{4}$/.test(t.text))){
+        const near = labels.filter(l => Math.abs(l.y - d.y) < 30).sort((a, b) => Math.abs(a.y - d.y) - Math.abs(b.y - d.y))[0];
+        if(near && Math.abs(near.y - d.y) > 1) off.push({slide: i + 1, date: d.text, dateBaseline: r1(d.y), titleBaseline: r1(near.y)});
+      }
+    });
+    out.push({check: 'slides:register-baseline', pass: off.length === 0, values: {count: off.length, hits: off.slice(0, 8)}, note: 'H2: a register date shares the milestone title baseline'});
+  }
   const wrapped = [];
   slides.forEach((s, i) => { const ts = s.texts; for(let k = 0; k + 1 < ts.length; k++) if(/^\d{1,2}$/.test(ts[k].text) && /^[A-Z][a-z]{2} \d{4}$/.test(ts[k + 1].text) && Math.abs(ts[k].x - ts[k + 1].x) < 1 && ts[k + 1].y > ts[k].y && ts[k + 1].y - ts[k].y < ts[k].size * 1.6) wrapped.push({slide: i + 1, date: ts[k].text + ' ' + ts[k + 1].text}); });
   out.push({check: 'slides:date-never-wraps', pass: wrapped.length === 0, values: {count: wrapped.length, hits: wrapped.slice(0, 8)}, note: 'F6: a date in a P50/P90 column is one line'});
@@ -207,7 +234,7 @@ export function checkTimelineSlides(slides, svgs, {style} = {}){
 
 export function checkSlideSet(svgs, opts = {}){
   const slides = svgs.map(slideGeometry);
-  const out = [...checkSplits(slides), ...checkFill(slides, opts), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides), ...checkContinued(slides)];
+  const out = [...checkSplits(slides), ...checkFill(slides, opts), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides), ...checkContinued(slides), ...checkPageNumber(slides, svgs)];
   if(opts.tool === 'timeline') out.push(...checkTimelineSlides(slides, svgs, opts));
   if(opts.tool === 'roadmap' && opts.style === 'grid') out.push(...checkGridPlan(slides, opts));
   if(opts.tool === 'roadmap' && opts.style === 'board') out.push(...checkBoardFlow(slides, opts), ...checkGridPlan(slides, {horizons: opts.horizons, lanes: []}).filter(c => c.check === 'slides:columns-whole'));
@@ -622,4 +649,70 @@ export function checkTimelineAxis(svg){
   const same = [...svg.matchAll(/(\d{1,2} [A-Z][a-z]{2} \d{4}) \u2013 \1(?!\d)/g)].map(m => m[0]);
   out.push({check: 'axis:same-day-range', pass: same.length === 0, values: {hits: same.slice(0, 5)}, note: 'A4: a range that starts and ends on one day prints one date'});
   return out;
+}
+
+
+/* ---- Print sheets (H4, H5, H6): read from the sheets the browser prints, in print media, after beforeprint. ---- */
+
+/* Runs in the page (page.evaluate): what each printed sheet shows. */
+export function printProbe(){
+  const sheets = [];
+  for(const sheet of document.querySelectorAll('#print-artefact .print-page')){
+    const root = sheet.firstElementChild;
+    const nested = root.querySelector('svg');
+    const leaves = nested ? [...root.querySelectorAll('svg')] : [root];
+    // a later sheet is a wrapper of nested svgs: the repeated header first (when there is one), the body slice last
+    const bodySvg = leaves.at(-1), headerSvg = leaves.length > 1 ? leaves[0] : null;
+    const vb = s => s.viewBox.baseVal;
+    const body = [vb(bodySvg).y, vb(bodySvg).y + vb(bodySvg).height];
+    const total = vb(root).height;
+    const rows = [...bodySvg.querySelectorAll('[data-key],[data-field-item]')].map(g => { const b = g.getBBox(); return [b.y, b.y + b.height]; }).filter(([t, b]) => t >= body[0] - .5 && b <= body[1] + .5);
+    const headings = [...bodySvg.querySelectorAll('[data-lane-heading]')].map(g => { const b = g.getBBox(), t = +g.getAttribute('data-lane-top'); return {top: Number.isFinite(t) ? t : b.y, bottom: b.y + b.height, name: g.getAttribute('data-lane-heading')}; });
+    const cont = root.querySelector('[data-continued]');
+    const slivers = [];
+    for(const el of bodySvg.querySelectorAll('line,rect,circle,ellipse,path,polygon,polyline')){
+      if(el.closest('[data-key],[data-field-item],[data-lane-heading]')) continue;
+      const b = el.getBBox();
+      const over = Math.min(b.y + b.height, body[1]) - Math.max(b.y, body[0]);
+      const crossing = b.y < body[0] - .01 || b.y + b.height > body[1] + .01;
+      if(crossing && over > .4 && over < 12 && !(b.width > vb(root).width * .9 && b.height > 100)) slivers.push({tag: el.tagName, top: Math.round(b.y * 10) / 10, bottom: Math.round((b.y + b.height) * 10) / 10});
+    }
+    sheets.push({vbW: vb(root).width, header: headerSvg ? [vb(headerSvg).y, vb(headerSvg).y + vb(headerSvg).height] : null,
+      headerH: headerSvg ? vb(headerSvg).height : 0, contH: total ? Math.max(0, total - (headerSvg ? vb(headerSvg).height : 0) - (body[1] - body[0])) : 0,
+      contLabel: cont ? cont.textContent.replace(/\s+/g, ' ').trim() : null, body, rows, headings, slivers});
+  }
+  return sheets;
+}
+
+/* A4 landscape less the stylesheet's margins is 277 x 190mm (0.686); the breaker uses 0.68 and so does this. */
+const PAPER_RATIO = .68, TRAIL = 12;
+
+export function checkPrintSheets(sheets, {ratio = PAPER_RATIO} = {}){
+  const early = [], neighbours = [], unnamed = [];
+  const all = sheets.flatMap(s => s.headings);
+  sheets.forEach((s, i) => {
+    const used = s.headerH + s.contH + (s.body[1] - s.body[0]);
+    const next = sheets[i + 1];
+    if(next && next.rows.length){
+      const topOf = Math.min(...next.rows.map(r => r[0]));
+      const first = next.rows.filter(r => Math.abs(r[0] - topOf) < 1);
+      const need = Math.max(...first.map(r => r[1])) + TRAIL - s.body[0] + s.headerH + s.contH;
+      const onlyRowLeft = i + 1 === sheets.length - 1 && first.length === next.rows.length;   // taking it would leave the legend alone on the last sheet
+      if(!onlyRowLeft && need <= ratio * s.vbW - .5 && first.every(r => r[1] - r[0] < ratio * s.vbW - s.headerH)) early.push({sheet: i + 1, usedOf: Math.round(ratio * s.vbW), used: Math.round(used), nextRowFitsWithin: Math.round(need)});
+    }
+    if(i > 0){
+      const tops = [...s.rows.map(r => r[0]), ...s.headings.filter(h => h.top >= s.body[0] - 1).map(h => h.top)];
+      const firstTop = tops.length ? Math.min(...tops) : s.body[0];
+      if(firstTop - s.body[0] > 1) neighbours.push({sheet: i + 1, emptyAboveFirstRow: Math.round((firstTop - s.body[0]) * 10) / 10});
+      const own = all.some(h => Math.abs(h.top - s.body[0]) < 1);
+      const prev = all.filter(h => h.top < s.body[0] - .5).at(-1);
+      if(!own && prev && prev.name && !(s.contLabel && s.contLabel.toLowerCase().includes((prev.name + ' (continued)').toLowerCase()))) unnamed.push({sheet: i + 1, lane: prev.name, label: s.contLabel});
+    }
+    if(s.slivers.length) neighbours.push({sheet: i + 1, slivers: s.slivers.slice(0, 4)});
+  });
+  return [
+    {check: 'print:no-early-close', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 6)}, note: 'H4: a sheet is not closed while the next row fits (A4 landscape body)'},
+    {check: 'print:no-neighbour-slivers', pass: neighbours.length === 0, values: {count: neighbours.length, hits: neighbours.slice(0, 6)}, note: 'H5: a sheet shows nothing of a row that is not on it'},
+    {check: 'print:lane-continued-named', pass: unnamed.length === 0, values: {count: unnamed.length, hits: unnamed.slice(0, 6)}, note: 'H6: a lane that continues on a later sheet is named again, with (continued)'},
+  ];
 }

@@ -75,7 +75,9 @@ test('S5: a comparison\'s dropped-work slides carry the same furniture as the se
     const kicker = svg => /<text\b[^>]*font-size="([\d.]+)"/.exec(svg)?.[1];   // the first text of the title block
     const footer = svg => /<text x="([\d.]+)" y="[\d.]+"[^>]*text-anchor="end"/.exec(svg)?.[1];
     assert.equal(new Set(out.pages.map(kicker)).size, 1, style + ': one kicker size');
-    assert.equal(new Set(out.pages.map(footer)).size, 1, style + ': one footer position');
+    // a slide with a rail keeps its number left of the rail (H1); the dropped-work slides agree with the set's first slide
+    const droppedAt = out.plan.pages.findIndex(p => p.dropped);
+    assert.equal(footer(out.pages[droppedAt]), footer(out.pages[0]), style + ': the dropped-work slide puts its footer where the first slide does');
   }
 });
 
@@ -128,4 +130,14 @@ test('F4: Grid keeps plan order, shows up to five horizons whole, and leaves no 
     assert.deepEqual(order, plan.filter(l => order.includes(l)), 'lanes in plan order');
     assert.ok(out.plan.pages.every(p => !p.orphan), 'no thin slide in the set');
   }
+});
+
+import {checkSlideSet} from '../../dev/pw/export-checks.mjs';
+
+test('H1: the page number of a rail-less Focus slide ends at the content edge, where the row rules end', () => {
+  const out = renderChapterPages({...fixture('example'), style: 'focus'}, ctx);
+  const r = checkSlideSet(out.pages, {tool: 'roadmap', style: 'focus'}).find(c => c.check === 'slides:page-number-edge');
+  assert.ok(r.pass, JSON.stringify(r.values));
+  const last = out.pages.at(-1);
+  assert.match(last, /<text[^>]*x="1392"[^>]*text-anchor="end"[^>]*>2 of 2<\/text>/, 'right-aligned at the right content edge');
 });

@@ -10,7 +10,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {deflateRawSync} from 'node:zlib';
 import {report, tally} from './_harness.mjs';
-import {checkGeometry, measureSvgInPage, checkSelfContained, checkPicture, checkSlideSet, checkTimelineAxis, checkPngScale} from './export-checks.mjs';
+import {checkGeometry, measureSvgInPage, checkSelfContained, checkPicture, checkSlideSet, checkTimelineAxis, checkPngScale, printProbe, checkPrintSheets} from './export-checks.mjs';
 import {parse as parseRoadmap} from '../../roadmap/parse.js';
 import {roadmapToMarkdown, markdownToRoadmapDsl} from '../../roadmap/markdown.js';
 
@@ -92,7 +92,6 @@ const stripFonts = svg => svg.replace(/<style\b[^>]*data-chapter-fonts="embedded
 /* Named, reasoned exceptions: a rule the layout cannot meet on that document in that view, reported by the suite and read by the
    reviewer. Nothing is exempt by default; each entry says what was measured. */
 const KNOWN = [
-  {where: 'timeline/every-feature/light/register', check: 'slides:lane-split', why: 'Launch (4 rows) cannot be kept whole or split 2+2 in two slides, and a third slide would leave 2 unlaned rows alone (a thin slide); one issue either way'},
   {where: 'timeline/long-text/light/decisions', check: 'slides:orphans', why: 'slide 1 is one very tall decision card (40% of the body) and the next card does not fit beside it'},
   {where: 'timeline/long-text/dark/decisions', check: 'slides:orphans', why: 'as the light theme'},
 ];
@@ -201,8 +200,9 @@ try{
   {
     const ctx = await browser.newContext({viewport: {width: VW, height: VH}, reducedMotion: 'reduce', colorScheme: 'dark'});
     const page = await ctx.newPage();
-    for(const tool of Object.keys(TOOLS)){
-      await openDoc(page, tool, load(tool, 'dense'));
+    for(const [tool, doc] of Object.keys(TOOLS).flatMap(t => [[t, 'dense'], [t, 'long-text']])){
+      const label = doc === 'dense' ? tool : `${tool} ${doc}`;
+      await openDoc(page, tool, load(tool, doc));
       await page.emulateMedia({media: 'print'});
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       const info = await page.evaluate(() => {
@@ -227,15 +227,23 @@ try{
           light: /<rect x="0" y="0"[^>]*fill="#F6F3ED"/i.test(document.querySelector('#print-artefact svg')?.outerHTML || ''), cut, rowsPer,
           tall: ratios.some(r => r > .66 + .001), narrowest: Math.min(...widths)};
       });
-      ok(`${tool}: print shows the artefact alone, in the light theme, in sheets that fit (R1)`, info.pages >= 1 && info.shown.join() === 'print-artefact' && info.light && !info.tall, JSON.stringify(info));
+      ok(`${label}: print shows the artefact alone, in the light theme, in sheets that fit (R1)`, info.pages >= 1 && info.shown.join() === 'print-artefact' && info.light && !info.tall, JSON.stringify(info));
+      const probed = await page.evaluate(printProbe);
+      if(process.env.PRINT_DEBUG) console.log('PRINTDEBUG', label, JSON.stringify(probed.map(s => ({body: s.body, rows: [...new Set(s.rows.map(r => r.join('-')))]}))));
       // page.pdf exists in Chromium only; elsewhere the sheet count stands in
       const pdf = WEBKIT ? null : (await page.pdf({landscape: true, preferCSSPageSize: true, printBackground: true})).toString('latin1');
       const pdfPages = pdf === null ? info.pages : (pdf.match(/\/Type\s*\/Page\b/g) || []).length;
-      ok(`${tool}: no row is cut by a page break, the last sheet is not just the legend, a short artefact is shrunk onto one sheet, and the PDF has one page per sheet (F8)`,
+      ok(`${label}: no row is cut by a page break, the last sheet is not just the legend, a short artefact is shrunk onto one sheet, and the PDF has one page per sheet (F8)`,
         info.cut.length === 0 && (info.pages === 1 ? info.narrowest >= .69 : info.rowsPer.at(-1) >= 1) && pdfPages === info.pages, JSON.stringify({...info, pdfPages}));
+      for(const r of checkPrintSheets(probed)) ok(`${label}: ${r.note} (${r.check})`, r.pass, JSON.stringify(r.values));
+      if(!WEBKIT){   // the same sheets on real A4 paper (277 x 190mm of body): one PDF page per sheet
+        const a4 = (await page.pdf({format: 'A4', landscape: true, printBackground: true, margin: {top: '10mm', right: '10mm', bottom: '10mm', left: '10mm'}})).toString('latin1');
+        const a4Pages = (a4.match(/\/Type\s*\/Page\b/g) || []).length;
+        ok(`${label}: on A4 paper the PDF has one page per sheet (H4)`, a4Pages === info.pages, JSON.stringify({a4Pages, sheets: info.pages}));
+      }
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
       await page.emulateMedia({media: 'screen'});
-      ok(`${tool}: afterprint puts the page back`, await page.locator('#print-artefact').count() === 0);
+      ok(`${label}: afterprint puts the page back`, await page.locator('#print-artefact').count() === 0);
     }
     await ctx.close();
   }

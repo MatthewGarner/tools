@@ -149,7 +149,8 @@ export function layoutObservatory(model,ctx={},diff=null,{intent,edit=false,entr
     for(const b of actual){b.y=by;by+=b.lines.length*b.step+(slide?sp(2):b.kind==='label'?5:3);}
     const graph=phone?42:0;
     let regH=0;
-    if(register)for(const v of [date(it),p90Label(it)]){const b=block(v,dateW-14,noteSize,type,measure);regH=Math.max(regH,18+b.lines.length*b.step+sp(slide?6:14));}
+    const lab0=actual.find(b=>b.kind==='label')||actual[0],dateOff=lab0?lab0.y+lab0.size-noteSize:18;
+    if(register)for(const v of [date(it),p90Label(it)]){const b=block(v,dateW-14,noteSize,type,measure);regH=Math.max(regH,dateOff+b.lines.length*b.step+sp(slide?6:14));}
     const h=Math.max(slide?sp(48):72,by+sp(slide?6:14)+graph,regH);
     const row={it,blocks:actual,x:M,y,w:inner,h,cy:phone?y+h-24:y+h/2,clock};rows.push(row);y+=h;
   }
@@ -220,7 +221,7 @@ function paint(model,L,ctx,diff,page){
   const todayX=X(L.today);s.push(line(todayX,L.todayY+6,todayX,L.phone?L.top-2:L.bodyBottom,C.accent,{'data-today':''}));
   const todayLabel='Today · '+fmtDay(L.today).replace(/ \d{4}$/,'');
   s.push(text(Math.max(L.plotX,Math.min(L.W-L.M-L.measure(todayLabel,font(L.type.body,L.meta)),todayX+6)),L.todayY,todayLabel,L.meta,C.accent,{'data-axis':'today'}));
-  for(const g of L.sections){s.push(rect(L.M,g.y,L.inner,g.h,C.band,{'data-lane':g.lane}),line(L.M,g.y,L.W-L.M,g.y,C.border),line(L.M,g.y+g.h,L.W-L.M,g.y+g.h,C.border),paintBlock(g.b,L.M+12,g.y+10,C.muted));if(L.edit)s.push(addRoute(g.lane,L,C,g.y));}
+  for(const g of L.sections){s.push(`<g data-lane-heading="${e(g.lane)}" data-lane-top="${n(g.y)}">`,rect(L.M,g.y,L.inner,g.h,C.band,{'data-lane':g.lane}),line(L.M,g.y,L.W-L.M,g.y,C.border),line(L.M,g.y+g.h,L.W-L.M,g.y+g.h,C.border),paintBlock(g.b,L.M+12,g.y+10,C.muted),'</g>');if(L.edit)s.push(addRoute(g.lane,L,C,g.y));}
   for(const row of L.rows){
     const it=row.it,k=key(it),selected=ctx.selectedKey===k&&!it.ghost;
     const timing=it.status==='fixed'?'fixed':it.status==='done'?'completed':'forecast';
@@ -233,7 +234,8 @@ function paint(model,L,ctx,diff,page){
       s.push(paintBlock(b,row.x+8,row.y+b.y,b.kind==='label'?C.ink:C.muted,extra));
     }
     if(L.register){
-      const x=L.M+L.rail,dy=row.y+18;
+      // a date shares the baseline of the milestone's title
+      const lab=row.blocks.find(b=>b.kind==='label')||row.blocks[0],x=L.M+L.rail,dy=lab?row.y+lab.y+lab.size-L.noteSize:row.y+18;
       const value=block(date(it),L.dateW-14,L.noteSize,L.type,L.measure);
       s.push(paintBlock(value,x,dy,C.muted));
       s.push(paintBlock(block(p90Label(it),L.dateW-14,L.noteSize,L.type,L.measure),x+L.dateW,dy,C.muted));
@@ -365,8 +367,10 @@ export function observatoryPages(model,ctx={},diff=null){
       let b=0;for(let k=0;k<B.length&&laneOf(B[k])===laneOf(lb);k++)b++;
       if(a<2||b<2)issues++;
     }
-    drafts.forEach(items=>{if(drafts.length>1&&thin(items))issues++;issues+=layout(items).overwraps;});
-    return {pages,complete:pages.every(p=>p.complete),scale,issues};
+    // A lane split or a thin slide is a hard issue; a line that wraps on the slide but not in the picture is soft.
+    let soft=0;
+    drafts.forEach(items=>{if(drafts.length>1&&thin(items))issues++;soft+=layout(items).overwraps;});
+    return {pages,complete:pages.every(p=>p.complete),scale,issues:issues+soft,hard:issues};
   };
   // One scale per set: the fewest slides reachable in 0.88 to 1.35, then the largest type that keeps them.
   const cache=new Map(),at=i=>{if(!cache.has(i))cache.set(i,build(Math.round((SCALE_MIN+i*SCALE_STEP)*100)/100));return cache.get(i);};
@@ -381,6 +385,8 @@ export function observatoryPages(model,ctx={},diff=null){
   // Scale is chosen after the lane and slide rules: the largest scale that keeps the slide count and leaves no issue.
   if(at(lo).issues>0){
     for(let i=lo-1;i>=0;i--)if(count(at(i))<=target&&at(i).issues===0)return at(i);
+    // H3: a lane split or thin slide goes before a soft rewrap: the largest scale that keeps the slide count and splits no lane badly.
+    if(at(lo).hard>0)for(let i=lo-1;i>=0;i--)if(count(at(i))<=target&&at(i).hard===0)return at(i);
     // No scale cures it in that many slides: one more slide is better than a broken lane (F5), at the largest clean scale.
     for(let i=steps;i>=0;i--)if(count(at(i))<=target+1&&at(i).issues===0)return at(i);
   }

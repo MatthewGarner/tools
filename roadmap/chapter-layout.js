@@ -351,7 +351,7 @@ export function layoutChapter(model, ctx = {}){
     const laneLabelRows=[];   // a long lane name sits across the columns, so the column rules stop short of it
     for(const lane of lanes){
       const top=y, tracks=[];
-      if(lane && longLanes){const label=text(lane,inner,18,{weight:500});sections.push({name:lane,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true});laneLabelRows.push([y,y+label.lines.length*label.step+8]);y+=label.lines.length*label.step+18;}
+      if(lane && longLanes){const label=text(lane,inner,18,{weight:500});sections.push({name:lane,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true,lane,laneTop:top});laneLabelRows.push([y,y+label.lines.length*label.step+8]);y+=label.lines.length*label.step+18;}
       const items=model.items.filter(i=>i.lane===lane).slice().sort((a,b)=>a.h-b.h||a.srcLine-b.srcLine);
       for(const item of items){
         const span=Math.max(1,Math.min(item.span||1,model.horizons.length-item.h));
@@ -361,7 +361,7 @@ export function layoutChapter(model, ctx = {}){
       }
       for(const track of tracks){for(const row of track.rows){row.y=y;row.h=track.height;rows.push(row);} y+=track.height+(compactGrid?4:8);}
       y=Math.max(y,top+80);
-      if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
+      if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,lane,laneTop:top,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
       for(const h of allIndices)dropzones.push({x:gx+h*cw,y:top,w:cw,h:y-top,horizon:h,lane});
       if(lane)panels.push({x:margin-14,y:top+6,w:3,h:Math.max(44,y-top-12),role:'accent'});
       y+=addSpace;lines.push({x:margin-14,y,x2:width-rightPad,y2:y});y+=10;

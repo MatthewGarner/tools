@@ -140,3 +140,21 @@ test('F2: "continued" sits on the lane that began on an earlier slide', () => {
   const deck = observatoryPages({...doc('uneven'), style: 'field'}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
   deck.pages.forEach((p, i) => { const f = p.svg.match(/<text[^>]*data-axis="scope"[^>]*>([^<]*)<\/text>/)?.[1] || ''; assert.doesNotMatch(f, /, continued/); if(i === 0) assert.doesNotMatch(f, /continued/); });
 });
+
+import {checkSlideSet} from '../../dev/pw/export-checks.mjs';
+
+test('H2: on a register slide a date shares the baseline of its milestone title', () => {
+  for(const name of ['example', 'every-feature']){
+    const deck = observatoryPages({...doc(name), style: 'register'}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
+    const r = checkSlideSet(deck.pages.map(p => p.svg), {tool: 'timeline', style: 'register'}).find(c => c.check === 'slides:register-baseline');
+    assert.ok(r.pass, name + ' ' + JSON.stringify(r.values));
+  }
+});
+
+test('H3: every-feature as a register splits no lane 1 + n: the scale comes down instead', () => {
+  const deck = observatoryPages({...doc('every-feature'), style: 'register'}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
+  const per = rowsPerLane(deck);
+  const at = per.map((n, i) => n.has('launch') ? i : -1).filter(i => i >= 0);
+  assert.ok(at.length === 1 || at.every(i => per[i].get('launch') >= 2), 'launch rows per slide: ' + per.map(n => n.get('launch') || 0));
+  assert.ok(deck.scale >= .88, 'the scale stays in range: ' + deck.scale);   // the real-font case (2 slides at 0.91) is the gate's: its KNOWN exception for this set is gone
+});

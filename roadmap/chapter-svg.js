@@ -51,9 +51,12 @@ export function renderChapter(model,ctx={}){
     const ink=section.rail?C.railInk:C[section.role]||C.ink;
     const extra=ctx.edit&&section.lens?{'data-lens':section.name,role:'button',tabindex:0,'aria-label':'Focus on '+section.name}:{};
     if(extra['data-lens'])s.push(`<g${attrs(extra)}>${rect(section.x,section.y,section.w,Math.max(44,section.label.lines.length*section.label.step),'transparent')}`);
+    // a lane's heading is marked so print can keep it with its first row and name the lane again where it continues on a later sheet
+    if(section.lane)s.push(`<g data-lane-heading="${e(section.lane)}" data-lane-top="${Math.round((section.laneTop??section.y)*10)/10}">`);
     s.push(blockSvg(section.label,section.x,section.y,ink));
     if(extra['data-lens'])s.push('</g>');
     if(section.hint)s.push(blockSvg(section.hint,section.x,section.y+section.label.lines.length*section.label.step+4,ink));
+    if(section.lane)s.push('</g>');
     if(!section.small && layout.style!=='grid')s.push(rule(section.x,section.y+section.h-12,section.x+section.w,section.y+section.h-12,section.rail?mix(C.rail,C.railInk,.3):C.border));
   }
   for(const row of layout.rows){
@@ -102,7 +105,9 @@ export function renderChapter(model,ctx={}){
   const where=many?pickScope(ctx.page.scope,footerW-M-110,ctx.measure,small):'';
   const detail=[ctx.titlesOnly?'Titles only':'',where].filter(Boolean).join(' · ');
   if(detail)s.push(blockSvg({...small,lines:[detail]},M,fy-15,C.muted));
-  if(many)s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':small.size,fill:C.muted,'text-anchor':'end'})}>${e(`${ctx.page.index+1} of ${ctx.page.total}`)}</text>`);
+  // a slide with no rail ends its page number at the right content edge, where the rules end; with a rail it stays left of the rail
+  const numberX=ctx.numberRight??(layout.railXFurniture!=null&&!rail?W-M:footerW);
+  if(many)s.push(`<text${attrs({x:numberX,y:fy,'font-family':layout.type.body,'font-size':small.size,fill:C.muted,'text-anchor':'end'})}>${e(`${ctx.page.index+1} of ${ctx.page.total}`)}</text>`);
   s.push('</svg>');return s.join('');
 }
 
@@ -216,6 +221,7 @@ function buildPlan(model,content,style,ctx,scale){
   const first=plan.pages.find(p=>!p.dropped);
   const ref=first&&layoutFor(first.model,plan.windowSize),refRail=ref?.panels.find(p=>p.role==='rail');
   const footerRight=ref?(ref.railXFurniture ?? (refRail?refRail.x:1440))-48:undefined;
-  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize,compactItems:model.items.length,...(page.dropped?{footerRight}:{})}));
+  const numberRight=ref&&!refRail&&ref.railXFurniture!=null?1440-48:undefined;   // the set's own slides end the number at the content edge when they have no rail
+  const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize,compactItems:model.items.length,...(page.dropped?{footerRight,numberRight}:{})}));
   return {plan,pages:rendered,complete:exportPageCoverage(plan).complete,scale};
 }
