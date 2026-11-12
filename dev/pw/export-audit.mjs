@@ -37,6 +37,7 @@ import {readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSyn
 import {join, dirname, resolve, basename} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {startServer} from './session.mjs';
+import {checkSlideSet} from './export-checks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -1142,7 +1143,7 @@ async function analyseView(ctx, m, state){
     state.decks.push({view, name, dir: dirD, rec: d});
     const pageFiles = (d.zipEntries || []).filter(e => /\.png$/.test(e.name));
     if(d.pageCount && pageFiles.length !== d.pageCount) rec('deck', null, 'deck:page-count', {pass: false, values: {deck: name, dialogPages: d.pageCount, downloadedPages: pageFiles.length}, note: 'slides shown in the dialog vs files in the download'});
-    const pngs = [];
+    const pngs = [], domSvgs = [];
     for(let i = 0; i < pageFiles.length; i++){
       const pf = pageFiles[i], p = join(dirD, pf.name);
       const buf = readFileSync(p), stats = await pngStats(lab, buf);
@@ -1153,6 +1154,7 @@ async function analyseView(ctx, m, state){
       if(mm){ w = +mm[1]; h = +mm[2]; }
       recs('deck-page-png', `${name}/${pf.name}`, pngChecks(stats, {svgW: w, svgH: h, kind: 'deck'}));
       pngs.push({name: pf.name, stats});
+      if(dom) domSvgs.push(dom);
       if(dom){
         const refKey = `${dirD}|${i}`;
         const refBuf = await rasteriseInline(browser, base, tool, dom, w, h, theme).catch(() => null);
@@ -1175,6 +1177,11 @@ async function analyseView(ctx, m, state){
         const sd = await pngDiff(lab, cp, buf);
         rec('deck-page-png', `${name}/${d.slideCopyFile}`, 'slide-copy-equals-download-page-1', {pass: sd.sizeMismatch ? false : sd.diffPixels === 0, values: {byteIdentical: Buffer.compare(cp, buf) === 0, copyBytes: cp.length, pageBytes: buf.length, ...sd}, note: 'Copy slide PNG (clipboard) vs the same page in the downloaded set, pixel comparison'});
       }
+    }
+    /* set-level checks (S1-S6): the whole slide set, as the dialog showed it */
+    if(domSvgs.length && domSvgs.length === pageFiles.length){
+      const furniture = [state.parsed?.title, ...(state.parsed?.horizons || [])].filter(Boolean);
+      for(const c of checkSlideSet(domSvgs, {furniture})) rec('deck', `${name}`, c.check, {pass: c.pass, values: c.values, note: c.note});
     }
   }
   /* ---- on-screen vs export, per view */
