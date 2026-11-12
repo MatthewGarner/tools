@@ -37,13 +37,20 @@ test('prefix routes emit both an exact trailing-slash row and a :path* row', () 
   assert.ok(sources.includes('/cycles/') && sources.includes('/cycles/:path*'));
 });
 
-test('tools origin redirects /energy/* (including the bare slash form)', () => {
+/* `:path*` does not match `/energy/risk/`, and every link the catalogue emits on the
+   tools origin ends in a slash (toolHref), so each energy page needs its own exact
+   trailing-slash row or the page is served unrewritten on the wrong origin. */
+test('tools origin redirects /energy/* (including every trailing-slash page URL)', () => {
   const reds = (vercel.redirects || []).filter(r => r.source.startsWith('/energy'));
-  assert.deepEqual(reds.map(r => r.source).sort(), ['/energy/', '/energy/:path*']);
+  const pages = energyRedirectSources().map(s => '/energy' + s + '/');
+  assert.deepEqual(reds.map(r => r.source).sort(), ['/energy/', '/energy/:path*', ...pages].sort());
   for(const r of reds){
     assert.deepEqual(r.has, [{type: 'host', value: 'tools.matthewgarner.me'}]);
     assert.ok(r.destination.startsWith('https://' + ENERGY_HOST + '/'));
   }
+  for(const page of pages)
+    assert.equal(reds.find(r => r.source === page).destination, 'https://' + ENERGY_HOST + page.slice('/energy'.length));
+  assert.ok(reds.findIndex(r => r.source === pages[0]) < reds.findIndex(r => r.source === '/energy/:path*'));
 });
 
 test('energy tool paths redirect bare → trailing-slash (no-slash asset-404 bug)', () => {
