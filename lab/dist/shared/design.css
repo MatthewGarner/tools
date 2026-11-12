@@ -81,3 +81,17 @@ dialog::backdrop{background:color-mix(in srgb,var(--shadow-ink) 48%,transparent)
 
 /* Icon spans are not count badges; keep their primary-button contrast. */
 .button.primary>span[aria-hidden]{background:transparent;color:inherit}
+
+/* Phones: every control has a hit area of at least 44x44. These are floors (min-*, !important so a
+   route's own min-height cannot lower them); routes keep their sizing above it. Checked per page by
+   dev/pw/lab-phone.mjs. Desktop is untouched. */
+@media(max-width:640px){
+ :where(button,select,summary,[role=button],[role=tab],[data-drag-handle],.button,.btn,input:not([type=checkbox],[type=radio],[type=hidden],[type=file])){min-height:44px!important}
+ /* Compact controls (icon buttons carry an aria-label; handles, steppers, add/edit marks) get a width floor too.
+    min-width replaces a flex item's automatic minimum (its content width), so these do not shrink. Text
+    buttons are left alone: they are wide enough, and the floor would let a flex row squeeze their label. */
+ :where(button[aria-label],[role=button][aria-label],[role=tab],[data-drag-handle],.drag-handle,.add-button,.edit-axis,.step-number,.btn.small){min-width:44px!important;flex-shrink:0}
+ :where(summary){align-content:center}
+ :where(input[type=file]){min-height:44px!important;padding-block:9px}
+ :where(label:has(>input[type=checkbox],>input[type=radio])){display:inline-flex;align-items:center;gap:8px;min-height:44px!important}
+}

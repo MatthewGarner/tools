@@ -1,6 +1,6 @@
 import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
 await prepareArticleModel('exploration','thinking-lab:exploration:v1');
-import { mountShell } from '../shared/shell.js?v=0.22.0';
+import { mountShell } from '../shared/shell.js?v=0.26.0';
 import { downloadText, readStore, writeStore } from '../shared/utils.js?v=0.24.0';
 import { WEEKS, SCENARIOS, defaultPlan, normalizePlan, normalizeAssumptions, simulate } from './engine.js?v=0.21.0';
 mountShell({ active: 'exploration', label: 'M03', title: 'Exploration versus delivery' });

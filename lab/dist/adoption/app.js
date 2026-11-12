@@ -1,6 +1,6 @@
 import {prepareArticleModel,readArticleRaw} from '../shared/article-import.js';
 await prepareArticleModel('adoption','thinking-lab:adoption:v1');
-import {mountShell} from '../shared/shell.js?v=0.22.0';
+import {mountShell} from '../shared/shell.js?v=0.26.0';
 import {escapeHtml as e,writeStore,downloadText} from '../shared/utils.js?v=0.24.0';
 import {lineChart} from '../model-kit/chart.js?v=0.21.0';
 import {create,simulate,assess,edges,OFFSETS,stateAt} from './engine.js?v=0.21.0';
