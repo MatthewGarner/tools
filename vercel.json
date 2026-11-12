@@ -349,6 +349,61 @@
       "permanent": false
     },
     {
+      "source": "/energy/risk/",
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
+      "destination": "https://energy.matthewgarner.me/risk/",
+      "permanent": false
+    },
+    {
+      "source": "/energy/cycles/",
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
+      "destination": "https://energy.matthewgarner.me/cycles/",
+      "permanent": false
+    },
+    {
+      "source": "/energy/frequency/",
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
+      "destination": "https://energy.matthewgarner.me/frequency/",
+      "permanent": false
+    },
+    {
+      "source": "/energy/merit-order/",
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
+      "destination": "https://energy.matthewgarner.me/merit-order/",
+      "permanent": false
+    },
+    {
+      "source": "/energy/intraday/",
+      "has": [
+        {
+          "type": "host",
+          "value": "tools.matthewgarner.me"
+        }
+      ],
+      "destination": "https://energy.matthewgarner.me/intraday/",
+      "permanent": false
+    },
+    {
       "source": "/energy/:path*",
       "has": [
         {
