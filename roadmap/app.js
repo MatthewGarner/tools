@@ -31,6 +31,7 @@ import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
 import {roadmapConditionalityHealth} from './handoff-paths.js';
 import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
+import {wirePrintArtefact} from '../assets/print-artefact.js';
 import {resolveBoardWindow, boardCapacityFor} from './board-window.js';
 import {layoutRoadmap} from './layout.js';
 import {inspectionFacts, inspectionIdentity} from './inspect-item.js';
@@ -821,10 +822,11 @@ provide({
 /* ---------- exports ---------- */
 /* Download SVG/PNG and Copy PNG are one picture: the current STYLE's plain, content-sized artefact
    (WYSIWYG), independent of phone reflow, the window and the slide dialog. Slides live in the dialog. */
-function plainStyleSvg(){
+function plainStyleSvg({dark = isDark()} = {}){
   if(!model || !model.items.length || !chapterFontsReady()) return null;
-  return embedChapterFonts(renderChapter(model,{measure,diff:makeDiff(model),dark:isDark(),today:todayISO()}));
+  return embedChapterFonts(renderChapter(model,{measure,diff:makeDiff(model),dark,today:todayISO()}));
 }
+wirePrintArtefact({getSvg: () => plainStyleSvg({dark: false})});   // R1: print is the light artefact alone
 
 /* A compact source stays a single, style-faithful 16:9 slide. A genuinely dense
    roadmap earns a complete slide set, available through the exact export preview. */
@@ -1026,7 +1028,11 @@ $('importgo').addEventListener('click', () => {
   if(!dsl.trim()) return;
   $('importbox').classList.remove('open');
   $('importarea').value = '';
-  editor.setText(dsl);
+  /* A Markdown copy does not carry the editor's own settings (wip, fade): an import keeps the ones already set,
+     and basis too when the pasted copy has none. */
+  const have = key => new RegExp('^' + key + '\\s*:', 'im').test(dsl);
+  const kept = editor.getText().split('\n').filter(line => /^(wip|fade|basis)\s*:/i.test(line.trim()) && !have(line.trim().split(':')[0].toLowerCase()));
+  editor.setText([...kept, dsl].join('\n'));
 });
 
 /* ---------- drag-and-drop: a drop is a text edit ---------- */

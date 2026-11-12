@@ -60,3 +60,14 @@ test('Register metadata shares its title baseline', () => {
   assert.ok(title && meta);
   assert.equal(meta.y, title.y, 'workstream baseline equals the title baseline');
 });
+
+test('E3: every font-family ends in a generic family; the picture carries a title and a description', () => {
+  for(const font of ['Chapter', 'DM Sans']){
+    const svg = renderChapter({...parse('title: Lantern\nheadline: Retention first\nfont: ' + font + '\nNow\nCore: One -- note'), style: 'grid'}, ctx);
+    const stacks = [...svg.matchAll(/font-family="([^"]+)"/g)].map(m => m[1]);
+    assert.ok(stacks.length > 3);
+    for(const stack of stacks) assert.match(stack, /, (sans-serif|serif)$/, stack);
+    assert.match(svg, /<title>Lantern<\/title>/);
+    assert.match(svg, /<desc>Retention first<\/desc>/);
+  }
+});

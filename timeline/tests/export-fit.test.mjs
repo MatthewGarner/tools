@@ -79,3 +79,11 @@ test('S4: a short timeline is composed up to fill its slide', () => {
   assert.ok(deck.scale > 1.2, 'scale ' + deck.scale);
   assert.doesNotMatch(deck.pages[0].svg, />1 of 1</);
 });
+
+test('E3: every font-family ends in a generic family; the picture carries a title and a description', () => {
+  for(const intent of ['native', 'presentation']){
+    const svg = render(parse('title: Northstar\ntoday: 2026-09-05\nA 2026-10 .. 2026-12'), {...ctx, intent});
+    for(const m of svg.matchAll(/font-family="([^"]+)"/g)) assert.match(m[1], /, (sans-serif|serif)$/, m[1]);
+    assert.match(svg, /<title>Northstar<\/title><desc>/);
+  }
+});

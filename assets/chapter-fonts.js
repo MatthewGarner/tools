@@ -13,6 +13,9 @@ export const FONT_FACES = Object.freeze([
   {family: 'Instrument Serif', weight: '400', file: 'instrument-serif-latin.woff2', unicodeRange: LATIN},
 ].map(Object.freeze));
 
+// An SVG's font-family always ends in a generic family, so a viewer without the embedded face still falls back sensibly.
+export const fontStack = family => /,/.test(family) ? family : `${family}, ${/serif/i.test(family) && !/sans/i.test(family) ? 'serif' : 'sans-serif'}`;
+
 export function resolveTypography(model = {}) {
   return Object.hasOwn(TYPOGRAPHIES, model.font) ? TYPOGRAPHIES[model.font] : TYPOGRAPHIES.Chapter;
 }

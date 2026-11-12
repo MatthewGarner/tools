@@ -7,7 +7,7 @@ import {previewableBet} from './cond-parts.js';
 
 const e = value => esc(String(value ?? ''));
 const n = value => Math.round(value * 100) / 100;
-const attrs = values => Object.entries(values).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(v)}"`).join('');
+const attrs = values => Object.entries(values).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(k==='font-family'?fontStack(v):v)}"`).join('');
 const rect = (x,y,w,h,fill,more={}) => `<rect${attrs({x:n(x),y:n(y),width:n(w),height:n(h),fill,...more})}/>`;
 // A hairline sits on n + .5 so it is one crisp pixel at 1x.
 const snap = v => Math.floor(v) + .5;
@@ -16,6 +16,7 @@ const rule = (x,y,x2,y2,stroke) => {
   return `<line${attrs({x1:n(vertical?snap(x):x),y1:n(horizontal?snap(y):y),x2:n(vertical?snap(x2):x2),y2:n(horizontal?snap(y2):y2),stroke,'stroke-width':1})}/>`;
 };
 import {chapterColors} from '../assets/chapter-colors.js';
+import {fontStack} from '../assets/chapter-fonts.js';
 export {chapterColors, chapterContrast} from '../assets/chapter-colors.js';
 function blockSvg(block,x,y,fill,extra={}){
   return block.lines.map((line,index)=>`<text${attrs({x:n(x),y:n(y+block.size+index*block.step),'font-family':block.family,'font-size':block.size,'font-weight':block.weight,fill,...(index===0?extra:{})})}>${e(line)}</text>`).join('');
@@ -29,6 +30,8 @@ function pickScope(options,room,measure,small){
   const width=t=>(measure||((text,font)=>String(text).length*small.size*.53))(t,`${small.weight} ${small.size}px "${small.family}"`);
   return list.find(t=>width(t)<=room)||list.at(-1)||'';
 }
+// The projection's provenance in words, for the picture's own description.
+const basisSummary=basis=>basis?['Delivery projection from Paths: '+basis.source,...['answered','assumed'].filter(k=>(basis[k]||[]).length).map(k=>(k==='answered'?'Known: ':'Assumed: ')+basis[k].map(x=>`${x.key} = ${x.direction} (${x.date})`).join('; '))].join('. '):'';
 export function renderChapter(model,ctx={}){
   const layout=ctx.layout || layoutChapter(model,ctx),C=chapterColors(model,ctx);
   const {width:W,height:H,margin:M}=layout;
@@ -36,7 +39,7 @@ export function renderChapter(model,ctx={}){
   const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null,
     'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
     `<title>${e(model.title||'Roadmap')}</title>`,
-    `<desc>${e(model.headline||'')} ${e(model.basis?JSON.stringify(model.basis):'')}</desc>`,rect(0,0,W,H,C.bg)];
+    `<desc>${e([model.headline,model.story,basisSummary(model.basis)].filter(Boolean).join(' — ')||model.title||'Roadmap')}</desc>`,rect(0,0,W,H,C.bg)];
   for(const p of layout.panels)s.push(rect(p.x,p.y,p.w,p.h,C[p.role]));
   for(const l of layout.lines)s.push(rule(l.x,l.y,l.x2,l.y2,C[l.role]||C.border));
   if(ctx.edit)for(const z of layout.dropzones){

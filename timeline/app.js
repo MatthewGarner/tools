@@ -16,6 +16,7 @@ import {handoffReturnHref} from '../assets/handoff.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {observatoryPages, observatoryColors} from './observatory.js';
+import {wirePrintArtefact} from '../assets/print-artefact.js';
 import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
 import {stripEmbeddedFonts} from '../assets/chapter-fonts.js';
 import {createSlideZip} from '../assets/export-zip.js';
@@ -85,8 +86,8 @@ function currentDiff(){
 function ctx(intent){
   return {colors: themeColors(), measure, intent, dark: isDark(), today: todayDay(), selectedKey};
 }
-function activeRender(intent, edit = false, width){
-  return render(model, {...ctx(intent),...(width?{width}:{})}, currentDiff(), {edit,intent});
+function activeRender(intent, edit = false, width, dark){
+  return render(model, {...ctx(intent),...(width?{width}:{}),...(dark!==undefined?{dark}:{})}, currentDiff(), {edit,intent});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -239,9 +240,10 @@ const startFrom = ex => editor.setText(ex.src);
 provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 /* ---------- exports ---------- */
-function svgString(intent){
-  return model && chapterFontsReady() ? embedChapterFonts(activeRender(intent, false)) : null;
+function svgString(intent, dark){
+  return model && chapterFontsReady() ? embedChapterFonts(activeRender(intent, false, undefined, dark)) : null;
 }
+wirePrintArtefact({getSvg: () => model?.items.length ? svgString('native', false) : null});   // R1: print is the light artefact alone
 function slug(){ return slugify(model.title, 'timeline'); }
 function deckSet(){
   if(!model || !chapterFontsReady()) return null;

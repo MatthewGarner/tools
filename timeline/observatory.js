@@ -3,7 +3,7 @@
 import {esc, wrapText, btnAttrs} from '../assets/svg.js';
 import {mix} from '../assets/series.js';
 import {chapterColors} from '../assets/chapter-colors.js';
-import {resolveTypography} from '../assets/chapter-fonts.js';
+import {resolveTypography,fontStack} from '../assets/chapter-fonts.js';
 import {fmtDay, dayToISO} from './parse.js';
 import {timingFacts} from './timing.js';
 import {decisionLead, leadReceipt, leadDuration} from './lrm.js';
@@ -11,7 +11,7 @@ import {decisionLead, leadReceipt, leadDuration} from './lrm.js';
 const DAY=86400000;
 const e=v=>esc(String(v??''));
 const n=v=>Math.round(v*100)/100;
-const attrs=o=>Object.entries(o).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(v)}"`).join('');
+const attrs=o=>Object.entries(o).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(k==='font-family'?fontStack(v):v)}"`).join('');
 const rect=(x,y,w,h,fill,extra={})=>`<rect${attrs({...extra,x:n(x),y:n(y),width:n(w),height:n(h),fill})}/>`;
 const line=(x,y,x2,y2,stroke,extra={})=>`<line${attrs({...extra,x1:n(x),y1:n(y),x2:n(x2),y2:n(y2),stroke,'stroke-width':extra['stroke-width']||1})}/>`;
 const circle=(x,y,r,fill,extra={})=>`<circle${attrs({...extra,cx:n(x),cy:n(y),r,fill})}/>`;
@@ -191,7 +191,7 @@ function addRoute(lane,L,C,y){return `<g data-add-control="" data-edit="additem"
 function paint(model,L,ctx,diff,page){
   const C=observatoryColors(model,ctx),s=[];
   const root={'data-field':'timeline','data-direction':L.style,'data-body-top':L.slide?n(L.top):null,'data-body-bottom':L.slide?n(L.bodyLimit):null,'data-content-bottom':L.slide?n(L.bodyEnd):null,'data-scale':L.slide?n(L.scale):null,'data-intent':L.slide?'presentation':L.phone?'live-narrow':ctx.intent||'live-wide','data-field-palette':model.palette,'data-field-accent':model.accent,'data-font':model.font||'Chapter','data-font-floor':L.slide?22:14,'data-min-readable-scale':1,'data-narrow':L.phone?'':null,'data-native':ctx.intent==='native'?'':null,'data-copy-field':L.slide?'complete':null,'data-domain-lo':L.domain.lo,'data-domain-hi':L.domain.hi};
-  s.push(`<svg xmlns="http://www.w3.org/2000/svg"${attrs({...root,width:L.W,height:L.H,viewBox:`0 0 ${L.W} ${L.H}`,'font-family':L.type.body})}><title>${e(model.title||'Timeline')}</title>`,rect(0,0,L.W,L.H,C.bg));
+  s.push(`<svg xmlns="http://www.w3.org/2000/svg"${attrs({...root,width:L.W,height:L.H,viewBox:`0 0 ${L.W} ${L.H}`,'font-family':L.type.body})}><title>${e(model.title||'Timeline')}</title><desc>${e(model.verdict&&model.verdict.toLowerCase()!=='off'?model.verdict:model.title||'Timeline')}</desc>`,rect(0,0,L.W,L.H,C.bg));
   s.push(text(L.M,L.M+4,'Timeline / '+L.style[0].toUpperCase()+L.style.slice(1),L.meta,C.muted));
   for(const b of L.header)s.push(paintBlock(b,b.x,b.y,b.kind==='title'?C.ink:C.muted));
   const X=d=>L.plotX+(d-L.domain.lo)/(L.domain.hi-L.domain.lo)*L.plotW;
@@ -249,7 +249,7 @@ function paint(model,L,ctx,diff,page){
 }
 function refusal(model,ctx,reason='This forecast needs more than one slide. Export the complete deck or native SVG.'){
   const C=observatoryColors(model,ctx),type=resolveTypography(model);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-field="timeline" data-intent="presentation" data-copy-field="unavailable" font-family="${e(type.body)}">${rect(0,0,1920,1080,C.bg)}${text(64,100,'Copy PNG needs a complete single slide',38,C.ink)}${text(64,160,reason,24,C.muted)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-field="timeline" data-intent="presentation" data-copy-field="unavailable" font-family="${e(fontStack(type.body))}">${rect(0,0,1920,1080,C.bg)}${text(64,100,'Copy PNG needs a complete single slide',38,C.ink)}${text(64,160,reason,24,C.muted)}</svg>`;
 }
 export function renderObservatory(model,ctx={},diff=null,{edit=false,intent}={}){
   const L=layoutObservatory(model,ctx,diff,{edit,intent});

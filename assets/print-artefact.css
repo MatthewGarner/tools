@@ -1,0 +1,9 @@
+/* Print: the artefact alone (assets/print-artefact.js builds #print-artefact on beforeprint). */
+@page{size:landscape;margin:10mm}
+@media print{
+  html,body{background:#fff!important;color:#000}
+  body>*:not(#print-artefact){display:none!important}
+  #print-artefact{display:block}
+  .print-page{break-after:page;break-inside:avoid;page-break-after:always}
+  .print-page:last-child{break-after:auto;page-break-after:auto}
+}

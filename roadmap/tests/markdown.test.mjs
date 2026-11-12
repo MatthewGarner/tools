@@ -55,8 +55,8 @@ test('markdown export never emits a non-http(s) item URL from a malformed model'
   assert.doesNotMatch(roadmapToMarkdown(model), /javascript:/i);
 });
 
-test('story is exported only when the caller says a comparison is active', () => {
+test('the story is always exported, so importing the copy returns it (M1)', () => {
   const model = parse('story: What changed\nNOW\nCore: A');
-  assert.doesNotMatch(roadmapToMarkdown(model), /^> /m);
+  assert.match(roadmapToMarkdown(model), /^> What changed$/m);
   assert.match(roadmapToMarkdown(model, {includeStory: true}), /^> What changed$/m);
 });
