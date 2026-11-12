@@ -74,6 +74,7 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (first.h + 8);
     if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 2) continue;
     /* Timeline: a lane of three rows or fewer moves as one unit (F5), so the unit is the lane's leading rows */
+    if(laneBand && String(first.key).split('|')[0] !== String(a.cards.at(-1)?.key).split('|')[0]) continue;   // F5 prefers a lane boundary to a fuller slide
     let unit = first.h;
     if(laneBand){ const lane = String(first.key).split('|')[0]; const lead = []; for(const x of b.cards){ if(String(x.key).split('|')[0] !== lane) break; lead.push(x); } if(lead.length <= 3) unit = lead.reduce((n, x) => n + x.h, 0); }
     if(unit + 12 + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});

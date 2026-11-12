@@ -333,9 +333,9 @@ export function observatoryPages(model,ctx={},diff=null){
           const lane=laneOf(la);
           let a=0;for(let k=A.length-1;k>=0&&laneOf(A[k])===lane&&!A[k]._frag;k--)a++;
           let b=0;for(let k=0;k<B.length&&laneOf(B[k])===lane&&!B[k]._frag;k++)b++;
-          const tryMove=(na,nb)=>{if(na.length&&nb.length&&layout(na).fits&&layout(nb).fits){drafts[i]=na;drafts[i+1]=nb;return true;}return false;};
-          if(a<A.length&&tryMove(A.slice(0,A.length-a),[...A.slice(A.length-a),...B])){changed=true;continue;}
-          if(b<B.length&&tryMove([...A,...B.slice(0,b)],B.slice(b))){changed=true;continue;}
+          const tryMove=(na,nb,keepFull=false)=>{if(na.length&&nb.length&&layout(na).fits&&layout(nb).fits&&(!keepFull||(!thin(na)&&!thin(nb)))){drafts[i]=na;drafts[i+1]=nb;return true;}return false;};
+          if(a<A.length&&tryMove(A.slice(0,A.length-a),[...A.slice(A.length-a),...B],true)){changed=true;continue;}
+          if(b<B.length&&tryMove([...A,...B.slice(0,b)],B.slice(b),true)){changed=true;continue;}
           if(a<2&&b>2&&tryMove([...A,B[0]],B.slice(1))){changed=true;continue;}
           if(b<2&&a>2&&tryMove(A.slice(0,-1),[A.at(-1),...B])){changed=true;continue;}
         }
@@ -379,6 +379,10 @@ export function observatoryPages(model,ctx={},diff=null){
   let hi=steps;
   while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(count(at(mid))<=target)lo=mid;else hi=mid-1;}
   // Scale is chosen after the lane and slide rules: the largest scale that keeps the slide count and leaves no issue.
-  if(at(lo).issues>0)for(let i=lo-1;i>=0;i--)if(count(at(i))<=target&&at(i).issues===0)return at(i);
+  if(at(lo).issues>0){
+    for(let i=lo-1;i>=0;i--)if(count(at(i))<=target&&at(i).issues===0)return at(i);
+    // No scale cures it in that many slides: one more slide is better than a broken lane (F5), at the largest clean scale.
+    for(let i=steps;i>=0;i--)if(count(at(i))<=target+1&&at(i).issues===0)return at(i);
+  }
   return at(lo);
 }

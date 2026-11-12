@@ -1,7 +1,30 @@
 /* Shared DOM-side plumbing for tool app shells. */
 
 const measCtx = document.createElement('canvas').getContext('2d');
-export const measure = (text, font) => { measCtx.font = font; return measCtx.measureText(text).width; };
+/* Text is measured the way it is drawn. Safari's canvas measureText runs 0.4 to 1.4% narrower than the SVG text it will be
+   drawn as (a long URL: 12px at 22px type), so layouts fitted to the canvas number overran their boxes there. In WebKit
+   we ask an SVG <text> for its length; elsewhere the canvas agrees with SVG exactly and stays the fast path. */
+const webkit = typeof navigator !== 'undefined' && /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg|Android/.test(navigator.userAgent);
+let svgText;
+const svgMeasure = (text, font) => {
+  if(!svgText){
+    const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('style', 'position:absolute;left:-9999px;top:0;width:0;height:0;visibility:hidden;pointer-events:none');
+    svg.setAttribute('aria-hidden', 'true');
+    svgText = document.createElementNS(ns, 'text');
+    svg.appendChild(svgText); document.body.appendChild(svg);
+  }
+  svgText.style.font = font; svgText.textContent = text;
+  return svgText.getComputedTextLength();
+};
+const svgCache = new Map();
+export const measure = (text, font) => {
+  if(!webkit){ measCtx.font = font; return measCtx.measureText(text).width; }
+  const key = font + '|' + text;
+  let w = svgCache.get(key);
+  if(w === undefined){ if(svgCache.size > 40000) svgCache.clear(); svgCache.set(key, w = svgMeasure(text, font)); }
+  return w;
+};
 
 export function isDark(){
   const t = document.documentElement.dataset.theme;
