@@ -1,0 +1,63 @@
+// stresses: 52 items across 6 lanes, NOW holds 22 (limit wip: 5), NEXT 18, LATER 12 - lanes and columns far over their WIP limit
+title: Lantern - dense planning board
+headline: Too much is in flight and the plan says so
+wip: 5
+horizons: Now, Next, Later
+
+NOW
+Core: Resume -- note for item 1
+Platform: Shelves
+Quality: Reminders [doing]
+Core: Widgets
+Platform: Referrals [risk]
+Quality: Sync -- note for item 6
+Core: Offline [done]
+Platform: Search
+Quality: Digest [blocked]
+Core: Clubs
+Platform: Storefront -- note for item 11
+Quality: Export
+Core: Import [doing]
+Platform: Goals
+Quality: Streaks [risk]
+Core: Themes -- note for item 16
+Platform: Fonts [done]
+Quality: Audio
+Core: Notes [blocked]
+Platform: Highlights
+Quality: Share -- note for item 21
+Core: Profiles
+
+NEXT
+Quality: Billing [doing]
+Core: Onboarding
+Platform: Analytics [risk]
+Quality: Cache -- note for item 26
+Core: Crash fixes [done]
+Platform: Accessibility
+Quality: Tablet layout [blocked]
+Core: Dark mode
+Platform: Resume 2 -- note for item 31
+Quality: Shelves 2
+Core: Reminders 2 [doing]
+Platform: Widgets 2
+Quality: Referrals 2 [risk]
+Core: Sync 2 -- note for item 36
+Platform: Offline 2 [done]
+Quality: Search 2
+Core: Digest 2 [blocked]
+Platform: Clubs 2
+
+LATER
+Quality: Storefront 2 -- note for item 41
+Core: Export 2
+Platform: Import 2 [doing]
+Quality: Goals 2
+Core: Streaks 2 [risk]
+Platform: Themes 2 -- note for item 46
+Quality: Fonts 2 [done]
+Core: Audio 2
+Platform: Notes 2 [blocked]
+Quality: Highlights 2
+Core: Share 2 -- note for item 51
+Platform: Profiles 2

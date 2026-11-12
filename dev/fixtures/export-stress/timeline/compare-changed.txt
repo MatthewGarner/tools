@@ -1,0 +1,11 @@
+// stresses: CHANGED version compared against compare-base - slips, a pull-in, a status change, a new milestone, a dropped milestone, a moved lane
+title: Lantern - change review
+today: 2026-09-05
+style: review
+App: Beta cut 2026-09-25 .. 2026-10-16 [risk]
+App: Store review 2026-10-12 .. 2026-11-06
+Assurance: Privacy audit 2026-10-12 .. 2026-12-18
+Marketing: Campaign ready 2026-11-02 .. 2026-11-16
+Launch: Launch forecast 2026-12-04 .. 2027-01-15
+Launch: Conference 2026-12-15 [fixed]
+Launch: Soft launch 2026-11-23 .. 2026-12-04

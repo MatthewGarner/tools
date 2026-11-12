@@ -1,0 +1,19 @@
+// stresses: baseline - the second built-in example (Quarterly view), unchanged
+title: Platform Delivery Plan
+horizons: quarterly from Q3 2026 x4
+wip: 3
+
+Q3 2026
+Infra: Sync engine rewrite [doing] x2
+App: Curated shelves [done]
+
+Q4 2026
+Infra: Offline downloads
+App: Reading reminders
+
+Q1 2027
+App: Book clubs
+Infra: E-reader sync
+
+Q2 2027
+App: Publisher storefront

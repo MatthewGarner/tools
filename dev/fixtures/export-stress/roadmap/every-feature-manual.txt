@@ -1,0 +1,20 @@
+// stresses: manual horizons (no time axis) with unresolved bets, a verdict switched off, style: register and by-lane grouping, wip off, spans on a non-time axis (should warn)
+title: Lantern - manual horizons
+verdict: off
+horizons: Now, Next, Later, Maybe
+wip: off
+style: register
+group: lane
+palette: plum
+font: DM Sans
+
+NOW
+Core: Alpha [doing] x2
+Core: Bravo [bet: bravo]
+NEXT
+Core: Charlie [if bravo]
+Core: Delta [unless bravo] -- fallback
+LATER
+Platform: Echo [risk] -- note
+MAYBE
+Platform: Foxtrot [blocked]

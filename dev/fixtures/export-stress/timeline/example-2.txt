@@ -1,0 +1,13 @@
+// stresses: baseline - the second built-in example (Six-quarter programme), unchanged
+title: Northstar — six-quarter programme
+today: 2026-09-05
+style: field
+font: DM Sans
+Platform: Architecture approved 2026-10-12 .. 2026-11-16 [started: 2026-08-24]
+Platform: Pilot ready 2027-02 .. 2027-03 // Validate with the first cohort
+Platform: General availability 2027-05 .. 2027-07
+Experience: Research complete 2026-11 .. 2026-12 [started: 2026-09-01]
+Experience: New onboarding 2027-03 .. 2027-05
+Experience: International launch 2027-09 .. 2027-12 // Localisation and support readiness
+Assurance: External audit 2027-08 .. 2027-10
+Assurance: Contract renewal 2027-12-15 [fixed] [lead: 8w]

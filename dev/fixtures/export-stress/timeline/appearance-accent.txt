@@ -1,0 +1,9 @@
+// stresses: appearance variant - a very light custom accent (yellow) whose contrast against light paper is weak
+title: Lantern - light accent
+accent: #F2E64A
+today: 2026-09-05
+style: field
+App: Beta cut 2026-09-18 .. 2026-10-02 [started: 2026-08-14] // note
+App: Store review 2026-10-19 .. 2026-11-16 [risk]
+Launch: Launch forecast 2026-11-20 .. 2026-12-11
+Launch: Conference 2026-12-15 [fixed] [lead: 6w]

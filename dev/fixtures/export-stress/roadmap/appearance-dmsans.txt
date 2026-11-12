@@ -1,0 +1,17 @@
+// stresses: appearance variant - DM Sans throughout, plum palette, register style
+title: Lantern - DM Sans plum
+font: DM Sans
+palette: plum
+headline: Typography variant check
+style: board
+horizons: Now, Next, Later
+
+NOW
+Core: Resume where you left off [doing] -- the top-requested fix for a lost place
+Growth: Referral flow [risk] -- waiting on app-store review
+NEXT
+Core: Reading reminders [bet: reminders]
+Platform: Offline downloads
+LATER
+Core: Reminder personalisation [if reminders]
+Growth: Publisher storefront

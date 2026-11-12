@@ -1,0 +1,3 @@
+// stresses: the smallest valid document - one item under one horizon
+NOW
+Ship it

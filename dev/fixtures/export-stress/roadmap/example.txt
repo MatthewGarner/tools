@@ -1,0 +1,24 @@
+// stresses: baseline - the tool's own default example (first entry in roadmap/app.js EXAMPLES), unchanged
+title: Lantern / Product roadmap
+style: focus
+accent: #254C3D
+headline: Make reading a daily habit.
+horizons: Now, Next, Later
+
+NOW
+Core: Resume where you left off [doing] -- the top-requested fix for a lost place
+Core: Curated shelves [doing]
+Growth: Referral flow [risk] -- waiting on app-store review
+Platform: Sync engine rewrite -- conflicts are the #1 support driver
+
+NEXT
+Core: Reading reminders [bet: reminders] -- learn each reader's natural time of day
+Growth: Home-screen widget gallery
+Platform: Offline downloads
+
+LATER
+Core: Reminder personalisation [if reminders]
+Core: Digest emails [unless reminders] -- the fallback nudge channel
+Core: Book clubs -- small groups, shared shelves
+Growth: Publisher storefront
+Platform: E-reader sync

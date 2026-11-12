@@ -1,0 +1,14 @@
+// stresses: baseline - the third built-in example (Simple, no lanes), unchanged
+title: Team roadmap
+
+NOW
+Onboarding revamp [doing]
+Billing self-serve [risk] -- waiting on finance sign-off
+
+NEXT
+Enterprise SSO
+Analytics dashboard
+
+LATER
+Mobile app parity
+API rate-limit tiers
