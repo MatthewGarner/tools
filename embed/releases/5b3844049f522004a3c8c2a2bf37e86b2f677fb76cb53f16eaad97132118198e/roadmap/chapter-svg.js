@@ -37,7 +37,7 @@ export function renderChapter(model,ctx={}){
   const {width:W,height:H,margin:M}=layout;
   const slide=!!ctx.slide,scale=slide?4/3:1;
   const s=[`<svg xmlns="http://www.w3.org/2000/svg"${attrs({width:n(W*scale),height:n(H*scale),viewBox:`0 0 ${W} ${H}`,'font-family':layout.type.body,'data-chapter-layout':layout.style,'data-min-readable-scale':layout.phone?1:.7,'data-board-layout':layout.style==='board'?(layout.phone?'phone':'wide'):null,'data-register-layout':layout.style==='register'?(layout.phone?'phone':'wide'):null,'data-focus-layout':layout.style==='focus'?(layout.phone?'phone':'wide'):null,
-    'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
+    'data-header-band':layout.headerBand&&!slide?`${n(layout.headerBand.y0)} ${n(layout.headerBand.y1)}`:null,'data-body-top':slide?n(layout.bodyTop):null,'data-content-bottom':slide?n(layout.inkBottom):null,'data-body-bottom':slide&&layout.bodyBottom!=null?n(layout.bodyBottom):null,'data-scale':slide?n(layout.scale):null,'data-slide-group':slide&&ctx.page?.groupId!=null?ctx.page.groupId:null})}>`,
     `<title>${e(model.title||'Roadmap')}</title>`,
     `<desc>${e([model.headline,model.story,basisSummary(model.basis)].filter(Boolean).join(' — ')||model.title||'Roadmap')}</desc>`,rect(0,0,W,H,C.bg)];
   for(const p of layout.panels)s.push(rect(p.x,p.y,p.w,p.h,C[p.role]));
@@ -95,7 +95,7 @@ export function renderChapter(model,ctx={}){
   }
   const fy=layout.footerY;
   const rail=layout.panels.find(p=>p.role==='rail');
-  const footerW=ctx.footerRight ?? (rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
+  const footerW=ctx.footerRight ?? (layout.railXFurniture ?? (rail?rail.x:W))-(layout.style==='register'&&!layout.phone?48:M);
   // Footer: left says which part of the plan this slide shows, right says "2 of 4". A single slide has neither.
   const small={family:layout.type.body,size:layout.phone?12:15,step:20,weight:400};
   const many=ctx.page?.total>1;
@@ -110,29 +110,27 @@ const SCALE_MIN=.88,SCALE_MAX=1.35,SCALE_STEP=.01;
 const andList=names=>{const l=names.filter(Boolean);return l.length<2?(l[0]||''):l.slice(0,-1).join(', ')+' and '+l.at(-1);};
 const range=names=>names.length>1?`${names[0]} to ${names.at(-1)}`:(names[0]||'');
 
-// The footer's own words for which part of the plan a slide shows, longest form first.
+// The footer's own words for which part of the plan a slide shows, longest form first. A name is marked
+// "(continued)" only when it began on an earlier slide of the same time window, and the mark sits on the name.
 function scopeOptions(page,pages,style){
   if(pages.length<2)return [];
-  const lanes=(page.lanes||[]).filter(Boolean);
-  const laneKeys=new Set(pages.map(p=>(p.lanes||[]).join('\u0000')));
-  const windowKeys=new Set(pages.map(p=>p.start+'-'+p.end));
-  const cont=page.parts>1&&page.part>0;
-  const withTail=label=>cont?(label?label+', continued':'Continued'):label;
-  const out=[];
-  if(style==='focus'){out.push(andList(page.horizons),range(page.horizons));}
-  else if(style==='register'){
-    const names=[...new Set(page.model.items.map(i=>i.h))].sort((x,y)=>x-y).map(h=>page.horizons[h]);
-    out.push(andList(names),range(names));
-  }
-  else{
-    const time=windowKeys.size>1||style==='register'&&pages.length>1?range(page.horizons):'';
-    const who=lanes.length&&laneKeys.size>1?andList(lanes):'';
-    out.push([who,time].filter(Boolean).join(' · '));
-    if(lanes.length>1&&laneKeys.size>1)out.push([lanes[0]+' and '+(lanes.length-1)+' more',time].filter(Boolean).join(' · '));
-    if(who&&time)out.push(time);
-  }
-  const forms=[...new Set(out.map(withTail).filter(Boolean))];
-  return forms.length?forms:[withTail('')||'Continued'].filter(Boolean);
+  const names=p=>{
+    if(style==='grid')return (p.lanes||[]).filter(l=>l&&p.model.items.some(i=>i.lane===l));
+    if(style==='focus')return p.horizons;
+    const idx=[...new Set(p.model.items.map(i=>i.h))].sort((x,y)=>x-y);
+    return idx.map(h=>p.horizons[h]);
+  };
+  const windowKey=p=>p.start+'-'+p.end;
+  const here=names(page).length?names(page):page.horizons;
+  const earlier=pages.filter(p=>p.index<page.index&&(style==='focus'||windowKey(p)===windowKey(page)));
+  const marked=here.map(n=>(style==='focus'?(page.continuedHorizons||[]).includes(n):earlier.some(p=>names(p).includes(n)))?n+' (continued)':n);
+  const windowKeys=new Set(pages.map(windowKey));
+  const time=style==='grid'&&windowKeys.size>1?range(page.horizons):'';   // elsewhere the names are the horizons themselves
+  const join=(who)=>[who,time].filter(Boolean).join(' · ');
+  const out=[join(andList(marked))];
+  if(marked.length>1)out.push(join(marked[0]+' and '+(marked.length-1)+' more'));
+  if(time)out.push(time);
+  return [...new Set(out.filter(Boolean))];
 }
 
 export function renderChapterPages(model,ctx={}){
@@ -166,19 +164,18 @@ export function renderChapterPages(model,ctx={}){
     const mid=Math.ceil((lo+hi)/2);
     if(count(buildAt(mid))<=target)lo=mid;else hi=mid-1;
   }
-  return buildAt(lo);
+  // S3 by scale: if the largest scale leaves a slide thin, step the type down (never below 0.88) to the first scale that keeps the
+  // slide count and leaves none.
+  const orphans=r=>r.plan.pages.filter(p=>p.orphan).length;
+  let pick=lo;
+  if(orphans(buildAt(lo))>0)for(let i=lo-1;i>=Math.max(0,lo-16);i--)if(count(buildAt(i))<=target&&orphans(buildAt(i))===0){pick=i;break;}
+  return buildAt(pick);
 }
 
 function buildPlan(model,content,style,ctx,scale){
   const layoutFor=(pageModel,windowSize)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model,scale,windowSize,compactItems:model.items.length});
-  let horizonsPerPage=['grid','board'].includes(style)?4:style==='register'?model.horizons.length:3;
-  if(style==='board'){
-    // Quiet five-column plans may fit at the same type floor. Dense plans
-    // compare wider columns and smaller theme groups below.
-    const count=Math.min(5,model.horizons.length);
-    const first={...content,horizons:content.horizons.slice(0,count),items:content.items.filter(i=>i.h<count)};
-    if(count>3 && layoutFor(first).fits)horizonsPerPage=count;
-  }
+  // Up to five horizons stay on one slide. (Grid was capped at four, which windowed five quarters 3 + 2.)
+  let horizonsPerPage=['grid','board'].includes(style)?5:style==='register'?model.horizons.length:3;
   // Equal temporal windows avoid a narrow final page that exaggerates duration:
   // six quarters become two three-quarter windows, rather than four then two.
   if(style==='board'||style==='grid')horizonsPerPage=Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/horizonsPerPage));
@@ -193,7 +190,7 @@ function buildPlan(model,content,style,ctx,scale){
     return {...plan,windowSize:count,stable:stableThemes};
   };
   let base=planFor(horizonsPerPage);
-  if(['board','grid'].includes(style) && base.pages.length>1){
+  if(['board','grid'].includes(style) && base.pages.length>1 && model.horizons.length>5){
     // Compare whole, balanced time-window plans. A narrower window can fit more
     // themes without reducing type or forcing arbitrary item slices.
     const sizes=[...new Set([horizonsPerPage,3,2,1].map(n=>Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/n))))];
@@ -218,7 +215,7 @@ function buildPlan(model,content,style,ctx,scale){
   // Furniture agrees across the set: a comparison's dropped-work slides are laid out as a board, but their footer sits where the set's own slides put it.
   const first=plan.pages.find(p=>!p.dropped);
   const ref=first&&layoutFor(first.model,plan.windowSize),refRail=ref?.panels.find(p=>p.role==='rail');
-  const footerRight=ref?(refRail?refRail.x:1440)-48:undefined;
+  const footerRight=ref?(ref.railXFurniture ?? (refRail?refRail.x:1440))-48:undefined;
   const rendered=plan.pages.map(page=>renderChapter(page.model,{...ctx,sourceModel:page.dropped?page.model:model,slide:true,width:1440,page,scale,windowSize:plan.windowSize,compactItems:model.items.length,...(page.dropped?{footerRight}:{})}));
   return {plan,pages:rendered,complete:exportPageCoverage(plan).complete,scale};
 }

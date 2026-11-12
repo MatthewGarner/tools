@@ -82,6 +82,7 @@ export function layoutChapter(model, ctx = {}){
   const headingSize = q(phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section);
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
+  let headerBand = null;   // the column/axis header a printed continuation repeats
   const dense = planItems > 8;
   // Dense exports use the reviewed 20/16/14 type floor and tighter framing.
   // These sizes are fixed: pagination never shrinks text to force a fit.
@@ -91,9 +92,15 @@ export function layoutChapter(model, ctx = {}){
   const hero = chapterHero(focusModel);
   const heroName = focusModel.horizons[hero];
   const localHero = Math.max(0, model.horizons.indexOf(heroName));
-  const hasRail = style === 'focus' && !phone && (model.horizons.length > 1 || (ctx.slide && (ctx.sourceModel || model).horizons.length > 1));
+  // A Focus slide with nothing for the rail has no rail (the paper takes the full width), but its title block and
+  // footer sit where they do on the slides that have one: they are measured as if the rail were there.
+  const hasRail = style === 'focus' && !phone && model.horizons.length > 1;
+  const headerRail = style === 'focus' && !phone && (hasRail || (ctx.slide && (ctx.sourceModel || model).horizons.length > 1));
   const railColumns=hasRail && !ctx.slide && model.horizons.length>4 ? 2 : 1;
-  const heroWidth = hasRail ? Math.round(inner * (railColumns===2 ? .46 : dense ? .59 : .64)) - gap : inner;
+  const railShare = Math.round(inner * (railColumns===2 ? .46 : dense ? .59 : .64)) - gap;
+  const heroWidth = hasRail ? railShare : inner;
+  const headerWidth = headerRail ? railShare : inner;
+  const railXFurniture = headerRail ? margin + railShare + gap : null;
   const railX = hasRail ? margin + heroWidth + gap : null;
   const railWidth = hasRail ? width - railX : 0;
   const text = (value, maxWidth, size, {family = type.body, weight = 400} = {}) => {
@@ -108,15 +115,15 @@ export function layoutChapter(model, ctx = {}){
   const sourceModel = ctx.sourceModel || model;
   const date = model.dateStr === 'off' ? '' : model.dateStr || ctx.today || new Date().toISOString().slice(0,10);
   if(model.headline){
-    headerText(model.title || 'Roadmap', heroWidth, metaBase, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
+    headerText(model.title || 'Roadmap', headerWidth, metaBase, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
   }
-  let mainSize = phone ? 38 : compactSlide ? 40 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
-  const mainWidth=hasRail && !dense ? heroWidth*.82 : heroWidth;
+  let mainSize = phone ? 38 : compactSlide ? 40 : headerRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
+  const mainWidth=headerRail && !dense ? headerWidth*.82 : headerWidth;
   const mainTitle=model.headline || model.title || 'Your roadmap';
   // Long authored framing spends header space before it takes space from work.
   // Keep the headline prominent, but use a smaller display size when real wrapping demands it.
   if(!phone){
-    const story=ctx.diff?.any && model.story ? text(model.story,heroWidth,noteBase) : null;
+    const story=ctx.diff?.any && model.story ? text(model.story,headerWidth,noteBase) : null;
     const reserve=82+(story?14+story.lines.length*story.step:0);
     while(mainSize>44){
       const b=text(mainTitle,mainWidth,mainSize,{family:type.display,weight:type.displayWeight});
@@ -127,15 +134,15 @@ export function layoutChapter(model, ctx = {}){
   headerText(mainTitle, mainWidth, mainSize,
     {family:type.display, weight:type.displayWeight, role:'ink', edit:model.headline ? 'headline' : null});
   y += phone ? 12 : compactSlide ? 8 : 20;
-  headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, metaBase, {role:'muted'});
-  if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteBase, {role:'muted'}); }
+  headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), headerWidth, metaBase, {role:'muted'});
+  if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, headerWidth, noteBase, {role:'muted'}); }
   if(model.basis){
     y += 16;
     const basis = model.basis;
-    headerText('Delivery projection · From Paths: ' + basis.source, heroWidth, metaBase, {weight:600,role:'accent'});
+    headerText('Delivery projection · From Paths: ' + basis.source, headerWidth, metaBase, {weight:600,role:'accent'});
     for(const kind of ['answered','assumed']){
       const entries = basis[kind] || [];
-      if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, metaBase, {role:'muted'});
+      if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), headerWidth, metaBase, {role:'muted'});
     }
   }
   y += phone ? 30 : compactSlide ? 14 : style === 'grid' ? 24 : 42;
@@ -249,7 +256,14 @@ export function layoutChapter(model, ctx = {}){
     boardIndices.forEach((h,index)=>{
       const x=margin+index*(cw+gap);
       let cy=section(model.horizons[h],x,top,cw,h);
+      headerBand={y0:top,y1:Math.max(headerBand?.y1||0,cy)};
       cy=list(model.items.filter(i=>i.h===h),x,cy,cw);
+      // On a slide a column with nothing to show says why, rather than standing empty
+      if(ctx.slide && !model.items.some(i=>i.h===h)){
+        const here=sourceModel.horizons[sourceModel.horizons.indexOf(model.horizons[h])];
+        const b=text(sourceModel.items.some(i=>sourceModel.horizons[i.h]===here)?'Shown on another slide':'No work planned',cw,noteBase);
+        sections.push({name:b.text,x,y:cy,w:cw,h:b.lines.length*b.step,label:b,small:true});cy+=b.lines.length*b.step+12;
+      }
       bottom=Math.max(bottom,cy);dropzones.push({x,y:top,w:cw,h:Math.max(120,cy-top),horizon:h});
     });
     y=bottom+addSpace;
@@ -260,6 +274,7 @@ export function layoutChapter(model, ctx = {}){
     const widths=[inner*.43,inner*.13,inner*.13,inner*.31];
     const names=['Initiative & commentary','Workstream','Horizon','Status & condition'];
     let cx=margin;
+    headerBand={y0:y-4,y1:y+38};
     names.forEach((name,i)=>{const label=text(name,widths[i]-20,meta,{weight:600});sections.push({name,x:cx,y,w:widths[i],h:26,label,small:true});cx+=widths[i];});y+=38;
     if(ctx.slide && model.group!=='outcome'){
       const empty=model.horizons.filter(name=>!sourceModel.items.some(i=>sourceModel.horizons[i.h]===name));
@@ -304,7 +319,8 @@ export function layoutChapter(model, ctx = {}){
       if(model.group!=='outcome'){dropzones.push({x:margin,y:top,w:inner,h:y-top,horizon:group.h});y+=addSpace;}
     }
   }else{
-    const lanes=model.exportLanes || (ctx.slide ? (model.lanes || ['']).filter(l=>model.items.some(i=>i.lane===l)) : model.lanes?.length ? model.lanes : ['']);
+    const slideLanes = l => model.items.some(i=>i.lane===l);
+    const lanes=ctx.slide && model.items.length ? (model.exportLanes || model.lanes || ['']).filter(slideLanes) : model.exportLanes || (ctx.slide ? (model.lanes || ['']).filter(slideLanes) : model.lanes?.length ? model.lanes : ['']);
     // On a slide the rail and the column-header band come from the whole plan, not this slide's
     // lanes and horizons, so the furniture sits in the same place on every slide of the set.
     const railLanes=ctx.slide ? [...new Set(sourceModel.items.map(i=>i.lane||''))] : lanes;
@@ -319,6 +335,8 @@ export function layoutChapter(model, ctx = {}){
         if(label.lines.length>3)label=text(name,cwMin-28,meta,{weight:500});
         headerH=Math.max(headerH,label.lines.length*label.step+24);
       }
+      // room for a Today label at the set's scale, on every slide so the band never moves
+      if(sourceModel.timeAxis && sourceModel.dateStr!=='off')headerH+=Math.max(0,meta-metaBase)+2;
     }
     allIndices.forEach(h=>{
       let label=text(model.horizons[h],cw-28,24,{family:type.display,weight:type.displayWeight});
@@ -329,6 +347,7 @@ export function layoutChapter(model, ctx = {}){
       headerH=Math.max(headerH,height);
     });y+=headerH;
     const gridTop=y;
+    headerBand={y0:gridTop-headerH,y1:gridTop};
     const laneLabelRows=[];   // a long lane name sits across the columns, so the column rules stop short of it
     for(const lane of lanes){
       const top=y, tracks=[];
@@ -354,10 +373,10 @@ export function layoutChapter(model, ctx = {}){
     });   // the last column is closed like the others
     // Today is a label with a short tick under it in the header band; nothing runs through the cards.
     const marker=model.dateStr==='off'?null:chapterDatePosition(model,ctx.today || new Date().toISOString().slice(0,10));
-    if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-5,x2:x,y2:gridTop-1,role:'accent'});const label=text(marker.label,cw-20,metaBase,{weight:500});const labelW=Math.max(...label.lines.map(t=>measure(t,label.font)),0),colL=gx+marker.index*cw;
+    if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-5,x2:x,y2:gridTop-1,role:'accent'});const label=text(marker.label,cw-20,meta,{weight:500});const labelW=Math.max(...label.lines.map(t=>measure(t,label.font)),0),colL=gx+marker.index*cw;
       // The label sits inside its own column, so no column rule runs through it.
       const lx=cw-24>=labelW?Math.min(colL+cw-12-labelW,Math.max(colL+12,x-40)):Math.min(width-margin-cw,Math.max(gx,x-40));
-      sections.push({name:marker.label,x:lx,y:gridTop-24,w:cw-20,h:20,label,small:true,role:'accent'});}
+      sections.push({name:marker.label,x:lx,y:gridTop-9-label.size,w:cw-20,h:20,label,small:true,role:'accent'});}
   }
   if(ctx.slide && !model.items.length && (style==='board'||style==='grid')){
     const label=text('No work planned in these horizons',inner,itemSize,{weight:500});
@@ -367,7 +386,7 @@ export function layoutChapter(model, ctx = {}){
   const authored=resolveVerdict(sourceModel.verdict,{line:'',fig:''});
   let verdictBlock=null;
   if(authored?.line){
-    verdictBlock=text(authored.line,heroWidth,noteBase,{weight:500});
+    verdictBlock=text(authored.line,headerWidth,noteBase,{weight:500});
     // A slide pins the verdict above the footer so it sits in the same place on every slide.
     if(!ctx.slide){ y+=22; header.push({...verdictBlock,x:margin,y,role:'ink',kind:'verdict'});y+=verdictBlock.lines.length*verdictBlock.step; }
   }
@@ -395,5 +414,5 @@ export function layoutChapter(model, ctx = {}){
   for(const p of panels)if(p.role==='rail'||p.role==='spine')p.h=height;
   const allText=[...header,...sections.map(s=>({...s.label,x:s.x,y:s.y})),...rows.flatMap(r=>r.blocks.map(b=>({...b,x:r.x+r.pad+(b.x||0),y:r.y+b.y})))];
   const fits=(ctx.slide ? bottom<=bodyBottom : footerY+36<=height) && allText.every(b=>b.x>=0 && b.x+Math.max(...b.lines.map(t=>measure(t,b.font)),0)<=width+1);
-  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,contentBottom:bottom,inkBottom:Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0))),bodyBottom,scale:k,boardIndices};
+  return {style,width,height,phone,type,margin,bodyTop,rows,sections,panels,lines,header,dropzones,footerY:ctx.slide?height-30:height-26,fits,railXFurniture,headerBand,contentBottom:bottom,inkBottom:Math.max(bodyTop,...rows.map(r=>r.y+r.h),...sections.filter(x=>!x.small||x.name).map(x=>x.y+(x.h||0))),bodyBottom,scale:k,boardIndices};
 }
