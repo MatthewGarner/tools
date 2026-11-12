@@ -97,3 +97,46 @@ test('register rows are tall enough for their wrapped date columns, at every sca
     for(const t of g[1].matchAll(/<text[^>]*\by="([\d.]+)"/g)) assert.ok(+t[1] <= bottom, `a text baseline ${t[1]} is below its row bottom ${bottom}`);
   }
 });
+
+/* ---- round 2 (F2, F5, F6, F7): the stress documents the contact sheets showed ---- */
+import {readFileSync} from 'node:fs';
+const doc = name => parse(readFileSync(new URL(`../../dev/fixtures/export-stress/timeline/${name}.txt`, import.meta.url), 'utf8'));
+const rowsPerLane = deck => deck.pages.map(p => { const n = new Map(); for(const m of p.svg.matchAll(/data-field-item="([^"|]*)\|/g)) n.set(m[1], (n.get(m[1]) || 0) + 1); return n; });
+
+test('F5: a split lane leaves at least two rows on each side; a lane of three or fewer is never split', () => {
+  for(const [name, style] of [['example-2', 'review'], ['example-2', 'field'], ['extreme-dates', 'field'], ['extreme-dates', 'review']]){
+    const deck = observatoryPages({...doc(name), style}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
+    const per = rowsPerLane(deck);
+    const lanes = new Set(per.flatMap(n => [...n.keys()]));
+    for(const lane of lanes){
+      const at = per.map((n, i) => n.has(lane) ? i : -1).filter(i => i >= 0);
+      if(at.length > 1) for(const i of at) assert.ok(per[i].get(lane) >= 2, `${name}/${style}: ${lane} has ${per[i].get(lane)} row on slide ${i + 1}`);
+    }
+  }
+});
+
+test('F6: one scale for row text, axis and Today labels; a date in a register column never wraps', () => {
+  const deck = observatoryPages({...doc('example'), style: 'register'}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
+  const svg = deck.pages[0].svg;
+  const sizeOf = re => [...svg.matchAll(re)].map(m => +m[1]);
+  const axis = sizeOf(/<text[^>]*font-size="([\d.]+)"[^>]*data-axis="tick"/g), rowText = sizeOf(/data-field-item[\s\S]*?<text[^>]*font-size="([\d.]+)"/g);
+  assert.ok(axis.length && rowText.length);
+  assert.equal(new Set([...axis, rowText[0]]).size, 1, 'axis labels and row text share one size: ' + [...axis, rowText[0]]);
+  const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m => m[1]);
+  for(let i = 0; i + 1 < texts.length; i++) assert.ok(!(/^\d{1,2}$/.test(texts[i]) && /^[A-Z][a-z]{2} \d{4}$/.test(texts[i + 1])), `a date wraps: ${texts[i]} / ${texts[i + 1]}`);
+});
+
+test('F7: the legend lists every mark drawn, pinned across the set', () => {
+  const deck = observatoryPages({...doc('example-2'), style: 'field'}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
+  for(const page of deck.pages){
+    assert.match(page.svg, /data-ms="lrm"|Decide by/);
+    assert.match(page.svg.replace(/<[^>]+>/g, '|'), /Decide by/, 'the Decide by triangle is in the legend');
+  }
+  const plain = observatoryPages({...doc('minimal'), style: 'field'}, ctx);
+  assert.doesNotMatch(plain.pages[0].svg.replace(/<[^>]+>/g, '|'), /Decide by|Previous forecast/, 'a mark that is not drawn is not listed');
+});
+
+test('F2: "continued" sits on the lane that began on an earlier slide', () => {
+  const deck = observatoryPages({...doc('uneven'), style: 'field'}, {...ctx, today: Math.floor(Date.parse('2026-11-12') / 86400000)});
+  deck.pages.forEach((p, i) => { const f = p.svg.match(/<text[^>]*data-axis="scope"[^>]*>([^<]*)<\/text>/)?.[1] || ''; assert.doesNotMatch(f, /, continued/); if(i === 0) assert.doesNotMatch(f, /continued/); });
+});

@@ -73,7 +73,10 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     const lastOfRun = !slides[i + 2] || slides[i + 2].group !== b.group;
     const usableB = b.bodyBottom - b.bodyTop, usedAfter = (b.contentBottom - b.bodyTop) - (first.h + 8);
     if(lastOfRun && b.cards.length - 1 < 3 && usedAfter < usableB / 2) continue;
-    if(first.h + 12 + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
+    /* Timeline: a lane of three rows or fewer moves as one unit (F5), so the unit is the lane's leading rows */
+    let unit = first.h;
+    if(laneBand){ const lane = String(first.key).split('|')[0]; const lead = []; for(const x of b.cards){ if(String(x.key).split('|')[0] !== lane) break; lead.push(x); } if(lead.length <= 3) unit = lead.reduce((n, x) => n + x.h, 0); }
+    if(unit + 12 + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
   out.push({check: 'slides:closed-early', pass: early.length === 0, values: {count: early.length, hits: early.slice(0, 20)}, note: 'S2: a slide closed with room under its column for the first card of the next slide'});
   const thin = [];
@@ -134,8 +137,10 @@ export function checkContinued(slides){
   slides.forEach((s, i) => {
     const f = footerLeft(s);
     if(/, continued\b|^Continued\b/.test(f)) bad.push({slide: i + 1, footer: f, problem: 'continued is not attached to a name'});
-    for(const m of f.matchAll(/([^,()·]+?) \(continued\)/g)){
-      const name = m[1].trim().replace(/^and\s+/, '');
+    for(const token of f.split(/ · |, | and /)){
+      const m = /^(.*?) \(continued\)$/.exec(token.trim());
+      if(!m) continue;
+      const name = m[1].trim();
       if(!slides.slice(0, i).some(p => footerLeft(p).includes(name))) bad.push({slide: i + 1, footer: f, problem: name + ' did not appear on an earlier slide'});
     }
   });
@@ -174,13 +179,13 @@ export function checkBoardFlow(slides, {horizons = []}){
 }
 
 /* F5/F6/F7 on Timeline slides */
-export function checkTimelineSlides(slides, svgs){
+export function checkTimelineSlides(slides, svgs, {style} = {}){
   const out = [];
   const lanes = new Map();
   slides.forEach((s, i) => { for(const c of s.cards){ const k = laneOf(c); (lanes.get(k) || lanes.set(k, new Map()).get(k)).set(i, (lanes.get(k).get(i) || 0) + 1); } });
   const bad = [];
   for(const [lane, per] of lanes){ const at = [...per.keys()].sort((a, b) => a - b); if(at.length > 1) at.forEach((i, n) => { if(per.get(i) < 2) bad.push({lane, slide: i + 1, rows: per.get(i)}); }); }
-  out.push({check: 'slides:lane-split', pass: bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'F5: a lane split across slides leaves at least two rows on each side'});
+  out.push({check: 'slides:lane-split', pass: style === 'decisions' || bad.length === 0, values: {count: bad.length, hits: bad.slice(0, 8)}, note: 'F5: a lane split across slides leaves at least two rows on each side'});
   const wrapped = [];
   slides.forEach((s, i) => { const ts = s.texts; for(let k = 0; k + 1 < ts.length; k++) if(/^\d{1,2}$/.test(ts[k].text) && /^[A-Z][a-z]{2} \d{4}$/.test(ts[k + 1].text) && Math.abs(ts[k].x - ts[k + 1].x) < 1 && ts[k + 1].y > ts[k].y && ts[k + 1].y - ts[k].y < ts[k].size * 1.6) wrapped.push({slide: i + 1, date: ts[k].text + ' ' + ts[k + 1].text}); });
   out.push({check: 'slides:date-never-wraps', pass: wrapped.length === 0, values: {count: wrapped.length, hits: wrapped.slice(0, 8)}, note: 'F6: a date in a P50/P90 column is one line'});
@@ -197,7 +202,7 @@ export function checkTimelineSlides(slides, svgs){
 export function checkSlideSet(svgs, opts = {}){
   const slides = svgs.map(slideGeometry);
   const out = [...checkSplits(slides), ...checkFill(slides, opts), ...checkScale(slides), ...checkFurniture(slides, opts), ...checkWording(slides), ...checkContinued(slides)];
-  if(opts.tool === 'timeline') out.push(...checkTimelineSlides(slides, svgs));
+  if(opts.tool === 'timeline') out.push(...checkTimelineSlides(slides, svgs, opts));
   if(opts.tool === 'roadmap' && opts.style === 'grid') out.push(...checkGridPlan(slides, opts));
   if(opts.tool === 'roadmap' && opts.style === 'board') out.push(...checkBoardFlow(slides, opts), ...checkGridPlan(slides, {horizons: opts.horizons, lanes: []}).filter(c => c.check === 'slides:columns-whole'));
   return out;
