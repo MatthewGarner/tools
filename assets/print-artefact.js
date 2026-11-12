@@ -18,8 +18,8 @@ const TRAIL = 12;
 /* Where a sheet from `start` stops when the next begins at `cut`: just under its last row. */
 export function sliceEnd(boxes, start, cut){
   const bottoms = boxes.filter(b => b.bottom <= cut + .5 && b.bottom > start + .5).map(b => b.bottom + TRAIL);
-  // the next row or lane heading starts at `cut`: its own top rule is half a unit either side, so stop a unit short
-  return Math.min(boxes.some(b => Math.abs(b.top - cut) < .5) ? cut - 1 : cut, ...bottoms.length ? [Math.max(...bottoms)] : []);
+  // the next row or lane heading starts at `cut`: its top rule is half a unit either side, so stop half a unit short (a row that abuts it is not cut)
+  return Math.min(boxes.some(b => Math.abs(b.top - cut) < .5) ? cut - .5 : cut, ...bottoms.length ? [Math.max(...bottoms)] : []);
 }
 
 /* Where each later sheet starts: at the top of its first row (or lane heading), crossing no row, so a sheet shows nothing of a

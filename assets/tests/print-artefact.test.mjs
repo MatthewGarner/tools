@@ -58,8 +58,8 @@ test('H5: a sheet starts at the top of its first row and stops under its last: n
   const cuts = cutPoints(longText, 1717, 1440 * PAGE_RATIO, 56);
   for(const c of cuts) assert.ok(longText.some(r => r.top === c), `cut ${c} is the top of a row`);
   assert.equal(sliceEnd(longText, 0, 1021), 961 + 12);
-  // the gap under row one is 8 (771 to 779) and the next row's top rule straddles 779: the sheet stops a unit short, at 778 (it was 771 + 8 = 779, which drew that rule)
-  assert.equal(sliceEnd(longText, 0, 779), 778, 'a short gap is not overrun, and the next top rule is left off');
+  // the gap under row one is 8 (771 to 779) and the next row's top rule straddles 779: the sheet stops half a unit short, at 778.5 (it was 771 + 8 = 779, which drew that rule; a full unit would cut a row that abuts the next, which the gate counts as a cut row)
+  assert.equal(sliceEnd(longText, 0, 779), 778.5, 'a short gap is not overrun, and the next top rule is left off');
   assert.equal(sliceEnd([{top: 0, bottom: 1000}], 0, 450), 450, 'a row cut through loses no unit');
 });
 

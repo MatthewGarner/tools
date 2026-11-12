@@ -719,8 +719,8 @@ export function checkPrintSheets(sheets, {ratio = PAPER_RATIO} = {}){
       const prev = all.filter(h => h.top < s.body[0] - .5).at(-1);
       if(!own && prev && prev.name && !(s.contLabel && s.contLabel.toLowerCase().includes((prev.name + ' (continued)').toLowerCase()))) unnamed.push({sheet: i + 1, lane: prev.name, label: s.contLabel});
     }
-    // K3: a lane heading that is not on this sheet shows nothing: its top rule must lie at least a unit past where the sheet stops
-    if(next){ const edge = s.headings.filter(h => h.bottom > s.body[1] + .5 && h.bboxTop > s.body[0] && h.bboxTop < s.body[1] + .99); if(edge.length) neighbours.push({sheet: i + 1, headingTopWithinAUnitOfEnd: edge.map(h => ({lane: h.name.slice(0, 20), top: Math.round(h.bboxTop * 10) / 10, sheetEnd: Math.round(s.body[1] * 10) / 10}))}); }
+    // K3: a lane heading that is not on this sheet shows nothing: its top rule (half a unit either side) must lie past where the sheet stops
+    if(next){ const edge = s.headings.filter(h => h.bottom > s.body[1] + .5 && h.bboxTop > s.body[0] && h.bboxTop < s.body[1] + .49); if(edge.length) neighbours.push({sheet: i + 1, headingRuleOnSheet: edge.map(h => ({lane: h.name.slice(0, 20), top: Math.round(h.bboxTop * 10) / 10, sheetEnd: Math.round(s.body[1] * 10) / 10}))}); }
     if(s.paperStrip === false) bare.push({sheet: i + 1, strip: Math.round(s.contH)});
     if(s.slivers.length) neighbours.push({sheet: i + 1, slivers: s.slivers.slice(0, 4)});
   });
