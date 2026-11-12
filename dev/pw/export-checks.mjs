@@ -515,3 +515,31 @@ export function checkPicture(geo, {style} = {}){
   out.push({check: 'picture:no-line-through-cards', pass: tall.length === 0, values: {count: tall.length, hits: tall.slice(0, 8)}, note: 'G1: no coloured vertical rule longer than a 14px tick (the Today marker is a label and a short tick in the header band)'});
   return out;
 }
+
+/* A1-A4 on a Timeline SVG (native picture or a slide): uniform month step, year line, Today clear, one date. */
+export function checkTimelineAxis(svg){
+  const out = [];
+  const texts = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map(m => ({attrs: m[1], text: unesc(m[2]), x: num(m[1], 'x'), y: num(m[1], 'y'), size: num(m[1], 'font-size')}));
+  const ticks = texts.filter(t => /data-axis="tick"/.test(t.attrs)).sort((a, b) => a.x - b.x);
+  const years = texts.filter(t => /data-axis="year"/.test(t.attrs));
+  const today = texts.find(t => /data-axis="today"/.test(t.attrs));
+  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const step = ticks.length > 1 ? new Set(ticks.slice(1).map((t, i) => {
+    const a = M.indexOf(ticks[i].text), b = M.indexOf(t.text);
+    if(a >= 0 && b >= 0) return (b - a + 12) % 12 || 12;
+    const q = s => /^Q[1-4]$/.test(s) ? (+s[1] - 1) * 3 : null;
+    if(q(ticks[i].text) != null && q(t.text) != null) return (q(t.text) - q(ticks[i].text) + 12) % 12 || 12;
+    return +t.text - +ticks[i].text;
+  })) : new Set();
+  out.push({check: 'axis:uniform-step', pass: step.size <= 1, values: {steps: [...step], labels: ticks.map(t => t.text).slice(0, 40)}, note: 'A1: one step between every pair of tick labels (no label dropped ad hoc)'});
+  const stray = ticks.filter(t => /\d{4}/.test(t.text) && !/^\d{4}$/.test(t.text));
+  out.push({check: 'axis:year-on-own-line', pass: stray.length === 0, values: {labelsCarryingAYear: stray.map(t => t.text), years: years.map(t => t.text)}, note: 'A2: no month or quarter label carries a year; years sit on their own line'});
+  if(today && ticks.length){
+    const lowest = Math.max(...texts.filter(t => /data-axis="(tick|year)"/.test(t.attrs)).map(t => t.y));
+    const clear = today.y - today.size - lowest;
+    out.push({check: 'axis:today-clear', pass: clear >= 6, values: {clearance: Math.round(clear * 10) / 10}, note: 'A3: the Today label is on its own line, 6px or more below the axis labels'});
+  }
+  const same = [...svg.matchAll(/(\d{1,2} [A-Z][a-z]{2} \d{4}) \u2013 \1(?!\d)/g)].map(m => m[0]);
+  out.push({check: 'axis:same-day-range', pass: same.length === 0, values: {hits: same.slice(0, 5)}, note: 'A4: a range that starts and ends on one day prints one date'});
+  return out;
+}
