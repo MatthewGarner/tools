@@ -35,7 +35,7 @@ export const SUITE_TOOLS = {
   'standard-embeds.mjs': all,
   'lab-article-origin.mjs': LAB_ROUTES.map(t => 'lab/dist/' + t),
   'lab-migration.mjs': LAB_ROUTES.map(t => 'lab/dist/' + t),
-  'backup.mjs': all, 'suite.mjs': all, 'recent-work.mjs': all, 'templates.mjs': all, 'identity.mjs': all, 'front-door.mjs': all,
+  'backup.mjs': all, 'suite.mjs': all, 'recent-work.mjs': all, 'templates.mjs': all, 'identity.mjs': all, 'front-door.mjs': all, 'lab-phone.mjs': all,
   'design-bar.mjs': all,
   'energy-design-bar.mjs': ENERGY_TOOL_DIRS.map(t => 'energy/' + t),
   'workshop-design.mjs': ['flow','alarm','duel','premortem','gauge'],
