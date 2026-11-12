@@ -622,8 +622,8 @@ async function captureCase(browser, base, {tool, doc, source, theme, views, outR
     const printDir = ensure(join(caseRoot, 'print'));
     const sheets = [];
     try{
-      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       await page.emulateMedia({media: 'print'});
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       await sleep(250);
       const n = await page.locator('#print-artefact .print-page').count();
       for(let i = 0; i < n; i++){

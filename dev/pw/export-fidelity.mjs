@@ -203,8 +203,8 @@ try{
     const page = await ctx.newPage();
     for(const tool of Object.keys(TOOLS)){
       await openDoc(page, tool, load(tool, 'dense'));
-      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       await page.emulateMedia({media: 'print'});
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       const info = await page.evaluate(() => {
         const sheets = [...document.querySelectorAll('#print-artefact .print-page')];
         const cut = [], rowsPer = [];

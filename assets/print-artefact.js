@@ -49,6 +49,8 @@ export function plan(vw, vh, boxes, band){
 export function printPages(svgText, doc = document){
   const holder = doc.createElement('div');
   holder.style.cssText = 'position:absolute;left:-99999px;top:0;width:1000px';
+  // the print stylesheet hides every other child of <body>, and a hidden SVG measures as zero: keep this holder displayed while it is measured
+  holder.style.setProperty('display', 'block', 'important');
   holder.innerHTML = svgText;
   doc.body.appendChild(holder);
   const root = holder.querySelector('svg');

@@ -76,6 +76,10 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
     /* Timeline: a lane of three rows or fewer moves as one unit (F5), so the unit is the lane's leading rows */
     if(laneBand && String(first.key).split('|')[0] !== String(a.cards.at(-1)?.key).split('|')[0]) continue;   // F5 prefers a lane boundary to a fuller slide
     let unit = first.h;
+    /* Board: if moving the card back would leave its column on the next slide with fewer than two cards, the column was balanced (S3) */
+    if(style === 'board'){ const same = b.cards.filter(x => Math.abs(x.x - first.x) < 2).length; if(same - 1 < 2) continue; }
+    /* Register by outcome: the card travels with its group heading */
+    if(style === 'register'){ const head = b.texts.filter(t => t.y < first.y && t.y > first.y - 90 && t.x <= first.x + 6).sort((p, q) => q.y - p.y)[0]; if(head) unit = first.y + first.h - (head.y - head.size); }
     if(laneBand){ const lane = String(first.key).split('|')[0]; const lead = []; for(const x of b.cards){ if(String(x.key).split('|')[0] !== lane) break; lead.push(x); } if(lead.length <= 3) unit = lead.reduce((n, x) => n + x.h, 0); }
     if(unit + 12 + laneBand + (style === 'register' ? 90 : 0) <= free) early.push({slide: i + 1, next: first.key.slice(0, 40), cardHeight: r1(first.h), freeBelowColumn: r1(free)});
   }
@@ -84,6 +88,7 @@ export function checkFill(slides, {style, laneBand = 0} = {}){   // laneBand: he
   /* S3 (round 2: ANY slide of a multi-slide set, not only the last) fewer than 3 cards and under a third of the usable height */
   if(slides.length > 1) slides.forEach((s, i) => {
     const usable = s.bodyBottom - s.bodyTop, used = s.contentBottom - s.bodyTop;
+    if(s.texts.some(t => t.text.trim() === 'Changed work')) return;   // a comparison's dropped-work slide is its own page, not a leftover
     if(style === 'focus' && !/\(continued\)/.test(footerLeft(s))) return;   // a Focus slide is a whole horizon; only a continued one can be an orphan
     if(s.cards.length < 3 && used < usable / 2 - 0.5) thin.push({slide: i + 1, cards: s.cards.length, fill: r1(used / usable)});
   });
