@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mulberry32, gaussian} from '../../../assets/series.js';
 import {parse} from '../parse.js';
-import {makeBase, above, drawBeliefs, simPolicy, npv} from '../engine.js';
+import {makeBase, above, drawBeliefs, simPolicy, npv, N_BASE} from '../engine.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, msg + ': ' + a + ' vs ' + b);
 
@@ -20,14 +20,14 @@ discount: 8%`;
 test('above(): counts and sums on a known sample', () => {
   const m = parse('battery: 1MW / 2MWh\nspread: 10..100\ncharge: 20\ndrift: 0\nrte: 90%\nfade: 0.01 %/cycle\ncalendar: 1 %/yr\ncycles: 6000 over 15yr');
   const {S1} = makeBase(m, 42);
-  assert.equal(S1.v.length, 1000);
+  assert.equal(S1.v.length, N_BASE);
   const all = above(S1, -Infinity);
-  assert.equal(all.count, 1000);
+  assert.equal(all.count, N_BASE);
   close(all.sum, S1.v.reduce((a, x) => a + x, 0), 1e-6, 'suffix sum');
   const none = above(S1, Infinity);
   assert.deepEqual({c: none.count, s: none.sum}, {c: 0, s: 0});
-  const mid = above(S1, S1.v[499]);
-  assert.equal(mid.count, 500);
+  const mid = above(S1, S1.v[N_BASE / 2 - 1]);
+  assert.equal(mid.count, N_BASE / 2);
 });
 
 test('degenerate case matches the paper answer', () => {

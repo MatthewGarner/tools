@@ -4,7 +4,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {simulate, verdict, thresholdFigure, fmtUnit} from '../engine.js';
+import {simulate, verdict, thresholdFigure, fmtPrice} from '../engine.js';
 
 const FULL = `battery: 100MW / 200MWh
 spread: 35..85
@@ -25,7 +25,7 @@ test('the figure is the P50, quoted verbatim, and is the line’s first £', () 
   for(const spread of ['20..40', '35..85', '90..300']){
     const out = simulate(parse(FULL.replace('spread: 35..85', 'spread: ' + spread)), N);
     const line = verdict('threshold', out), fig = thresholdFigure(out);
-    assert.equal(fig, fmtUnit(out.threshold.p50, '£/MWh'));
+    assert.equal(fig, fmtPrice(out.threshold.p50));
     assert.ok(line.includes(fig), 'verbatim: ' + fig + ' / ' + line);
     assert.equal(line.indexOf(fig), line.indexOf('£'),
       'the P50 is the first £ the sentence quotes: ' + line);
