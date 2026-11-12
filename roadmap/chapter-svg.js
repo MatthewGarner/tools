@@ -9,7 +9,12 @@ const e = value => esc(String(value ?? ''));
 const n = value => Math.round(value * 100) / 100;
 const attrs = values => Object.entries(values).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(v)}"`).join('');
 const rect = (x,y,w,h,fill,more={}) => `<rect${attrs({x:n(x),y:n(y),width:n(w),height:n(h),fill,...more})}/>`;
-const rule = (x,y,x2,y2,stroke) => `<line${attrs({x1:n(x),y1:n(y),x2:n(x2),y2:n(y2),stroke,'stroke-width':1})}/>`;
+// A hairline sits on n + .5 so it is one crisp pixel at 1x.
+const snap = v => Math.floor(v) + .5;
+const rule = (x,y,x2,y2,stroke) => {
+  const vertical = x === x2, horizontal = y === y2;
+  return `<line${attrs({x1:n(vertical?snap(x):x),y1:n(horizontal?snap(y):y),x2:n(vertical?snap(x2):x2),y2:n(horizontal?snap(y2):y2),stroke,'stroke-width':1})}/>`;
+};
 import {chapterColors} from '../assets/chapter-colors.js';
 export {chapterColors, chapterContrast} from '../assets/chapter-colors.js';
 function blockSvg(block,x,y,fill,extra={}){

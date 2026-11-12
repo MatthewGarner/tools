@@ -37,7 +37,7 @@ import {readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSyn
 import {join, dirname, resolve, basename} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {startServer} from './session.mjs';
-import {checkSlideSet, checkPngScale} from './export-checks.mjs';
+import {checkSlideSet, checkPngScale, measureSvgInPage, contrast, checkSelfContained, checkWidthParity, checkGeometry, checkAxisMonths, checkPicture} from './export-checks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -68,6 +68,7 @@ const asList = v => (v ? String(v).split(',').map(s => s.trim()).filter(Boolean)
 const slug = s => String(s).replace(/[^a-z0-9+_.-]+/gi, '-');
 const ensure = dir => { mkdirSync(dir, {recursive: true}); return dir; };
 const round = (n, p = 2) => Math.round(n * 10 ** p) / 10 ** p;
+const r1 = n => round(n, 2);
 const normText = s => String(s ?? '').replace(/[   ]/g, ' ').replace(/\s+/g, ' ').trim();
 
 export function loadFixtures(tool){
@@ -108,96 +109,6 @@ export class Findings {
 /* ------------------------------------------------------------------ in-page functions
    (self-contained: Playwright serialises them, so no closure variables) */
 
-/* Geometry + computed paint for every text and shape of an SVG. svgString=null measures
-   the document the page is showing (a standalone .svg file); otherwise the string is
-   injected inline into the app page so the site's fonts apply. */
-async function measureSvgInPage(svgString){
-  let root, holder = null;
-  if(svgString){
-    holder = document.createElement('div');
-    holder.style.cssText = 'position:absolute;left:0;top:0;';
-    holder.innerHTML = svgString;
-    document.body.appendChild(holder);
-    root = holder.querySelector('svg');
-  } else root = document.documentElement;
-  try{ await document.fonts.ready; }catch(_){}
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const rootCTM = root.getScreenCTM();
-  const inv = rootCTM.inverse();
-  const vb = root.viewBox.baseVal;
-  const toRoot = (el, x, y) => { const m = inv.multiply(el.getScreenCTM()); const p = new DOMPoint(x, y).matrixTransform(m); return [p.x, p.y]; };
-  const boxOf = (el, x0, y0, x1, y1) => {
-    const pts = [toRoot(el, x0, y0), toRoot(el, x1, y0), toRoot(el, x0, y1), toRoot(el, x1, y1)];
-    return [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
-  };
-  const parse = c => {
-    if(!c || c === 'none') return null;
-    const m = c.match(/rgba?\(([^)]+)\)/);
-    if(!m) return null;
-    const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
-    return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
-  };
-  const skip = el => el.closest('defs,clipPath,mask,pattern,symbol,style,title,desc,metadata');
-  let order = 0;
-  const all = [...root.querySelectorAll('*')];
-  all.forEach(el => { el.__o = order++; });
-  const cards = [...root.querySelectorAll('[data-key]')];   // one per card (fragments of one item share a key but not an element)
-  const cumOpacity = el => { let o = 1; for(let n = el; n && n.nodeType === 1; n = n.parentNode){ const v = parseFloat(getComputedStyle(n).opacity); if(!Number.isNaN(v)) o *= v; if(n === root) break; } return o; };
-  const cvs = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas').getContext('2d');
-  const texts = [], shapes = [];
-  for(const el of all){
-    const tag = el.localName;
-    if(skip(el) || tag === 'svg' || tag === 'g' || tag === 'a' || tag === 'tspan') continue;
-    const cs = getComputedStyle(el);
-    if(cs.display === 'none') continue;
-    if(tag === 'text'){
-      const text = el.textContent;
-      if(!el.getNumberOfChars()) continue;
-      const bb = el.getBBox();
-      const base = el.getStartPositionOfChar(0).y;
-      cvs.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-      const m = cvs.measureText(text);
-      const asc = m.actualBoundingBoxAscent || parseFloat(cs.fontSize) * .75, desc = m.actualBoundingBoxDescent || 0;
-      const box = boxOf(el, bb.x, base - asc, bb.x + bb.width, base + desc);
-      const adv = boxOf(el, bb.x, bb.y, bb.x + bb.width, bb.y + bb.height);
-      const fill = parse(cs.fill);
-      const clipHost = el.closest('[clip-path]');
-      let clip = null;
-      if(clipHost){
-        const id = (clipHost.getAttribute('clip-path').match(/#([^)'"]+)/) || [])[1];
-        const cp = id && root.querySelector('#' + CSS.escape(id));
-        const r = cp && cp.querySelector('rect');
-        if(r) clip = boxOf(clipHost, +r.getAttribute('x') || 0, +r.getAttribute('y') || 0, (+r.getAttribute('x') || 0) + +r.getAttribute('width'), (+r.getAttribute('y') || 0) + +r.getAttribute('height'));
-      }
-      const baseRoot = toRoot(el, bb.x, base)[1];
-      texts.push({i: texts.length, text, ink: box, adv, base: baseRoot, size: parseFloat(cs.fontSize), weight: cs.fontWeight, family: cs.fontFamily,
-        fill, fillOpacity: parseFloat(cs.fillOpacity), opacity: cumOpacity(el), len: el.getComputedTextLength(),
-        anchor: cs.textAnchor, key: el.closest('[data-key]')?.getAttribute('data-key') ?? null, cardId: cards.indexOf(el.closest('[data-key]')), clip, order: el.__o,
-        decoration: cs.textDecorationLine, rtl: /[֐-ࣿ]/.test(text)});
-      continue;
-    }
-    if(!['rect', 'circle', 'ellipse', 'path', 'line', 'polygon', 'polyline'].includes(tag)) continue;
-    let bb; try{ bb = el.getBBox(); }catch(_){ continue; }
-    const sw = parseFloat(cs.strokeWidth) || 0, stroke = parse(cs.stroke), fill = parse(cs.fill);
-    const pad = stroke ? sw / 2 : 0;
-    const box = boxOf(el, bb.x - pad, bb.y - pad, bb.x + bb.width + pad, bb.y + bb.height + pad);
-    const rec = {i: shapes.length, tag, box, fill, fillOpacity: parseFloat(cs.fillOpacity), stroke, strokeOpacity: parseFloat(cs.strokeOpacity), sw,
-      opacity: cumOpacity(el), order: el.__o, dash: cs.strokeDasharray !== 'none' ? cs.strokeDasharray : null,
-      inCard: el.parentNode?.getAttribute?.('data-key') ?? null, cardId: cards.indexOf(el.parentNode), cardRect: false};
-    if(tag === 'line'){
-      const a = toRoot(el, +el.getAttribute('x1'), +el.getAttribute('y1')), b = toRoot(el, +el.getAttribute('x2'), +el.getAttribute('y2'));
-      rec.line = [a[0], a[1], b[0], b[1]];
-    }
-    if(tag === 'rect' && el.parentNode?.getAttribute?.('data-key') && el.parentNode.querySelector('rect') === el) rec.cardRect = true;
-    shapes.push(rec);
-  }
-  const fonts = [...document.fonts].map(f => ({family: f.family.replace(/["']/g, ''), status: f.status, range: f.unicodeRange}));
-  const out = {viewBox: [vb.x, vb.y, vb.width, vb.height], attrW: root.getAttribute('width'), attrH: root.getAttribute('height'),
-    texts, shapes, fonts, title: root.querySelector('title')?.textContent ?? null, desc: root.querySelector('desc')?.textContent ?? null,
-    keys: [...root.querySelectorAll('[data-key]')].map(g => g.getAttribute('data-key'))};
-  if(holder) holder.remove();
-  return out;
-}
 
 /* decode a PNG (as base64) and summarise it */
 async function analysePngInPage(b64){
@@ -741,232 +652,6 @@ async function captureCase(browser, base, {tool, doc, source, theme, views, outR
 }
 
 /* ------------------------------------------------------------------ analysis */
-const lum = ([r, g, b]) => { const f = c => { c /= 255; return c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
-export const contrast = (a, b) => { const la = lum(a), lb = lum(b); return (Math.max(la, lb) + .05) / (Math.min(la, lb) + .05); };
-const over = (fg, bg) => { const a = fg[3]; return [0, 1, 2].map(i => fg[i] * a + bg[i] * (1 - a)); };
-const inter = (a, b) => ({w: Math.min(a[2], b[2]) - Math.max(a[0], b[0]), h: Math.min(a[3], b[3]) - Math.max(a[1], b[1])});
-const area = b => Math.max(0, b[2] - b[0]) * Math.max(0, b[3] - b[1]);
-const r1 = n => round(n, 2);
-
-const GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'emoji', 'math', 'fangsong']);
-
-export function checkSelfContained(svg, geo){
-  const out = [];
-  const external = [], links = [], inlineFonts = [];
-  for(const m of svg.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)) links.push(m[1]);
-  for(const m of svg.matchAll(/\b(?:xlink:)?href="([^"]*)"/g)){
-    const v = m[1];
-    if(v.startsWith('#') || v.startsWith('data:') || links.includes(v)) continue;
-    external.push({kind: 'href', value: v.slice(0, 120)});
-  }
-  for(const m of svg.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)){
-    const v = m[1];
-    if(v.startsWith('#') || v.startsWith('data:')) continue;
-    external.push({kind: 'url()', value: v.slice(0, 120)});
-  }
-  if(/@import/.test(svg)) external.push({kind: '@import'});
-  for(const tag of ['image', 'foreignObject', 'script', 'iframe', 'use']) if(new RegExp('<' + tag + '\\b').test(svg)) external.push({kind: '<' + tag + '> present'});
-  const faceBlocks = [...svg.matchAll(/@font-face\{[^}]*\}/g)].map(m => m[0]);
-  const embedded = new Set();
-  for(const b of faceBlocks){
-    const fam = (b.match(/font-family:\s*['"]?([^;'"]+)['"]?/) || [])[1];
-    const dataSrc = /src:\s*url\(\s*['"]?data:/.test(b);
-    if(fam){ if(dataSrc) embedded.add(fam.trim()); else external.push({kind: 'font-face src not data:', value: fam}); }
-    inlineFonts.push({family: fam, data: dataSrc});
-  }
-  out.push({check: 'self-contained:external-refs', pass: external.length === 0, values: {external, count: external.length}, note: 'any href/url()/@import/image/foreignObject/script not data: or in-document'});
-  out.push({check: 'self-contained:user-links', pass: null, values: {links: links.slice(0, 20), count: links.length}, note: 'item links the author wrote (-> url); informational'});
-  const used = new Map();
-  for(const t of geo.texts){
-    const fams = t.family.split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
-    const k = fams.join(' | ');
-    used.set(k, (used.get(k) || 0) + 1);
-  }
-  const familyIssues = [];
-  for(const [k] of used){
-    const fams = k.split(' | ');
-    if(!fams.some(f => embedded.has(f)) && !fams.every(f => GENERIC.has(f))) familyIssues.push({stack: k, problem: 'primary family not embedded'});
-    if(!fams.some(f => GENERIC.has(f))) familyIssues.push({stack: k, problem: 'no generic fallback in the stack'});
-  }
-  out.push({check: 'self-contained:font-families', pass: !familyIssues.some(i => i.problem === 'primary family not embedded'), values: {embedded: [...embedded], stacksUsed: Object.fromEntries(used), issues: familyIssues, fontFaceBlocks: faceBlocks.length}, note: 'embedded = @font-face with data: src'});
-  out.push({check: 'self-contained:generic-fallback', pass: !familyIssues.some(i => i.problem === 'no generic fallback in the stack'), values: {stacks: [...used.keys()]}, note: 'a font-family stack with no generic fallback falls to the viewer default if a glyph or face is missing'});
-  const statuses = geo.fonts.map(f => `${f.family}:${f.status}`);
-  const failed = geo.fonts.filter(f => f.status === 'error');
-  out.push({check: 'self-contained:font-load', pass: failed.length === 0, values: {faces: statuses.length, failed: failed.map(f => f.family), statuses: [...new Set(statuses)]}, note: 'FontFace status when the SVG is opened alone'});
-  /* glyphs outside the embedded unicode ranges fall back to the viewer's system fonts */
-  const ranges = [];
-  for(const b of faceBlocks){ const m = b.match(/unicode-range:\s*([^;]+);/); if(m) for(const part of m[1].split(',')){ const [a, z] = part.trim().replace(/^U\+/i, '').split('-'); ranges.push([parseInt(a, 16), parseInt(z || a, 16)]); } }
-  const outside = new Map();
-  if(ranges.length) for(const t of geo.texts) for(const ch of t.text){
-    const cp = ch.codePointAt(0);
-    if(cp === 0x20 || cp === 0xa0) continue;
-    if(!ranges.some(([a, z]) => cp >= a && cp <= z)) outside.set(ch, (outside.get(ch) || 0) + 1);
-  }
-  out.push({check: 'self-contained:glyph-coverage', pass: outside.size === 0, values: {charsOutsideEmbeddedFonts: outside.size, examples: [...outside.keys()].slice(0, 40).join(''), textsAffected: geo.texts.filter(t => [...t.text].some(ch => outside.has(ch))).length}, note: 'characters not covered by the embedded Latin/Latin-ext faces render in whatever system font the viewer has (CJK, RTL, emoji, some symbols)'});
-  return out;
-}
-
-export function checkWidthParity(standalone, inApp){
-  const diffs = [];
-  const n = Math.min(standalone.texts.length, inApp.texts.length);
-  for(let i = 0; i < n; i++){
-    const a = standalone.texts[i], b = inApp.texts[i];
-    if(a.text !== b.text){ diffs.push({i, problem: 'text order mismatch', a: a.text.slice(0, 40), b: b.text.slice(0, 40)}); continue; }
-    const d = Math.abs(a.len - b.len);
-    if(d > 1) diffs.push({i, text: a.text.slice(0, 60), standalone: r1(a.len), inApp: r1(b.len), delta: r1(d)});
-  }
-  return {check: 'self-contained:text-width-parity', pass: diffs.length === 0 && standalone.texts.length === inApp.texts.length,
-    values: {compared: n, standaloneTexts: standalone.texts.length, inAppTexts: inApp.texts.length, differing: diffs.length, worst: diffs.sort((x, y) => (y.delta || 0) - (x.delta || 0)).slice(0, 8)},
-    note: 'text advance width opened alone (embedded fonts) vs injected into the app page (site fonts); >1px means a font fell back'};
-}
-
-export function checkGeometry(geo, svgString){
-  const out = [];
-  const [vx, vy, vw, vh] = geo.viewBox, vbox = [vx, vy, vx + vw, vy + vh];
-  const texts = geo.texts.filter(t => t.opacity > 0.01);
-  const rects = geo.shapes.filter(s => s.tag === 'rect' && area(s.box) < area(vbox) * .9);
-  /* clipped / outside */
-  const clipped = [];
-  for(const t of texts){
-    const [x0, y0, x1, y1] = t.ink;
-    const ov = {left: vbox[0] - x0, top: vbox[1] - y0, right: x1 - vbox[2], bottom: y1 - vbox[3]};
-    const worst = Math.max(...Object.values(ov));
-    if(worst > 0.5) clipped.push({rule: 'outside-viewBox', text: t.text.slice(0, 60), overflow: {left: r1(ov.left), top: r1(ov.top), right: r1(ov.right), bottom: r1(ov.bottom)}, worst: r1(worst)});
-    if(t.clip){
-      const c = t.clip, o = Math.max(c[0] - x0, c[1] - y0, x1 - c[2], y1 - c[3]);
-      if(o > 0.5) clipped.push({rule: 'outside-clip-path', text: t.text.slice(0, 60), worst: r1(o)});
-    }
-    /* container: the card rect of its group, else the smallest rect whose bounds hold the text's centre */
-    /* the point that says which box the text belongs to: its anchor (start/middle/end), at mid-height */
-    const cy = (y0 + y1) / 2, cx = t.anchor === 'end' ? x1 - 1 : t.anchor === 'middle' ? (x0 + x1) / 2 : x0 + 1;
-    let container = null;
-    if(t.key !== null) container = geo.shapes.find(s => s.cardRect && s.cardId === t.cardId && s.order < t.order) || null;
-    if(!container){
-      let best = null;
-      for(const s of rects) if(s.order < t.order && s.box[0] <= cx && s.box[2] >= cx && s.box[1] <= cy && s.box[3] >= cy && (s.fill && s.fill[3] > 0.02 || s.stroke)){
-        if(!best || area(s.box) < area(best.box)) best = s;
-      }
-      container = best;
-    }
-    if(container){
-      const b = container.box, o = {left: b[0] - x0, top: b[1] - y0, right: x1 - b[2], bottom: y1 - b[3]};
-      const w = Math.max(...Object.values(o));
-      if(w > 1) clipped.push({rule: 'outside-container-rect', text: t.text.slice(0, 60), container: b.map(r1), ink: t.ink.map(r1), worst: r1(w)});
-    }
-  }
-  out.push({check: 'clipped-text', pass: clipped.length === 0, values: {count: clipped.length, byRule: clipped.reduce((m, c) => (m[c.rule] = (m[c.rule] || 0) + 1, m), {}), hits: clipped.sort((a, b) => b.worst - a.worst).slice(0, 25)},
-    note: 'ink box (canvas ascent/descent over advance width) beyond viewBox (>0.5px), clip-path (>0.5px) or its card/containing rect (>1px)'});
-  /* orphans: the last line of a wrapped block is a single short word */
-  const orphans = [];
-  const byX = new Map();
-  for(const t of texts){ const k = Math.round(t.ink[0]) + '|' + t.size + '|' + t.weight; (byX.get(k) || byX.set(k, []).get(k)).push(t); }
-  for(const list of byX.values()){
-    list.sort((a, b) => a.base - b.base);
-    for(let i = 1; i < list.length; i++){
-      const prev = list[i - 1], cur = list[i], step = cur.base - prev.base;
-      const last = !list[i + 1] || list[i + 1].base - cur.base > step * 1.4;
-      if(step > cur.size * 1.05 && step < cur.size * 1.6 && last && !/\s/.test(cur.text.trim()) && cur.text.trim().length <= 12 && prev.text.trim().split(/\s+/).length >= 4)
-        orphans.push({orphan: cur.text.trim(), after: prev.text.trim().slice(-50)});
-    }
-  }
-  out.push({check: 'orphans', pass: null, values: {count: orphans.length, hits: orphans.slice(0, 15)}, note: 'wrapped blocks (same x, size, weight, line step 1.05-1.6x) whose last line is a single word of <=12 chars after a line of 4+ words; informational'});
-  /* overlap text/text */
-  const over2 = [];
-  for(let i = 0; i < texts.length; i++) for(let j = i + 1; j < texts.length; j++){
-    const a = texts[i], b = texts[j], q = inter(a.ink, b.ink);
-    if(q.w > 2 && q.h > 2) over2.push({a: a.text.slice(0, 40), b: b.text.slice(0, 40), w: r1(q.w), h: r1(q.h), at: [r1(Math.max(a.ink[0], b.ink[0])), r1(Math.max(a.ink[1], b.ink[1]))]});
-  }
-  out.push({check: 'overlap:text-text', pass: over2.length === 0, values: {count: over2.length, hits: over2.sort((a, b) => b.w * b.h - a.w * a.h).slice(0, 25)}, note: 'ink boxes intersecting by >2px in both dimensions'});
-  /* text vs shape: partial overlap with a visible non-background shape that does not wholly contain the text */
-  const crossings = [];
-  const visible = geo.shapes.filter(s => area(s.box) < area(vbox) * .5 && s.opacity > .05 && ((s.fill && s.fill[3] * s.fillOpacity > .08) || (s.stroke && s.sw > 0 && s.strokeOpacity > .05)));
-  for(const t of texts){
-    for(const s of visible){
-      if(s.line){
-        const [x1, y1, x2, y2] = s.line, [a0, b0, a1, b1] = t.ink, m = 1;
-        if(Math.abs(x1 - x2) < .5 && x1 > a0 + m && x1 < a1 - m && Math.min(y1, y2) < b1 - 2 && Math.max(y1, y2) > b0 + 2 && inter([x1, Math.min(y1, y2), x1, Math.max(y1, y2)], [a0, b0, a1, b1]).h > 2)
-          crossings.push({text: t.text.slice(0, 40), shape: 'vertical line', x: r1(x1), dash: !!s.dash, order: s.order < t.order ? 'under text' : 'over text'});
-        else if(Math.abs(y1 - y2) < .5 && y1 > b0 + m && y1 < b1 - m && Math.min(x1, x2) < a1 - 2 && Math.max(x1, x2) > a0 + 2 && inter([Math.min(x1, x2), y1, Math.max(x1, x2), y1], [a0, b0, a1, b1]).w > 2)
-          crossings.push({text: t.text.slice(0, 40), shape: 'horizontal line', y: r1(y1), dash: !!s.dash, order: s.order < t.order ? 'under text' : 'over text'});
-        continue;
-      }
-      const q = inter(t.ink, s.box);
-      if(q.w > 2 && q.h > 2){
-        const inside = t.ink[0] >= s.box[0] - 1 && t.ink[2] <= s.box[2] + 1 && t.ink[1] >= s.box[1] - 1 && t.ink[3] <= s.box[3] + 1;
-        const swallowed = s.box[0] >= t.ink[0] - 1 && s.box[2] <= t.ink[2] + 1 && s.box[1] >= t.ink[1] - 1 && s.box[3] <= t.ink[3] + 1;
-        if(!inside && !swallowed && !s.cardRect) crossings.push({text: t.text.slice(0, 40), shape: s.tag, box: s.box.map(r1), overlap: [r1(q.w), r1(q.h)], order: s.order < t.order ? 'under text' : 'over text'});
-      }
-    }
-  }
-  out.push({check: 'overlap:text-shape', pass: crossings.length === 0, values: {count: crossings.length, hits: crossings.slice(0, 25)}, note: 'text partly on/over a visible shape that does not wholly contain it (rect/circle/path) or crossed by a vertical/horizontal rule (>2px, not at its edge)'});
-  /* truncation */
-  const trunc = texts.filter(t => /(…|\.\.\.)\s*$/.test(t.text));
-  const attrValues = [...svgString.matchAll(/="([^"]{4,})"/g)].map(m => normText(m[1]));
-  const allText = geo.texts.map(t => normText(t.text));
-  const rec = trunc.map(t => {
-    const stem = normText(t.text).replace(/(…|\.\.\.)\s*$/, '').trim();
-    const found = allText.some(x => x !== normText(t.text) && x.startsWith(stem) && x.length > stem.length) || attrValues.some(v => v.startsWith(stem) && v.length > stem.length) || normText(geo.title || '').startsWith(stem) && normText(geo.title || '').length > stem.length;
-    return {text: t.text.slice(0, 60), recoverableInExport: found};
-  });
-  out.push({check: 'truncation', pass: null, values: {ellipsisTexts: trunc.length, recoverable: rec.filter(r => r.recoverableInExport).length, unrecoverable: rec.filter(r => !r.recoverableInExport).length, hits: rec.slice(0, 20)}, note: 'texts ending in an ellipsis; informational, fails only when the full text is nowhere in the export (see unrecoverable)', unrecoverableFail: rec.some(r => !r.recoverableInExport)});
-  /* off-canvas */
-  const off = [];
-  for(const s of geo.shapes){
-    if(s.opacity < .01) continue;
-    const full = Math.abs(s.box[0] - vbox[0]) < .6 && Math.abs(s.box[2] - vbox[2]) < .6 && Math.abs(s.box[1] - vbox[1]) < .6 && Math.abs(s.box[3] - vbox[3]) < .6;
-    if(full) continue;
-    const o = {left: vbox[0] - s.box[0], top: vbox[1] - s.box[1], right: s.box[2] - vbox[2], bottom: s.box[3] - vbox[3]};
-    const w = Math.max(...Object.values(o));
-    if(w > 0.5){
-      const entirely = s.box[2] < vbox[0] || s.box[0] > vbox[2] || s.box[3] < vbox[1] || s.box[1] > vbox[3];
-      off.push({tag: s.tag, box: s.box.map(r1), worst: r1(w), entirelyOutside: entirely});
-    }
-  }
-  out.push({check: 'off-canvas:shapes', pass: off.length === 0, values: {count: off.length, hits: off.slice(0, 20)}, note: 'any shape bounding box beyond the viewBox by >0.5px (the full-canvas background rect is exempt)'});
-  /* contrast and theme */
-  const root = geo.shapes.filter(s => s.tag === 'rect' && area(s.box) >= area(vbox) * .9 && s.fill && s.fill[3] > .5).sort((a, b) => a.order - b.order)[0];
-  const rootBg = root ? root.fill.slice(0, 3) : [255, 255, 255];
-  const low = [], ratios = [];
-  for(const t of texts){
-    if(!t.fill) continue;
-    const cx = (t.ink[0] + t.ink[2]) / 2, cy = (t.ink[1] + t.ink[3]) / 2;
-    let bg = rootBg.slice();
-    for(const s of geo.shapes) if(s.order < t.order && s.tag === 'rect' && s.fill && s.fill[3] * s.fillOpacity > .01 && s.box[0] <= cx && s.box[2] >= cx && s.box[1] <= cy && s.box[3] >= cy)
-      bg = over([s.fill[0], s.fill[1], s.fill[2], s.fill[3] * s.fillOpacity * s.opacity], bg);
-    const fg = over([t.fill[0], t.fill[1], t.fill[2], t.fill[3] * (t.fillOpacity || 1) * t.opacity], bg);
-    const ratio = contrast(fg, bg);
-    ratios.push(ratio);
-    if(ratio < 4.5) low.push({text: t.text.slice(0, 40), ratio: r1(ratio), size: t.size, weight: t.weight, fg: fg.map(Math.round), bg: bg.map(Math.round)});
-  }
-  out.push({check: 'contrast', pass: low.length === 0, values: {texts: ratios.length, below4_5: low.length, min: ratios.length ? r1(Math.min(...ratios)) : null, hits: low.sort((a, b) => a.ratio - b.ratio).slice(0, 20)}, note: 'WCAG ratio of each text fill against what is painted under it (alpha and opacity composited); every text held to 4.5:1 regardless of size'});
-  const rootLum = lum(rootBg);
-  const panelTones = [...new Set(geo.shapes.filter(s => s.tag === 'rect' && s.fill && s.fill[3] > .5 && area(s.box) > area(vbox) * .05 && area(s.box) < area(vbox) * .9).map(s => lum(s.fill.slice(0, 3)) < .2 ? 'dark' : 'light'))];
-  out.push({check: 'theme:root-background', pass: null, values: {rootBackground: rootBg.map(Math.round), luminance: r1(rootLum), tone: rootLum < .2 ? 'dark' : 'light', panelTones}, note: 'tone of the export background (compare with the theme the page was in)'});
-  /* hairlines */
-  const odd = {x1: 0, x2: 0, total: 0};
-  for(const s of geo.shapes) if(s.line && s.stroke && s.sw > 0 && s.sw <= 1.5){
-    const [x1, y1, x2, y2] = s.line;
-    const pos = Math.abs(x1 - x2) < .01 ? x1 : Math.abs(y1 - y2) < .01 ? y1 : null;
-    if(pos === null) continue;
-    odd.total++;
-    if(Math.abs(pos - Math.round(pos) - 0.5) > .02 && Math.abs(pos * 2 - Math.round(pos * 2)) > .02) odd.x2++;
-    if(Math.abs((pos - Math.floor(pos)) - 0.5) > .02) odd.x1++;
-  }
-  out.push({check: 'hairlines', pass: null, values: {hairlines: odd.total, offPixelGridAt1x: odd.x1, offHalfPixelGridAt2x: odd.x2}, note: 'orthogonal strokes <=1.5px: 1x blurs unless the position is n+0.5; the 2x PNG is crisp when position*2 is an integer'});
-  return out;
-}
-
-
-/* Pure-text check on saved timeline SVGs: are consecutive month ticks on the axis all present? */
-export function checkAxisMonths(svg){
-  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const ticks = [];
-  for(const m of svg.matchAll(/<text[^>]*\bx="([\d.]+)"[^>]*>(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)( \d{4})?<\/text>/g)) ticks.push({x: +m[1], mo: M.indexOf(m[2]), label: m[2] + (m[3] || '')});
-  ticks.sort((a, b) => a.x - b.x);
-  const gaps = [];
-  for(let i = 1; i < ticks.length; i++) if((ticks[i].mo - ticks[i - 1].mo + 12) % 12 !== 1) gaps.push(`${ticks[i - 1].label} -> ${ticks[i].label}`);
-  return {ticks: ticks.length, gaps};
-}
 
 const POOL = new WeakMap();
 async function pooled(browser, key, make){
@@ -1067,6 +752,7 @@ async function analyseView(ctx, m, state){
     svgInfo = {w: +standalone1.attrW, h: +standalone1.attrH, viewBox: standalone1.viewBox};
     rec('svg', svgA.file, 'svg:size', {pass: true, values: {width: standalone1.attrW, height: standalone1.attrH, viewBox: standalone1.viewBox, bytes: Buffer.byteLength(svgText), texts: standalone1.texts.length, shapes: standalone1.shapes.length}});
     recs('svg', svgA.file, checkSelfContained(svgText, standalone1));
+    if(tool === 'roadmap') recs('svg', svgA.file, checkPicture(standalone1, {style: view.split('+')[0]}));
     rec('svg', svgA.file, 'self-contained:network-requests', {pass: standalone1.networkRequests.length === 0, values: {requests: standalone1.networkRequests}, note: 'requests the SVG made when opened alone'});
     const parity = checkWidthParity(standalone1, inApp); rec('svg', svgA.file, parity.check, {pass: parity.pass, values: parity.values, note: parity.note});
     const parity2 = checkWidthParity(standalone1, standalone2);
@@ -1091,11 +777,11 @@ async function analyseView(ctx, m, state){
     const stats = await pngStats(lab, buf);
     recs('png', pngA.file, pngChecks(stats, {svgW: svgInfo?.w, svgH: svgInfo?.h, kind: 'plain'}));
     let ref = state.refs.get(dir + '|svg');
-    const pngScale = svgInfo?.w ? Math.round(stats.w / svgInfo.w * 100) / 100 : 2;
-    if(svgA && Math.abs(pngScale - 2) > .01) ref = await rasteriseFile(browser, join(dir, svgA.file), svgInfo.w, svgInfo.h, pngScale);   // P3: a reduced-scale PNG is compared with the SVG at that scale
+    const pngScale = svgInfo?.w ? stats.w / svgInfo.w : 2;   // the canvas is drawn edge to edge, so this is the exact scale
+    if(svgA && Math.abs(pngScale - 2) > .001) ref = await rasteriseFile(browser, join(dir, svgA.file), svgInfo.w, svgInfo.h, pngScale);   // P3: a reduced-scale PNG is compared with the SVG at that scale
     if(ref){
       const d = await pngDiff(lab, buf, ref);
-      rec('png', pngA.file, 'png-vs-svg-raster', {pass: d.sizeMismatch ? false : d.ratio < 0.001, values: d, note: 'PNG download vs the same SVG rasterised by the browser (embedded fonts, 2x); pixels differing by >24/255 on any channel; regions are 32px-tile clusters'});
+      rec('png', pngA.file, 'png-vs-svg-raster', {pass: d.sizeMismatch ? false : d.ratio < (Math.abs(pngScale - 2) > .001 ? 0.015 : 0.001), values: {...d, pngScale: Math.round(pngScale * 1000) / 1000}, note: 'PNG download vs the same SVG rasterised by the browser (embedded fonts; 2x must be identical, a reduced fractional scale is a different rasteriser path so 1.5% of pixels may differ at text edges); pixels differing by >24/255 on any channel; regions are 32px-tile clusters'});
     } else if(svgA) rec('png', pngA.file, 'png-vs-svg-raster', {pass: null, values: {skipped: true}});
     else rec('png', pngA.file, 'png-vs-svg-raster', {pass: null, values: {skipped: 'no SVG captured'}});
   } else if(svgA) rec('png', null, 'png:missing', {pass: null, values: {}, note: 'the PNG button produced no file (see capture-error)'});
@@ -1172,7 +858,7 @@ async function analyseView(ctx, m, state){
     }
     /* set-level checks (S1-S6): the whole slide set, as the dialog showed it */
     if(domSvgs.length && domSvgs.length === pageFiles.length){
-      const furniture = [state.parsed?.title, ...(state.parsed?.horizons || [])].filter(Boolean);
+      const furniture = [state.parsed?.title, ...(['grid', 'board'].includes(view.split('+')[0]) ? state.parsed?.horizons || [] : [])].filter(Boolean);   // horizon names are furniture only where they are column headers
       for(const c of checkSlideSet(domSvgs, {furniture, style: view.split('+')[0], laneBand: tool === 'timeline' ? 110 : 0})) rec('deck', `${name}`, c.check, {pass: c.pass, values: c.values, note: c.note});
     }
   }

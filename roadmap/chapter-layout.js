@@ -62,7 +62,9 @@ export function layoutChapter(model, ctx = {}){
   const width = ctx.width || (ctx.slide ? 1440 : chapterNativeWidth(model));
   const phone = width < 520;
   const margin = phone ? 20 : style === 'register' ? 128 : 48;
-  const inner = width - margin - (phone ? 20 : 48);
+  // The time grid's accent bars sit 14 left of the margin, so its right edge does the same: left margin equals right margin.
+  const rightPad = phone ? 20 : style === 'grid' ? margin - 14 : style === 'register' ? margin : 48;
+  const inner = width - margin - rightPad;
   const gap = phone ? 24 : 36;
   const compactSlide=ctx.slide && (ctx.sourceModel || model).items.length > 8;
   // One scale per slide set (ctx.scale): the body type and its spacing scale together, while the
@@ -221,7 +223,7 @@ export function layoutChapter(model, ctx = {}){
     dropzones.push({x:margin,y:top,w:heroWidth,h:Math.max(y-top,120),horizon:localHero});
     y+=addSpace;
     let ry=52, rowTop=52, rowBottom=52;
-    const rw=(railWidth-60-gap*(railColumns-1))/railColumns;
+    const rw=(railWidth-30-48-gap*(railColumns-1))/railColumns;   // the rail's content ends at the same margin the left edge starts at
     for(const [index,h] of allIndices.filter(i=>i!==localHero).entries()){
       const column=index%railColumns;
       if(column===0)rowTop=rowBottom;
@@ -290,7 +292,7 @@ export function layoutChapter(model, ctx = {}){
         let x=widths[0];
         const values=[item.lane || '—',model.horizons[item.h],chapterFacts({...model,sourceModel:ctx.sourceModel},item,{showLane:false,diff:ctx.diff})];
         values.forEach((value,index)=>{
-          const facts=Array.isArray(value)?value:[{text:value,kind:index===0?'lane':'horizon'}];let fy=0;
+          const facts=Array.isArray(value)?value:[{text:value,kind:index===0?'lane':'horizon'}];let fy=(b.blocks.find(t=>t.kind==='title')?.size||meta)-meta;   // the metadata shares the title's baseline
           for(const fact of facts){let t=text(fact.text,widths[index+1]-24,meta,{weight:fact.kind==='status'?600:400});if(index<2 && t.lines.length>5){wideFields.push({...text((index===0?'Workstream: ':'Horizon: ')+fact.text,inner,meta),kind:fact.kind});t=text('See below',widths[index+1]-24,meta);}b.blocks.push({...t,x,y:fy,kind:fact.kind,status:fact.status});fy+=t.lines.length*t.step+5;}
           maxH=Math.max(maxH,fy+(compactSlide?14:22));x+=widths[index+1];
         });
@@ -325,9 +327,10 @@ export function layoutChapter(model, ctx = {}){
       headerH=Math.max(headerH,height);
     });y+=headerH;
     const gridTop=y;
+    const laneLabelRows=[];   // a long lane name sits across the columns, so the column rules stop short of it
     for(const lane of lanes){
       const top=y, tracks=[];
-      if(lane && longLanes){const label=text(lane,inner,18,{weight:500});sections.push({name:lane,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true});y+=label.lines.length*label.step+18;}
+      if(lane && longLanes){const label=text(lane,inner,18,{weight:500});sections.push({name:lane,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true});laneLabelRows.push([y,y+label.lines.length*label.step+8]);y+=label.lines.length*label.step+18;}
       const items=model.items.filter(i=>i.lane===lane).slice().sort((a,b)=>a.h-b.h||a.srcLine-b.srcLine);
       for(const item of items){
         const span=Math.max(1,Math.min(item.span||1,model.horizons.length-item.h));
@@ -340,12 +343,19 @@ export function layoutChapter(model, ctx = {}){
       if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
       for(const h of allIndices)dropzones.push({x:gx+h*cw,y:top,w:cw,h:y-top,horizon:h,lane});
       if(lane)panels.push({x:margin-14,y:top+6,w:3,h:Math.max(44,y-top-12),role:'accent'});
-      y+=addSpace;lines.push({x:margin,y,x2:width,y2:y});y+=10;
+      y+=addSpace;lines.push({x:margin-14,y,x2:width-rightPad,y2:y});y+=10;
     }
     if(lanes.length)y-=10; // No trailing lane gap after the final rule.
-    allIndices.forEach(h=>lines.push({x:gx+h*cw,y:gridTop-headerH,x2:gx+h*cw,y2:y}));
+    [...allIndices,model.horizons.length].forEach(h=>{
+      let from=gridTop-headerH;
+      for(const [a,b] of [...laneLabelRows,[y,y]]){ if(a>from)lines.push({x:gx+h*cw,y:from,x2:gx+h*cw,y2:a}); from=Math.max(from,b); }
+    });   // the last column is closed like the others
+    // Today is a label with a short tick under it in the header band; nothing runs through the cards.
     const marker=model.dateStr==='off'?null:chapterDatePosition(model,ctx.today || new Date().toISOString().slice(0,10));
-    if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-4,x2:x,y2:y,role:'accent'});const label=text(marker.label,cw-20,meta,{weight:500});sections.push({name:marker.label,x:Math.min(width-margin-cw,Math.max(gx,x-40)),y:gridTop-24,w:cw-20,h:20,label,small:true,role:'accent'});}
+    if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-5,x2:x,y2:gridTop-1,role:'accent'});const label=text(marker.label,cw-20,metaBase,{weight:500});const labelW=Math.max(...label.lines.map(t=>measure(t,label.font)),0),colL=gx+marker.index*cw;
+      // The label sits inside its own column, so no column rule runs through it.
+      const lx=cw-24>=labelW?Math.min(colL+cw-12-labelW,Math.max(colL+12,x-40)):Math.min(width-margin-cw,Math.max(gx,x-40));
+      sections.push({name:marker.label,x:lx,y:gridTop-24,w:cw-20,h:20,label,small:true,role:'accent'});}
   }
   if(ctx.slide && !model.items.length && (style==='board'||style==='grid')){
     const label=text('No work planned in these horizons',inner,itemSize,{weight:500});
@@ -366,7 +376,17 @@ export function layoutChapter(model, ctx = {}){
   // Empty states are still composed artifacts with meaningful horizon structure.
   let bottom=Math.max(y,bodyTop+100);
   const footerY=bottom+24;
-  const height=ctx.slide ? CHAPTER_SLIDE.height : Math.max(phone?0:style==='focus'?760:650,footerY+48);
+  // A picture is sized to its content: the house margin (the top margin) below the last paint, no band of empty paper.
+  // Margins are measured on ink, not boxes: the bottom margin equals the top margin (the first text's ink top).
+  const inkBottomOf=(blk,top)=>top+blk.size+(blk.lines.length-1)*blk.step+blk.size*.22;
+  const topInk=Math.min(...header.filter(b=>b.kind!=='verdict'&&b.kind!=='dropped').map(b=>b.y+b.size*.26));
+  const lastInk=Math.max(0,
+    ...lines.map(l=>Math.max(l.y,l.y2)),
+    ...rows.map(r=>r.y+r.h),   // a card's bottom, or the rule that closes a ledger row
+    ...panels.filter(p=>p.role!=='rail'&&p.role!=='spine').map(p=>p.y+p.h),
+    ...sections.map(x=>inkBottomOf(x.label,x.y)),
+    ...header.map(b=>inkBottomOf(b,b.y)));
+  const height=ctx.slide ? CHAPTER_SLIDE.height : phone ? Math.max(0,footerY+48) : Math.ceil(Math.max(lastInk,bodyTop+100) + topInk);   // whole pixels: a fractional canvas edge paints half-transparent
   const verdictH=verdictBlock ? verdictBlock.lines.length*verdictBlock.step : 0;
   const bodyBottom=ctx.slide ? (verdictBlock ? height-72-verdictH-22 : height-60) : null;
   if(ctx.slide && verdictBlock)header.push({...verdictBlock,x:margin,y:height-72-verdictH,role:'ink',kind:'verdict'});
