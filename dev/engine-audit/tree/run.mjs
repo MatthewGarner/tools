@@ -372,7 +372,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
 // =============================================================================================
 {
   // head-to-head share rounds to 100 %
-  const hh = parse('R\n  A: 1050 to 1250\n  B: 800 to 1000'), hr = evaluate(hh), h = hr.headToHead[0], t = texts(svgOf(hh, hr));
+  const hh = parse('R\n  A: 1050 to 1250\n  B: 800 to 1000'), hr = evaluate(hh), h = hr.headToHead[0], t = texts(svgOf(hh, hr)).replace(/ \| /g, ' ');   // the picture is sized to its content, so a sentence may wrap
   const pr = (t.match(/in (\S+)% of simulations/) || [])[1];
   console.log('   info: A 1050..1250 vs B 800..1000: A beats B in ' + (100 * h.aShare).toFixed(2) + ' % of simulations; printed "' + pr + '%"');
   check('W1 "higher expected value than B in N% of simulations" never prints a flat 100% for a share that is not 100%', pr === '>99' && h.aShare < 1, 'true share ' + (100 * h.aShare).toFixed(2) + ' %, printed ' + pr + '%');
@@ -425,7 +425,7 @@ for(const ex of EXAMPLES){
 }
 // TR-5: the exported picture carries the midpoint label and the seam sentence
 {
-  const sm = parse('R\n  Bold: 10k to 1M\n  Safe: 450k'), sr = evaluate(sm), t = texts(svgOf(sm, sr));
+  const sm = parse('R\n  Bold: 10k to 1M\n  Safe: 450k'), sr = evaluate(sm), t = texts(svgOf(sm, sr)).replace(/ \| /g, ' ');
   check('T5 Bold 10k..1M vs Safe 450k: the native SVG says "WHAT WOULD FLIP THE MIDPOINT CALL" and carries the seam sentence', /WHAT WOULD FLIP THE MIDPOINT CALL/.test(t) && t.includes(seamCopy('Bold', 'Safe')), t.slice(t.indexOf('WHAT WOULD')).slice(0, 200));
 }
 {
