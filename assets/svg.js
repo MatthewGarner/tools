@@ -14,7 +14,7 @@ export function wash(hex, alpha){
 }
 
 /* One-line <text> element with the attribute set the renderers share.
-   Coordinates round to 2 decimals. mono switches to the ui-monospace stack. */
+   Coordinates round to 2 decimals. mono switches to the ui-monospace stack (or to the family stack it is given). */
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
 const GRAPHEMES = typeof Intl !== 'undefined' && Intl.Segmenter
   ? new Intl.Segmenter(undefined, {granularity:'grapheme'}) : null;
@@ -27,7 +27,7 @@ export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono, halo
     (weight ? ' font-weight="' + weight + '"' : '') +
     (tracking ? ' letter-spacing="' + tracking + '"' : '') +
     (anchor ? ' text-anchor="' + anchor + '"' : '') +
-    (mono ? ' font-family="' + MONO + '"' : '') +
+    (mono ? ' font-family="' + (typeof mono === 'string' ? mono : MONO) + '"' : '') +   // mono: true = the system monospace; a string = that family stack
     (halo ? ' stroke="' + halo + '" stroke-width="3" stroke-linejoin="round" paint-order="stroke"' : '') +
     (strike ? ' text-decoration="line-through"' : '') +
     ' fill="' + fill + '">' + esc(str) + '</text>';

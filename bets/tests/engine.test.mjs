@@ -206,8 +206,8 @@ unit: <b>£|k</b> \\ *unit*
   <img> \\ *bet* [x] | \`b\`: stake 10, odds 40-60%, payoff 20
     kill: <script>x</script> \\ *kill* | \`k\``;
   const hostile = parse(source), md = markdown(hostile, simulate(hostile), 'https://x/bets/(receipt)');
-  assert.doesNotMatch(md, /<(?:img|script|b|section)\b/i);
-  for(const escaped of ['&lt;img', '\\*title\\*', '\\[link\\]', '\\`tick\\`', '\\|k', '&lt;script&gt;'])
+  assert.doesNotMatch(md, /(^|[^\\])<(?:img|script|b|section)\b/i);
+  for(const escaped of ['\\<img', '\\*title\\*', '\\[link\\]', '\\`tick\\`', '\\|k', '\\<script\\>'])
     assert.ok(md.includes(escaped), `missing escaped receipt fact ${escaped}`);
   assert.ok(md.includes('\\'.repeat(3) + '*prefixed\\*'), 'source backslash must escape before Markdown syntax');
   assert.match(md, /\[Open in bets\]\(https:\/\/x\/bets\/%28receipt%29\)/);

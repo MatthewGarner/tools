@@ -1,19 +1,19 @@
 /* Pure model + sim → Allocation Field. Wide is a shared exposure ledger;
    narrow is a menu-first register. Compare data is precomputed in app.js. */
-import {esc, txt, tint, editTarget, btnAttrs} from '../assets/svg.js';
+import {esc, tint, editTarget, btnAttrs} from '../assets/svg.js';
+import {SANS, MONO_FONT, txt, useFace} from './face.js';
+import {railLabels} from './labels.js';
 import {betKey, comparisonHeadline, sameUnit} from './diff.js';
 import {boardPlan, conditionReadings, measuredLines} from './layout.js';
-import {NSIM_TEXT, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, rangeText, oddsText, stakeOf, payoffOf, oddsOf,
+import {NSIM_TEXT, outcomeText, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, rangeText, oddsText, stakeOf, payoffOf, oddsOf,
   concentrationLine, togetherNote} from './format.js';
 
 const WIDE = 1240;
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const r2 = n => Math.round(n * 100) / 100;
 const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: [], scoreable: false};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 /* concentration (a null when no bet reaches the ≥40%-of-total-stake line, so callers
    reserve no gap for it) and the shared-scenario note come from format.js */
-const outcomeText = pf => pf ? 'MEDIAN OUTCOME ' + p50Text(pf) + ' · P10 ' + pv(pf, pf.p10) + ' · P90 ' + pv(pf, pf.p90) : 'NOT AVAILABLE';
 const lossAlt = pf => lossText(pf) + ' lose money, ' + p50Alt(pf);
 /* the portfolio median notch: one tick, or two ticks joined by a hairline when the
    median is split across an empty stretch of outcomes */
@@ -74,6 +74,7 @@ function conditionCards(readings, x0, y0, width, c, narrow){
 }
 
 export function renderBoard(model, sim, ctx = {}){
+  useFace(ctx);
   return (!!ctx.width && ctx.width < 520) ? renderNarrow(model, sim, ctx) : renderWide(model, sim, ctx);
 }
 
@@ -148,7 +149,7 @@ function renderWide(model, sim, ctx){
      separate right reading, so neither truncates authored source. */
   const titleLines = measuredLines(model.title || 'Bets board', '600 24px ' + SANS, 540, measure);
   titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="40" y="' + (48 + i * 26) +
-    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
+    '" font-family="' + SANS + '" font-size="24" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
   const strapY = Math.max(70, 48 + (titleLines.length - 1) * 26 + 22);
   parts.push(txt(40, strapY, 'TOTAL STAKE ' + amount(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
   const receipt = conditionCards(conditions, 610, 16, C.right - 610, c, false);
@@ -321,7 +322,7 @@ function renderWide(model, sim, ctx){
   }
 
   // outcome rail
-  y = outcomeRail(body, conditions, C.left, C.right, y, c, false, compare, sameUnit(compare, model));
+  y = outcomeRail(body, conditions, C.left, C.right, y, c, false, compare, sameUnit(compare, model), measure);
   const panelBot = y + 8;
   parts.push(...body);
   parts.push(txt(C.left, panelBot + 22, 'P10–P90 RANGES · ' + NSIM_TEXT + ' SIMULATIONS', 9, c.muted, {tracking: '0.04em'}));
@@ -344,7 +345,7 @@ function cell(body, x, y, str, e, c, hooks, tone, edit){
   else body.push(inner);
 }
 
-function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare, ghostOk = true){
+function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare, ghostOk = true, measure = s => String(s).length * 6){
   const pf = conditions.baseline.result;
   const stress = conditions.stress.result;
   if(!pf){
@@ -383,11 +384,14 @@ function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare, ghostOk = 
   body.push('<rect x="' + r2(rx(pf.p10)) + '" y="' + ry + '" width="' + r2(Math.max(1, rx(pf.p90) - rx(pf.p10))) + '" height="8" rx="0" fill="' + c.accent + '" fill-opacity="0.5"/>');
   if(hlo < 0) body.push('<line x1="' + r2(rx(0)) + '" y1="' + (ry - 3) + '" x2="' + r2(rx(0)) + '" y2="' + (ry + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
   body.push(medianNotches(pf, rx, ry - 4, ry + 12, c.ink, 2));
-  body.push(txt(rx(pf.p10), ry + 26, 'P10 ' + pv(pf, pf.p10), 9.5, c.muted, {anchor: 'middle', mono: true}));
-  body.push(txt(rx(pf.split ? (pf.split.lo + pf.split.hi) / 2 : pf.p50), ry + 26, 'P50 ' + p50Text(pf), 9.5, c.ink, {anchor: 'middle', mono: true, weight: 700}));
-  body.push(txt(rx(pf.p90), ry + 26, 'P90 ' + pv(pf, pf.p90), 9.5, c.muted, {anchor: 'middle', mono: true}));
-  if(hlo < 0) body.push(txt(rx(0), ry + 26, '0', 9.5, c.muted, {anchor: 'middle', mono: true}));
-  let bottom = ry + 34;
+  const labels = railLabels([
+    {key: 'P10', valueText: pv(pf, pf.p10), x: rx(pf.p10)},
+    {key: 'P50', valueText: p50Text(pf), x: rx(pf.split ? (pf.split.lo + pf.split.hi) / 2 : pf.p50)},
+    {key: 'P90', valueText: pv(pf, pf.p90), x: rx(pf.p90)}],
+    {x0, x1, measure, font: '9.5px ' + MONO_FONT, zero: hlo < 0 ? {x: rx(0)} : null});
+  for(const l of labels.labels)
+    body.push(txt(l.x, ry + 26 + l.row * 12, l.text, 9.5, /P50/.test(l.key) ? c.ink : c.muted, {anchor: l.anchor, mono: true, weight: /P50/.test(l.key) ? 700 : undefined}));
+  let bottom = ry + 34 + (labels.rows - 1) * 12;
   if(stress){
     const sy = bottom + 6;
     body.push(txt(x0, sy + 6, 'SHARED-OUTCOME STRESS', 8, lossIsHigh(stress) ? c.err : c.accentInk,
@@ -442,7 +446,7 @@ function renderNarrow(model, sim, ctx){
   let y = 30;
   const titleLines = measuredLines(model.title || 'Bets board', '600 21px ' + SANS, inner, measure);
   titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="' + pad + '" y="' + (y + i * 24) +
-    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
+    '" font-family="' + SANS + '" font-size="21" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
   y += titleLines.length * 24 - 2;
   parts.push(txt(pad, y, 'Stake ' + amount(totalStake) + (flagged ? ' · ' + flagged + ' flagged' : ''), 11, c.muted)); y += 12;
   const receipt = conditionCards(conditions, pad, y, inner, c, true);
@@ -582,7 +586,7 @@ function renderNarrow(model, sim, ctx){
   if(edit){ parts.push(addCapsule('＋ Add group', 'Add group', 'addgroup', -1, y)); y += 56; }
   // portfolio outcome rail
   parts.push(txt(pad, y + 10, 'PORTFOLIO', 10, c.ink, {weight: 700, tracking: '0.05em'})); y += 22;
-  y = outcomeRail(parts, conditions, pad, W - pad, y, c, true, compare, sameUnit(compare, model));
+  y = outcomeRail(parts, conditions, pad, W - pad, y, c, true, compare, sameUnit(compare, model), measure);
   parts.push('<rect data-narrow="" width="0" height="0" fill="none"/>');
   const stress = conditions.stress.result;
   return svgShell(W, y + 20, c, parts.join(''), true,

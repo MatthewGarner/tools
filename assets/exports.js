@@ -45,7 +45,9 @@ const describe = (btn, description) => {
   }
 };
 
-export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels = {}, descriptions = {}, status}){
+/* `getCopy` re-points Copy PNG at a different picture. `getSlide` + a `copyslide` button add one more clearly named row that copies a
+   presentation slide, while Copy PNG and Download PNG stay the same picture of the current view. */
+export function wireExports({buttons, getSvg, getCopy, getSlide, getMarkdown, slug, labels = {}, descriptions = {}, status}){
   // A status line, where the page has one, keeps what happened until the next export action; the button
   // label alone reverts after two seconds. Pages without one keep the label.
   const line = status || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('exportstatus') : null);
@@ -57,6 +59,7 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
   describe(buttons.copypng, descriptions.copypng || (getCopy
     ? 'Copy PNG — presentation summary'
     : 'Copy PNG — full-detail artefact'));
+  describe(buttons.copyslide, descriptions.copyslide || 'Copy slide — a 16:9 presentation summary as a PNG');
   describe(buttons.copymd, descriptions.copymd || 'Copy full-detail artefact as markdown');
   describe(buttons.dlpng, descriptions.dlpng || 'Download full-detail PNG — available within the raster limit');
   describe(buttons.dlsvg, descriptions.dlsvg || 'Download full-detail SVG — exhaustive at any supported size');
@@ -80,12 +83,12 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
       }
     }, error => fail(rasterMessage(error)));
   });
-  if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
-    const svg = (getCopy || getSvg)();
-    const revert = buttonText(buttons.copypng, copyLabel);
+  const wireCopy = (btn, source, what, label) => btn.addEventListener('click', () => {
+    const svg = source();
+    const revert = buttonText(btn, label);
     say('');
-    const fail = msg => { flash(buttons.copypng, msg, revert); say(msg + '.'); };
-    if(!svg) return fail('Copy PNG unavailable — download SVG');
+    const fail = msg => { flash(btn, msg, revert); say(msg + '.'); };
+    if(!svg) return fail(what + ' unavailable — download SVG');
     if(!navigator.clipboard || !window.ClipboardItem)
       return fail('Clipboard unavailable — use Download');
     const plan = pngRasterPlan(svg);
@@ -111,12 +114,14 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
       }, error => { rasterError = error; reject(error); }));
     try {
       navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-        .then(() => { flash(buttons.copypng, 'Copied — paste into your deck', revert); say(scaleNote(plan, 'PNG copied') || 'PNG copied — paste into your deck.'); })
+        .then(() => { flash(btn, 'Copied — paste into your deck', revert); say(scaleNote(plan, 'PNG copied') || 'PNG copied — paste into your deck.'); })
         .catch(() => fail(rasterError ? rasterMessage(rasterError) : 'Copy blocked — use Download'));
     }catch(_){
       fail('Copy blocked — use Download');
     }
   });
+  if(buttons.copypng) wireCopy(buttons.copypng, getCopy || getSvg, 'Copy PNG', copyLabel);
+  if(buttons.copyslide && getSlide) wireCopy(buttons.copyslide, getSlide, 'Copy slide', 'Copy slide');
   if(buttons.copymd) buttons.copymd.addEventListener('click', () => {
     const md = getMarkdown();
     if(!md || !navigator.clipboard)

@@ -1,12 +1,12 @@
 /* Fixed 16:9 portfolio-summary render for Copy PNG. It is intentionally a
    deterministic selection, not a compressed claim that all bets are shown. */
-import {esc, txt} from '../assets/svg.js';
+import {esc} from '../assets/svg.js';
+import {SANS, txt, useFace} from './face.js';
 import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
 import {NSIM_TEXT, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const W = 1920, H = 1080;
 const TABLE_LIMIT_Y = 720;
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 const reading = value => value ? {
   loss: 'P(LOSES MONEY) ' + lossText(value),
@@ -69,7 +69,7 @@ function presentationTitle(text, measure){
 
 function titleLine(x, y, line, size, c){
   return '<text data-bets-title-line="" x="' + x + '" y="' + y +
-    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="' + size +
+    '" font-family="' + SANS + '" font-size="' + size +
     '" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>';
 }
 
@@ -209,6 +209,7 @@ function portfolioExposureRails(readings, x0, x1, y0, c){
 const exRound = value => Math.round(value * 100) / 100;
 
 export function renderBetsPresentation(model, sim, ctx = {}){
+  useFace({...ctx, intent: 'presentation'});
   const c = ctx.colors, measure = ctx.measure || (s => String(s).length * 14);
   const authoredTitle = model.title || 'Bets board';
   const title = presentationTitle(authoredTitle, measure);

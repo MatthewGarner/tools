@@ -267,7 +267,7 @@ test('dense mode replaces direct labels with source-order IDs and a full in-plan
   assert.equal(NAME_ONLY_THRESHOLD, 9);
   const svgCrowded = renderQuadrant(crowdedModel, crowdedSim, CTX);   // 12 bets
   assert.match(svgCrowded, /data-quadrant-key=""/);
-  assert.match(svgCrowded, /FULL BET KEY · SOURCE ORDER/);
+  assert.match(svgCrowded, /KEY · BETS WITH A NUMBER/);
   for(const id of ['B01', 'B06', 'B12']) assert.ok(svgCrowded.includes(id));
   assert.ok(svgCrowded.includes('→ pays'), 'the key retains stake/odds/payoff detail');
   const svgSmall = renderQuadrant(model, sim, CTX);   // 3 bets, well under threshold
