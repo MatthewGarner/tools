@@ -3,7 +3,7 @@ import {wireModelLink} from '../../assets/energy-interaction.js';
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
-import {simulate, verdict, verdictFigure, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS} from './engine.js';
+import {simulate, verdict, verdictFigure, fmtHz, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS} from './engine.js';
 import {renderTraceScene, toMarkdown, assumptionLines} from './render.js';
 import {buildTraceScene} from './scene.js';
 import {paintTraceScene} from './canvas.js';
@@ -60,13 +60,13 @@ async function boot(){
     const result = simulate(p);
     lastResult = result; lastParams = p; lastScene = buildTraceScene(result, p);
     // readout tiles
-    $('t-rocof').textContent = result.rocof.toFixed(2) + ' Hz/s';
-    $('t-nadir').textContent = result.nadir.f.toFixed(2) + ' Hz';
+    $('t-rocof').textContent = fmtHz(result.rocof) + ' Hz/s';
+    $('t-nadir').textContent = fmtHz(result.nadir.f) + ' Hz';
     $('t-tnadir').textContent = result.nadir.t.toFixed(1) + ' s';
-    $('t-settle').textContent = result.settle.toFixed(2) + ' Hz';
+    $('t-settle').textContent = fmtHz(result.settle) + ' Hz';
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
     const verdictCopy = verdict(result, p);
-    outcome.textContent = `Nadir ${result.nadir.f.toFixed(2)} Hz · ${result.shedOccurred ? 'load shedding' : 'no load shedding'} · slope ${result.rocof.toFixed(2)} Hz/s`;
+    outcome.textContent = `Nadir ${fmtHz(result.nadir.f)} Hz · ${result.shedOccurred ? 'load shedding' : 'no load shedding'} · slope ${fmtHz(result.rocof)} Hz/s`;
     paintVerdict($('verdict'), verdictCopy, verdictFigure(result));
     /* metrics: the three numbers that decide the fall — what was lost, what
        inertia is left to resist it, and how much fast response is contracted.
@@ -92,11 +92,11 @@ async function boot(){
       if(services.length){
         text = services.map((s, i) =>
           (i === 0 ? `${s.name} lifts the nadir ` : `${s.name} `) +
-          s.delta.nadir.toFixed(2) + ' Hz' + s.suffix
+          fmtHz(s.delta.nadir) + ' Hz' + s.suffix
         ).join(' · ') + '.';
       }
       if(p.eGfm > 0){
-        text += (text ? ' ' : '') + `Grid-forming eases the slope ${Math.abs(d.gfm.rocof).toFixed(2)} Hz/s.`;
+        text += (text ? ' ' : '') + `Grid-forming eases the slope ${fmtHz(Math.abs(d.gfm.rocof))} Hz/s.`;
       }
       $('deltas').textContent = text;
     } else {

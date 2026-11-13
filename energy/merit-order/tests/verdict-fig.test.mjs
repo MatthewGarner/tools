@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import {dispatch} from '../engine.js';
 import {buildStack} from '../stack.js';
 import {buildVerdict, buildVerdictParts} from '../render.js';
-import {paramsFor} from '../scenarios.js';
+import {paramsFor, WORLDS} from '../scenarios.js';
 
 const run = (world, condition, demand) => {
   const params = paramsFor(world, condition);
-  const cs = {generators: buildStack(params), demand: demand ?? params.demand};
+  const cs = {generators: buildStack(params, WORLDS[world].catalogue), demand: demand ?? params.demand};
   return {cs, result: dispatch(cs.generators, cs.demand)};
 };
 
@@ -33,4 +33,13 @@ test('the figure is the clearing price, verbatim, and the line’s first £', ()
     assert.equal(line.indexOf(fig), line.indexOf('£'),
       'the clearing price is the first £ quoted: ' + line);
   }
+});
+
+test('unmet demand ⇒ no clearing price, so no figure to ink (F-MO-5)', () => {
+  // Hydrogen Evolution's cold-peak demand (63 GW) on the GB-today fleet: 6+ GW short
+  const params = paramsFor('he', 'coldPeak');
+  const cs = {generators: buildStack(params), demand: params.demand};
+  const result = dispatch(cs.generators, cs.demand);
+  assert.ok(result.unmet > 1);
+  assert.equal(buildVerdictParts(result, cs).fig, '');
 });

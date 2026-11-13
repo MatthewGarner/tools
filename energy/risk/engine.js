@@ -1,15 +1,16 @@
-/* Pure engine: seeded merchant sampling (lognormal default + normal tail-check),
+/* Pure engine: deterministic quantile-grid merchant (lognormal default + normal tail-check),
    payoff transforms per archetype, fee-clean trade decomposition, verdicts.
    Every number the UI quotes is defined here and only here.
    The lo..hi → sampler maths lives in assets/series.js (rangeSampler) since
    /cycles became its 4th consumer; fermi migrates when next touched. */
-import {mulberry32, gaussian, quantile, fmt, rangeSampler, Z90} from '../../assets/series.js';
+import {quantile, fmt, Z90} from '../../assets/series.js';
+import {rangeQuantile} from '../../assets/quantile-grid.js';
 export {Z90};
 
+/* the n grid points, ascending. seed is accepted and ignored (no randomness remains). */
 export function draws(lo, hi, dist, seed, n){
-  const rand = mulberry32(seed), gauss = gaussian(rand);
-  const f = rangeSampler(lo, hi, dist, rand, gauss);
-  return Array.from({length: n}, f);
+  const q = rangeQuantile(lo, hi, dist);
+  return Array.from({length: n}, (_, i) => q((i + 0.5) / n));
 }
 
 /* pay = what you receive; pay0 = the fee-free transform (risk terms only);
@@ -23,7 +24,8 @@ export function payoffs(kind, p){
   }
   if(kind === 'toll'){
     const {fixed: T, fee} = p;
-    return {pay: () => T - fee, pay0: () => T, fee, bindAt: T};
+    /* the toll beats merchant when T - fee > m; markers drawn at the toll level stay at T */
+    return {pay: () => T - fee, pay0: () => T, fee, bindAt: T - fee};
   }
   const {premium, attach: A, limit: L} = p;
   const pay0 = m => m + Math.min(Math.max(0, A - m), L);
@@ -33,8 +35,9 @@ export function payoffs(kind, p){
 export function simulate(model, {seed = 1, n = 10000} = {}){
   if(!model || !model.merchant) return null;
   const {lo, hi} = model.merchant;
-  const mA = draws(lo, hi, 'logn', seed, n);   // primary (lognormal when lo > 0)
-  const mB = draws(lo, hi, 'norm', seed, n);   // tail-shape check
+  const mA = draws(lo, hi, 'logn', seed, n);   // primary: lognormal quantile grid (normal when lo <= 0)
+  const mB = draws(lo, hi, 'norm', seed, n);   // tail-shape check: normal quantile grid
+  const tailCheck = lo > 0;                    // at lo <= 0 the lognormal is impossible: mA IS the normal
   const mSorted = Float64Array.from(mA).sort();
   const rows = [{kind: 'merchant', label: 'Merchant', srcLine: model.merchant.srcLine,
     params: {}, p10: quantile(mSorted, .1), p50: quantile(mSorted, .5), p90: quantile(mSorted, .9),
@@ -47,8 +50,9 @@ export function simulate(model, {seed = 1, n = 10000} = {}){
     if(bindAt !== null){
       const frac = arr => arr.reduce((c, m) => c + (m < bindAt ? 1 : 0), 0) / n;
       const pA = frac(mA), pB = frac(mB);
-      bind = {p: pA, lo: Math.min(pA, pB), hi: Math.max(pA, pB),
-        sensitive: Math.abs(pA - pB) > 0.05};
+      bind = tailCheck
+        ? {p: pA, lo: Math.min(pA, pB), hi: Math.max(pA, pB), sensitive: Math.abs(pA - pB) > 0.05, tailCheck}
+        : {p: pA, lo: pA, hi: pA, sensitive: null, tailCheck};
     }
     let up = 0, down = 0;
     let deltas = new Array(n);
@@ -81,13 +85,22 @@ export function simulate(model, {seed = 1, n = 10000} = {}){
 }
 
 export function fmtUnit(v, unit){
-  const m = String(unit).match(/^([£$€])(.*)$/);
+  let m = String(unit).match(/^([£$€])(.*)$/);
+  /* a "£k/…" unit already says thousands: from 1000 up, step to millions rather than print "kk" */
+  if(m && /^k/.test(m[2]) && Math.abs(v) >= 1000){
+    m = [m[0], m[1], 'm' + m[2].slice(1)];
+    return m[1] + fmt(v / 1000) + m[2];
+  }
   const s = fmt(Math.abs(v) < 1e-9 ? 0 : v);
   return m ? m[1] + s + m[2] : s + ' ' + unit;
 }
 
 const pct = p => Math.round(p * 100) + '%';
 function bindClause(bind){
+  if(bind.sensitive === null) return bindWords(bind) + ' (tail-shape check unavailable: the range reaches zero)';
+  return bindWords(bind);
+}
+function bindWords(bind){
   if(bind.sensitive) return pct(bind.lo) + '–' + pct(bind.hi) + ' of years depending on tail shape';
   const t = Math.round(bind.p * 10);
   return t === 0 ? 'almost never' : t + ' year' + (t === 1 ? '' : 's') + ' in 10';
@@ -108,7 +121,7 @@ export function verdict(row, unit){
   const u = v => fmtUnit(v, unit);
   const {upsideSold, downsideBought, fees, typicalDelta, worstDelta} = row.trade;
   const feeBit = fees > 0 ? ' and paid ' + u(fees) + ' in fees' : '';
-  const tail = ' — worst-year ' + (worstDelta >= 0 ? 'improves ' : 'worsens ') + u(Math.abs(worstDelta)) +
+  const tail = ' — bad year (P10) ' + (worstDelta >= 0 ? 'improves ' : 'worsens ') + u(Math.abs(worstDelta)) +
     ', typical year ' + (typicalDelta >= 0 ? 'gains ' : 'costs ') + u(Math.abs(typicalDelta)) + '.';
   if(row.kind === 'floor')
     return 'The floor binds ' + bindClause(row.bind) + '. You sold ' + u(upsideSold) +

@@ -5,10 +5,17 @@
    dispatch mechanics — it does not change filling (a must-run block wider than
    demand is partially stranded like any plant; the render/copy reads that
    distinctly). Identity is by `name` throughout. */
+/* A demand within BOUNDARY_EPS GW (1 kW) of a stack step — including the zero step and the top of
+   the stack — IS on the step, so float noise (4e-15 GW either side of 29.64) cannot flip the marginal
+   plant or the price. Nothing more than BOUNDARY_EPS from every step is touched. */
+export const BOUNDARY_EPS = 1e-9;
+
 export function dispatch(generators, demand){
-  const d = Math.max(0, demand);                                  // clamp ≥ 0
+  let d = Math.max(0, demand);                                    // clamp ≥ 0
   const sorted = [...generators].sort((a, b) => a.cost - b.cost); // stable → ties keep input (archetype) order
   const totalCapacity = sorted.reduce((s, g) => s + g.capacity, 0);
+  if(d <= BOUNDARY_EPS) d = 0;
+  else { let edge = 0; for(const g of sorted){ edge += g.capacity; if(Math.abs(d - edge) <= BOUNDARY_EPS){ d = edge; break; } } }
   const perPlant = {};
   let running = 0, marginalName = null, clearingPrice = 0;
   for(const g of sorted){

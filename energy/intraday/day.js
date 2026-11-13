@@ -146,8 +146,8 @@ export function scheduleFromPairs(pairs, rte){
    it planned against (at GB-honest defaults the trough is only ~1 GW deep).
    Each round: re-clear with the surviving slices as net demand, find the
    slice with the WORST realised margin on those prices; if it pays (≥ 0),
-   stop — otherwise cut that one slice and repeat (a cut slice is never
-   re-added; ties break deterministically: lowest margin, then largest q,
+   stop — otherwise cut that one slice and repeat (cuts are never undone
+   inside the loop — the re-entry pass below offers them back afterwards; ties break deterministically: lowest margin, then largest q,
    then earliest c, then earliest d). Because the book is quantised (see
    greedySchedule), each cut trims QUANTUM GWh, so the terminal book settles
    at the market's true absorption capacity regardless of fleet size instead
@@ -182,6 +182,46 @@ export function runDay(p, catalogue = GB_TODAY){
     flat = clearDay(p, netOf(sched), catalogue);
   }
 
+  /* Re-entry pass (engine audit F-ID-1). The back-off can overshoot: it cuts one slice at a time
+     and never looks back, so a smaller profitable book can be lost (1 GW x 1 h earned nothing where
+     0.5 GW x 1 h earned). Offer the dropped slices back in plan order (best raw margin first); keep
+     one when the re-cleared day leaves EVERY slice, itself included, at or above zero. Repeat until
+     a pass adds nothing. The terminal book is then an equilibrium both ways: no kept slice loses,
+     and no dropped slice could rejoin with all still paying. */
+  const paysAll = (book, fl) => book.every(sl => fl.prices[sl.d] - fl.prices[sl.c] / p.rte >= 0);
+  const tryBook = trial => { const sc = scheduleFromPairs(trial, p.rte), fl = clearDay(p, netOf(sc), catalogue); return paysAll(trial, fl) ? {sc, fl} : null; };
+  let dropped = plan.pairs.filter(sl => !keep.includes(sl));
+  /* Second ruling: whole 0.25 GWh slices are an artefact of the plan, so when no whole slice can rejoin,
+     each still-dropped slice is offered back at the largest part of it (in steps of a tenth of the slice)
+     that leaves every trade paying; the remainder stays dropped. More volume mostly lowers margins, so the
+     largest paying part is found by bisection over the steps. It is only "mostly": a charge in the hour
+     another slice discharges (a chain) can lift that slice's margin, so a part added now can make an
+     earlier refusal pass. The two passes therefore repeat until a full round adds nothing; that is what
+     makes the terminal book an equilibrium (each round adds volume out of a finite stock, so it ends). */
+  for(let added = true; added && dropped.length > 0;){
+    added = false;
+    for(const sl of dropped.slice()){                       // whole slices, plan order
+      const hit = tryBook([...keep, sl]);
+      if(hit){ keep.push(sl); sched = hit.sc; flat = hit.fl; dropped.splice(dropped.indexOf(sl), 1); added = true; }
+    }
+    if(added) continue;
+    for(const sl of dropped.slice()){                       // parts of the still-dropped slices, plan order
+      const unit = sl.unit ?? sl.q / 10, n = Math.round(sl.q / unit);
+      const part = k => ({c: sl.c, d: sl.d, q: unit * k, unit});
+      let hit = tryBook([...keep, part(1)]);
+      if(!hit) continue;                                    // not even the smallest part pays
+      let lo = 1, best = hit, hi = n + 1;                   // lo pays, hi is known (or assumed) not to
+      while(hi - lo > 1){
+        const mid = (lo + hi) >> 1, h = tryBook([...keep, part(mid)]);
+        if(h){ lo = mid; best = h; } else hi = mid;
+      }
+      keep.push(part(lo)); sched = best.sc; flat = best.fl;
+      const i = dropped.indexOf(sl);
+      if(lo >= n) dropped.splice(i, 1); else dropped[i] = {c: sl.c, d: sl.d, q: unit * (n - lo), unit};
+      added = true;
+    }
+  }
+
   const marginOn = (s, prices) =>
     s.discharge.reduce((sum, v, h) => sum + v * prices[h], 0) -
     s.charge.reduce((sum, v, h) => sum + v * prices[h], 0);
@@ -190,6 +230,7 @@ export function runDay(p, catalogue = GB_TODAY){
 
   return {
     raw, flat, sched, planSched: plan,
+    book: keep, dropped,                                       // terminal slices kept / dropped (an equilibrium both ways)
     plannedMargin: marginOn(plan, raw.prices),
     achievedMargin: marginOn(sched, flat.prices),
     dischargedGWh,

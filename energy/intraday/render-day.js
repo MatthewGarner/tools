@@ -92,6 +92,11 @@ export function buildDayVerdictParts(result, p){
   }
   // empty book: a fleet that finds nothing worth trading (spread too thin to
   // cover the round-trip loss) — distinct from a fleet that trades and flattens
+  if(dischargedGWh <= 0.05 && droppedGWh > 0.05){
+    // the plan traded on the raw day and none of it survives: the fleet's own price move is what closes the spread
+    return {fig: `£${Math.round(raw.spread)}`,
+      line: `${r1(p.fleetGW)} GW of storage plans trades on the day's £${Math.round(raw.spread)} spread, but its own trading closes the spread: no trade still pays once the fleet has moved the price.`};
+  }
   if(dischargedGWh <= 0.05){
     return {fig: `£${Math.round(raw.spread)}`,
       line: `${r1(p.fleetGW)} GW of storage finds nothing worth trading: the day's spread (£${Math.round(raw.spread)}) is thinner than the round-trip loss.`};

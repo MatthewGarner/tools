@@ -38,8 +38,8 @@ insure: premium 6 attach 65 limit 30`},
 merchant: 60..180
 
 floor: 0 share 88% "Pure share 88/12"
-floor: 55 share 75% "Floor 55 + 75/25"
-toll: 92 "Fixed-fee equivalent"`},
+floor: 70 share 65% "Floor 70 + 65/35"
+toll: 96.7 "Fixed-fee equivalent"`},
   {name: 'Wind PPA floor', src:
 `title: Wind PPA — floor or merchant
 unit: £/MWh
@@ -84,11 +84,11 @@ function doRefresh(){
     paintVerdict($('verdict'), v.line, v.fig);
     $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
     /* metrics: the routes on the board, the merchant belief they all share, and
-       the sample the payoffs are read off — all straight from model/sim. */
+       the grid the payoffs are read off (exact quantiles, not random draws) — all straight from model/sim. */
     paintMetrics($('metrics'), model.title, [
       `${sim.rows.length} route${sim.rows.length === 1 ? '' : 's'}`,
       `merchant ${Math.round(model.merchant.lo)}–${Math.round(model.merchant.hi)} ${model.unit}`,
-      `${sim.n.toLocaleString('en-GB')} draws`,
+      `exact, ${sim.n.toLocaleString('en-GB')}-point grid`,
     ]);
   }
   renderWarnings();

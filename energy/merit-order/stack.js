@@ -64,10 +64,20 @@ export function buildStack(params, catalogue = GB_TODAY){
   return gens;
 }
 
+/* A hand-edit pins only the field that was edited: adv[name] = [capacity|null, cost|null], null meaning
+   "still follows the sliders". A legacy pair of two numbers pins both, as old links always did. */
 export function applyAdv(gens, adv){
   if(!adv) return gens;
   return gens.map(g => {
     const row = adv[g.name];
-    return Array.isArray(row) ? {...g, capacity: row[0], cost: row[1]} : g;
+    if(!Array.isArray(row)) return g;
+    return {...g, capacity: row[0] ?? g.capacity, cost: row[1] ?? g.cost};
   });
+}
+
+/* Pin one field of one block (field: 'capacity' | 'cost'); the other keeps whatever it was. Returns a new adv. */
+export function editAdv(adv, name, field, value){
+  const row = Array.isArray(adv?.[name]) ? adv[name] : [null, null];
+  const next = field === 'capacity' ? [value, row[1] ?? null] : [row[0] ?? null, value];
+  return {...adv, [name]: next};
 }

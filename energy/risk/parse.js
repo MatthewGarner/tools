@@ -54,6 +54,7 @@ export function parse(text){
       if(lo > hi){ warn('merchant range is inverted — swapping'); const t = lo; lo = hi; hi = t; }
       if(lo === hi) warn('a zero-width range claims a certainty nobody has');
       if(model.merchant){ warn('second merchant line ignored — one revenue distribution per model'); continue; }
+      if(lo <= 0) warn('merchant range reaches zero or below — a lognormal is impossible there, so a normal is used and the tail-shape check is unavailable');
       model.merchant = {lo, hi, srcLine: ln};
       continue;
     }
@@ -63,11 +64,17 @@ export function parse(text){
     if(lead){
       params[kind === 'floor' ? 'level' : 'fixed'] = parseFloat(lead[1]);
       body = body.slice(lead[0].length);
+      if(kind === 'insure') warn('insure ignores a leading number (' + lead[1] + ') — write "premium P attach A"');
     }
-    for(const m of body.matchAll(new RegExp('(share|fee|premium|attach|limit)\\s+(' + NUM + ')\\s*(%?)', 'gi'))){
+    for(const m of body.matchAll(new RegExp('\\b(share|fee|premium|attach|limit)\\s+(' + NUM + ')\\s*(%?)', 'gi'))){
       const k = m[1].toLowerCase();
       if(!PARAM_KEYS[kind].includes(k)){ warn(k + ' doesn’t apply to ' + kind); continue; }
       params[k] = parseFloat(m[2]);
+      if(m[3] && k !== 'share') warn(k + ' is in the plan’s unit, not percent — read as ' + params[k] + ', not ' + params[k] + '%');
+      else if(k === 'share' && !m[3] && params[k] > 0 && params[k] <= 1){
+        warn('share ' + m[2] + ' read as a fraction (' + Math.round(params[k] * 100) + '%) — write the percent, like "share ' + Math.round(params[k] * 100) + '%"');
+        params[k] *= 100;
+      }
     }
 
     if(kind === 'floor'){
@@ -77,15 +84,18 @@ export function parse(text){
         if(params.share < 0){ warn('negative share — clamping to 0'); params.share = 0; }
         params.share = params.share / 100;
       } else params.share = 1;
+      if(params.fee < 0) warn('negative fee — clamping to 0');
       params.fee = Math.max(0, params.fee || 0);
       delete params.fixed;
     } else if(kind === 'toll'){
       if(!('fixed' in params)){ warn('toll wants a fixed payment, like "toll: 95"'); continue; }
+      if(params.fee < 0) warn('negative fee — clamping to 0');
       params.fee = Math.max(0, params.fee || 0);
     } else {
       if(!('premium' in params) || !('attach' in params)){
         warn('insure wants at least "premium P attach A"'); continue;
       }
+      if(params.premium < 0){ warn('negative premium — clamping to 0'); params.premium = 0; }
       if(!('limit' in params)) params.limit = Infinity;
       delete params.fixed;
     }

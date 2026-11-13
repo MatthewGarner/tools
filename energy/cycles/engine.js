@@ -4,8 +4,13 @@
    Spec: docs/superpowers/specs/2026-07-06-cycle-budget-design.md §2. */
 import {mulberry32, gaussian, quantile, fmt, rangeSampler} from '../../assets/series.js';
 import {complete} from './parse.js';
+import {rangeQuantile} from '../../assets/quantile-grid.js';
 
-export const N_BASE = 1000, DAYS = 365, SOH_FLOOR = 0.10, MAX_IT = 20, TOL = 1e-3;
+export const N_BASE = 10000, DAYS = 365, SOH_FLOOR = 0.10, MAX_IT = 20, TOL = 1e-3;
+/* The page's run: ONE seed and ONE size, shared by app.js, sim-worker.js and render.js (whose ribbon
+   rebuilds the same day sample). simulate()'s own default n stays 10000 for the embed (audit CYC-Q2). */
+export const RUN = Object.freeze({seed: 1, n: 5000});
+export const baseSeed = seed => seed ^ 0x9e3779b9;
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
 
@@ -23,15 +28,21 @@ export function above(S, x){
   return {count: S.n - lo, sum: S.suf[lo]};
 }
 
-/* two sorted day samples: S1 = best spread, S2 = pairwise f×spread (null without second:) */
+/* two sorted day samples: S1 = best spread, S2 = pairwise f×spread (null without second:).
+   DETERMINISTIC (audit CYC-7): the day-to-day spread is ONE lognormal, so S1 is its quantile grid
+   S1[i] = Q((i+½)/N) — the base was the whole sampling error when it was random. S2 pairs each day with
+   a second-cycle fraction along a rank-1 lattice, S2[i] = S1[i]·clamp01(Qf(frac((i+½)·φ⁻¹))), then sorts.
+   `seed` is accepted and ignored: it drives only the belief draws. */
+const GOLDEN = 0.6180339887;
 export function makeBase(model, seed){
-  const rand = mulberry32(seed), gauss = gaussian(rand);
-  const s = rangeSampler(model.spread.lo, model.spread.hi, 'logn', rand, gauss);
-  const days = Array.from({length: N_BASE}, s);
+  const qs = rangeQuantile(model.spread.lo, model.spread.hi, 'logn');
+  const days = Float64Array.from({length: N_BASE}, (_, i) => qs((i + 0.5) / N_BASE));
   let S2 = null;
   if(model.second){
-    const f = rangeSampler(model.second.lo, model.second.hi, 'norm', rand, gauss);
-    S2 = sortedSuffix(days.map(d => d * clamp01(f())));
+    const qf = rangeQuantile(model.second.lo, model.second.hi, 'norm');
+    S2 = sortedSuffix(Array.from(days, (d, i) => {
+      const u = (i + 0.5) * GOLDEN; return d * clamp01(qf(Math.min(1 - 1e-12, Math.max(1e-12, u - Math.floor(u)))));
+    }));
   }
   return {S1: sortedSuffix(days), S2};
 }
@@ -181,18 +192,18 @@ function augStats(bestYear, forgone){
 }
 
 /* Memoisation key: everything simulate() reads. Defined by EXCLUDING the
-   display/meta fields (and battery.mw, which simulate ignores — only mwh feeds
+   display/meta fields (title/accent/palette/verdict are display-only: editing them must not re-run) (and battery.mw, which simulate ignores — only mwh feeds
    it) so any field added to the sim is keyed by default. null ⇒ not simulatable. */
 export function simKey(model){
   if(!model || !complete(model)) return null;
-  const {title, accent, palette, warnings, srcLines, missing, battery, ...sim} = model;
+  const {title, accent, palette, verdict, warnings, srcLines, missing, refused, battery, ...sim} = model;
   return JSON.stringify({...sim, mwh: battery && battery.mwh});
 }
 
 export function simulate(model, {seed = 1, n = 10000} = {}){
   if(!model || !complete(model)) return null;
   const H = model.cycles.years, E0 = model.battery.mwh;
-  const base = makeBase(model, seed ^ 0x9e3779b9);
+  const base = makeBase(model, baseSeed(seed));
   const rand = mulberry32(seed), gauss = gaussian(rand);
   const useSecond = !!model.second;
 
@@ -223,20 +234,22 @@ export function simulate(model, {seed = 1, n = 10000} = {}){
 
     if(model.augment){
       let best = 0, bestY = -1;
+      const vAt = new Float64Array(H);           // v(ys): the search's own present value, net of augmentation cost
       for(let ys = 1; ys < H; ys++){
         const deltaE = E0 * (1 - on.sohs[ys - 1]);
         if(deltaE <= 1e-9) continue;
         const gainAtYs = resim(model, b, base, useSecond, on, ys) - npv(on.revs, b.disc, ys);
         const v = (gainAtYs - b.aug * deltaE) / Math.pow(1 + b.disc, ys);
+        vAt[ys] = v;
         if(v > best){ best = v; bestY = ys; }
       }
       bestYear.push(bestY < 0 ? Infinity : bestY + 1);
-      /* forgone collects ONLY augmenting runs — a median polluted by the
-         never-runs' zeros says "later forgoes £0", which is nonsense */
-      if(bestY >= 1 && bestY + 1 < H){
-        const opt = resim(model, b, base, useSecond, on, bestY);
-        const late = resim(model, b, base, useSecond, on, bestY + 1);
-        forgone.push(Math.max(0, opt - late - on.revs[bestY] / (1 + b.disc)));
+      /* forgone collects ONLY augmenting runs — a median polluted by the never-runs' zeros says
+         "later forgoes £0", which is nonsense. It is the value lost by waiting ONE year past the best
+         year, on the same basis as the search that chose it: v(best) − max(0, v(best+1)). ≥ 0 by
+         construction (best is the maximum); a lump sum per year of delay (audit CYC-1). */
+      if(bestY >= 1){
+        forgone.push(vAt[bestY] - Math.max(0, bestY + 1 < H ? vAt[bestY + 1] : 0));
       }
     }
   }
@@ -263,36 +276,51 @@ export function fmtUnit(v, unit){
   const s = fmt(Math.abs(v) < 1e-9 ? 0 : v);
   return m ? m[1] + s + m[2] : s + ' ' + unit;
 }
-const inTen = p => { const t = Math.round(p * 10); return t + ' run' + (t === 1 ? '' : 's') + ' in 10'; };
+/* A cycle price is printed to the nearest £0.1/MWh at most: its seed-to-seed error (belief draws, n=5000)
+   is 0.01-0.03, so a finer digit was noise (audit CYC-7). */
+export const fmtPrice = v => fmtUnit(Math.round(v * 10) / 10, '£/MWh');
+/* The second-cycle £ figures and the forgone value carry a seed-to-seed error of 0.1-0.5% (up to ~2% of
+   the NPV): two significant figures is what they support. */
+export const fmtRough = (v, unit) => fmtUnit(Number(Number(v).toPrecision(2)), unit);
+const tenRuns = t => t + ' run' + (t === 1 ? '' : 's') + ' in 10';
+const inTen = p => tenRuns(Math.round(p * 10));
+/* "warranty a/10 · wear b/10": the second figure is 10 minus the first, so the pair always sums to 10
+   (two independent roundings gave 5 + 6 at a share of 0.45 — audit CYC-2). */
+export function bindTenths(share){ const a = Math.round(share * 10); return [a, 10 - a]; }
+export function bindPercents(share){ const a = Math.round(share * 100); return [a, 100 - a]; }
 
 /* The threshold verdict's ONE key figure (Swiss 6c): the P50 cycle price, which
    is the first figure that sentence quotes — so assets/verdict.js's
    first-occurrence split can only land on it. Lives here, beside the sentence,
    so figure and line cannot drift; cycles-verdict.test.mjs pins both. */
 export function thresholdFigure(out){
-  return out && out.threshold ? fmtUnit(out.threshold.p50, '£/MWh') : '';
+  return out && out.threshold ? fmtPrice(out.threshold.p50) : '';
 }
 
 export function verdict(band, out){
   if(band === 'threshold'){
     const t = out.threshold;
+    const days = Math.round(t.clearingDays) + ' days a year';
+    if(t.p50 === 0)
+      return 'Cycles are worth ' + fmtPrice(0) + ' each in year 1 — nothing binds: the warranty has room and wear costs nothing, ' +
+        'so dispatch whenever a cycle earns anything; ' + days + ' do.';
+    const [w, e] = bindTenths(t.bindingShare);
     const binder = t.bindingShare >= 0.5
-      ? 'In ' + inTen(t.bindingShare) + ' it’s the warranty doing the rationing, not the wear.'
-      : 'In ' + inTen(1 - t.bindingShare) + ' it’s the wear cost setting the bar, not the warranty.';
-    return 'Cycles are worth ' + fmtUnit(t.p50, '£/MWh') + ' each (P10 ' + fmtUnit(t.p10, '£/MWh') +
-      ' – P90 ' + fmtUnit(t.p90, '£/MWh') + ') — only dispatch above that; ' +
-      Math.round(t.clearingDays) + ' days a year clear it. ' + binder;
+      ? 'In year 1 it’s the warranty doing the rationing, not the wear, in ' + tenRuns(w) + '.'
+      : 'In year 1 it’s the wear cost setting the bar, not the warranty, in ' + tenRuns(e) + '.';
+    return 'Cycles are worth ' + fmtPrice(t.p50) + ' each in year 1 (P10 ' + fmtPrice(t.p10) +
+      ' – P90 ' + fmtPrice(t.p90) + ') — only dispatch above that; ' + days + ' clear it. ' + binder;
   }
   if(band === 'second'){
     if(!out.second) return null;
     const s = out.second;
     const cappedBit = s.capped >= 0.3
-      ? ' The warranty caps the pair in ' + inTen(s.capped) + ' — the second cycle spends budget the best single days want back.'
+      ? ' The warranty caps the pair in year 1 in ' + inTen(s.capped) + ' — the second cycle spends budget the best single days want back.'
       : '';
-    return 'The second cycle earns ' + fmtUnit(s.dRev, '£/yr') + ' and costs ' + fmtUnit(s.dWear, '£/yr') +
-      ' of wear — ' + fmtUnit(s.dNet, '£/yr') + ' net' +
+    return 'The second cycle earns ' + fmtRough(s.dRev, '£/yr') + ' and costs ' + fmtRough(s.dWear, '£/yr') +
+      ' of wear in year 1 — ' + fmtRough(s.dNet, '£/yr') + ' net' +
       (s.lifetimeNpvDelta > 0 ? ', and it pays over the life' : ', but over the life it destroys value') +
-      ' (' + fmtUnit(s.lifetimeNpvDelta, '£') + ' NPV).' + cappedBit;
+      ' (' + fmtRough(s.lifetimeNpvDelta, '£') + ' NPV).' + cappedBit;
   }
   if(band === 'augment'){
     if(!out.augment) return null;
@@ -300,8 +328,8 @@ export function verdict(band, out){
     if(a.pNever >= 0.6) return 'Augmentation never pays at these numbers in ' + inTen(a.pNever) + '.';
     if(a.pNever >= 0.35) return 'It’s a coin flip whether augmentation pays at all (never in ' + inTen(a.pNever) +
       ') — when it does, the window is years ' + a.window[0] + '–' + a.window[1] + ' (P25–P75).';
-    return 'Augment in years ' + a.window[0] + '–' + a.window[1] + ' (P25–P75): earlier wastes warranty headroom, later forgoes ' +
-      fmtUnit(a.forgoneP50, '£/yr') + ' P50.' + (a.pNever > 0.15 ? ' (Never pays at all in ' + inTen(a.pNever) + '.)' : '');
+    return 'Augment in years ' + a.window[0] + '–' + a.window[1] + ' (P25–P75): earlier wastes warranty headroom, a year later forgoes ' +
+      fmtRough(a.forgoneP50, '£') + ' (P50).' + (a.pNever > 0.15 ? ' (Never pays at all in ' + inTen(a.pNever) + '.)' : '');
   }
   return null;
 }

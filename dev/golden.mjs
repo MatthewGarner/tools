@@ -473,8 +473,8 @@ if(selected('merit-order')){
   const {buildStack} = await import('../energy/merit-order/stack.js');
   const {DEFAULT_PARAMS, paramsFor, WORLDS} = await import('../energy/merit-order/scenarios.js');
   const mctx = {...ctxBase, palette: MERIT_PALETTE.light};
-  const mk = p => ({generators: buildStack(p), demand: p.demand});
-  const mkw = (w, p) => ({generators: buildStack(p, WORLDS[w].catalogue), demand: p.demand});
+  const mk = p => ({generators: buildStack(p), demand: p.demand, wind: p.wind});
+  const mkw = (w, p) => ({generators: buildStack(p, WORLDS[w].catalogue), demand: p.demand, wind: p.wind});
   // labelCollide:'drop' matches the live page (app.js) — merit-order opted in 2026-07-11
   const mopts = {forExport: true, labelCollide: 'drop'};
   variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, mopts);

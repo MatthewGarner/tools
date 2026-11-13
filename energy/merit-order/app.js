@@ -6,9 +6,9 @@ import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.
    State is {condition, params, adv}: params drive buildStack; adv is per-block
    hand-edits ({name:[cap,cost]}); condition names the active Conditions preset. */
 import {dispatch} from './engine.js';
-import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, MERIT_PALETTE} from './render.js';
-import {buildStack, applyAdv} from './stack.js';
-import {DEFAULT_PARAMS, CONDITIONS, paramsFor, WORLDS} from './scenarios.js';
+import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, outcomeLine, receiptLines as makeReceiptLines, calloutMath, isPriced, MERIT_PALETTE} from './render.js';
+import {buildStack, applyAdv, editAdv} from './stack.js';
+import {DEFAULT_PARAMS, CONDITIONS, paramsFor, conditionNote, WORLDS} from './scenarios.js';
 import {encodeStateV2, decodeStateV2} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
@@ -38,9 +38,10 @@ async function boot(){
   let state = {world: 'gbToday', condition: null, params: {...WORLDS.gbToday.params}, adv: {}};
   let hashTimer = null;
   let wasNegative = false, lastMarginalName;
+  let note = '';   // one-sentence explanation after a Conditions chip that changed nothing; cleared by the next edit
 
   const currentStack = () => applyAdv(buildStack(state.params, catalogue()), state.adv);
-  const currentState = () => ({generators: currentStack(), demand: state.params.demand});
+  const currentState = () => ({generators: currentStack(), demand: state.params.demand, wind: state.params.wind});
   const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
 
   /* ---- narrow-render width: measure #chartwrap, mirroring cycles/risk-transfer ---- */
@@ -143,7 +144,7 @@ async function boot(){
   }));
 
   /* ---- sliders: input = live cut, change = settle ---- */
-  const markCustom = () => { state.condition = 'custom'; };   // any manual edit leaves the active preset
+  const markCustom = () => { state.condition = 'custom'; note = ''; };   // any manual edit leaves the active preset
   function wireDial(id, apply){
     const el = $(id);
     el.addEventListener('input', () => { apply(+el.value); markCustom(); render(false); });
@@ -159,6 +160,7 @@ async function boot(){
   /* ---- Worlds (full stack) + Conditions (overlay on the current world) ---- */
   function applyWorld(key){
     closeCallout();
+    note = '';
     state = {world: key, condition: null, params: {...WORLDS[key].params}, adv: {}};
     syncControls();
     render(true);
@@ -166,6 +168,7 @@ async function boot(){
   function applyCondition(key){
     closeCallout();
     state = {world: state.world, condition: key || null, params: paramsFor(state.world, key || null), adv: {}};
+    note = key ? conditionNote(state.world, key) : '';
     syncControls();
     render(true);
   }
@@ -230,7 +233,7 @@ async function boot(){
     pop.textContent = '';
     const gen = currentStack().find(g => g.name === name);
     if(!gen) return;
-    const pp = dispatch(currentStack(), state.params.demand).perPlant[name];
+    const res = dispatch(currentStack(), state.params.demand), pp = res.perPlant[name];
 
     const title = document.createElement('div');
     title.className = 'mo-callout-name';
@@ -238,14 +241,9 @@ async function boot(){
     pop.appendChild(title);
 
     const installed = installedOf(name);
-    const isVre = gen.family === 'wind' || gen.family === 'solar';
     const math = document.createElement('div');
     math.className = 'mo-callout-math';
-    const availClause = (isVre && installed != null)
-      ? `${fmtGW(gen.capacity)} GW available now (of ${fmtGW(installed)} GW installed) — `
-      : `${fmtGW(gen.capacity)} GW at £${Math.round(gen.cost)}/MWh — `;
-    math.textContent = availClause +
-      `${fmtGW(pp.dispatchedMW)} GW dispatched, ${fmtGW(pp.strandedMW)} GW stranded, rent £${Math.round(pp.rent)}/h`;
+    math.textContent = calloutMath(gen, pp, installed, isPriced(res));
     pop.appendChild(math);
 
     if(gen.storage){
@@ -282,7 +280,7 @@ async function boot(){
   /* edits commit into state.adv[name] = [cap, cost] (applied after buildStack) */
   function advOf(name){
     const g = currentStack().find(x => x.name === name);
-    return state.adv[name] || [g.capacity, g.cost];
+    return [g.capacity, g.cost];   // effective values: pinned fields as typed, the rest as the sliders set them
   }
   function renderCalloutEdit(pop, name){
     pop.textContent = '';
@@ -293,14 +291,14 @@ async function boot(){
 
     const CAP_STEP = 1, COST_STEP = 5;
     pop.appendChild(stepperRow('Capacity', () => Math.round(advOf(name)[0]), ' GW', dir => {
-      const [cap, cost] = advOf(name);
-      state.adv[name] = [clamp(cap + dir * CAP_STEP, 0, 90), cost];
+      const [cap] = advOf(name);
+      state.adv = editAdv(state.adv, name, 'capacity', clamp(cap + dir * CAP_STEP, 0, 90));
       markCustom();
       render(true);
     }));
     pop.appendChild(stepperRow('Bid', () => Math.round(advOf(name)[1]), ' £/MWh', dir => {
-      const [cap, cost] = advOf(name);
-      state.adv[name] = [cap, clamp(cost + dir * COST_STEP, -200, 400)];
+      const [, cost] = advOf(name);
+      state.adv = editAdv(state.adv, name, 'cost', clamp(cost + dir * COST_STEP, -200, 400));
       markCustom();
       render(true);
     }));
@@ -388,11 +386,7 @@ async function boot(){
     getTargets: () => currentState().generators.map(g => ({name:g.name})),
     open: ({name}, button) => openCallout(name, plantEl(name) || button),
   });
-  const receiptLines = () => {
-    const cs=currentState();
-    return [`${(WORLDS[state.world] || WORLDS.gbToday).label} · demand ${cs.demand} GW · gas ${state.params.gas} p/th · carbon £${state.params.carbon}/t.`,
-      ...cs.generators.map(g => `${g.name}: ${Math.round(g.capacity*100)/100} GW offered at £${Math.round(g.cost*100)/100}/MWh.`)];
-  };
+  const receiptLines = () => makeReceiptLines(currentState(), {worldLabel: (WORLDS[state.world] || WORLDS.gbToday).label, gas: state.params.gas, carbon: state.params.carbon});
   /* ---- the refresh loop ---- */
   function render(settle, motionMode){
     // settle=false (mid-drag) → no motion; settle=true → reveal (first) then FLIP.
@@ -400,7 +394,7 @@ async function boot(){
     const mode = motionMode !== undefined ? motionMode : (settle ? undefined : 'none');
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
-    outcome.textContent = `Clears £${Math.round(result.clearingPrice)}/MWh · ${result.marginalName || "no marginal plant"} · demand ${cs.demand} GW`;
+    outcome.textContent = outcomeLine(result, cs) + (note ? `. ${note}` : '');
     updatePlants();
     const rw = renderWidth();
     const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});

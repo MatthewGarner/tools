@@ -9,9 +9,12 @@ export const DEFAULT_PARAMS = {
 };
 
 /* Conditions overlay a world. `coldPeak` carries NO demand (it's firm-constrained and
-   world-relative — paramsFor resolves it from the world's coldPeakDemand) and pins imports
-   LOW (still Dunkelflaute: neighbours short too). The others carry absolute low demands that
-   read correctly at any world scale. */
+   world-relative — paramsFor resolves it from the world's coldPeakDemand) and sets imports to
+   5 GW, above the 3 GW default: the shipped headlines (Electric Engagement and Falling Behind
+   priced by gas peakers, the net-zero worlds by hydrogen) were built on 5 GW, and at the 3 GW
+   default three FES worlds leave a little demand unmet. Whether 5 GW is the right figure for a
+   Europe-wide still spell is a judgement call, not a derived number. The others carry absolute
+   low demands that read correctly at any world scale. */
 export const CONDITIONS = {
   windy:    {label: 'Windy',           mutate: {wind: 0.70, demand: 32}},
   coldPeak: {label: 'Still cold peak', mutate: {wind: 0.05, solar: 0, storageAvail: 0, imports: 5}},
@@ -39,4 +42,20 @@ export function paramsFor(worldKey, conditionKey){
   const mut = CONDITIONS[conditionKey]?.mutate ?? {};
   const demand = conditionKey === 'coldPeak' ? w.coldPeakDemand : (mut.demand ?? w.demand);
   return {...w, ...mut, demand};
+}
+
+/* One plain sentence when a Conditions chip leaves the price where the world's own default has it —
+   today that is Gas spike in the net-zero worlds, where gas is not what sets the price. '' otherwise. */
+import {buildStack} from './stack.js';
+import {dispatch} from './engine.js';
+export function conditionNote(worldKey, conditionKey){
+  if(!CONDITIONS[conditionKey]) return '';
+  const w = WORLDS[worldKey] ?? WORLDS.gbToday;
+  const at = key => { const p = paramsFor(worldKey, key); return dispatch(buildStack(p, w.catalogue), p.demand); };
+  const a = at(null), b = at(conditionKey);
+  if(Math.abs(a.clearingPrice - b.clearingPrice) > 1e-9 || a.marginalName !== b.marginalName || !b.marginalName) return '';
+  const label = CONDITIONS[conditionKey].label, price = Math.round(b.clearingPrice);
+  return conditionKey === 'gasSpike'
+    ? `${label} changes nothing in this world: gas is not setting the price — ${b.marginalName} is (£${price}/MWh).`
+    : `${label} leaves the price at £${price}/MWh in this world: ${b.marginalName} still sets it.`;
 }
