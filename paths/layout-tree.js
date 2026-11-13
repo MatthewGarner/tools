@@ -1,6 +1,8 @@
 /* /paths wide tree geometry. Pure: this module returns numbers and source
    references only; SVG and display copy belong to render-tree.js. */
 
+import {SANS} from './face.js';
+
 export const TREE_GEOMETRY = Object.freeze({
   marginX: 36,
   marginY: 30,
@@ -23,11 +25,13 @@ export const TREE_GEOMETRY = Object.freeze({
   terminalW: 252,
   terminalH: 88,
   minCanvasW: 520,
+  labelClear: 44,
 });
 
-const FONT = '600 13px sans-serif';
-const NOTE_FONT = '10px sans-serif';
-const META_FONT = '600 9px sans-serif';
+/* measured in the face the artefact is drawn in (a face is chosen per render, so these stringify on use) */
+const FONT = {toString: () => '600 13px ' + SANS};
+const NOTE_FONT = {toString: () => '10px ' + SANS};
+const META_FONT = {toString: () => '600 9px ' + SANS};
 
 function safeMeasure(measure, text, font = FONT){
   const value = Number(measure(String(text ?? ''), font));
@@ -89,7 +93,7 @@ function itemHeight(item, width, measure){
 
 function crumbWidth(crumb, measure){
   const label = crumb?.decision?.name || crumb?.decision?.key || crumb?.key || '';
-  return Math.max(104, Math.min(176, safeMeasure(measure, label, '600 12px sans-serif') + 42));
+  return Math.max(104, Math.min(176, safeMeasure(measure, label, '600 12px ' + SANS) + 42));
 }
 
 function streamHeight(entries, gap){
@@ -275,8 +279,10 @@ export function treeLayout(projection, {width = 1200, measure = text => String(t
     projection.terminal ? G.terminalH / 2 : 0);
   const branchNodeHalf = Math.max(visible.length ? G.diamondH / 2 : 0,
     collapsed.some(hasBranchOutput) ? G.breadcrumbH / 2 : 0);
-  const axisY = G.marginY + Math.max(spineHalf,
-    branchNodeHalf + (armRadius ? G.branchGap + armRadius : 0));
+  /* an "If so" label sits just above the decision; it must clear the region header printed at the top (baseline 17) */
+  const labelClear = (visible.length || collapsed.some(hasBranchOutput)) ? G.labelClear + branchNodeHalf : 0;
+  const axisY = Math.max(labelClear, G.marginY + Math.max(spineHalf,
+    branchNodeHalf + (armRadius ? G.branchGap + armRadius : 0)));
 
   let x = G.marginX;
   const today = {x, y:axisY - G.todayH / 2, w:G.todayW, h:G.todayH};

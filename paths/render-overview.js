@@ -181,9 +181,10 @@ function receiptSection(label, entries, empty = ''){
 
 function receipt(decision, impact, x, y, width, C, measure){
   if(!decision) return {svg:'', height:0};
-  const names = wrapped(decisionName(decision), width - 28, measure, '700 14px ' + SANS);
+  /* headed with the question's own words, never its key */
+  const names = wrapped(decision.question || decisionName(decision), width - 28, measure, '700 14px ' + SANS);
   const facts = [
-    ['QUESTION', decision.question || decisionName(decision)], ['SIGNAL', decision.signal || 'Needs repair'],
+    ['SIGNAL', decision.signal || 'Needs repair'],
     ['LATEST READING', decision.reading || 'No reading recorded'], ['OWNER', decision.owner || 'Needs repair'],
     ['ANSWER BY', decision.answerBy || 'Needs repair'], ['CURRENT STATE', decision.currentState?.sentence || 'Unanswered'],
     ['OPENS WHEN', decision.when?.source || 'Always open'],
@@ -272,22 +273,24 @@ function cellMap(overview){
   return new Map((overview.cells || []).map(cell => [`${cell.period}\u0000${cell.lane}`, cell.items || []]));
 }
 
-function roadmapGrid(overview, x, y, C, measure, selectedKey){
+/* `available` is the content width: the period columns stretch to fill it, so the grid is as wide as the header above it */
+function roadmapGrid(overview, x, y, C, measure, selectedKey, available = 0){
   const periods = overview.periods || [], lanes = overview.lanes || [];
-  const width = LANE_W + periods.length * PERIOD_W;
+  const PW = periods.length ? Math.max(PERIOD_W, Math.floor((available - LANE_W) / periods.length)) : PERIOD_W;
+  const width = LANE_W + periods.length * PW;
   if(!periods.length || !lanes.length){
     return {svg:'<g data-kind="roadmap-grid-empty">' +
       txt(x, y + 22, 'No roadmap work authored yet', 12, C.muted, {weight:600}) + '</g>', width, height:54};
   }
   const cells = cellMap(overview);
-  const periodLabels = periods.map(period => wrapped(period.name, PERIOD_W - 24, measure, '700 11px ' + SANS));
+  const periodLabels = periods.map(period => wrapped(period.name, PW - 24, measure, '700 11px ' + SANS));
   const headerHeight = Math.max(52, 22 + Math.max(1, ...periodLabels.map(lines => lines.length)) * 14);
   const layouts = [];
   for(const lane of lanes){
     const laneLines = wrapped(lane, LANE_W - 24, measure, '700 11px ' + SANS);
     const cellLayouts = periods.map(period => {
       const cards = (cells.get(`${period.name}\u0000${lane}`) || []).map(item =>
-        itemCard(item, 0, 0, PERIOD_W - 20, C, measure, selectedKey));
+        itemCard(item, 0, 0, PW - 20, C, measure, selectedKey));
       return {period, cards, height:cards.reduce((sum, card) => sum + card.height, 0) +
         Math.max(0, cards.length - 1) * 8 + 20};
     });
@@ -299,9 +302,9 @@ function roadmapGrid(overview, x, y, C, measure, selectedKey){
     rect(x, y, LANE_W, headerHeight, wash(C.accent, '08')) +
     txt(x + 12, y + 20, 'ROADMAP', 9, C.muted, {weight:700, tracking:0.9});
   periods.forEach((period, index) => {
-    const px = x + LANE_W + index * PERIOD_W;
+    const px = x + LANE_W + index * PW;
     svg += '<g data-kind="period-header"><title>' + esc(period.name) + '</title>' +
-      rect(px, y, PERIOD_W, headerHeight, wash(C.accent, index % 2 ? '06' : '0A'));
+      rect(px, y, PW, headerHeight, wash(C.accent, index % 2 ? '06' : '0A'));
     periodLabels[index].forEach((label, lineIndex) => {
       svg += txt(px + 12, y + 25 + lineIndex * 14, label, 11, C.ink, {weight:700, tracking:0.5});
     });
@@ -316,13 +319,13 @@ function roadmapGrid(overview, x, y, C, measure, selectedKey){
         txt(x + 12, rowY + 22 + lineIndex * 14, label, 11, C.ink, {weight:700})).join('') + '</g>' +
       line(x, rowY, x + width, rowY, C.border, 1);
     for(const [periodIndex, cell] of lane.cells.entries()){
-      const cellX = x + LANE_W + periodIndex * PERIOD_W;
+      const cellX = x + LANE_W + periodIndex * PW;
       svg += '<g data-kind="roadmap-cell" data-period="' + esc(cell.period.name) + '" data-lane="' +
         esc(lane.lane) + '">';
       let cardY = rowY + 10;
       const items = cells.get(`${cell.period.name}\u0000${lane.lane}`) || [];
       for(const [index, item] of items.entries()){
-        const card = itemCard(item, cellX + 10, cardY, PERIOD_W - 20, C, measure, selectedKey);
+        const card = itemCard(item, cellX + 10, cardY, PW - 20, C, measure, selectedKey);
         svg += card.svg; cardY += card.height + 8;
       }
       svg += '</g>';
@@ -368,7 +371,7 @@ export function renderOverview(overview, ctx = {}){
   y += health.height;
   const preface = gridPreface(PAD, y, Math.min(720, width - PAD * 2), C, measure);
   y += preface.height;
-  const grid = roadmapGrid(overview, PAD, y, C, measure, selected?.key || null);
+  const grid = roadmapGrid(overview, PAD, y, C, measure, selected?.key || null, width - PAD * 2);
   y += grid.height + PAD;
   const height = Math.ceil(y);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +

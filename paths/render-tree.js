@@ -160,9 +160,11 @@ function safeMeasure(measure, value, font){
 function clipped(value, maxWidth, measure, font = SMALL_FONT){
   const source = String(value ?? '');
   if(safeMeasure(measure, source, font) <= maxWidth) return source;
-  let out = source;
+  const words = source.split(' ');
+  while(words.length > 1 && safeMeasure(measure, words.join(' ') + '…', font) > maxWidth) words.pop();
+  let out = words.join(' ');
   while(out && safeMeasure(measure, out + '…', font) > maxWidth) out = out.slice(0, -1);
-  return out ? out + '…' : '';
+  return out ? out.replace(/[\s,.;:]+$/, '') + '…' : '';
 }
 
 function wrapped(value, maxWidth, maxLines, measure, font = TITLE_FONT){
@@ -339,7 +341,7 @@ function renderItem(box, decisions, C, measure){
     : treatment.kind === 'invalid' ? '2 2' : treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? '2 3' : null;
   const opacity = treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? '0.68' : '1';
   let svg = '<g data-kind="item" data-treatment="' + (treatment.kind === 'assumed' || treatment.kind === 'set-aside' ? treatment.kind + '-' + treatment.direction : treatment.kind) +
-    '" opacity="' + opacity + '"><title>' + esc(String(item.title ?? '')) + '</title>';
+    '" opacity="' + opacity + '"><title>' + esc(String(item.title ?? '') + (item.note ? ' — ' + item.note : '')) + '</title>';
   svg += rect(box.x, box.y, box.w, box.h, fill, {stroke, sw:treatment.kind === 'normal' ? 1 : 1.5, dash});
 
   const card = box.card || {inner:box.w - 24, rows:{title:{y:8, h:16, lines:1}, state:{y:30, h:12}}};
@@ -414,17 +416,28 @@ function renderQuestion(entry, C, measure, ctx){
     questionState(question), ctx) + '><title>' + esc(decisionName(question.decision)) +
     '</title><polygon points="' + points + '" fill="' + C.surface +
     '" stroke="' + C.ink + '" stroke-width="2"/>';
-  const nameLines = wrapped(decisionName(question.decision), diamond.w - 38, 2, measure);
-  const start = diamond.cy - (nameLines.length > 1 ? 20 : 12);
-  nameLines.forEach((text, index) => {
-    svg += txt(diamond.cx, start + index * 15, text, 11, C.ink, {weight:700, anchor:'middle'});
-  });
-  svg += txt(diamond.cx, diamond.cy + 23, questionState(question), 9, C.muted,
-    {weight:600, anchor:'middle'});
-  if(question.decision?.answerBy){
-    svg += txt(diamond.cx, diamond.cy + 37, 'Due · ' + shortDate(question.decision.answerBy), 8,
-      C.muted, {anchor:'middle'});
-  }
+  /* A diamond is only as wide as its height allows: a line at distance d from the centre has w * (1 - d / (h / 2)) to live in.
+     Lines are set top to bottom as one block centred on the diamond, each wrapped or clipped to the room at its own height. */
+  const room = (baseline, size) => {
+    const d = Math.max(Math.abs(baseline - size * 0.8), Math.abs(baseline + size * 0.25));
+    return Math.max(24, diamond.w * (1 - d / (diamond.h / 2)) - 10);
+  };
+  const due = question.decision?.answerBy ? 'Due · ' + shortDate(question.decision.answerBy) : '';
+  const state = questionState(question);
+  const nameFull = decisionName(question.decision);
+  const widest = size => room(0, size);
+  const nameLines = wrapped(nameFull, widest(11) - 6, 2, measure, {toString: () => '700 11px ' + SANS});
+  const block = nameLines.length * 14 + 14 + (due ? 12 : 0);
+  let ty = diamond.cy - block / 2;
+  const put = (text, size, weight, fill, lead) => {
+    const base = ty + size;
+    const fitted = clipped(text, room(base - diamond.cy, size), measure, {toString: () => weight + ' ' + size + 'px ' + SANS});
+    svg += txt(diamond.cx, base, fitted, size, fill, {weight, anchor:'middle'});
+    ty += lead;
+  };
+  for(const text of nameLines) put(text, 11, 700, C.ink, 14);
+  put(state, 9, 600, C.muted, 14);
+  if(due) put(due, 8, 400, C.muted, 12);
   return svg + '</g>';
 }
 
@@ -496,6 +509,24 @@ function renderCollapsedArmLabel(box, C){
     {weight:700, tracking:0.5, anchor:'middle'});
 }
 
+/* The pieces of a branch connector: from the decision to the nearest card on its side, then across each gap between cards.
+   A card is opaque ink on paper; a rule never runs through one. */
+export function connectorSegments(entry, connector){
+  const node = entry.diamond || entry;
+  const boxes = [...(entry.arms?.[connector.side] || []),
+    ...(entry.stump && entry.stump.side === connector.side ? [entry.stump] : [])]
+    .map(box => ({top:box.y, bottom:box.y + box.h}));
+  const out = [];
+  if(connector.side === 'yes'){
+    let from = node.y;
+    for(const box of boxes.sort((a, b) => b.bottom - a.bottom)){ if(from > box.bottom) out.push([box.bottom, from]); from = box.top; }
+  } else {
+    let from = node.y + node.h;
+    for(const box of boxes.sort((a, b) => a.top - b.top)){ if(box.top > from) out.push([from, box.top]); from = box.bottom; }
+  }
+  return out;
+}
+
 export function renderTree(projection, layout, ctx){
   useFace(ctx);
   const C = palette(ctx.colors || {});
@@ -543,8 +574,8 @@ export function renderTree(projection, layout, ctx){
   svg += line(layout.spineRun.x1, layout.spineRun.y, layout.spineRun.x2, layout.spineRun.y, C.ink, 2);
   for(const entry of [...(layout.questions || []), ...(layout.breadcrumbs || [])]){
     for(const connector of Object.values(entry.connectors || {})){
-      if(connector) svg += line(connector.x, connector.y1, connector.x,
-        connector.y2, C.border, 1.5);
+      if(connector) for(const [y1, y2] of connectorSegments(entry, connector))
+        svg += line(connector.x, y1, connector.x, y2, C.border, 1.5);
     }
   }
 

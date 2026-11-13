@@ -16,7 +16,8 @@ import {treeProjection} from '../tree.js';
 import {treeLayout} from '../layout-tree.js';
 import {renderTree, renderOutline} from '../render-tree.js';
 
-const measure = text => String(text).length * 7;
+/* seven pixels a character at 12px, scaled by the size in the font, as a real face is */
+const measure = (text, font) => String(text).length * 7 * ((/(\d+(?:\.\d+)?)px/.exec(font || '') || [0, 12])[1] / 12);
 const colors = {
   bg:'#FBFBFA', card:'#F4F4F1', ink:'#111111', muted:'#6B6B68', border:'#D9D9D5',
   accent:'#1F4FD8', accentInk:'#1A44C2', err:'#B3403A', track:'#EDF0EE',

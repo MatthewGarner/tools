@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mdEscape} from '../format.js';
 import {mdEscape as bets} from '../../bets/format.js';
-import {mdEscape as paths} from '../../paths/md-escape.js';
+import {mdEscape as paths} from '../../paths/names.js';
 
 /* The same rule in all three tools (each has its own copy; this test is the only place they meet). */
 const VECTOR = 'a|b *c* _d_ <b>e</b> [f] \\ & "g"';
