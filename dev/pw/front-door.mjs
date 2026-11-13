@@ -36,7 +36,8 @@ const where = async page => ({
   count: (await page.locator('.door-counter').textContent()).trim(),
 });
 const phone = (viewport, o = {}) => context({viewport, hasTouch: true, isMobile: true, reducedMotion: 'reduce', ...o});
-const swipe = async (page, x, y, dx) => { const cdp = await page.context().newCDPSession(page); await cdp.send('Input.synthesizeScrollGesture', {x, y, xDistance: dx, yDistance: 0, gestureSourceType: 'touch', speed: 800}); };
+/* Swipe on the current card itself (measured, not a fixed point: CI fonts move the layout), across most of its width. */
+const swipe = async (page, dir) => { const b = await page.locator('.door-class:not([hidden]) .door-card.is-current .door-body').boundingBox(); const cdp = await page.context().newCDPSession(page); await cdp.send('Input.synthesizeScrollGesture', {x: Math.round(b.x + b.width / 2), y: Math.round(b.y + Math.min(b.height / 2, 60)), xDistance: Math.round(dir * b.width * 0.8), yDistance: 0, gestureSourceType: 'touch', speed: 600}); };
 
 try {
   /* ---- phone: the selection screen is the page (375x812 and 375x667) ---- */
@@ -166,7 +167,7 @@ try {
       await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(150);
     }
     const scrollLeft = () => page.locator('.door-class:not([hidden]) .door-list').evaluate(l => l.scrollLeft);
-    await swipe(page, 300, 350, -260);
+    await swipe(page, -1);
     ok('carousel: a swipe snaps to Gauge and the counter follows (2 / 15)', await until(async () => JSON.stringify(await where(page)) === JSON.stringify({cls: 'Instruments', name: 'Gauge', count: '2 / 15'})), JSON.stringify(await where(page)));
     ok('carousel: the selected card sits snapped at the centre', await until(() => visible(page).evaluate(el => Math.abs(el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2 - innerWidth / 2) < 2)));
     ok('carousel: a swipe never opened a tool', new URL(page.url()).pathname === '/');
@@ -188,7 +189,7 @@ try {
     ok('scrubber: a tap on the first tick lands on card 1', await until(async () => (await where(page)).count === '1 / 15'), JSON.stringify(await where(page)));
     await page.locator('.door-rosters').focus().catch(() => {});
     await page.evaluate(() => document.activeElement && document.activeElement.blur());
-    await swipe(page, 100, 350, 260);
+    await swipe(page, 1);
     await page.waitForTimeout(400);
     ok('ends: swiping back past the first card stays on 1 / 15 (no wrap)', (await where(page)).count === '1 / 15');
     /* a horizontal mouse drag across the art never counts as a tap */

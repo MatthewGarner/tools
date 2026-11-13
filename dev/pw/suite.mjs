@@ -107,7 +107,7 @@ try {
   assert.equal(await labHomeLink.getAttribute('aria-current'),null);
   await labHomeLink.click();
   assert.equal(new URL(rp.url()).pathname,'/');
-  await rp.locator('#instruments').waitFor({state:'visible'});
+  await rp.locator('.door-rooms.door-ready [role=tablist]').waitFor({state:'visible'});
   assert.equal(await rp.locator('.mg-nav [data-suite-link="explore"]').textContent(),'Tools Lab');
   assert.equal(await rp.locator('.mg-nav [data-suite-link="explore"]').getAttribute('aria-current'),'page','the front door is the current item');
   const response=await rp.request.get(base+'/lab/knowledge?entry=old',{maxRedirects:0});
