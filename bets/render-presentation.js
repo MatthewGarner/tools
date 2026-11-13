@@ -230,7 +230,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   if(title.refused) return titleRefusal(authoredTitle, c);
   const conditions = conditionReadings(sim);
   const C = {left: 96, id: 98, name: 168, nameEnd: 650, stake: 790, odds: 920, payoff: 1060,
-    p10: 1210, p50: 1320, p90: 1430, range0: 1482, range1: 1710, audit0: 1726, right: 1824};
+    p10: 1210, p50: 1320, p90: 1430, range0: 1482, range1: 1676, audit0: 1692, right: 1824};
   /* the strap sits a clear 30 below the title's last baseline, so a wrapped title pushes everything below it down */
   const lastBase = 86 + (title.lines.length - 1) * title.leading;
   const headerShift = Math.max(0, Math.ceil(lastBase + 30 - 116));
@@ -301,7 +301,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
 
   /* a short plan spreads over the plate instead of leaving a band of empty paper under its table */
   const natural = bodyEnd(displayed, C, headY + 30, measure);
-  const rowPad = Math.max(0, Math.min(40, Math.floor((TABLE_LIMIT_Y - (selection.remainder ? MORE_LINE : 0) - natural) / Math.max(1, displayed.length))));
+  const rowPad = Math.max(0, Math.min(64, Math.floor((TABLE_LIMIT_Y - (selection.remainder ? MORE_LINE : 0) - natural) / Math.max(1, displayed.length))));
   let y = headY + 30, group = null;
   for(const record of displayed){
     if(record.group.name !== group){
@@ -315,18 +315,19 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     const b = record.b, e = record.rec.ev;
     const {names, kills, audits, height: planned} = rowPlan(record, C, measure);
     const rowH = planned + rowPad;
+    const ry = y + rowPad / 2;   // the row's content sits in the middle of its band
     parts.push('<g data-row="bet" data-id="' + record.id + '">');
-    parts.push(txt(C.id, y + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
-    names.forEach((line, i) => parts.push(txt(C.name, y + 20 + i * 19, line, 17, c.ink, {weight: 600})));
-    kills.forEach((line, i) => parts.push(txt(C.name, y + 23 + names.length * 19 + i * 13, line, 10, c.muted)));
+    parts.push(txt(C.id, ry + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
+    names.forEach((line, i) => parts.push(txt(C.name, ry + 20 + i * 19, line, 17, c.ink, {weight: 600})));
+    kills.forEach((line, i) => parts.push(txt(C.name, ry + 23 + names.length * 19 + i * 13, line, 10, c.muted)));
     for(const [x, value] of [[C.stake, stakeOf(b)], [C.odds, oddsOf(b)], [C.payoff, payoffOf(b)]])
-      parts.push(txt(x, y + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
+      parts.push(txt(x, ry + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
     for(const [x, value] of [[C.p10, e.p10], [C.p50, e.p50], [C.p90, e.p90]])
-      parts.push(txt(x, y + 21, evv(e, value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
-    parts.push('<line x1="' + C.range0 + '" y1="' + (y + 18) + '" x2="' + C.range1 + '" y2="' + (y + 18) + '" stroke="' + c.border + '"/>');
-    parts.push('<line data-exposure-range="" x1="' + ex(e.p10) + '" y1="' + (y + 18) + '" x2="' + ex(e.p90) + '" y2="' + (y + 18) + '" stroke="' + (e.p50 < 0 ? c.err : c.accent) + '" stroke-width="5" stroke-opacity="0.72"/>');
-    parts.push('<line data-exposure-median="" x1="' + ex(e.p50) + '" y1="' + (y + 10) + '" x2="' + ex(e.p50) + '" y2="' + (y + 26) + '" stroke="' + c.ink + '" stroke-width="2"/>');
-    audits.forEach((audit, i) => parts.push(txt(C.right, y + 21 + i * 14, audit, 9.5, record.rec.audits.length ? c.err : c.muted,
+      parts.push(txt(x, ry + 21, evv(e, value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
+    parts.push('<line x1="' + C.range0 + '" y1="' + (ry + 18) + '" x2="' + C.range1 + '" y2="' + (ry + 18) + '" stroke="' + c.border + '"/>');
+    parts.push('<line data-exposure-range="" x1="' + ex(e.p10) + '" y1="' + (ry + 18) + '" x2="' + ex(e.p90) + '" y2="' + (ry + 18) + '" stroke="' + (e.p50 < 0 ? c.err : c.accent) + '" stroke-width="5" stroke-opacity="0.72"/>');
+    parts.push('<line data-exposure-median="" x1="' + ex(e.p50) + '" y1="' + (ry + 10) + '" x2="' + ex(e.p50) + '" y2="' + (ry + 26) + '" stroke="' + c.ink + '" stroke-width="2"/>');
+    audits.forEach((audit, i) => parts.push(txt(C.right, ry + 21 + i * 14, audit, 9.5, record.rec.audits.length ? c.err : c.muted,
       {weight: 700, anchor: 'end'})));
     parts.push('</g>');
     y += rowH;
@@ -335,7 +336,8 @@ export function renderBetsPresentation(model, sim, ctx = {}){
 
   if(selection.remainder) parts.push(txt(96, y + 22, '+' + selection.remainder + ' more ' + (selection.remainder === 1 ? 'bet' : 'bets') +
     ' not shown here · all of them are in Download SVG', 12, c.accentInk, {weight: 700, tracking: '0.04em'}));
-  const railY = Math.max(y + (selection.remainder ? MORE_LINE : 0) + 34, 690);
+  /* the two outcome rails sit at the foot of the plate, so a short plan has no empty band under them */
+  const railY = Math.max(y + (selection.remainder ? MORE_LINE : 0) + 34, 880);
   parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c, measure));
 
   if(partial) parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,

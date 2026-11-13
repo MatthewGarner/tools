@@ -743,6 +743,8 @@ if(selected('paths')){
   const impact = decisionImpactProjection(pathsModel, pathsProjected, 'pricing');
   const pathsCtx = {...ctxBase, selectedKey:'pricing', impact};
   variants['paths-overview'] = renderOverview(pathsOverview, {...pathsCtx, width:1160});
+  /* the live Brief beside the 350px decision margin at a 1280px viewport: laid out for 830px, no receipt in the drawing */
+  variants['paths-overview-fit'] = renderOverview(pathsOverview, {...pathsCtx, width:830, fit:true, showReceipt:false});
   variants['paths-overview-narrow'] = renderOverviewNarrow(pathsOverview, {...pathsCtx, width:390});
   variants['paths-question'] = renderQuestionLens(pathsOverview, {...pathsCtx, width:1160});
   variants['paths-question-narrow'] = renderQuestionLensNarrow(pathsOverview, {...pathsCtx, width:390});
