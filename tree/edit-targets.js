@@ -1,7 +1,8 @@
 /* Pure line rewrites for edit-in-place on the tree diagram. No DOM.
    Each apply() replaces exactly one component of one source line. */
-import {parse, parseMoney} from './parse.js';
+import {parse, parseMoney, parseProbability, splitValue} from './parse.js';
 import {shiftRange, formatRange} from './format.js';
+import {parentOf} from './engine.js';
 
 export const validators = {
   title(v){
@@ -12,7 +13,7 @@ export const validators = {
     const s = v.trim();
     if(/[\n\r]/.test(s)) return false;
     if(/^rest$/i.test(s)) return true;
-    const r = parseMoney(s);
+    const r = parseProbability(s);
     return r !== null && r.lo >= 0 && r.hi <= 1;
   },
   value(v){
@@ -25,8 +26,8 @@ export const validators = {
     // The native Branch field changes only the label. These tokens are grammar,
     // not literal prose: accepting them would alter probability or payoff too.
     if(/\(p=[^)]*\)/i.test(s)) return false;
-    const colon = s.lastIndexOf(':');
-    return colon < 0 || parseMoney(s.slice(colon + 1).trim()) === null;
+    const split = splitValue(s);
+    return !split || split.glued;   // a colon between digits ("10:30") is part of the label
   },
 };
 
@@ -144,10 +145,8 @@ export function hasIncomingProb(node){
    colon, or -1 when the body carries no value component at all — the whole
    body is the label, colon(s) and all, same as parse.js would read it. */
 function valueColon(body){
-  const i = body.lastIndexOf(':');
-  if(i < 0) return -1;
-  const tail = body.slice(i + 1).trim();
-  return tail && parseMoney(tail) ? i : -1;
+  const split = splitValue(body);
+  return split && !split.glued ? split.index : -1;
 }
 
 export const applies = {
@@ -209,4 +208,29 @@ export function applyExplore(line, node, x, isProb){
   const oldRaw = isProb ? (node.pRaw || '') : (node.valueRaw || '');
   const text = formatRange(shiftRange(range, x, isProb), isProb);
   return isProb ? applies.prob(line, oldRaw, text) : applies.value(line, oldRaw, text);
+}
+
+/* The slider's release-commit for a PROBABILITY, as the line edits it needs: [{line, text}].
+   The explored number is the probability that applies (engine.js evalDet), so with no rest sibling
+   its siblings are scaled in proportion to share what is left — and the text is rewritten to say
+   so, in the same change set, or the next parse would normalise them back to something else. A
+   sibling keeps its own range width (shiftRange); one at zero, or without a readable p=, is left
+   as it is. With a rest sibling only the explored line changes. `getLine(n)` returns source line n. */
+export function exploreProbOps(model, node, x, getLine){
+  const ops = [{line: node.srcLine, text: applyExplore(getLine(node.srcLine), node, x, true)}];
+  const parent = parentOf(model.root, node);
+  if(!parent || parent.kind !== 'chance' || parent.children.some(c => c.p === 'rest')) return ops;
+  const clamp01 = v => Math.min(1, Math.max(0, v));
+  const others = parent.children.filter(c => c !== node);
+  const othersSum = others.reduce((a, c) => a + (c.p ? clamp01((c.p.lo + c.p.hi) / 2) : 0), 0);
+  if(!(othersSum > 0)) return ops;
+  for(const sib of others){
+    if(!sib.p || sib.pParseValid === false) continue;
+    const mid = clamp01((sib.p.lo + sib.p.hi) / 2);
+    if(mid === 0) continue;
+    const next = mid * (1 - clamp01(x)) / othersSum;
+    const line = getLine(sib.srcLine), text = applyExplore(line, sib, next, true);
+    if(text !== line) ops.push({line: sib.srcLine, text});
+  }
+  return ops;
 }

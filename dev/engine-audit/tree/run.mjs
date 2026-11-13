@@ -7,7 +7,7 @@ import {parse, parseMoney} from '../../../tree/parse.js';
 import {evaluate, evalDet, loadBearing, sliderExtent, flipAlong, refMid} from '../../../tree/engine.js';
 import {render, treeVerdictParts} from '../../../tree/render.js';
 import {decisionComparisonProjection} from '../../../tree/comparison.js';
-import {pricedCopy, seamCopy, shiftRange, formatRange, formatMoney, formatP} from '../../../tree/format.js';
+import {pricedCopy, seamCopy, shiftRange, formatRange, formatMoney, formatP, flipCopy} from '../../../tree/format.js';
 import {fmt, quantile} from '../../../assets/series.js';
 import {STARTER} from '../../../tree/starter.js';
 
@@ -105,23 +105,25 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const pm = s => JSON.stringify(parseMoney(s));
   check('P1 parseMoney reads points, suffixes, currency signs, commas and "to" ranges', pm('£2M') === '{"lo":2000000,"hi":2000000}' && pm('-150k') === '{"lo":-150000,"hi":-150000}'
     && pm('2M-5M') === '{"lo":2000000,"hi":5000000}' && pm('-1M to -0.5M') === '{"lo":-1000000,"hi":-500000}' && pm('1,250') === '{"lo":1250,"hi":1250}' && pm('5M to 2M') === '{"lo":2000000,"hi":5000000}');
-  check('P2 DSL.md shared convention "a range (30-50, or 30–50 with an en-dash)": tree reads an en-dash range', parseMoney('2M–5M') !== null, 'parseMoney("2M–5M") = ' + pm('2M–5M'), {known: true});
-  check('P3 the minus sign the tree itself prints ("−£150k", U+2212) reads back as a value', parseMoney('−150k') !== null, 'parseMoney("−150k") = ' + pm('−150k'), {known: true});
+  check('P2 DSL.md shared convention "a range (30-50, or 30–50 with an en-dash)": tree reads an en-dash range', parseMoney('2M–5M') !== null, 'parseMoney("2M–5M") = ' + pm('2M–5M'));
+  check('P3 the minus sign the tree itself prints ("−£150k", U+2212) reads back as a value', parseMoney('−150k') !== null, 'parseMoney("−150k") = ' + pm('−150k'));
   console.log('   info: parseMoney silently refuses "1e6" -> ' + pm('1e6') + ', "5." -> ' + pm('5.') + ', "+5" -> ' + pm('+5') + ', "50%" -> ' + pm('50%'));
   const en = parse('Root\n  A: 2M–5M\n  B: 1M');
-  check('P2b an en-dash value is not silently replaced by 0 (A: 2M–5M)', en.root.children[0].value.hi !== 0, 'A parsed as label "' + en.root.children[0].label + '" value ' + JSON.stringify(en.root.children[0].value) + '; warnings: ' + en.warnings.join(' / '), {known: true});
+  check('P2b an en-dash value is not silently replaced by 0 (A: 2M–5M)', en.root.children[0].value.hi !== 0, 'A parsed as label "' + en.root.children[0].label + '" value ' + JSON.stringify(en.root.children[0].value) + '; warnings: ' + en.warnings.join(' / '));
 
   // a time or ratio in a label is read as the payoff
   const t = parse('Root\n  Meet at 10:30\n    Go (p=0.5): 100k\n    Stay (p=rest): 0\n  Skip: 20k');
   const meet = t.root.children[0];
-  check('P4 a label containing a colon-number ("Meet at 10:30") is not silently read as a payoff of 30', meet.value === null, 'label "' + meet.label + '", value ' + JSON.stringify(meet.value) + ', warnings ' + JSON.stringify(t.warnings), {known: true});
+  check('P4 a label containing a colon-number ("Meet at 10:30") is not silently read as a payoff of 30', meet.value === null, 'label "' + meet.label + '", value ' + JSON.stringify(meet.value) + ', warnings ' + JSON.stringify(t.warnings));
 
-  // percent probabilities on every sibling turn a chance node into a decision
+  // percent probabilities read as probabilities; an unreadable one is warned and never makes a decision (TR-1)
   const pc = parse('Root\n  Launch\n    Works (p=40%): 1M\n    Fails (p=60%): -500k\n  Hold: 100k');
   const r = evaluate(pc), launch = pc.root.children[0];
   console.log('   info: "Works (p=40%) / Fails (p=60%)": Launch kind ' + launch.kind + ', Launch EV ' + fmt(r.stats.get(launch).mean) + ', rec ' + r.policy.get(pc.root).label + '; warnings ' + JSON.stringify(pc.warnings));
-  check('P5 unreadable probabilities on every sibling (p=40% / p=60%) do not turn the chance node into a decision that picks the best outcome', launch.kind === 'chance', 'Launch became a "' + launch.kind + '" node: EV ' + fmt(r.stats.get(launch).mean) + ' (the 1M outcome is CHOSEN); a chance reading at 0.4/0.6 gives ' + fmt(0.4 * 1e6 - 0.6 * 5e5), {known: true});
-  check('P5b ...and the reader is told why: an "unreadable probability" warning fires for each sibling', pc.warnings.filter(w => /unreadable probability/.test(w)).length === 2);
+  check('P5 unreadable probabilities on every sibling (p=40% / p=60%) do not turn the chance node into a decision that picks the best outcome', launch.kind === 'chance', 'Launch became a "' + launch.kind + '" node: EV ' + fmt(r.stats.get(launch).mean) + ' (the 1M outcome is CHOSEN); a chance reading at 0.4/0.6 gives ' + fmt(0.4 * 1e6 - 0.6 * 5e5));
+  check('P5a ...and p=40% / p=60% read as 0.4 / 0.6 with no warning', pc.warnings.length === 0 && Math.abs(pc.root.children[0].children[0].p.lo - 0.4) < 1e-12 && Math.abs(r.stats.get(launch).mean - 100000) < 1e-6, JSON.stringify(pc.warnings));
+  const unread = parse('Root\n  Launch\n    Works (p=likely): 1M\n    Fails (p=unlikely): -500k\n  Hold: 100k');
+  check('P5b ...and a genuinely unreadable probability on every sibling still warns for each, naming its line, and the node stays a chance node', unread.warnings.filter(w => /unreadable probability/.test(w)).length === 2 && unread.warnings.some(w => w.includes('line 3')) && unread.root.children[0].kind === 'chance', JSON.stringify(unread.warnings));
 
   // DSL.md example parses clean and evaluates
   const dsl = read('DSL.md'), blk = dsl.slice(dsl.indexOf('```dsl tool=tree') + 16); const src = blk.slice(0, blk.indexOf('```')).trim();
@@ -143,7 +145,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const two = parse('R\n  A\n    X (p=rest): 1\n    Y (p=rest): 2\n  B: 0');
   check('P11 a second p=rest is rejected with a warning and given p=0', two.warnings.some(w => /second p=rest/.test(w)) && two.root.children[0].children[1].p.hi === 0);
   const imp = parse('Win (p=0.5): 10\nLose (p=rest): 0');
-  check('P12 recorded: several top-level lines get a synthetic root labelled "Decision" even when the tops carry p= (the root is then a chance node named "Decision")', imp.root.implicit && imp.root.kind === 'chance' && imp.root.label === 'Decision', imp.root.kind + ' "' + imp.root.label + '"');
+  check('P12 a chance root made of several top-level lines carrying p= is not labelled "Decision" (TR-16); a decision root still is', imp.root.implicit && imp.root.kind === 'chance' && imp.root.label !== 'Decision' && parse('A: 10\nB: 20').root.label === 'Decision', imp.root.kind + ' "' + imp.root.label + '"');
   const sum98 = parse('R\n  A\n    X (p=0.49): 1\n    Y (p=0.49): 2\n  B: 0'), s98 = evaluate(sum98, {sims: 100});
   const sum981 = parse('R\n  A\n    X (p=0.49): 1\n    Y (p=0.491): 2\n  B: 0'), s981 = evaluate(sum981, {sims: 100});
   check('P13 the "probabilities sum to X — normalised" warning boundary: |sum-1| > 0.02 warns, 0.981 does not; at exactly 0.98 the float 1-0.98 = 0.020000000000000018 makes it warn "sum to 0.98"', s98.warnings.length === 1 && s981.warnings.length === 0, JSON.stringify(s98.warnings));
@@ -207,15 +209,15 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   console.log('   info: Venture 1k..100k vs Safe 30k: Venture EV ' + fmt(b.stats.get(base.root.children[0]).mean) + ' (exact log-normal mean ' + fmt(lnMean(1e3, 1e5)) + ') -> ' + b.policy.get(base.root).label
     + '; subtract 50k from every payoff: Venture EV ' + fmt(s.stats.get(shifted.root.children[0]).mean) + ' vs Safe -20k -> ' + s.policy.get(shifted.root).label);
   check('I3 shift invariance: subtracting the same 50k from every payoff does not change which option is recommended (1k..100k vs 30k)', b.policy.get(base.root).label === s.policy.get(shifted.root).label,
-    'recommendation flips from ' + b.policy.get(base.root).label + ' to ' + s.policy.get(shifted.root).label + ': a range with lo > 0 is log-normal (mean ' + fmt(lnMean(1e3, 1e5)) + ', not the midpoint 50.5k), a range touching 0 or below is normal', {known: true});
+    'recommendation flips from ' + b.policy.get(base.root).label + ' to ' + s.policy.get(shifted.root).label + ': a range with lo > 0 is log-normal (mean ' + fmt(lnMean(1e3, 1e5)) + ', not the midpoint 50.5k), a range touching 0 or below is normal', {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
   // continuity at lo = 0
   const evA = src => { const m = parse(src); return evaluate(m).stats.get(m.root.children[0]).mean; };
   const e0 = evA('R\n  A: 0 to 100k\n  B: 0'), e1 = evA('R\n  A: 1 to 100k\n  B: 0'), e2 = evA('R\n  A: 1k to 100k\n  B: 0');
   console.log('   info: EV of a payoff "0 to 100k" ' + fmt(e0) + ', "1 to 100k" ' + fmt(e1) + ' (exact ' + fmt(lnMean(1, 1e5)) + '), "1k to 100k" ' + fmt(e2) + ' (exact ' + fmt(lnMean(1e3, 1e5)) + ')');
-  check('I4 continuity: moving a range\'s low end from 0 to 1 (out of 100k) moves its EV by under 5 %', Math.abs(e1 - e0) / e0 < 0.05, 'EV ' + fmt(e0) + ' -> ' + fmt(e1) + ' (' + (100 * (e1 - e0) / e0).toFixed(0) + ' %)', {known: true});
+  check('I4 continuity: moving a range\'s low end from 0 to 1 (out of 100k) moves its EV by under 5 %', Math.abs(e1 - e0) / e0 < 0.05, 'EV ' + fmt(e0) + ' -> ' + fmt(e1) + ' (' + (100 * (e1 - e0) / e0).toFixed(0) + ' %)', {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
   // EV above the stated range
   const wide = parse('R\n  A: 0.001 to 100\n  B: 0'), wr = evaluate(wide), wa = wr.stats.get(wide.root.children[0]);
-  check('I5 the expected value of a payoff stated as "0.001 to 100" lies within its stated 90 % range', wa.mean <= 100, 'prints EV ' + fmt(wa.mean) + ' (exact log-normal mean ' + fmt(lnMean(0.001, 100)) + '), above the stated top of 100', {known: true});
+  check('I5 the expected value of a payoff stated as "0.001 to 100" lies within its stated 90 % range', wa.mean <= 100, 'prints EV ' + fmt(wa.mean) + ' (exact log-normal mean ' + fmt(lnMean(0.001, 100)) + '), above the stated top of 100', {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
 }
 
 // =============================================================================================
@@ -228,7 +230,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   check('S1 a log-normal leaf 2M..5M: engine mean within 4 standard errors of the exact mean ' + fmt(ex), Math.abs(a.mean - ex) < 4 * se, fmt(a.mean) + ' vs ' + fmt(ex) + ' (' + ((a.mean - ex) / se).toFixed(2) + ' SE)');
   const z = Z90, mu = (Math.log(2e6) + Math.log(5e6)) / 2, s = (Math.log(5e6) - Math.log(2e6)) / (2 * z);
   const S2ok = fmt(a.p10) === fmt(Math.exp(mu - 1.2815515655446004 * s)) && fmt(a.p90) === fmt(Math.exp(mu + 1.2815515655446004 * s));
-  check('S2 ...its printed P10/P90 equal the exact quantiles at 3 significant figures (fails on seed noise: finding TR-6)', S2ok, fmt(a.p10) + '/' + fmt(a.p90) + ' vs ' + fmt(Math.exp(mu - 1.2815515655446004 * s)) + '/' + fmt(Math.exp(mu + 1.2815515655446004 * s)), {known: !S2ok});
+  check('S2 ...its printed P10/P90 equal the exact quantiles at 3 significant figures (fails on seed noise: finding TR-6)', S2ok, fmt(a.p10) + '/' + fmt(a.p90) + ' vs ' + fmt(Math.exp(mu - 1.2815515655446004 * s)) + '/' + fmt(Math.exp(mu + 1.2815515655446004 * s)), {known: !S2ok, reason: 'TR-6: needs a draw change, awaiting the owner'});
 
   // built-in examples: exact means by closed form; quantiles and head-to-head by a 400k-draw independent reference
   const bid = EXAMPLES[0], bm = parse(bid.src), br = evaluate(bm);
@@ -241,7 +243,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const muP = (Math.log(0.3) + Math.log(0.45)) / 2, sP = (Math.log(0.45) - Math.log(0.3)) / (2 * z), muV = (Math.log(2e6) + Math.log(5e6)) / 2, sV = (Math.log(5e6) - Math.log(2e6)) / (2 * z);
   const sPV = Math.hypot(sP, sV), q = k => -150e3 + Math.exp(muP + muV + k * 1.2815515655446004 * sPV);
   const bs = br.stats.get(bm.root);
-  check('S4 Bid or no bid: printed P10 ' + fmt(bs.p10) + ' / P90 ' + fmt(bs.p90) + ' equal the exact quantiles (' + fmt(q(-1)) + ' / ' + fmt(q(1)) + ') at 3 s.f.', fmt(bs.p10) === fmt(q(-1)) && fmt(bs.p90) === fmt(q(1)), '(TR-6) P10 ' + bs.p10.toFixed(0) + ' vs ' + q(-1).toFixed(0) + ', P90 ' + bs.p90.toFixed(0) + ' vs ' + q(1).toFixed(0), {known: !(fmt(bs.p10) === fmt(q(-1)) && fmt(bs.p90) === fmt(q(1)))});
+  check('S4 Bid or no bid: printed P10 ' + fmt(bs.p10) + ' / P90 ' + fmt(bs.p90) + ' equal the exact quantiles (' + fmt(q(-1)) + ' / ' + fmt(q(1)) + ') at 3 s.f.', fmt(bs.p10) === fmt(q(-1)) && fmt(bs.p90) === fmt(q(1)), '(TR-6) P10 ' + bs.p10.toFixed(0) + ' vs ' + q(-1).toFixed(0) + ', P90 ' + bs.p90.toFixed(0) + ' vs ' + q(1).toFixed(0), {known: !(fmt(bs.p10) === fmt(q(-1)) && fmt(bs.p90) === fmt(q(1))), reason: 'TR-6: needs a draw change, awaiting the owner'});
   // bias check: mean of 40 seeds of the Bid EV against the exact mean (no bias, only noise)
   const bidSeeds = Array.from({length: 40}, (_, i) => { const m = parse(bid.src); return evaluate(m, {seed: 500 + i}).stats.get(m.root).mean; });
   check('S4b Bid or no bid: no bias, only noise: the 40-seed average EV is within 3 standard errors of the exact EV', Math.abs(mean(bidSeeds) - bidExact) < 3 * sd(bidSeeds) / Math.sqrt(40), (mean(bidSeeds) - bidExact).toFixed(0) + ' off, SE ' + (sd(bidSeeds) / Math.sqrt(40)).toFixed(0));
@@ -251,7 +253,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const buildExact = -550e3 + clampedMean({lo: 0.5, hi: 0.7}) * lnMean(1.5e6, 2.5e6) + (1 - clampedMean({lo: 0.5, hi: 0.7})) * lnMean(8e5, 1.2e6);
   const buyExact = -250e3 + clampedMean({lo: 0.6, hi: 0.8}) * lnMean(1e6, 1.6e6) + (1 - clampedMean({lo: 0.6, hi: 0.8})) * lnMean(2e5, 6e5);
   check('S5 Build vs buy: Build EV ' + fmt(r2.stats.get(build).mean) + ' and Buy EV ' + fmt(r2.stats.get(buy).mean) + ' equal the exact EVs at 3 s.f. (' + fmt(buildExact) + ', ' + fmt(buyExact) + ')', fmt(r2.stats.get(build).mean) === fmt(buildExact) && fmt(r2.stats.get(buy).mean) === fmt(buyExact),
-    '(TR-6) Build ' + r2.stats.get(build).mean.toFixed(0) + ' vs ' + buildExact.toFixed(0) + '; Buy ' + r2.stats.get(buy).mean.toFixed(0) + ' vs ' + buyExact.toFixed(0), {known: !(fmt(r2.stats.get(build).mean) === fmt(buildExact) && fmt(r2.stats.get(buy).mean) === fmt(buyExact))});
+    '(TR-6) Build ' + r2.stats.get(build).mean.toFixed(0) + ' vs ' + buildExact.toFixed(0) + '; Buy ' + r2.stats.get(buy).mean.toFixed(0) + ' vs ' + buyExact.toFixed(0), {known: !(fmt(r2.stats.get(build).mean) === fmt(buildExact) && fmt(r2.stats.get(buy).mean) === fmt(buyExact)), reason: 'TR-6: needs a draw change, awaiting the owner'});
   // reference MC for quantiles and head-to-head
   const g = normalGen(99), N = 400000, B = new Float64Array(N), U = new Float64Array(N); let wins = 0;
   for(let i = 0; i < N; i++){
@@ -264,7 +266,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   check('S6 Build vs buy: printed P10 ' + fmt(r2.stats.get(build).p10) + ' / P90 ' + fmt(r2.stats.get(build).p90) + ' within one printed step of a 400k-draw reference (' + fmt(quantile(Bs, 0.1)) + ' / ' + fmt(quantile(Bs, 0.9)) + ')',
     Math.abs(r2.stats.get(build).p10 - quantile(Bs, 0.1)) <= step3(quantile(Bs, 0.1)) && Math.abs(r2.stats.get(build).p90 - quantile(Bs, 0.9)) <= step3(quantile(Bs, 0.9)),
     '(TR-6) P10 ' + r2.stats.get(build).p10.toFixed(0) + ' vs ' + quantile(Bs, 0.1).toFixed(0) + ', P90 ' + r2.stats.get(build).p90.toFixed(0) + ' vs ' + quantile(Bs, 0.9).toFixed(0),
-    {known: !(Math.abs(r2.stats.get(build).p10 - quantile(Bs, 0.1)) <= step3(quantile(Bs, 0.1)) && Math.abs(r2.stats.get(build).p90 - quantile(Bs, 0.9)) <= step3(quantile(Bs, 0.9)))});
+    {known: !(Math.abs(r2.stats.get(build).p10 - quantile(Bs, 0.1)) <= step3(quantile(Bs, 0.1)) && Math.abs(r2.stats.get(build).p90 - quantile(Bs, 0.9)) <= step3(quantile(Bs, 0.9))), reason: 'TR-6: needs a draw change, awaiting the owner'});
   check('S7 Build vs buy: "higher expected value than Buy vendor product in ' + Math.round(h.aShare * 100) + '% of simulations" matches the reference ' + (100 * share).toFixed(1) + ' % to the printed whole percent', Math.round(h.aShare * 100) === Math.round(share * 100), 'engine ' + (100 * h.aShare).toFixed(2) + ' %, reference ' + (100 * share).toFixed(2) + ' %');
 
   // seed noise of every printed figure on the examples
@@ -281,7 +283,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
     console.log('   info: ' + ex.name + ' seed sd / printed step: ' + worst.map(([k, r]) => k + ' ' + r.toFixed(2)).join(', ') + '; recommendation over 40 seeds: ' + Object.keys(acc).filter(k => k.startsWith('rec')).join(', '));
     check('S8 ' + ex.name + ': the recommendation is identical on all 40 seeds', Object.keys(acc).filter(k => k.startsWith('rec')).length === 1);
     const over = worst.filter(w => w[1] > 0.5);
-    check('S9 ' + ex.name + ': every printed figure has seed-to-seed sd at most half its printed step (3 s.f. money, whole percent)', over.length === 0, over.map(([k, r, s, st]) => k + ' sd ' + fmt(s) + ' vs step ' + fmt(st) + ' (' + r.toFixed(2) + ')').join('; '), {known: over.length > 0});
+    check('S9 ' + ex.name + ': every printed figure has seed-to-seed sd at most half its printed step (3 s.f. money, whole percent)', over.length === 0, over.map(([k, r, s, st]) => k + ' sd ' + fmt(s) + ' vs step ' + fmt(st) + ' (' + r.toFixed(2) + ')').join('; '), {known: over.length > 0, reason: 'TR-6: needs a draw change, awaiting the owner'});
   }
 
   // Monte Carlo noise picks the recommendation when two options are close
@@ -291,14 +293,14 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const m0 = parse(cm), r0 = evaluate(m0);
   console.log('   info: "Ranged 100k to 200k" (exact mean ' + exA.toFixed(0) + ') vs "Fixed ' + close + '": default seed recommends ' + r0.policy.get(m0.root).label + '; ' + wrong + ' of 40 seeds recommend Fixed');
   check('S10 the recommendation is the option with the higher exact EV even when the margin (0.1 %) is below Monte Carlo noise: 100k..200k vs a point 0.1 % below its exact mean', r0.policy.get(m0.root).label === 'Ranged',
-    'default seed recommends ' + r0.policy.get(m0.root).label + ' (EV ' + fmt(r0.stats.get(m0.root).mean) + ' printed beside an alternative at ' + fmt(close) + '); ' + wrong + '/40 seeds choose the lower-EV option; the verdict gives no sign the call is a coin toss', {known: r0.policy.get(m0.root).label !== 'Ranged'});
-  check('S10b across 40 seeds the near-tie recommendation is always the higher-exact-EV option (it is not decided by Monte Carlo noise)', wrong === 0, wrong + '/40 seeds recommend the option whose exact EV is 0.1 % lower', {known: wrong > 0});
+    'default seed recommends ' + r0.policy.get(m0.root).label + ' (EV ' + fmt(r0.stats.get(m0.root).mean) + ' printed beside an alternative at ' + fmt(close) + '); ' + wrong + '/40 seeds choose the lower-EV option; the verdict gives no sign the call is a coin toss', {known: r0.policy.get(m0.root).label !== 'Ranged', reason: 'TR-7 ruling: the policy follows the sample (same draws); the verdict is worded as a coin toss instead (checked by T7)'});
+  check('S10b across 40 seeds the near-tie recommendation is always the higher-exact-EV option (it is not decided by Monte Carlo noise)', wrong === 0, wrong + '/40 seeds recommend the option whose exact EV is 0.1 % lower', {known: wrong > 0, reason: 'TR-7 ruling: the policy follows the sample (same draws); the verdict is worded as a coin toss instead (checked by T7)'});
 
   // very wide log-normal: EV seed noise
   const wideAcc = SEEDS.map(seed => { const m = parse('R\n  A: 1k to 1b\n  B: 0'); return evaluate(m, {seed}).stats.get(m.root.children[0]).mean; });
   console.log('   info: "1k to 1b": exact mean ' + fmt(lnMean(1e3, 1e9)) + '; printed EV over 40 seeds ranges ' + fmt(Math.min(...wideAcc)) + ' .. ' + fmt(Math.max(...wideAcc)));
   check('S11 a very wide payoff ("1k to 1b") prints an EV within 10 % of its exact mean on the default seed', (() => { const m = parse('R\n  A: 1k to 1b\n  B: 0'); const v = evaluate(m).stats.get(m.root.children[0]).mean; return Math.abs(v / lnMean(1e3, 1e9) - 1) < 0.1; })(),
-    'seed range ' + fmt(Math.min(...wideAcc)) + '..' + fmt(Math.max(...wideAcc)) + ' vs exact ' + fmt(lnMean(1e3, 1e9)), {known: true});
+    'seed range ' + fmt(Math.min(...wideAcc)) + '..' + fmt(Math.max(...wideAcc)) + ' vs exact ' + fmt(lnMean(1e3, 1e9)), {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
 
   // probability means differ from the authored midpoint
   const pz = parse('R\n  A\n    Hit (p=0-0.2): 1M\n    Miss (p=rest): 0\n  B: 0'), pr = evaluate(pz), hit = pz.root.children[0].children[0];
@@ -317,29 +319,29 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const svg = texts(svgOf(m, res));
   const printed = (svg.match(/flips if p\(Adopt\) ([<>]) ([\d.]+)/) || []).slice(1);
   // independent: Adopt's normalised probability q at which 1M*q = 350k is 0.35
-  check('F1 "flips if p(Adopt) > t": the printed t is the probability at which the call flips (0.35, since 1M x 0.35 = 350k)', printed[1] === '0.35', 'prints "flips if p(Adopt) ' + printed.join(' ') + '": the raw input before the silent renormalisation against Reject (p=0.7); at p(Adopt)=0.38 the normalised probability is ' + (0.38 / 1.08).toFixed(3), {known: true});
+  check('F1 "flips if p(Adopt) > t": the printed t is the probability at which the call flips (0.35, since 1M x 0.35 = 350k)', printed[1] === '0.35', 'prints "flips if p(Adopt) ' + printed.join(' ') + '": the raw input before the silent renormalisation against Reject (p=0.7); at p(Adopt)=0.38 the normalised probability is ' + (0.38 / 1.08).toFixed(3));
   const ext = sliderExtent({kind: 'prob', line: 2}, m), copy = pricedCopy({winnerLabel: 'Wait', kind: 'prob', label: 'Adopt', currency: '£', x: 0.3, boundary: ext.flips.above, trackLo: 0, trackHi: 1});
-  check('F1b the priced-insistence slider line names the probability at which the call flips (35%)', /above 35%/.test(copy), copy, {known: !/above 35%/.test(copy)});
+  check('F1b the priced-insistence slider line names the probability at which the call flips (35%)', /above 35%/.test(copy), copy);
 
-  // non-monotone flip with a rest sibling: only the first boundary is printed
+  // non-monotone flip with a rest sibling: every boundary is listed (TR-8)
   const nm = parse('R\n  A\n    Z (p=0.8): 100\n    X (p=0.2): 60\n    Rest (p=rest): 0\n  B: 85'), nr = evaluate(nm);
   const fx = nr.flips.find(x => x.label === 'X'), fl = flipAlong(nm, {kind: 'prob', line: 3}, {lo: 0, hi: 1});
-  check('F2 a probability whose effect is non-monotone (X between a high sibling and a zero rest) lists every flip: boundaries at ' + fl.boundaries.map(b => b.toFixed(3)).join(' and '), nr.flips.filter(x => x.label === 'X').length === fl.boundaries.length,
-    '"WHAT WOULD FLIP THIS" prints only "flips if p(X) ' + fx.direction + ' ' + fx.threshold.toFixed(2) + '"; above ' + fl.boundaries[1]?.toFixed(2) + ' it flips again and the line does not say so', {known: true});
+  check('F2 a probability whose effect is non-monotone (X between a high sibling and a zero rest) lists every flip: boundaries at ' + fl.boundaries.map(b => b.toFixed(3)).join(' and '), fx.boundaries.length === fl.boundaries.length && fl.boundaries.every((b, i) => Math.abs(b - fx.boundaries[i]) < 1e-6) && texts(svgOf(nm, nr)).includes(flipCopy(fx)),
+    'prints "' + flipCopy(fx) + '"');
 
   // out-of-domain probabilities: midpoint story does not clamp, Monte Carlo does
   const od = parse('R\n  A\n    Up (p=0.5): 100\n    Down (p=-0.2): -100\n  B: 150'), orr = evaluate(od);
   const det = evalDet(od);
   console.log('   info: Up p=0.5 / Down p=-0.2 (warned): Monte Carlo A EV ' + orr.stats.get(od.root.children[0]).mean + ' (Down clamped to 0), midpoint story A value ' + det.values[0].toFixed(1) + ' (unclamped: (50 + 20) / 0.3); MC rec ' + orr.policy.get(od.root).label + ', midpoint rec ' + det.rec.label);
   check('F3 an out-of-range probability (p=-0.2, warned) is treated the same by the midpoint story as by the Monte Carlo (clamped)', det.values[0] === orr.stats.get(od.root.children[0]).mean,
-    'midpoint values A ' + det.values[0] + ' vs MC ' + orr.stats.get(od.root.children[0]).mean + '; seam prints "' + seamCopy(det.rec?.label, orr.policy.get(od.root).label) + '"; flips are computed on the unclamped story', {known: det.values[0] !== orr.stats.get(od.root.children[0]).mean});
+    'midpoint values A ' + det.values[0] + ' vs MC ' + orr.stats.get(od.root.children[0]).mean + '; seam prints "' + seamCopy(det.rec?.label, orr.policy.get(od.root).label) + '"; flips are computed on the unclamped story');
 
   // seam: midpoint vs MC can disagree; the flips list is midpoint-based but carries no midpoint label
   const sm = parse('R\n  Bold: 10k to 1M\n  Safe: 450k'), sr = evaluate(sm), sd2 = evalDet(sm);
   const seam = seamCopy(sd2.rec.label, sr.policy.get(sm.root).label), stext = texts(svgOf(sm, sr));
   console.log('   info: Bold 10k..1M vs Safe 450k: MC rec ' + sr.policy.get(sm.root).label + ' (Bold EV ' + fmt(sr.stats.get(sm.root.children[0]).mean) + '), midpoint rec ' + sd2.rec.label + ' (505k); seam "' + seam + '"');
   check('F4 when the midpoint story and the Monte Carlo disagree (Bold 10k..1M vs Safe 450k), the exported "WHAT WOULD FLIP THIS" list says it is about the midpoint story', !/WHAT WOULD FLIP THIS/.test(stext) || /midpoint/i.test(stext),
-    'native SVG: "' + (stext.match(/WHAT WOULD FLIP THIS[^]*$/) || [''])[0].slice(0, 160) + '"; the verdict above it says "Choose ' + sr.policy.get(sm.root).label + '" and the flip line is relative to ' + sd2.rec.label + '; the seam line is page-only', {known: true});
+    'native SVG: "' + (stext.match(/WHAT WOULD FLIP THIS[^]*$/) || [''])[0].slice(0, 160) + '"; the verdict above it says "Choose ' + sr.policy.get(sm.root).label + '" and the flip line is relative to ' + sd2.rec.label + '; the seam line is page-only');
   check('F4b the page seam line appears for that disagreement', seam.length > 0, seam);
 
   // examples: flips, seam, and closest-flip agree with hand working
@@ -367,12 +369,12 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
 {
   // head-to-head share rounds to 100 %
   const hh = parse('R\n  A: 1050 to 1250\n  B: 800 to 1000'), hr = evaluate(hh), h = hr.headToHead[0], t = texts(svgOf(hh, hr));
-  const pr = (t.match(/in (\d+)% of simulations/) || [])[1];
+  const pr = (t.match(/in (\S+)% of simulations/) || [])[1];
   console.log('   info: A 1050..1250 vs B 800..1000: A beats B in ' + (100 * h.aShare).toFixed(2) + ' % of simulations; printed "' + pr + '%"');
-  check('W1 "higher expected value than B in N% of simulations" never prints a flat 100% for a share that is not 100%', !(pr === '100' && h.aShare < 1), 'true share ' + (100 * h.aShare).toFixed(2) + ' %, printed ' + pr + '%', {known: pr === '100' && h.aShare < 1});
+  check('W1 "higher expected value than B in N% of simulations" never prints a flat 100% for a share that is not 100%', pr === '>99' && h.aShare < 1, 'true share ' + (100 * h.aShare).toFixed(2) + ' %, printed ' + pr + '%');
   const pres = texts(render(hh, hr, {...CTX, intent: 'presentation'}));
   const wr = (pres.match(/WIN RATE VS RECOMMENDATION[^]*?\| (\d+%) \|/g) || []);
-  check('W2 the slide\'s "WIN RATE VS RECOMMENDATION" never prints a flat 0% for an option that sometimes wins', !(/\| 0% \|/.test(pres) && h.aShare < 1), 'B wins ' + (100 * (1 - h.aShare)).toFixed(2) + ' % but prints 0%', {known: /\| 0% \|/.test(pres) && h.aShare < 1});
+  check('W2 the slide\'s "WIN RATE VS RECOMMENDATION" never prints a flat 0% for an option that sometimes wins', /<1%/.test(pres) && !(/\| 0% \|/.test(pres)), 'B wins ' + (100 * (1 - h.aShare)).toFixed(2) + ' % but prints 0%');
 
   // verdict line and metrics agree with the engine on both examples
   for(const ex of EXAMPLES){
@@ -405,6 +407,22 @@ for(const ex of EXAMPLES){
   const m = parse(ex.src), r = evaluate(m), vp = treeVerdictParts(m, r), t = texts(svgOf(m, r));
   console.log('   before: ' + ex.name + ' :: ' + vp.line + ' :: ' + (t.match(/P10 [^|]*/) || [''])[0].trim() + ' :: options ' + m.root.children.map(c => c.label + ' ' + fmt(r.stats.get(c).mean) + ' [' + fmt(r.stats.get(c).p10) + '..' + fmt(r.stats.get(c).p90) + ']').join('; ')
     + ' :: flips ' + r.flips.map(f => f.kind === 'prob' ? 'p(' + f.label + ') ' + f.direction + ' ' + f.threshold.toFixed(2) : f.label + ' payoff').join('; ') + ' :: warnings ' + (m.warnings.length + r.warnings.length));
+}
+// TR-2/TR-3: words only. The warning names the node; nothing about the draws changed.
+{
+  const w1 = parse('R\n  A: 0.001 to 100\n  B: 0'), w2 = parse('R\n  Wide: 1k to 1b\n  B: 0'), ok1 = parse('R\n  A: 1k to 1M\n  B: 0');
+  const warned = m => [...m.warnings, ...evaluate(m).warnings].filter(x => /rare extremes/.test(x));
+  check('T2 a positive range wider than 1,000x warns once, naming the node (0.001 to 100, 1k to 1b); a narrower one does not', warned(w1).length === 1 && warned(w1)[0].includes('"A"') && warned(w2).length === 1 && warned(w2)[0].includes('"Wide"') && warned(ok1).length === 0, JSON.stringify([warned(w1), warned(w2)]));
+}
+// TR-7: a head-to-head share between 45% and 55% reads as too close to call, naming both, with the same figures
+{
+  const tie = parse('R\n  Ranged: 100k to 200k\n  Fixed: 144451'), tr = evaluate(tie), line = treeVerdictParts(tie, tr).line, h = tr.headToHead[0];
+  check('T7 near-tie (Ranged 100k..200k vs Fixed 144451): the verdict says the two are too close to call, naming both (share ' + (100 * h.aShare).toFixed(0) + '%)', /^Ranged and Fixed are too close to call — expected value £/.test(line) && h.aShare >= 0.45 && h.aShare <= 0.55, line);
+}
+// TR-5: the exported picture carries the midpoint label and the seam sentence
+{
+  const sm = parse('R\n  Bold: 10k to 1M\n  Safe: 450k'), sr = evaluate(sm), t = texts(svgOf(sm, sr));
+  check('T5 Bold 10k..1M vs Safe 450k: the native SVG says "WHAT WOULD FLIP THE MIDPOINT CALL" and carries the seam sentence', /WHAT WOULD FLIP THE MIDPOINT CALL/.test(t) && t.includes(seamCopy('Bold', 'Safe')), t.slice(t.indexOf('WHAT WOULD')).slice(0, 200));
 }
 check('B1 before-values recorded for both examples (see "before:" lines)', true);
 done();

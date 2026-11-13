@@ -3,6 +3,7 @@
 
 import {evaluate} from './evaluate.js';
 import {verdict} from './verdict.js';
+import {nameMap, cloneNames} from './names.js';
 
 const REPAIR_WARNING_CODES = new Set([
   'conflicting-answers', 'invalid-answer-value', 'invalid-answer-date',
@@ -23,7 +24,7 @@ const lowerFirst = value => {
 };
 
 function projectedDecisionMap(projected){
-  return projected?.decisionByName || Object.fromEntries((projected?.decisions || [])
+  return projected?.decisionByName || nameMap((projected?.decisions || [])
     .map(decision => [decision.key, decision]));
 }
 
@@ -44,7 +45,9 @@ export function conditionView(condition, decisionByName = {}){
 }
 
 function joinTerms(terms, operator){
-  const words = terms.map(term => `${sentenceName(term.name)} = ${term.direction}`);
+  /* a question that never arose has no answer to quote: it is not "= no" (PA-4) */
+  const words = terms.map(term => term.reason ? `${sentenceName(term.name)} never arose`
+    : `${sentenceName(term.name)} = ${term.direction}`);
   if(words.length < 2) return words[0] || 'its condition';
   return words.join(operator === 'or' ? ' or ' : ' and ');
 }
@@ -274,7 +277,7 @@ function withoutSelectedAnswer(model, key){
   if(!source) return model;
   const replacement = {...source, answer:null};
   return {...model, decisions:model.decisions.map(decision => decision.key === key ? replacement : decision),
-    decisionByName:{...model.decisionByName, [key]:replacement}};
+    decisionByName:Object.assign(cloneNames(model.decisionByName), {[key]:replacement})};
 }
 
 function branchItem(item, projection, itemByIdentity){

@@ -96,7 +96,7 @@ function artifactData(projection, ctx){
   const assignmentCount = Number(worlds.possibleCount) || plans.reduce((sum, plan) => sum + (plan.covers || 0), 0);
   const counts = worlds.refused
     ? [`${projection.decisions?.length || 0} questions`, `${projection.items?.length || 0} items`, 'plans unavailable']
-    : [`${assignmentCount} ${assignmentCount === 1 ? 'assignment' : 'assignments'}`,
+    : [`${assignmentCount} ${assignmentCount === 1 ? 'combination' : 'combinations'} of answers`,
       `${plans.length} distinct ${plans.length === 1 ? 'plan' : 'plans'}`,
       `${projection.items?.length || 0} ${(projection.items?.length || 0) === 1 ? 'item' : 'items'}`];
   return {title:String(projection.title || 'Untitled paths'),
@@ -282,7 +282,7 @@ function wideMatrix(data, projection, x, y, minimumWidth, C, measure){
       rect(px, y, columnWidth, headerHeight, wash(C.accent, index % 2 ? '08' : '10')) +
       rect(px, y, 3, headerHeight, C.accent) +
       txt(px + 12, y + 20, `POSSIBLE PLAN ${index + 1}`, 9, C.ink, {weight:700, tracking:0.8}) +
-      txt(px + 12, y + 37, `COVERS ${plan.covers} ${plan.covers === 1 ? 'ASSIGNMENT' : 'ASSIGNMENTS'}`,
+      txt(px + 12, y + 37, `COVERS ${plan.covers} ${plan.covers === 1 ? 'COMBINATION' : 'COMBINATIONS'} OF ANSWERS`,
         8, C.muted, {weight:700, tracking:0.5});
     let ay = y + 55;
     for(const assignment of assignmentSets[index]){
@@ -389,7 +389,7 @@ function narrowPlan(plan, planIndex, projection, x, y, width, C, measure){
     rect(x, y, width, height, C.surface, {stroke:C.border, sw:1}) +
     rect(x, y, 4, height, C.accent) +
     txt(x + 14, y + 19, `POSSIBLE PLAN ${planIndex + 1}`, 9, C.ink, {weight:700, tracking:0.8}) +
-    txt(x + 14, y + 37, `COVERS ${plan.covers} ${plan.covers === 1 ? 'ASSIGNMENT' : 'ASSIGNMENTS'}`,
+    txt(x + 14, y + 37, `COVERS ${plan.covers} ${plan.covers === 1 ? 'COMBINATION' : 'COMBINATIONS'} OF ANSWERS`,
       8, C.muted, {weight:700, tracking:0.5});
   let ay = y + 55;
   for(const row of assignment){

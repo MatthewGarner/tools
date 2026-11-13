@@ -8,6 +8,7 @@
 import {evaluate} from './evaluate.js';
 import {isValidDate} from './parse.js';
 import {enumeratePlans} from './plans.js';
+import {nameMap, cloneNames} from './names.js';
 
 const ROADMAP_CONFIG_KEYS = [
   'title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette',
@@ -28,7 +29,7 @@ const syntaxDelimiter = value => /[\r\n\t\[\]]|(?:^|\s)\/\/|\s--\s|\s->\s/.test(
 
 function normalizedAnswers(answers){
   if(!record(answers)) return null;
-  const out = {};
+  const out = nameMap();
   for(const [rawKey, direction] of Object.entries(answers)){
     const key = String(rawKey).toLowerCase();
     /* These maps come from Paths' own world enumerator, not free text. Keep
@@ -99,7 +100,7 @@ export function deliveryAssignment(model, answers){
   const normalized = normalizedAnswers(answers);
   if(!normalized || !record(model) || !record(model.decisionByName)) return null;
   const keys = new Set(relevantDecisions(model).map(decision => decision.key));
-  return Object.fromEntries(Object.entries(normalized).filter(([key]) => keys.has(key)));
+  return nameMap(Object.entries(normalized).filter(([key]) => keys.has(key)));
 }
 
 function deliveryEnumeration(model, date, relevant){
@@ -108,7 +109,7 @@ function deliveryEnumeration(model, date, relevant){
      identity: a newly authored answer must immediately change world membership.
      The delivery closure is capped at six questions, so recomputation is tiny. */
   const scoped = {...model, decisions:relevant,
-    decisionByName:Object.fromEntries(relevant.map(decision => [decision.key, decision]))};
+    decisionByName:nameMap(relevant.map(decision => [decision.key, decision]))};
   return enumeratePlans(scoped, date);
 }
 
@@ -131,7 +132,7 @@ export function roadmapProjectionWorlds(model, injectedDate){
     return refusal('enumeration-refused', enumeration.worlds.reason || 'Paths cannot enumerate an exact delivery basis.');
   const assignments = [], seen = new Set();
   for(const plan of enumeration.worlds?.plans || []) for(const assignment of plan.assignments || []){
-    const answers = {...assignment.answers};
+    const answers = cloneNames(assignment.answers);
     const key = assignmentKey(answers);
     if(key == null || seen.has(key)) continue;
     seen.add(key); assignments.push({answers, assignmentKey:key});
@@ -142,7 +143,10 @@ export function roadmapProjectionWorlds(model, injectedDate){
 function validConditionShape(condition){
   if(condition == null) return true;
   if(!record(condition) || typeof condition.valid !== 'boolean' || !Array.isArray(condition.terms)) return false;
-  if(!condition.valid) return condition.terms.length === 0;
+  /* a condition the parser marked invalid (a malformed one has no terms; a misspelt name keeps its
+     terms) is well-formed data: the refusals below name WHY it cannot be used, not "corrupt model" */
+  if(!condition.valid) return condition.terms.every(term => record(term) && typeof term.key === 'string' &&
+    typeof term.negated === 'boolean');
   if(!['single', 'and', 'or'].includes(condition.operator) || !condition.terms.length) return false;
   if(condition.operator === 'single' && condition.terms.length !== 1) return false;
   return condition.terms.every(term => record(term) && typeof term.key === 'string' &&
@@ -157,7 +161,8 @@ function hasWhenCycle(decisions){
     if(finished.has(decision.key)) return false;
     if(visiting.has(decision.key)) return true;
     visiting.add(decision.key);
-    for(const term of decision.when?.terms || []) if(visit(decisions[term.key])) return true;
+    /* a name no decision carries is a misspelling, refused separately with its own reason */
+    for(const term of decision.when?.terms || []) if(decisions[term.key] !== undefined && visit(decisions[term.key])) return true;
     visiting.delete(decision.key); finished.add(decision.key);
     return false;
   };
@@ -185,8 +190,12 @@ function safeStructure(model, source){
   if(decisionKeys.size !== model.decisions.length || Object.keys(model.decisionByName).length !== decisionKeys.size ||
      !model.decisions.every(decision => record(decision) && typeof decision.key === 'string' &&
        model.decisionByName[decision.key] === decision && validConditionShape(decision.when)) ||
-     Object.keys(model.decisionByName).some(key => !decisionKeys.has(key)) || hasWhenCycle(model.decisionByName))
+     Object.keys(model.decisionByName).some(key => !decisionKeys.has(key)))
     return refusal('invalid-source-model', 'Paths decisions are not a complete parsed model.');
+  if(hasWhenCycle(model.decisionByName))
+    return refusal('when-cycle', 'Two or more questions wait on each other (a "when:" cycle), so none of them can open; break the cycle in the plan first.');
+  if(model.decisions.some(decision => decision.when?.terms.some(term => !model.decisionByName[term.key])))
+    return refusal('invalid-decision-condition', 'A "when:" condition names a decision that does not exist; correct the name in the plan.');
 
   let lastPeriod = -1;
   for(const item of model.items){
@@ -219,7 +228,7 @@ function acceptedExactly(confirmation, inspected){
   if(!record(confirmation) || confirmation.assignmentKey !== inspected.assignmentKey ||
      confirmation.date !== inspected.receipt.date || !Array.isArray(confirmation.assumed)) return false;
   const accepted = confirmation.assumed;
-  const map = {};
+  const map = nameMap();
   for(const entry of accepted){
     if(!record(entry) || typeof entry.key !== 'string' || !/^[a-z0-9-]+$/i.test(entry.key) ||
        !DIRECTIONS.has(entry.direction)) return false;

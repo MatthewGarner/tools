@@ -2,7 +2,7 @@ import {openExamples, openExportMenu} from './_harness.mjs';
 /* Edit-in-place browser checks (tree). */
 import {chromium, devices} from 'playwright';
 import {readFileSync} from 'node:fs';
-import {decodeHash} from '../../assets/series.js';
+import {decodeHash, encodeHash} from '../../assets/series.js';
 import {trackErrors, tally, until, untilValue, openRoadmapSource} from './_harness.mjs';
 import {scopeFor} from './_scope.mjs';
 const scope = scopeFor('check-eip.mjs');
@@ -262,7 +262,7 @@ check('label rename lands in text and diagram', await until(async () => ((await 
   // leaf node ("Win", srcLine 6): Rename, Edit value, Add outcome, Remove — every row live
   await tapMarker(6);
   check('tree: leaf marker tap opens the menu with the expected rows', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit value…|Edit probability…|Explore success odds…|Explore payoff…|＋ Add outcome|Remove')));
+      'Rename…|Edit value…|Edit probability…|Explore odds…|Explore payoff…|＋ Add outcome|Remove')));
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   check('tree: leaf menu Rename opens the label input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === 'Win')));
@@ -436,6 +436,75 @@ check('label rename lands in text and diagram', await until(async () => ((await 
 }
 
 check('no console/page errors', errors.length === 0);
+}
+
+/* ---- engine-audit fixes (TR-14, TR-4, TR-5): the words on a losing outcome's menu and slider, a probability
+   commit that carries its siblings, and an exported picture that says what the page says ---- */
+if(scope.wants('tree')){
+  const origin = process.env.BASE || 'http://localhost:8087';
+  const open = async src => {
+    const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+    const errs = trackErrors(page);
+    await page.goto(origin + '/tree/#' + await encodeHash({t: src}), {waitUntil: 'networkidle'});
+    await page.locator('#preview svg').waitFor();
+    await page.waitForTimeout(500);
+    return {page, errs};
+  };
+  const tapMarker = async (page, line) => {
+    const box = await page.locator('#preview svg g[data-edit^="cardmenu-"][data-line="' + line + '"] rect[data-hit]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
+
+  /* TR-14: Reject is a LOSING outcome; its menu row and slider call its probability "odds" */
+  {
+    const {page, errs} = await open('title: Odds check\nR\n  Pilot\n    Adopt (p=0.3): 1M\n    Reject (p=0.7): 0\n  Wait: 350k');
+    await tapMarker(page, 4);
+    check('tree: a losing outcome\'s menu says "Explore odds…" (not "success odds")', await until(async () => {
+      const rows = (await page.locator('.eip-pop button').allInnerTexts());
+      return rows.includes('Explore odds…') && !rows.some(r => /success odds/.test(r));
+    }));
+    await page.locator('.eip-pop button', {hasText: 'Explore odds…'}).click();
+    check('tree: the slider on a losing outcome reads "Reject — odds"', await until(async () => (await page.locator('#exploreLabel').innerText()) === 'Reject — odds'));
+    check('tree: the slider\'s accessible name says odds, never success odds',
+      await page.locator('#exploreRange').getAttribute('aria-label') === 'Reject odds');
+
+    /* TR-4: Adopt (0.3) and Reject (0.7) have no rest sibling. Moving Adopt to 0.4 rewrites Reject to 0.6 in
+       the SAME undoable edit, so the text says what the slider said */
+    await page.locator('#exploreClose').click();
+    const before = await page.evaluate(() => localStorage.getItem('tree-src'));
+    await page.locator('[data-edit="prob"][data-line="3"]').first().click();
+    await page.locator('#exploreRange').waitFor({state: 'visible'});
+    await page.locator('#exploreRange').evaluate(el => {
+      el.value = '0.4';
+      el.dispatchEvent(new Event('input', {bubbles: true}));
+      el.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    check('tree: committing the slider on an outcome with no rest sibling rewrites its sibling too (0.4 / 0.6)', await until(async () => {
+      const t = await page.evaluate(() => localStorage.getItem('tree-src'));
+      return /Adopt \(p=0\.4\)/.test(t) && /Reject \(p=0\.6\)/.test(t);
+    }));
+    await undoStep(page);
+    check('tree: ONE undo restores both lines', (await page.evaluate(() => localStorage.getItem('tree-src'))) === before);
+    check('tree: odds checks leave no console/page errors', errs.length === 0);
+    await page.close();
+  }
+
+  /* TR-5: the midpoint story and the simulation disagree (Bold 10k..1M vs Safe 450k): the page says so, and so
+     does the exported picture, whose flip list is labelled as the midpoint call */
+  {
+    const {page, errs} = await open('title: Seam check\nR\n  Bold: 10k to 1M\n  Safe: 450k');
+    const seam = 'On midpoints, Bold edges ahead; across your full ranges, Safe still wins.';
+    check('tree: the page shows the seam line', (await page.locator('#seam').innerText()).trim() === seam);
+    await openExportMenu(page);
+    const download = page.waitForEvent('download');
+    await page.locator('#dlsvg').click();
+    const file = await download;
+    const svg = readFileSync(await file.path(), 'utf8');
+    check('tree: the exported SVG carries the seam line', svg.includes('On midpoints, Bold edges ahead'));
+    check('tree: the exported flip list is labelled as the midpoint call', svg.includes('WHAT WOULD FLIP THE MIDPOINT CALL'));
+    check('tree: seam checks leave no console/page errors', errs.length === 0);
+    await page.close();
+  }
 }
 
 /* ---- tree: cardmenu-decision "Edit value…" on a node with NO value yet
@@ -4038,6 +4107,51 @@ if(scope.wants("paths")){
     treeSvg.includes('data-kind="tree-body"') && !treeSvg.includes('data-kind="plans-matrix"'));
   check('paths: no console/page errors', perrors.length === 0);
   await pctx.close();
+}
+
+/* ---- engine-audit fixes (PA-1, PA-3): a shared link naming a decision "constructor" loads, and the Tree-view inspector
+   lists an item in the state the evaluator gives it ---- */
+if(scope.wants("paths")){
+  const origin = process.env.BASE || 'http://localhost:8087';
+  const decision = (name, extra = '') => 'decision ' + name + ':\n  question: Does ' + name + ' hold?\n  signal: a signal\n  owner: someone\n  answer-by: 2026-10-01\n' + extra;
+  const open = async (src, viewport = {width: 1440, height: 900}) => {
+    const ctx = await browser.newContext({viewport, reducedMotion: 'reduce'});
+    const page = await ctx.newPage();
+    await page.clock.setFixedTime('2026-11-13T12:00:00Z');
+    const errs = trackErrors(page);
+    await page.goto(origin + '/paths/#' + await encodeHash({t: src}), {waitUntil: 'networkidle'});
+    await page.waitForTimeout(600);
+    return {page, errs, ctx};
+  };
+
+  /* PA-1: both a declared "constructor" and an undeclared one in an item condition */
+  for(const [label, src] of [
+    ['an undeclared name', 'NOW\n  Core: Work [if constructor]\n  Core: Other'],
+    ['a declared decision', decision('constructor', '  answer: yes 2026-09-01\n') + 'NOW\n  Core: Work [if constructor]\n  Core: Fallback [unless constructor]'],
+  ]){
+    const {page, errs, ctx} = await open(src);
+    check('paths: a link naming "constructor" in an item condition loads (' + label + ')',
+      await until(async () => (await page.locator('#preview svg').count() === 1 && /Work/.test(await page.locator('#preview svg').innerHTML()))));
+    check('paths: a link naming "constructor" leaves no console/page errors (' + label + ')', errs.length === 0);
+    await ctx.close();
+  }
+
+  /* PA-3: the inspector in Tree style. host answered no, so child never arose: "fallback" [unless child] is INCLUDED
+     (and says why), "main" [if child] is not needed */
+  {
+    const {page, errs, ctx} = await open('style: tree\ntoday: 2026-11-13\n' + decision('host', '  answer: no 2026-09-01\n') + decision('child', '  when: host\n') +
+      'NOW\n  Core: fallback [unless child]\n  Core: main [if child]');
+    const question = page.locator('[data-select-decision][data-decision-key="child"]');
+    await question.waitFor();
+    await question.focus();
+    await question.press('Enter');
+    await page.locator('#decision-inspector').waitFor({state: 'visible'});
+    const arms = (await page.locator('#decision-inspector .inspector-arms').innerText()).replace(/\s+/g, ' ');
+    check('paths: the Tree inspector lists the fallback as Included because its question never arose', /fallback[^]*INCLUDED[^]*never arose/i.test(arms) && !/fallback[^]*NOT NEEDED[^]*main/i.test(arms), arms);
+    check('paths: the Tree inspector lists the work that needs that question as Not needed', /main[^]*Not needed/i.test(arms), arms);
+    check('paths: the Tree inspector checks leave no console/page errors', errs.length === 0);
+    await ctx.close();
+  }
 }
 
 console.log(results.join('\n'));

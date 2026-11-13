@@ -128,9 +128,9 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   for(const src of ['decision constructor:\n  question: q\nNOW\n  A: x [if constructor]', 'NOW\n  A: x [if constructor]']){
     try{ project(parse(src), TODAY); }catch(e){ threw = threw || (JSON.stringify(src.slice(-28)) + ' -> ' + e.message); }
   }
-  check('P1 parsers never throw (DSL.md): an item condition naming "constructor" (a legal decision name) parses and projects', threw === null, threw || '', {known: true});
+  check('P1 parsers never throw (DSL.md): an item condition naming "constructor" (a legal decision name) parses and projects', threw === null, threw || '');
   const ctor = parse('decision constructor:\n  question: q?\n  signal: s\n  owner: o\n  answer-by: 2026-10-01\n  answer: yes 2026-09-01\nNOW\n  A: x');
-  check('P2 a decision named "constructor" is kept (not reported as a duplicate of an inherited object property)', ctor.decisions.length === 1 && !ctor.warnings.some(w => w.code === 'duplicate-decision'), JSON.stringify(ctor.warnings.map(w => w.code)), {known: true});
+  check('P2 a decision named "constructor" is kept (not reported as a duplicate of an inherited object property)', ctor.decisions.length === 1 && !ctor.warnings.some(w => w.code === 'duplicate-decision'), JSON.stringify(ctor.warnings.map(w => w.code)));
 
   // hostile documents: never throw (excluding the "constructor" class above, filtered out of the soup)
   const r = rng(4242); const soup = ['decision a:', 'decision b-2:', '  when: a', '  when: a and not b-2', '  when: a or', '  answer: yes', '  answer: no 2026-02-30', '  answer: maybe', '  assume: yes 2026-01-01',
@@ -178,10 +178,11 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const early = D('a', '  assume: yes 2026-12-31\n', '2026-10-01') + 'NOW\n  X: x [if a]';
   const pe = project(parse(early), TODAY);
   check('P5 an assumption dated in the future ("assume: yes 2026-12-31", today ' + TODAY + ', answer-by 2026-10-01) is not yet in force', pe.decisions[0].assumption.inForce === false,
-    'in force: ' + pe.decisions[0].assumption.inForce + '; item X is "' + pe.items[0].itemState + '": the assumption\'s own date is parsed and never read (only answer-by gates it)', {known: pe.decisions[0].assumption.inForce});
+    'in force: ' + pe.decisions[0].assumption.inForce + '; item X is "' + pe.items[0].itemState + '": the assumption\'s own date is parsed and never read (only answer-by gates it)', {known: pe.decisions[0].assumption.inForce, reason: 'PA-8: as documented, an assumption takes effect after the answer-by date; the owner will be asked'});
   const before = project(parse(D('a', '  assume: yes 2026-12-31\n', '2026-12-01') + 'NOW\n  X: x [if a]'), TODAY).warnings.find(w => w.code === 'assumption-before-due');
   const moved = project(parse(D('a', '  assume: yes 2026-11-01\n', '2026-12-01') + 'NOW\n  X: x [if a]'), TODAY).warnings.find(w => w.code === 'assumption-before-due');
-  check('P6 the "assumption is not used yet … remove the assumption or change its date" advice works: changing the assumption\'s date to before today clears it', !moved, 'still warns after moving the assumption date to 2026-11-01: "' + (moved || before)?.message + '"', {known: !!moved});
+  const advised = project(parse(D('a', '  assume: yes 2026-12-31\n', '2026-11-01') + 'NOW\n  X: x [if a]'), TODAY);
+  check('P6 the "assumption is not used yet" advice names a change that clears it: moving answer-by to before today (the assumption\'s own date does nothing, PA-8)', /answer-by/.test(before.message) && !/change its date/.test(before.message) && !advised.warnings.some(w => w.code === 'assumption-before-due') && advised.items[0].itemState === 'limbo', '"' + before.message + '"');
   // late answers and overdue boundary
   const ov = d => project(parse(D('a', '', '2026-11-12') + 'NOW\n  X: x [if a]'), d).decisions[0].overdue;
   check('P7 overdue boundary: due 2026-11-12 is not overdue on 2026-11-12 and is on 2026-11-13', ov('2026-11-12') === false && ov('2026-11-13') === true);
@@ -283,13 +284,12 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const plansTxt = texts(renderPlans(p, {colors, measure, dark: false, today: TODAY, projection: p, width: 1160}));
   const treeCount = (treeTxt.match(/(\d+) possible plans/) || [])[1], distinct = p.worlds.plans.length;
   console.log('   info: 3 open questions, c unused: Tree view "' + (treeTxt.match(/\d+ possible plans[^|]*/) || [''])[0] + '"; Plans view "' + (plansTxt.match(/\d+ assignments[^|]*/) || [''])[0] + '" / "' + (plansTxt.match(/\d+ distinct plans?/) || [''])[0] + '"');
-  check('L5 the Tree view\'s "N possible plans" equals the Plans view\'s distinct-plan count for the same document', +treeCount === distinct, 'Tree prints ' + treeCount + ' possible plans; Plans prints ' + p.worlds.possibleCount + ' assignments, ' + distinct + ' distinct plans', {known: +treeCount !== distinct});
+  check('L5 the Tree view\'s "N possible plans" equals the Plans view\'s distinct-plan count for the same document', +treeCount === distinct, 'Tree prints ' + treeCount + ' possible plans; Plans prints ' + p.worlds.possibleCount + ' assignments, ' + distinct + ' distinct plans');
   // refusal sentence
   const seven = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(n => D(n)).join('') + 'NOW\n  X: x [if a]\n  Y: y [if b or c or d or e or f or g]';
   const ps = project(parse(seven), TODAY);
   let distinct7 = new Set(); for(let mask = 0; mask < 128; mask++){ const a = {}; ['a', 'b', 'c', 'd', 'e', 'f', 'g'].forEach((k, i) => a[k] = mask & (1 << i) ? 'yes' : 'no'); distinct7.add(refSig(parse(seven), refWorld(parse(seven), TODAY, a))); }
-  check('L6 the refusal "Seven open questions would make 128 possible plans" states the number of distinct plans (' + distinct7.size + ' here)', ps.worlds.refused && ps.worlds.reason.includes(distinct7.size + ' possible plans'),
-    '"' + ps.worlds.reason + '"; 128 is the assignment count, only ' + distinct7.size + ' distinct plans exist (the spec fixes this wording)', {known: true});
+  check('L6 the refusal calls 128 what it is: combinations of answers (only ' + distinct7.size + ' distinct plans exist)', ps.worlds.refused && ps.worlds.reason.includes('128 combinations of answers') && !/possible plans/.test(ps.worlds.reason), '"' + ps.worlds.reason + '"');
 }
 
 // =============================================================================================
@@ -302,10 +302,10 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const a = o.items.find(i => i.title === 'fallback'), arms = decisionInspectorData(tp.questions.find(q => q.key === 'child')).arms;
   const treat = [...arms.yes, ...arms.no].find(x => x.title === 'fallback');
   check('W1 an item included because its question never arose ([unless child], child moot after host = no) is not described as answered ("Moot is not answered-no", semantics spec)', !/Child = no/.test(a.displayState.sentence),
-    'overview/receipt says "' + a.displayState.sentence + '"', {known: /Child = no/.test(a.displayState.sentence)});
-  check('W2 the inspector arm lists that included item as Included', p.items[0].itemState === 'in-plan' && treat.treatment === 'Included', 'item state ' + p.items[0].itemState + ', inspector treatment "' + treat.treatment + '" (displayEvidence host-exclusion)', {known: treat.treatment !== 'Included'});
+    'overview/receipt says "' + a.displayState.sentence + '"');
+  check('W2 the inspector arm lists that included item as Included', p.items[0].itemState === 'in-plan' && treat.treatment === 'Included', 'item state ' + p.items[0].itemState + ', inspector treatment "' + treat.treatment + '" (displayEvidence host-exclusion)');
   const v = verdict(p).line;
-  check('W3 the verdict "Every item is included in every remaining plan." is only printed when every item is included', !(v.startsWith('Every item') && p.items.some(i => i.itemState !== 'in-plan')), 'prints "' + v + '" while "main" is ' + p.items[1].itemState, {known: v.startsWith('Every item') && p.items.some(i => i.itemState !== 'in-plan')});
+  check('W3 the verdict "Every item is included in every remaining plan." is only printed when every item is included', !(v.startsWith('Every item') && p.items.some(i => i.itemState !== 'in-plan')), 'prints "' + v + '" while "main" is ' + p.items[1].itemState);
 
   // random sweep: verdict truth, inspector treatment vs state, overview kind vs value
   const r = rng(31); let every = 0, everyBad = null, treatBad = 0, treatEx = null, total = 0, proceedBad = null;
@@ -321,9 +321,9 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
     for(const it of overviewProjection(p).items){ const src = p.items.find(i => i.identity === it.identity);
       if(it.displayState.kind === 'proceeding' && src.condition?.terms.some(term => p.decisionByName[term.key]?.availability === 'moot') && / = no/.test(it.displayState.sentence)) proceedBad = proceedBad || it.displayState.sentence; }
   }
-  check('W4 random sweep: "Every item is included in every remaining plan." (' + every + ' times) is never printed while some item is not included', everyBad === null, everyBad ? JSON.stringify(everyBad).slice(0, 400) : '', {known: everyBad !== null});
-  check('W5 random sweep: every inspector arm treatment agrees with the item\'s state (' + total + ' listings)', treatBad === 0, treatBad + ' disagree, e.g. ' + JSON.stringify(treatEx), {known: treatBad > 0});
-  check('W6 random sweep: no "Proceeding after X = no" sentence for an X that never arose', proceedBad === null, proceedBad || '', {known: proceedBad !== null});
+  check('W4 random sweep: "Every item is included in every remaining plan." (' + every + ' times) is never printed while some item is not included', everyBad === null, everyBad ? JSON.stringify(everyBad).slice(0, 400) : '');
+  check('W5 random sweep: every inspector arm treatment agrees with the item\'s state (' + total + ' listings)', treatBad === 0, treatBad + ' disagree, e.g. ' + JSON.stringify(treatEx));
+  check('W6 random sweep: no "Proceeding after X = no" sentence for an X that never arose', proceedBad === null, proceedBad || '');
 
   // an item the assumption EXCLUDES is labelled as following it
   const as = D('pricing', '  assume: yes 2026-09-02\n', '2026-09-01') + 'NOW\n  A: Premium tier [if pricing]\n  B: Free fallback [unless pricing]';
@@ -331,7 +331,7 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const fb = ao.items.find(i => i.title === 'Free fallback');
   console.log('   info: assume pricing = yes; "Free fallback [unless pricing]" state ' + ap.items[1].itemState + ', sentence "' + fb.displayState.sentence + '"; verdict "' + av + '"');
   check('W7 under "assume: yes", an item the assumption excludes ([unless pricing]) is not reported as following the assumption', ap.items[1].itemState !== 'limbo',
-    '"' + fb.displayState.sentence + '"; verdict counts it: "' + av + '"; Plans share "Following an assumed answer" counts it too (spec maps every unknown-with-assumed provenance to limbo)', {known: ap.items[1].itemState === 'limbo'});
+    '"' + fb.displayState.sentence + '"; verdict counts it: "' + av + '"; Plans share "Following an assumed answer" counts it too (spec maps every unknown-with-assumed provenance to limbo)', {known: ap.items[1].itemState === 'limbo', reason: 'PA-10: follows the written specification; the owner will be asked'});
 
   // reach counts in the verdict denominator
   const lp = project(parse(LANTERN), '2026-08-01'), lv = verdict(lp);
@@ -350,10 +350,10 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const mo = 'decision a:\n  question: q\n  when: b\n' + D('b', '  answer: no 2026-09-01\n') + 'NOW\n  X: x [if a]\n  Y: y [if b]';
   const va = verdict(project(parse(ans), '2026-09-15')).line, vm = verdict(project(parse(mo), '2026-09-15')).line;
   check('W11 "N questions have no signal or owner — they cannot be answered as written" does not count a question that is already answered (a: answer yes) or no longer applies', !/cannot be answered/.test(va) && !/cannot be answered/.test(vm),
-    'answered: "' + va + '"; moot: "' + vm + '" (and this outranks the reach verdict about the genuinely open question b)', {known: /cannot be answered/.test(va) || /cannot be answered/.test(vm)});
+    'answered: "' + va + '"; moot: "' + vm + '" (and this outranks the reach verdict about the genuinely open question b)');
   const nh = project(parse(D('h', '  answer: yes 2026-09-01\n') + D('c', '  when: not h\n  answer: yes 2026-09-02\n') + 'NOW\n  X: x [if c]\n  Y: y [if h]'), TODAY);
   const notice = decisionInspectorData(treeProjection(nh).questions.find(q => q.key === 'c')).answerNotice;
-  check('W13 the inspector\'s moot-answer notice names the host answer that excluded the question (h = yes for "when: not h")', /h (was|=) yes/i.test(notice), '"' + notice + '"', {known: !/h (was|=) yes/i.test(notice)});
+  check('W13 the inspector\'s moot-answer notice names the host answer that excluded the question (h = yes for "when: not h")', /h (was|=) yes/i.test(notice), '"' + notice + '"');
   // close-out currency boundary
   const lc = project(parse(LANTERN), TODAY).decisions[0];
   check('W12 Lantern close-out: review-by 2026-10-31 reads "review-due" from 2026-10-31 (inclusive) and "current" on 2026-10-30', projectLearningCloseOut(lc, '2026-10-31').currency === 'review-due' && projectLearningCloseOut(lc, '2026-10-30').currency === 'current' && projectLearningCloseOut(lc, TODAY).currency === 'review-due');
@@ -394,7 +394,11 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const typo = roadmapProjectionChoices(parse(D('a') + 'NOW\n  X: x [if aa]\nLATER\n  Y: y [if a]'), TODAY);
   const cyc = roadmapProjectionChoices(parse(D('a', '  when: b\n') + D('b', '  when: a\n') + 'NOW\n  X: x [if a]\nLATER\n  Y: y'), TODAY);
   check('H3 a misspelt item condition refuses the Roadmap hand-off with its own reason ("refers to a decision that does not exist"), not as a corrupt model', typo.code === 'invalid-item-condition',
-    'typo -> ' + typo.code + ' "' + typo.reason + '"; when-cycle -> ' + cyc.code + ' "' + cyc.reason + '"', {known: typo.code !== 'invalid-item-condition'});
+    'typo -> ' + typo.code + ' "' + typo.reason + '"; when-cycle -> ' + cyc.code + ' "' + cyc.reason + '"');
+  check('H3b a when: cycle refuses with its own reason, not "not a complete parsed model" (PA-12)', cyc.code === 'when-cycle' && /when:/.test(cyc.reason) && !/complete parsed model/.test(cyc.reason), cyc.code + ' "' + cyc.reason + '"');
+  // PA-1/PA-2 sweep: a decision called constructor works end to end
+  const ct = project(parse(D('constructor', '  answer: yes 2026-09-01\n') + 'NOW\n  A: x [if constructor]'), TODAY);
+  check('H3c a decision named constructor is answered and read like any other (PA-1/PA-2)', ct.decisions.length === 1 && ct.items[0].itemState === 'in-plan', ct.items[0].itemState);
   const lanBlocked = lan.out.filter(x => x.refused === 'in-flight-item-dropped').length;
   check('H4 recorded: Lantern hands off only 1 of its 4 worlds; ' + lanBlocked + ' refuse because the [blocked] "Group moderation" would be dropped ([blocked] is treated as in-flight work, like [doing])', lanBlocked === 3);
   check('H2 200 random documents: every exact world that builds round-trips into Roadmap with exactly the reference in-plan items (' + worlds + ' worlds)', bad === null, bad ? JSON.stringify(bad).slice(0, 500) : '');
