@@ -10,4 +10,5 @@ const v1=base('energy-merit-order','Merit order','Explore the generator that set
 
 v1.views['stack'].defaultControls=['demand', 'wind', 'gas'];
 // Version 2 (2026-11-13 engine audit): rent prints as £k an hour; with unmet demand the verdict says no price clears (last offer and shortfall) instead of quoting the dearest offer as a clearing price; "the wind has dropped" only when wind availability is low; shortfalls under 0.1 GW print in MW. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the import assumption is stated for the current world.
+export const definition={...v1,version:3};

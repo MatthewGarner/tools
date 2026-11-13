@@ -8,6 +8,7 @@ const v1=base('energy-frequency','Frequency & inertia','Explore a loss of genera
  {trace:{title:'Frequency trace',description:'The deterministic frequency response after a generation trip.',controls:['inertia','trip','regulation','moderation','containment','grid-forming'],render(s,ctx){const p=paramsFromControls({inertia:s.i,trip:s.tr,dr:s.dr,dm:s.dm,dc:s.dc,gfm:s.g}),r=simulate(p);return {svg:renderTrace(r,p,context(ctx)),summary:verdict(r,p)+' Illustrative aggregate grid model, not an operational forecast.'};}}});
 
 // Version 2 (2026-11-12 engine audit): one Hz formatter, the verdict names the inertia its RoCoF used, the grid-forming basis is labelled as a minimum. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the shed-load simplification is stated in the assumptions.
+export const definition={...v1,version:3};
 
 definition.views['trace'].defaultControls=['inertia', 'containment'];

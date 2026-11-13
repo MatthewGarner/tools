@@ -9,4 +9,5 @@ const v1=sourceDefinition({id:'paths',title:'Paths',description:'An editable, au
   views:{model:{title:'Model',description:'The complete authored model in its native reading view.',controls:['source'],render(s,ctx){const m=parse(s.t),c=context(ctx);const p=overviewProjection(project(m,c.today));return {svg:(c.width<520?renderOverviewNarrow:renderOverview)(p,c),summary:sourceSummary('Paths',m,(m.title||'Conditional plan')+': work and its decision conditions. Enumerated alternatives are possible worlds, not calibrated probabilities.')} ;}}}
 });
 // Version 2: authored names are only names, the inspector agrees with the evaluator, one vocabulary for plans. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: an assumption takes effect once both dates have passed; items it rules out are set aside.
+export const definition={...v1,version:3};
