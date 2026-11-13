@@ -45,9 +45,24 @@ export function stretchLabel(r){
   return '×' + text + (f < 1 ? ' shrink' : ' stretch');
 }
 
+/* Sampled money prints to one shared step per group of figures (NPV P10/P50/P90; equity NPV
+   likewise): a tenth of the power of ten of the largest magnitude, so 80,100 sets a step of 1,000
+   and the trio reads "−51k", "+15k", "+80k". No figure is printed finer than the noise under it. */
+export function moneyStep(values){
+  const big = Math.max(...values.map(Math.abs));
+  return big > 0 && isFinite(big) ? Math.pow(10, Math.floor(Math.log10(big)) - 1) : 1;
+}
+export function moneyTrio(values, step = moneyStep(values)){
+  return values.map(v => {
+    const r = Math.round(Math.abs(v) / step) * step;         // magnitude first: a tiny negative is a plain 0, never "−0"
+    return r === 0 ? '0' : (v < 0 ? '−' : '+') + fmt(Number(r.toPrecision(12)));
+  });
+}
+
 /* The cash-flow method line: timing convention, the shape each period actually uses, and
-   that periods are drawn independently. `periods` are the entered rows (numeric lo/hi). */
-export function cashflowMethod(spec, horizon, n){
+   that periods are drawn independently. `periods` are the entered rows (numeric lo/hi). The chart
+   comes from the first bandN of the n runs. */
+export function cashflowMethod(spec, horizon, n, bandN = n){
   const groups = {'normal': [], 'log-normal': [], 'fixed': []};
   spec.periods.forEach((p, t) => {
     const lo = Math.min(p.lo, p.hi), hi = Math.max(p.lo, p.hi);
@@ -55,7 +70,8 @@ export function cashflowMethod(spec, horizon, n){
   });
   const shapes = Object.entries(groups).filter(([, ts]) => ts.length).map(([k, ts]) => k + ': ' + ts.join(', '));
   return 'Flows arrive at the end of each period, so t0 is not discounted · shapes (log-normal above zero, normal otherwise): ' +
-    shapes.join('; ') + ' · periods drawn independently · ' + n.toLocaleString('en-GB') + ' seeded runs · deterministic';
+    shapes.join('; ') + ' · periods drawn independently · ' + n.toLocaleString('en-GB') + ' seeded runs' +
+    (bandN < n ? ', chart from the first ' + bandN.toLocaleString('en-GB') : '') + ' · deterministic';
 }
 
 /* ---------- the sensitivity bars: who is the top driver ---------- */

@@ -4,8 +4,7 @@
    lender IRR equals the cost of debt, and freezes the schedule. leverTrials()
    then varies revenue against that frozen debt across the already-sampled
    trials (zero new RNG). Nothing here touches the random stream. */
-import {distQuantile, irrOf} from './engine.js';
-import {quantile} from '../assets/series.js';
+import {distQuantile, irrOf, selectTrio} from './engine.js';
 
 const mid = p => (p.lo + p.hi) / 2;
 const perRate = (r, grain) => grain === 'month' ? Math.pow(1 + r, 1 / 12) - 1 : r;
@@ -84,16 +83,18 @@ export function leverTrials(s, {flowPaths, rates, n, horizon, grain}){
   const W = horizon + 1;
   const eq = new Float64Array(W);
   const levIrr = [], eqNpv = [], minD = [];
-  let posNpv = 0, irrUndef = 0, shortfall = 0, servedPeriods = 0;
+  let posNpv = 0, irrUndef = 0, shortfall = 0, servedPeriods = 0, hint = NaN;
   for(let t = s.tStar; t < s.tStar + s.tenor; t++) if(s.dsByT[t] > 0) servedPeriods++;
 
   for(let i = 0; i < n; i++){
     const base = i * W, r = rates[i], perR = grain === 'month' ? Math.pow(1 + r, 1 / 12) - 1 : r;
-    let npv = 0, minDscr = Infinity;
+    let npv = 0, minDscr = Infinity, df = 1;
+    const dd = 1 / (1 + perR);                                     // a running discount factor, not a pow per period
     for(let t = 0; t < W; t++){
       const proj = flowPaths[base + t];
       eq[t] = proj + (s.drawByT[t] || 0) - (s.dsByT[t] || 0);
-      npv += eq[t] / Math.pow(1 + perR, t);
+      npv += eq[t] * df;
+      df *= dd;
       if(s.dsByT[t] > 0){
         const d = proj / s.dsByT[t];
         if(d < minDscr) minDscr = d;
@@ -102,19 +103,18 @@ export function leverTrials(s, {flowPaths, rates, n, horizon, grain}){
     }
     if(npv > 0) posNpv++;
     eqNpv.push(npv);
-    const ir = irrOf(eq, horizon);
+    const ir = irrOf(eq, horizon, hint);
     if(ir === null) irrUndef++;
-    else levIrr.push(grain === 'month' ? Math.pow(1 + ir, 12) - 1 : ir);
+    else { hint = ir; levIrr.push(grain === 'month' ? Math.pow(1 + ir, 12) - 1 : ir); }
     if(isFinite(minDscr)) minD.push(minDscr);
   }
 
-  const S = a => Float64Array.from(a).sort();
-  const q = (a, p) => a.length ? quantile(a, p) : null;
-  const L = S(levIrr), N = S(eqNpv), M = S(minD);
+  /* quantiles of unsorted arrays by selection (selectTrio): the same figures as sorting, far less work */
+  const T = a => { const [p10, p50, p90] = selectTrio(Float64Array.from(a)); return {p10, p50, p90}; };
   return {
-    levIrr: {p10: q(L, .1), p50: q(L, .5), p90: q(L, .9), undefinedShare: irrUndef / n},
-    eqNpv: {p10: q(N, .1), p50: q(N, .5), p90: q(N, .9), pPos: posNpv / n},
-    minDscr: {p10: q(M, .1), p50: q(M, .5), p90: q(M, .9)},
+    levIrr: {...T(levIrr), undefinedShare: irrUndef / n},
+    eqNpv: {...T(eqNpv), pPos: posNpv / n},
+    minDscr: T(minD),
     coverShortfall: servedPeriods ? shortfall / (n * servedPeriods) : 0,
   };
 }

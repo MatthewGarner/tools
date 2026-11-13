@@ -1459,7 +1459,7 @@ function cfPaint(){
     cfSig = sig;
     cfSvg = '';
   }
-  $('cfmethod').textContent = cashflowMethod(cfSpec, cfResult.horizon, CF_N);
+  $('cfmethod').textContent = cashflowMethod(cfSpec, cfResult.horizon, CF_N, cfResult.bandN);
   const svg = renderCashflow(cfResult, cfSpec, {colors: themeColors()});
   if(svg !== cfSvg){ $('cfwrap').innerHTML = svg; cfSvg = svg; }
   $('cfwarn').textContent = parsed.debtErrors.length ? 'Debt sizing paused — ' + parsed.debtErrors.join(' ') : '';

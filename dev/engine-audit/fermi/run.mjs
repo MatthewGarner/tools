@@ -595,7 +595,7 @@ function refIRR(flows){   // returns {root, changes}; bisection on a wider brack
   for(let i = 0; i < 200; i++){ const m = (lo + hi) / 2, fm = npvOf(flows, m); if(flo * fm <= 0){ hi = m; fhi = fm; } else { lo = m; flo = fm; } }
   return {root: (lo + hi) / 2, changes};
 }
-const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, n: 10000, ...o});
+const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, ...o});          // the page's own run count (CF_N) unless a check says otherwise
 {
   // ---- hand case: -100, +60, +60 at 10 % ----
   const spec = {periods: [fixed(-100), fixed(60), fixed(60)], horizon: 2, grain: 'year', rate: fixed(10)}, r = cfRun(spec, {n: 200});
@@ -638,9 +638,11 @@ const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, n: 10000, 
     const errs = [.1, .5, .9].map(q => Math.abs(quantile(r.npvSorted, q) - hand(q)));
     check('CF5 NPV = -100 + X/1.1 with X lognormal(50..200): P10/P50/P90 within 0.4 of closed form at 1M draws (3.5 standard errors)', Math.max(...errs) < 0.4, errs.map(e => e.toFixed(3)).join(' ')); }
   // ---- sum of independent normals: cumulative band ----
-  { const sp = {periods: [R(-250, -180), R(-40, 20), R(-30, 90)], horizon: 2, grain: 'year', rate: fixed(0)}, r = cfRun(sp, {n: 400000});
+  { const sp = {periods: [R(-250, -180), R(-40, 20), R(-30, 90)], horizon: 2, grain: 'year', rate: fixed(0)};
+    // the band is drawn from the first 10,000 runs of a run (a picture), so the closed-form check averages the band over 40 seeds
+    const bands = Array.from({length: 40}, (_, i) => cfRun(sp, {seed: 700 + i, n: 10000}).band[2]), m10 = mean(bands.map(b => b.p10)), m90 = mean(bands.map(b => b.p90));
     const sd2 = Math.hypot(70, 60, 120) / (2 * Z95), mu2 = -215 - 10 + 30;
-    check('CF5b cumulative band at t2 = normal(sum of means, hypot of sds): P10/P90 within 0.4 of closed form', Math.abs(r.band[2].p10 - (mu2 - Z90q * sd2)) < 0.4 && Math.abs(r.band[2].p90 - (mu2 + Z90q * sd2)) < 0.4, `${r.band[2].p10.toFixed(2)} ${r.band[2].p90.toFixed(2)} vs ${(mu2 - Z90q * sd2).toFixed(2)} ${(mu2 + Z90q * sd2).toFixed(2)}`); }
+    check('CF5b cumulative band at t2 = normal(sum of means, hypot of sds): P10/P90 (mean of 40 seeds of the 10,000-run band) within 0.4 of closed form', Math.abs(m10 - (mu2 - Z90q * sd2)) < 0.4 && Math.abs(m90 - (mu2 + Z90q * sd2)) < 0.4, `${m10.toFixed(2)} ${m90.toFixed(2)} vs ${(mu2 - Z90q * sd2).toFixed(2)} ${(mu2 + Z90q * sd2).toFixed(2)}`); }
   // ---- built-in cash-flow examples vs an independent 1M-style reference ----
   function refCash(spec, n, seed){
     const g = normalGen(seed), W = spec.horizon + 1, out = {npv: new Float64Array(n), irr: [], ev: [], undefIrr: 0, never: 0, multi: 0};
@@ -815,34 +817,38 @@ const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, n: 10000, 
 }
 
 // =============================================================================================
-// 17. CASH-FLOW SAMPLING ERROR (page: 10,000 runs; 30 seeds)
+// 17. CASH-FLOW SAMPLING ERROR (page: CF_N = 40,000 runs; 30 seeds)
 // =============================================================================================
+const CF_NOISE = [];     // {ex, k, sd, st, ratio}: printed again in the report
 {
-  console.log('   info: SAMPLING ERROR TABLE (cash-flow examples, n=10000, 30 seeds)');
+  console.log('   info: SAMPLING ERROR TABLE (cash-flow examples, page run count, 30 seeds). Money trios print to one shared step: a tenth of the power of ten of the largest of the three');
   const pct0 = () => 0.01, pct1s = () => 0.001, intStep = () => 1;
-  const rows = [];
+  const probStep = m => (m < 0.095 || m > 0.905) ? 0.001 : 0.01;      // pctProb: tenths in the tails, whole percent between
+  const rows = CF_NOISE;
   const S30 = SEEDS.slice(0, 30);
   const tab = (exName, spec) => {
     const acc = {}; const add = (k, v, step) => { (acc[k] ||= {a: [], step}).a.push(v); };
     for(const seed of S30){
       const r = cfRun(spec, {seed});
-      if(r.framing === 'invest'){ add('NPV P10', r.npv.p10, fmtStep); add('NPV P50', r.npv.p50, fmtStep); add('NPV P90', r.npv.p90, fmtStep); add('P(NPV>0)', r.npv.pPos, pct0); add('IRR P50 (whole %)', r.irr.p50, pct0); add('IRR P50 (0.1 %)', r.irr.p50, pct1s); add('IRR P10 (0.1 %)', r.irr.p10, pct1s); add('IRR P90 (0.1 %)', r.irr.p90, pct1s); add('payback P50', r.period.p50, intStep); add('never-share', r.period.neverShare, pct0); }
+      if(r.framing === 'invest'){ add('NPV P10', r.npv.p10, 'npv'); add('NPV P50', r.npv.p50, 'npv'); add('NPV P90', r.npv.p90, 'npv'); add('P(NPV>0)', r.npv.pPos, probStep); add('IRR P50 (0.1 %)', r.irr.p50, pct1s); add('IRR P10 (0.1 %)', r.irr.p10, pct1s); add('IRR P90 (0.1 %)', r.irr.p90, pct1s); add('payback P50', r.period.p50, intStep); add('never-share', r.period.neverShare, probStep); }
       else { add('cash-out P10', r.period.p10, intStep); add('cash-out P50', r.period.p50, intStep); add('cash-out P90', r.period.p90, intStep); }
-      if(r.debt && r.debt.ok){ const d = r.debt; add('levIRR P10 (0.1 %)', d.levIrr.p10, pct1s); add('levIRR P50 (0.1 %)', d.levIrr.p50, pct1s); add('levIRR P90 (0.1 %)', d.levIrr.p90, pct1s); add('eqNPV P50', d.eqNpv.p50, fmtStep); add('cover shortfall', d.coverShortfall, pct0); add('worst-year DSCR P10', d.minDscr.p10, () => 0.01); add('lev IRR undef share', d.levIrr.undefinedShare, pct0); }
+      if(r.debt && r.debt.ok){ const d = r.debt; add('levIRR P10 (0.1 %)', d.levIrr.p10, pct1s); add('levIRR P50 (0.1 %)', d.levIrr.p50, pct1s); add('levIRR P90 (0.1 %)', d.levIrr.p90, pct1s); add('eqNPV P10', d.eqNpv.p10, 'eq'); add('eqNPV P50', d.eqNpv.p50, 'eq'); add('eqNPV P90', d.eqNpv.p90, 'eq'); add('cover shortfall', d.coverShortfall, pct0); add('worst-year DSCR P10', d.minDscr.p10, () => 0.01); add('lev IRR undef share', d.levIrr.undefinedShare, pct0); }
     }
+    const trioStep = pre => W.moneyStep(['P10', 'P50', 'P90'].map(q => mean(acc[pre + ' ' + q].a)));
+    const groups = {npv: acc['NPV P10'] && trioStep('NPV'), eq: acc['eqNPV P10'] && trioStep('eqNPV')};
     for(const [k, {a, step}] of Object.entries(acc)){
-      const s = sd(a), st = step(mean(a)); rows.push({ex: exName, k, sd: s, st, ratio: s / st});
+      const s = sd(a), st = typeof step === 'string' ? groups[step] : step(mean(a)); rows.push({ex: exName, k, sd: s, st, ratio: s / st});
       console.log(`   info: ${exName.padEnd(8)} ${k.padEnd(22)} mean ${String(Number(mean(a).toPrecision(4))).padEnd(10)} sd ${String(Number(s.toPrecision(3))).padEnd(10)} step ${String(Number(st.toPrecision(2))).padEnd(8)} sd/step ${(s / st).toFixed(2)}`);
     }
   };
   tab('invest', CF_EX.invest); tab('runway', CF_EX.runway); tab('geared', CF_EX.geared);
   const bad = rows.filter(r => r.ratio >= 0.5 && r.st > 0 && r.sd > 0);
-  // awaiting decision (tier 2c, FM-30: more cash-flow runs)
-  check('CN1 every printed cash-flow figure has seed noise under half its printed step (page: 10,000 runs)', bad.length === 0, bad.map(r => `${r.ex} ${r.k} sd/step ${r.ratio.toFixed(2)}`).join('; '), {known: bad.length > 0});
+  // the old plan was 160,000 runs; the design is 40,000 runs, one shared money step per trio, and the same half-step rule
+  check('CN1 over 30 seeds on the three cash-flow examples, the seed-to-seed sd of every printed sampled figure is at most half its printed step (page: ' + (40000).toLocaleString('en-GB') + ' runs)', bad.length === 0, bad.map(r => `${r.ex} ${r.k} sd/step ${r.ratio.toFixed(2)}`).join('; '), {known: bad.length > 0});   // KEPT TAGGED where it fails: the brief keeps IRR at one decimal and probabilities on pctProb (tenths in the tails), so those figures are not made coarser; the numbers are printed above
   check('CN2 the debt size D and gearing are deterministic (no seed noise) and the sampled figures are only the returns', rows.length > 0);
   // what removes it: for fixed-range cash flows the quantity is a sum of independent known distributions; the standard error scales 1/sqrt(n)
   const sInv = rows.filter(r => r.ex === 'invest' && r.k === 'NPV P90')[0];
-  console.log(`   info: invest NPV P90 sd ${fmt(sInv.sd)} vs step ${fmt(sInv.st)}: reaching sd/step 0.25 needs about ${Math.ceil(10000 * (sInv.ratio / 0.25) ** 2).toLocaleString('en-GB')} runs at the current method`);
+  console.log(`   info: invest NPV P90 sd ${fmt(sInv.sd)} vs step ${fmt(sInv.st)}: reaching sd/step 0.25 needs about ${Math.ceil(40000 * (sInv.ratio / 0.25) ** 2).toLocaleString('en-GB')} runs at the current method`);
 }
 
 // =============================================================================================
@@ -940,8 +946,7 @@ const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, n: 10000, 
   const sa = pageRun(build('a + b', {a: [10, 40], b: ['4', '4']})), sb2 = pageRun(build('a + b', {a: [10, 40], b: ['4', '4.0000001']}));
   check('CT1s continuity (sampled formula a + b): widening b from the point 4 to 4..4.0000001 leaves P10/P50/P90 unchanged to 0.1 % [reason: estimate stream kept: a point range consumes no draw, so the new range shifts every other draw]', Math.max(rel(sa.p10, sb2.p10), rel(sa.p50, sb2.p50), rel(sa.p90, sb2.p90)) < 0.001, `P50 ${fmt(sa.p50)} -> ${fmt(sb2.p50)} (${(100 * rel(sa.p50, sb2.p50)).toFixed(2)} %), P90 ${fmt(sa.p90)} -> ${fmt(sb2.p90)}`, {known: true});
   const sp = CF_EX.invest, x = cfRun({...sp, rate: R(10, 10)}), y = cfRun({...sp, rate: R(10, 10.0001)});
-  // awaiting decision (tier 2c, FM-27)
-  check('CT2 continuity (cash flow): discount rate 10..10 versus 10..10.0001 leaves NPV P50 unchanged to 0.1 % (the rate draws one gaussian per run only when its width is non-zero, shifting every cash-flow draw)', rel(x.npv.p50, y.npv.p50) < 0.001, `${fmt(x.npv.p50)} -> ${fmt(y.npv.p50)} (${(100 * rel(x.npv.p50, y.npv.p50)).toFixed(2)} %)`, {known: true});
+  check('CT2 continuity (cash flow): discount rate 10..10 versus 10..10.0001 leaves NPV P50 unchanged to 0.1 % (the rate now draws its gaussian on every run, point or not, so the stream does not shift)', rel(x.npv.p50, y.npv.p50) < 0.001, `${fmt(x.npv.p50)} -> ${fmt(y.npv.p50)} (${(100 * rel(x.npv.p50, y.npv.p50)).toFixed(4)} %)`);
   // pin at the median versus what knowing the value exactly would buy on average
   const m = build('a * b', {a: [10, 40], b: [-5, 15]}), N = 20000;
   const full = simulateModel(m, {seed: 3, n: N}).sorted, w = s => Math.log(quantile(s, .9) / quantile(s, .1));

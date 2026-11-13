@@ -3,13 +3,16 @@
    and IRR are the discounted numbers in the verdict. */
 import {esc, tint, txt, wrapText} from '../assets/svg.js';
 import {fmt} from './engine.js';
-import {pctProb, pctOne, cashflowMethod} from './words.js';
+import {pctProb, pctOne, cashflowMethod, moneyTrio} from './words.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const W = 860, PAD = 26;
 const f1 = n => (Math.round(n * 100) / 100).toString();
 const pctS = pctProb;
+/* deterministic money (axis labels, typed ranges): fmt's own figures. Sampled money prints to a shared
+   step, as one trio: P10/P50/P90 of the same quantity (words.moneyTrio). */
 const money = v => (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v));
+const trioOf = q => moneyTrio([q.p10, q.p50, q.p90]);
 
 function periodWord(grain, t){ return grain === 'month' ? 'month ' + t : 'year ' + t; }
 
@@ -37,7 +40,7 @@ export function financeVerdict(d){
     : crosses
       ? 'leverage cuts both ways — levered IRR P10 ' + pct1(lp10) + ' vs unlevered ' + pct1(un)
       : 'levered IRR P10 ' + pct1(lp10) + ' holds above unlevered ' + pct1(un),
-    'equity NPV P50 ' + money(d.eqNpv.p50),
+    'equity NPV P50 ' + trioOf(d.eqNpv)[1],
     '~' + cover + '% of operating-years under ' + dv + '× cover'];
   let sub = bits.join('; ') + '.';
   if(!crosses && cover >= 25) sub += ' The risk sits in cover, not the (independent-year) IRR spread.';
@@ -62,7 +65,8 @@ export function verdictLines(r){
       bits.push('survives the whole horizon in ' + pctS(period.neverShare) + ' of runs');
     return {head, sub: bits.join(' · ')};
   }
-  const head = 'NPV P50 ' + money(npv.p50) + ' — 80% range ' + money(npv.p10) + ' to ' + money(npv.p90) + '.';
+  const [m10, m50, m90] = trioOf(npv);
+  const head = 'NPV P50 ' + m50 + ' — 80% range ' + m10 + ' to ' + m90 + '.';
   const bits = ['P(NPV > 0) ' + pctS(npv.pPos)];
   if(r.outlay === false){
     bits.push('no outlay, so no payback or IRR');
@@ -180,7 +184,7 @@ export function renderCashflow(r, spec, ctx){
 
     // stat strip
     const stats = [['GEARING', Math.round(d.gearingPct * 100) + '%'],
-      ['EQUITY NPV P50', money(d.eqNpv.p50)],
+      ['EQUITY NPV P50', trioOf(d.eqNpv)[1]],
       ['UNDER COVER', Math.round(d.coverShortfall * 100) + '%'],
       ['WORST-YEAR DSCR', d.minDscr.p10 != null ? dscrF(d.minDscr.p10) + '×' : '—']];
     if(d.levIrr.undefinedShare >= 0.01) stats.push(['LEV IRR UNDEF', Math.round(d.levIrr.undefinedShare * 100) + '%']);
@@ -244,6 +248,6 @@ export function cashflowMarkdown(r, spec, url, typed = null){
     lines.push('- debt sizing paused: ' + spec.debtError);
   }
   lines.push('');
-  lines.push('_' + cashflowMethod(spec, r.horizon, r.n) + ' · [live model](' + url + ')_');
+  lines.push('_' + cashflowMethod(spec, r.horizon, r.n, r.bandN) + ' · [live model](' + url + ')_');
   return lines.join('\n');
 }

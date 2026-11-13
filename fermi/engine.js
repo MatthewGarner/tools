@@ -238,11 +238,11 @@ export function distQuantile(lo, hi, dist, q){
    exactly one, so a bracket test over the window is exact (the common case, and the same
    bisection the old routine used). Only a vector with several sign changes needs a scan. */
 const IRR_LO = -0.999, IRR_HI = 1000, IRR_SCAN = 300;
-export function irrOf(flows, horizon){
-  let changes = 0, prev = 0;
+export function irrOf(flows, horizon, hint){
+  let changes = 0, prev = 0, first = 0;
   for(let t = 0; t <= horizon; t++){
     const sg = flows[t] > 0 ? 1 : flows[t] < 0 ? -1 : 0;
-    if(sg){ if(prev && sg !== prev) changes++; prev = sg; }
+    if(sg){ if(!first) first = sg; if(prev && sg !== prev) changes++; prev = sg; }
   }
   if(changes === 0) return null;
   const f = r => {
@@ -259,10 +259,48 @@ export function irrOf(flows, horizon){
     }
     return (lo + hi) / 2;
   };
+  /* Safeguarded Newton inside a bracket [lo, hi] whose end signs are flo and -flo: a Newton step
+     that leaves the bracket becomes a bisection step. A Newton step shrinks the error quadratically,
+     so a step under 1e-13 (relative) leaves the root good to far better than 1e-12; this takes a few
+     passes where bisection took ~50. Gives up (undefined) on a non-finite value or on running out
+     of passes, so the caller can fall back to the plain bracketed test. */
+  const newton = (lo, hi, flo, r, warm) => {
+    let prev = Infinity;                                       // the size of the last (Newton) step
+    for(let i = 0; i < 80; i++){
+      const dd = 1 / (1 + r);
+      let fv = 0, dv = 0;                                      // the value and d/d(dd), by one Horner pass
+      for(let t = horizon; t >= 0; t--){ dv = dv * dd + fv; fv = fv * dd + flows[t]; }
+      if(!isFinite(fv) || !isFinite(dv)) return undefined;
+      if(fv === 0) return r;
+      if(flo * fv < 0) hi = r; else lo = r;
+      let next = r + fv / (dv * dd * dd), newtonStep = true;   // f'(r) = -dv * dd^2
+      if(!(next > lo && next < hi)){ next = (lo + hi) / 2; newtonStep = false; }
+      const step = Math.abs(next - r), tol = 1e-14 * (1 + Math.abs(r));
+      if(step <= 10 * tol || hi - lo <= 1e-15 * (1 + Math.abs(lo))) return i === 0 && warm ? r : next;
+      /* Quadratic convergence: the next error is about step^3 / prev^2 (error' = K error^2, K read off
+         the last two steps). Once that is below the tolerance the step just taken IS the answer, so
+         the confirming pass is skipped. A creeping (linear) run predicts an error near step/4 and
+         keeps going until the step itself is tiny. */
+      if(newtonStep && step <= 1e-6 * (1 + Math.abs(r)) && step * step * step <= tol * prev * prev) return next;
+      prev = newtonStep ? step : Infinity;
+      r = next;
+    }
+    return undefined;
+  };
   if(changes === 1){
+    /* One sign change in the flows means exactly one root and a strictly monotone NPV: f(LO) has the
+       sign of the last flow's side and f(HI) the opposite, whenever the root is inside the window.
+       So Newton can start with no bracket test, and a root it finds strictly inside the window IS the
+       root. Anything near an edge, or that does not settle, takes the plain bracket test below,
+       which is the exact old rule. A caller running many similar vectors passes the last root as
+       `hint`: Newton then needs ~3 passes instead of ~6, and a hint that is already the root is
+       returned unchanged, so identical vectors give bit-identical roots. */
+    const warm = hint > IRR_LO && hint < IRR_HI;
+    const quick = newton(IRR_LO, IRR_HI, first < 0 ? 1 : -1, warm ? hint : 0.1, warm);
+    if(quick !== undefined && quick > IRR_LO + 1e-6 && quick < IRR_HI * (1 - 1e-6)) return quick;
     const flo = f(IRR_LO), fhi = f(IRR_HI);
     if(!(isFinite(flo) && isFinite(fhi)) || flo * fhi > 0) return null;
-    return bisect(IRR_LO, IRR_HI, flo);
+    return newton(IRR_LO, IRR_HI, flo, 0.1, false) ?? bisect(IRR_LO, IRR_HI, flo);
   }
   const xlo = Math.log(1 + IRR_LO), xhi = Math.log(1 + IRR_HI);
   let rPrev = IRR_LO, fPrev = f(rPrev), found = null, flips = 0;
@@ -274,6 +312,32 @@ export function irrOf(flows, horizon){
     rPrev = r; fPrev = fr;
   }
   return flips === 1 ? bisect(found[0], found[1], found[2]) : null;
+}
+
+/* P10/P50/P90 of an UNSORTED array by selection, not by sorting it: the same order statistics and
+   the same interpolation as quantile() on the sorted array, in a fraction of the time. Reorders
+   `a` in place. */
+function nth(a, k, lo, hi){
+  while(hi > lo){
+    const pv = a[(lo + hi) >> 1];
+    let i = lo, j = hi;
+    while(i <= j){
+      while(a[i] < pv) i++;
+      while(a[j] > pv) j--;
+      if(i <= j){ const t = a[i]; a[i] = a[j]; a[j] = t; i++; j--; }
+    }
+    if(k <= j) hi = j; else if(k >= i) lo = i; else return;
+  }
+}
+const QS = [.1, .5, .9];
+export function selectTrio(a){
+  const n = a.length;
+  if(!n) return [null, null, null];
+  const ks = [];
+  for(const p of QS){ const idx = p * (n - 1); ks.push(Math.floor(idx), Math.ceil(idx)); }
+  let from = 0;
+  for(const k of [...new Set(ks)]){ nth(a, k, from, n - 1); from = k; }
+  return QS.map(p => { const idx = p * (n - 1), lo = Math.floor(idx), hi = Math.ceil(idx); return a[lo] + (a[hi] - a[lo]) * (idx - lo); });
 }
 
 /* One Monte Carlo run over a parsed model; reseeded per call so identical
