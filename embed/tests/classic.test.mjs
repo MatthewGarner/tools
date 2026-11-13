@@ -12,7 +12,7 @@ const colors={card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg
 const context=(dark=false,width=390)=>({width,dark,theme:dark?'dark':'light',today:'2026-10-03',colors:{...colors,...dark?{card:'#1a1a19',bg:'#121212',ink:'#f1f1ee',muted:'#aaa',border:'#333'}:{}},measure:t=>String(t).length*7});
 for(const id of ids)test(id+' has a bounded native state, portable handoff and deterministic views',async()=>{
  const d=definitions[id],before=JSON.stringify(d.initialState);definitionMetadata(d);
- assert.equal(d.id,id);assert.equal(d.version,id==='roadmap'||id==='timeline'?3:id==='flow'||['case','energy-risk','energy-cycles','energy-frequency','energy-merit-order','energy-intraday'].includes(id)?2:1);   // timeline v3 carries the 2026-11-13 lane model and one today (v2: the export fixes); case v2 carries the export fixes; energy risk/cycles/frequency v2 carry the 2026-11-12 engine-correctness fixes; roadmap v3 adds the ink-based slide fit; earlier versions stay frozen
+ assert.equal(d.id,id);assert.equal(d.version,id==='roadmap'||id==='timeline'?3:id==='flow'||['fermi','case','energy-risk','energy-cycles','energy-frequency','energy-merit-order','energy-intraday'].includes(id)?2:1);   // timeline v3 carries the 2026-11-13 lane model and one today (v2: the export fixes); case v2 carries the export fixes; fermi v2 carries the 2026-11-13 engine-correctness fixes; energy risk/cycles/frequency v2 carry the 2026-11-12 engine-correctness fixes; roadmap v3 adds the ink-based slide fit; earlier versions stay frozen
  const s=validateState(d,d.initialState),href=fullToolURL(d,s);
  assert.deepEqual(await decodeHash(new URL(href).hash.slice(1)),s);
  const projected=d.project?d.project(s):undefined;

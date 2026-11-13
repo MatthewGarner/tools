@@ -1,7 +1,7 @@
 /* Formula parsing + Monte Carlo + sensitivity live in ./engine.js (pure, tested);
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
-  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, ratioStr, sig, fmt} from './engine.js';
+  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, ratioStr, fmt} from './engine.js';
 import {quantile, readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
