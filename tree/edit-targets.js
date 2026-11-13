@@ -1,6 +1,6 @@
 /* Pure line rewrites for edit-in-place on the tree diagram. No DOM.
    Each apply() replaces exactly one component of one source line. */
-import {parse, parseMoney} from './parse.js';
+import {parse, parseMoney, parseProbability, splitValue} from './parse.js';
 import {shiftRange, formatRange} from './format.js';
 
 export const validators = {
@@ -12,7 +12,7 @@ export const validators = {
     const s = v.trim();
     if(/[\n\r]/.test(s)) return false;
     if(/^rest$/i.test(s)) return true;
-    const r = parseMoney(s);
+    const r = parseProbability(s);
     return r !== null && r.lo >= 0 && r.hi <= 1;
   },
   value(v){
@@ -25,8 +25,8 @@ export const validators = {
     // The native Branch field changes only the label. These tokens are grammar,
     // not literal prose: accepting them would alter probability or payoff too.
     if(/\(p=[^)]*\)/i.test(s)) return false;
-    const colon = s.lastIndexOf(':');
-    return colon < 0 || parseMoney(s.slice(colon + 1).trim()) === null;
+    const split = splitValue(s);
+    return !split || split.glued;   // a colon between digits ("10:30") is part of the label
   },
 };
 
@@ -144,10 +144,8 @@ export function hasIncomingProb(node){
    colon, or -1 when the body carries no value component at all — the whole
    body is the label, colon(s) and all, same as parse.js would read it. */
 function valueColon(body){
-  const i = body.lastIndexOf(':');
-  if(i < 0) return -1;
-  const tail = body.slice(i + 1).trim();
-  return tail && parseMoney(tail) ? i : -1;
+  const split = splitValue(body);
+  return split && !split.glued ? split.index : -1;
 }
 
 export const applies = {

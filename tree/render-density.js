@@ -53,7 +53,7 @@ function topLines(root){
   return out;
 }
 function status(node, root, policy, results){
-  if(node === root) return 'DECISION';
+  if(node === root) return root.kind === 'chance' ? 'CHANCE' : 'DECISION';
   if(node.p !== null && node.p !== undefined){
     const effective = results.effectiveProbability?.get(node);
     const authoredZero = node.p !== 'rest' && node.p.lo === 0 && node.p.hi === 0;

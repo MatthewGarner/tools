@@ -8,6 +8,7 @@
    - Policy, not hindsight: each decision node picks the option with the highest mean
      EV once; the policy is frozen across simulations. */
 import {mulberry32, gaussian, quantile} from '../assets/series.js';
+import {isWideRange, wideRangeSentence} from './parse.js';
 
 const Z90 = 1.6448536;
 /* coarse scan resolution for probability-flip search: the bisection that
@@ -122,6 +123,15 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     return arr;
   }
   evalArr(model.root);
+
+  /* a ranged leaf whose simulated average lands above its own top: the same sentence parse.js uses
+     for a range wider than 1,000× (which it has already said, so those are skipped here) */
+  (function warnAboveTop(node){
+    const v = node.value, st = stats.get(node);
+    if(node.kind === 'leaf' && v && v.lo !== v.hi && st && st.mean > v.hi && !isWideRange(v))
+      warnings.push(wideRangeSentence(node.label, node.valueRaw || (v.lo + ' to ' + v.hi)));
+    node.children.forEach(warnAboveTop);
+  })(model.root);
 
   const headToHead = [];
   if(model.root.kind === 'decision'){
