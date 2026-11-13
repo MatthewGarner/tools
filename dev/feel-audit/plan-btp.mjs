@@ -6,6 +6,7 @@ import * as C from './scenarios-btp.mjs';
 import * as B from './scenarios-bets.mjs';
 import * as T from './scenarios-tree.mjs';
 import * as P from './scenarios-paths.mjs';
+import * as M from './scenarios-sim.mjs';
 import {KNOWN} from './checks.mjs';
 
 const BTP = ['bets', 'tree', 'paths'], CARDS = ['bets', 'tree'];
@@ -36,6 +37,10 @@ export const PLAN = [
   ['bets-snapshot', ['bets'], TM, async e => { await B.snapshot(e, 'desktop'); if(e.mode === 'normal') await B.snapshot(e, 'phone'); }],
   ['bets-quadrant', ['bets'], N, async e => B.quadrantGlide(e)],
   ['bets-narrow', ['bets'], N, async e => B.narrow(e)],
+  ['sim-edit', ['bets', 'tree'], TM, async (e, t) => M.simEdit(e, t)],
+  ['sim-export', ['bets', 'tree'], N, async (e, t) => M.simExport(e, t)],
+  ['sim-stale', ['bets', 'tree'], N, async (e, t) => M.simStale(e, t)],
+  ['sim-error', ['bets', 'tree'], N, async (e, t) => M.simError(e, t)],
   ['tree-slider', ['tree'], TM, async e => { for(const k of ['desktop', 'phone']) await T.slider(e, k); await T.slider(e, 'desktop', {source: T.large(), label: 'large'}); }],
   ['tree-sliderkeys', ['tree'], TM, async e => { await T.sliderKeys(e); await T.sliderKeys(e, {source: T.large(), label: 'large'}); }],
   ['tree-reading', ['tree'], N, async e => T.reading(e)],
@@ -50,16 +55,19 @@ export const PLAN = [
   ['paths-handoff', ['paths'], N, async e => { for(const k of ['desktop', 'phone']) await P.handoff(e, k); }],
   ['paths-editsource', ['paths'], N, async e => { await P.editSource(e); await P.editSourceLine(e); }],
 ];
-export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-stall', 'btp-menu', 'btp-eip', 'btp-theme', 'bets-values', 'tree-slider', 'paths-select'];
+export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-stall', 'btp-menu', 'btp-eip', 'btp-theme', 'bets-values', 'tree-slider', 'paths-select', 'sim-edit', 'sim-stale', 'sim-error'];
 
 /* Defects confirmed by this audit (2026-11-13, Bets/Tree/Paths; findings FB-/FT-/FP- in the evidence folder) that are still open.
    A fix turns its known FAIL into a PASS and removes the tag; 'id@tool' tags that check on that tool only. Each group says why it
    is left. A tag names a check, never a condition, so a new failure of any other check is a plain FAIL. */
 export const KNOWN_BTP = [
-  /* the simulation's own cost (Bets 40,000 runs, Tree 60,000 runs on a large document): a later stage, not feel code */
-  "load.large.longtask@bets", "load.large.longtask@tree", "values.example.longtask@bets", "values.large.applied@bets", "values.large.longtask@bets",
-  "slider.large.drag.events@tree", "slider.large.release@tree", "slider.large.release.longtask@tree", "sliderkeys.large.longtask@tree",
-  "stall.large.longtask@tree", "compare.edit@bets", "values.large.enter@bets", "slider.large.drag.frames@tree",
+  /* a large saved link is drawn twice by design: the structure at once with the last known figures pending, then the worker's figures
+     (bets/sim-worker.js, tree/sim-worker.js). The picture does not move (layout shift stays under 0.05); the check counts both draws. */
+  "load.large.replacements@bets", "load.large.replacements@tree",
+  /* the Tree slider drag on a large tree: 3 frames of at most 27ms over the 20ms line at normal speed (was 2 of 229ms), 8 of at most 83ms at 4x (was 6 of 860ms).
+     The evaluation is gone from the drag and the release; what is left is per-frame style work on the 57-node drawing (the live-winner class toggles and
+     evalDet's midpoint walk), not the simulation. Recorded, not tuned. */
+  "slider.large.drag.frames@tree",
   /* the render waits for a 120ms pause in typing by design (the debounce); recorded, not a defect to fix here */
   "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree", "stall.large.live@bets", "stall.large.live@paths", "stall.large.live@tree",
   /* a decision for Matt: the touch Undo button is shown on a desktop too (earlier audit F44) */
@@ -67,7 +75,7 @@ export const KNOWN_BTP = [
   /* a decision for Matt: a decimal keyboard has no '-' or '%', which odds and ranges need */
   "values.example.inputmode@bets", "values.large.inputmode@bets",
   /* a discrete swap/commit paints one frame plus the render itself (profiled: 3ms of script, ~20ms of style, SVG parse, ghost clone and paint) */
-  "values.example.applied@bets", "view.example.swap@bets", "view.large.swap@bets", "view.example.swap@paths", "view.large.swap@paths",
+  "view.example.swap@bets", "view.large.swap@bets", "view.example.swap@paths", "view.large.swap@paths",
   /* the Plans projection on the large plan: ~160ms of world enumeration in paths/evaluate.js + plans.js (profiled; uncached) */
   "view.large.longtask@paths", "view.large.paint@paths",
   /* native raster of the large SVG while it scrolls: no script, style or layout work (profiled; not isolated further) */

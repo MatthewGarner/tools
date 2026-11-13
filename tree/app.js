@@ -24,7 +24,10 @@ import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, applies, subtreeRange, childLineFor, applyExplore, exploreProbOps, hasIncomingProb} from './edit-targets.js';
 import {STARTER} from './starter.js';
-import {createEvalMemo} from './eval-memo.js';
+import {createEvalMemo, pendingResults, isSmall} from './eval-memo.js';
+import {runEvaluation, decodeResults} from './eval-wire.js';
+import {createSimSequencer} from '../assets/sim-sequencer.js';
+import {createSimPending, holdWhilePending, keepFocus, afterFieldCloses} from '../assets/sim-pending.js';
 import {createSliderCommit} from './slider-commit.js';
 
 const evalMemo = createEvalMemo();   // the evaluation is kept, keyed on the tree: a theme change, zoom or re-layout never re-runs it
@@ -32,7 +35,11 @@ const evalMemo = createEvalMemo();   // the evaluation is kept, keyed on the tre
 const $ = id => document.getElementById(id);
 const preview = $('preview');
 const paint = mountMotion(preview);
-
+/* the page's own signal for "the figures are final" (#preview[data-sim]), and the polite announcement that goes with it */
+const simLive = document.createElement('p');
+simLive.className = 'sr-only'; simLive.setAttribute('role', 'status'); simLive.setAttribute('aria-live', 'polite');
+preview.after(simLive);
+const pending = createSimPending({host: preview, live: simLive});
 
 const EXAMPLES = [
   {name: 'Bid or no bid', src:
@@ -61,25 +68,101 @@ Approach
   Do nothing: 0`},
 ];
 
+
+
 /* ---------- refresh loop ---------- */
 let model = null, results = null, lastSvg = '', hashTimer = null;
-function renderWarnings(){
-  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(results ? results.warnings : [])]);
+function renderWarnings(error = ''){
+  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(results ? results.warnings : []),
+    ...(error ? ['the evaluation could not solve this tree (' + error + ') — the figures are the last that worked'] : [])]);
+}
+/* ---------- the evaluation, off the main thread (tree/sim-worker.js) ----------
+   An edit paints at once from what is already known (the tree as edited, and the last evaluation carried onto the nodes that were
+   there), the worker runs the engine's own function, and the page repaints with the final figures. The memo is the single place a
+   result is looked up: a tree it already holds is drawn final in the same task. */
+let lastGood = null;      // {root, results}: the last picture drawn from final figures
+let asked = null;         // the model the run in flight was asked for
+let simError = '';        // the engine's message when it could not evaluate this tree; '' otherwise
+let lastText = '';
+let fromResult = false;   // this repaint is the final figures arriving over a pending one: the reveal already playing is not played again
+let inlineNow = false;   // the first picture of a small tree is drawn from the evaluation in the boot task
+const seqr = createSimSequencer({
+  spawn({message, failure}){
+    try{
+      const w = new Worker(new URL('./sim-worker.js', import.meta.url), {type: 'module'});
+      w.onmessage = ({data}) => message(data);
+      w.onerror = failure; w.onmessageerror = failure;
+      return w;
+    }catch(e){ return null; }
+  },
+  runSync: runEvaluation,
+  onResult(key, wire){
+    const sent = asked; asked = null;
+    if(!sent) return;
+    evalMemo.put(sent, decodeResults(sent.root, wire));
+    drawFinal();
+  },
+  onError(key, message){ asked = null; modelError(message); },
+});
+/* the figures have arrived: draw them over the pending picture (not under an open edit field: see afterFieldCloses) */
+function drawFinal(){
+  if(afterFieldCloses(drawFinal)) return;
+  fromResult = true;
+  try{ paintModel(); }finally{ fromResult = false; }
+}
+globalThis.__treeWorkerAlive = () => seqr.workerAlive();   // test hook: a model error must not retire the worker
+const announcement = () => (model && results) ? treeVerdictParts(model, results).line : '';
+/* the engine could not evaluate this tree: the structure is the tree's, the figures are the last that worked, and nothing is
+   exported from them */
+function modelError(message){
+  simError = message;
+  drawPicture();
+  pending.fail();
+}
+function paintModel(){
+  if(!model.root){
+    seqr.cancel(); asked = null; results = null; simError = '';
+    drawPicture();
+    pending.end();
+    return;
+  }
+  let kept = evalMemo.peek(model);
+  if(!kept && (inlineNow || !seqr.workerAlive())) kept = evalMemo.get(model);   // no worker: the same function, here, drawn once
+  if(kept) simError = '';
+  results = kept || pendingResults(lastGood, model);
+  drawPicture();
+  if(kept){
+    lastGood = {root: model.root, results};
+    seqr.cancel(); asked = null;
+    pending.end(announcement());
+    return;
+  }
+  /* a slider release is waiting on the worker: the drawing keeps the call the slider was showing until the figures arrive */
+  if(committingFocus && focus){ applyLiveWinner(evalDet(model).rec); setPending(true); }
+  pending.begin();
+  asked = model;
+  seqr.request(evalMemo.key(model), {root: model.root});
 }
 function doRefresh(){
-  const text = editor.getText();
-  model = parse(text);
+  lastText = editor.getText();
+  model = parse(lastText);
+  simError = '';
+  paintModel();
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'tree-src', lastText); }catch(e){}
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(writeHash, 400);
+}
+/* draw `model` with `results`, whatever state the figures are in */
+function drawPicture(){
   const pv = $('preview');
   if(!model.root){
-    results = null;
     lastSvg = ''; paint.reset();
-    pv.innerHTML = '<p class="placeholder">' + (text.trim()
+    pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
       ? 'No tree yet — add an indented option or two.'
       : 'Start typing — or load an example.') + '</p>';
     paintMetrics($('metrics'), '', []);
     dismissFocus();
   } else {
-    results = evalMemo.get(model);
     rebindFocus();   // I-5: re-resolve/dismiss the focused ref before ctx.hot is built (I-8 needs it fresh)
     const hot = computeHotSet(model);
     if(focus) hot.add(focus.kind + ':' + focus.line);   // I-8: keep the focused mark whatever loadBearing now says
@@ -87,16 +170,13 @@ function doRefresh(){
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot,
       intent: width ? 'live-narrow' : 'live-wide', width,
       coarse: matchMedia('(pointer: coarse)').matches});
-    paint(svg, REVEAL, {onSwap: reapplyActiveMark}); lastSvg = svg;
+    keepFocus(pv, () => paint(svg, fromResult ? {} : REVEAL, {onSwap: reapplyActiveMark})); lastSvg = svg;
     paintMetrics($('metrics'), model.title || 'Untitled tree', metricCounts());
     if(focus) resyncFocusUI();   // repaint the slider's own extent/value + clear any mid-drag classes
   }
   updateSeam();
-  renderWarnings();
+  renderWarnings(simError);
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) saveTrackedWork(localStorage,'tree-src', text); }catch(e){}
-  clearTimeout(hashTimer);
-  hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
 /* onChange's debounce is inlined here (rather than assets/schedule.js's shared
@@ -149,10 +229,11 @@ let focus = null;             // {kind, line, label, raw, ext, focusValue} — t
 let undoing = false;           // true only while an Undo/Redo's refresh runs: the slider stays on its node and shows the restored value
 let committingFocus = false;   // true only while OUR OWN commit's settle-refresh is running
 
+/* the load-bearing numbers come with the evaluation (the worker works them out beside it); a picture whose results carry none (an inline
+   run, a coarse fill) works them out here once and keeps them on the results */
 function computeHotSet(m){
-  const set = new Set();
-  for(const {ref} of loadBearing(m)) set.add(ref.kind + ':' + ref.line);
-  return set;
+  if(!results.hot) results.hot = loadBearing(m).map(({ref}) => ref.kind + ':' + ref.line);
+  return new Set(results.hot);
 }
 /* identifies the bound ref by kind+line+label+raw, NEVER node identity — parse() rebuilds fresh
    node objects every call, and duplicate labels exist (the perf fixture carries twins), so a
@@ -639,21 +720,29 @@ function metricCounts(){
 /* Everything that leaves the page is drawn in the house face and carries it embedded; until the face has loaded there is nothing
    to export (the live picture does not wait: it uses the page's own font). */
 function svgString(intent){
-  if(!model || !model.root || !results || !chapterFontsReady()) return null;
+  if(!model || !model.root || !results || !chapterFontsReady() || !pending.isFinal() || simError) return null;   // nothing leaves with pending figures
   return embedChapterFonts(render(model, results, {colors: themeColors(), measure, intent, dark: isDark()}));
+}
+/* Print cannot wait for a worker, so a print asked for while the figures are pending runs the same function here */
+function printSvgString(){
+  if(!pending.isFinal() && model && model.root && !simError && chapterFontsReady())
+    return embedChapterFonts(render(model, evalMemo.get(model), {colors: themeColors(), measure, intent: 'native', dark: isDark()}));
+  return svgString('native');
 }
 function slug(){
   return slugify(model.title, 'decision-tree');
 }
 /* Copy PNG and Download PNG are the picture of the tree on the page; "Copy slide" is the 16:9 comparison of the options */
+const exportButtons = {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copyslide: $('copyslide')};
+holdWhilePending(Object.values(exportButtons), pending, {say: text => { const line = $('exportstatus'); if(line){ line.textContent = text; line.hidden = !text; } }});
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copyslide: $('copyslide')},
+  buttons: exportButtons,
   getSvg: () => svgString('native'),
   getSlide: () => svgString('presentation'),
   slug,
 });
 /* Print is the tree alone, light, whatever theme the page is in, shrunk onto one sheet (a tree is one picture, not rows) */
-wirePrintArtefact({getSvg: () => lightTheme(() => svgString('native')), fitOne: true});
+wirePrintArtefact({getSvg: () => lightTheme(printSvgString), fitOne: true});
 loadChapterFonts().then(() => { setActionsEnabled(!!lastSvg); }, () => {
   const line = $('exportstatus');
   if(line){ line.textContent = 'The typeface could not load, so exports are unavailable. Reload the page to try again.'; line.hidden = false; }
@@ -672,8 +761,9 @@ onThemeChange(rerender);
     try{ text = localStorage.getItem('tree-src') || ''; }catch(e){}
   }
   /* the first tree is drawn in this task, from the source that is already known: one render, nothing after it moves */
-  if(text){ editor.setText(text); clearTimeout(changeTimer); doRefresh(); }
-  else if(autoloadExample(() => editor.setText(EXAMPLES[0].src))){ clearTimeout(changeTimer); doRefresh(); }
+  const first = () => { clearTimeout(changeTimer); inlineNow = isSmall(parse(editor.getText())); try{ doRefresh(); }finally{ inlineNow = false; } };
+  if(text){ editor.setText(text); first(); }
+  else if(autoloadExample(() => editor.setText(EXAMPLES[0].src))){ first(); }
   else refresh();
 })();
 
