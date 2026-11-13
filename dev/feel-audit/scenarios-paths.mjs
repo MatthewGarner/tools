@@ -18,7 +18,7 @@ const state = page => page.evaluate(() => {
   const box = el => { const b = el.getBoundingClientRect(); return {top: Math.round(b.top), bottom: Math.round(b.bottom), h: Math.round(b.height), inView: b.top < innerHeight && b.bottom > 0, fullyInView: b.top >= 0 && b.bottom <= innerHeight}; };
   return {receipt: r.hidden ? null : {layout: r.dataset.layout, sheet: r.dataset.sheet === 'true', key: r.dataset.decisionKey, ...box(r)},
     inspector: ins.hidden ? null : box(ins), active: window.__feel.describe(document.activeElement), activeText: (document.activeElement?.textContent || '').trim().slice(0, 50),
-    bodyLocked: getComputedStyle(document.body).overflow, sheetOpen: document.body.classList.contains('overview-sheet-open'), scrollY: Math.round(scrollY)};
+    bar: !document.getElementById('selected-bar').hidden, bodyLocked: getComputedStyle(document.body).overflow, sheetOpen: document.body.classList.contains('overview-sheet-open'), scrollY: Math.round(scrollY)};
 });
 
 /* select a question on each view that offers it */
@@ -57,13 +57,12 @@ export async function select(env, kind, {source, label = 'example'} = {}){
   check(`select.${label}.paint`, w, 'select a question -> next paint (worst view)', ok.map(r => r.view + ':' + r.paint).join(' '), ok.every(r => r.paint <= BAR.paint[env.mode]), '<= ' + BAR.paint[env.mode] + 'ms');
   check(`select.${label}.renders`, w, 'artefact renders per selection', ok.map(r => r.view + ':' + r.swaps).join(' '), ok.every(r => r.swaps <= 1), '<= 1');
   check(`select.${label}.longtask`, w, 'longest task in a selection', ok.map(r => r.view + ':' + r.longTaskMax).join(' '), ok.every(r => r.longTaskMax <= (env.mode === 'normal' ? 50 : 150)), env.mode === 'normal' ? '<= 50ms' : '<= 150ms');
-  /* a scroll is allowed only as the reveal of a detail that was off screen: it ends with that detail's head on screen */
-  const headOn = r => { const d = r.receipt || r.inspector; return !!d && d.top >= 0 && d.top <= (phone ? 812 : 800) * 0.5; };
-  check(`select.${label}.scroll`, w, 'page scroll moved by selecting', ok.map(r => r.view + ':' + r.scrolledBy).join(' '), ok.every(r => Math.abs(r.scrolledBy) <= 1 || (phone && r.receipt?.sheet) || headOn(r)), 'no scroll jump (a phone sheet may hold the page; a detail that was off screen is scrolled to)');
+  check(`select.${label}.scroll`, w, 'page scroll moved by selecting', ok.map(r => r.view + ':' + r.scrolledBy).join(' '), ok.every(r => Math.abs(r.scrolledBy) <= 1), 'selecting never moves the page (0px)');
   check(`select.${label}.cls`, w, 'layout shift caused by selecting (no-input shifts)', ok.map(r => r.view + ':' + r.cls).join(' '), ok.every(r => r.cls <= 0.05), '<= 0.05');
-  check(`select.${label}.detail`, w, 'the selected question\'s detail is visible after selecting', ok.map(r => r.view + ':' + (r.receipt ? 'receipt ' + r.receipt.layout + (r.receipt.inView ? '' : ' OFF-SCREEN') : r.inspector ? 'inspector' + (r.inspector.inView ? '' : ' OFF-SCREEN') : 'in-artefact')).join(' '), ok.every(r => (r.receipt ? r.receipt.inView : true) && (r.inspector ? r.inspector.inView : true)), 'receipt / inspector on screen');
+  const detailOk = r => r.sheet || (r.receipt ? r.receipt.inView : true) && (r.inspector ? r.inspector.inView : true);
+  check(`select.${label}.detail`, w, 'the selected question\'s detail is on screen, or the pinned bar says where it is', ok.map(r => r.view + ':' + (r.receipt ? 'receipt ' + r.receipt.layout : r.inspector ? 'inspector' : 'in-artefact') + ((r.receipt ? r.receipt.inView : r.inspector ? r.inspector.inView : true) ? '' : r.bar ? ' OFF-SCREEN+BAR' : ' OFF-SCREEN')).join(' '), ok.every(r => detailOk(r) || r.bar), 'detail on screen or the bar shown');
   const escTree = ok.filter(r => r.escape && r.view === 'tree');
-  if(env.mode === 'normal') check(`select.${label}.escape.scroll`, w, 'Escape returns the page to where it was before the selection scrolled to its detail', escTree.map(r => r.view + ':' + JSON.stringify({before: r.y0, after: r.escape.scrollY})).join(' '), escTree.every(r => Math.abs(r.escape.scrollY - r.y0) <= 2), 'back at the starting scroll position');
+  if(env.mode === 'normal') check(`select.${label}.escape.scroll`, w, 'Escape leaves the page where it was', escTree.map(r => r.view + ':' + JSON.stringify({before: r.y0, after: r.escape.scrollY})).join(' '), escTree.every(r => Math.abs(r.escape.scrollY - r.y0) <= 2), 'back at the starting scroll position');
   if(env.mode === 'normal'){
     check(`select.${label}.focus`, w, 'focus after selecting (pointer)', ok.map(r => r.view + ':' + r.active).join(' '), ok.every(r => !/^body\b/.test(r.active)), 'not lost to body');
     if(phone) check(`select.${label}.sheet`, w, 'phone selection opens the decision sheet, focused, page held', ok.filter(r => r.view !== 'tree').map(r => r.view + ':' + JSON.stringify({sheet: r.receipt?.sheet, full: r.receipt?.fullyInView, active: r.active, lock: r.bodyLocked})).join(' '), ok.filter(r => r.view !== 'tree').every(r => r.receipt?.sheet && r.receipt.inView && /overview-receipt|receipt/.test(r.active)), 'sheet open, on screen, focus inside');
@@ -222,10 +221,151 @@ export async function editSource(env){
   const st = await page.evaluate(() => ({active: window.__feel.describe(document.activeElement), ws: document.getElementById('workspace').className}));
   note('editsource', w, 'Edit in source from the receipt', {paint: paintOf(s), settled: s.settled, swaps: s.svgSwaps, anims: s.animations, layout: s.layoutAnimated, scroll: s.scrollJumps, ...st});
   check('editsource.focus', w, 'focus after Edit in source', st.active, /cm-content/.test(st.active), 'caret in the editor on the decision');
-  check('editsource.scroll', w, 'the page does not scroll when the editor opens on the decision (the editor scrolls its own line)', s.scrollJumps.length ? s.scrollJumps : 'none', s.scrollJumps.length === 0, 'no page scroll');
   check('editsource.renders', w, 'artefact renders when the rail opens', s.svgSwaps, s.svgSwaps <= 1, '<= 1');
   await shot(page, `${env.out}/shots/paths-desktop-editsource.png`);
   await ctx.close();
 }
 
 export const large = () => pathsLarge();
+
+/* The decision margin never sits on the artefact: with a question selected on desktop, no part of the drawing is under the margin
+   (a rail beside it, or the margin above it), and the drawing is not wider than its pane. */
+export async function margin(env){
+  const {check, note} = env.R;
+  for(const width of [1280, 1600]){
+    const w = where('paths', 'desktop', env.mode) + '@' + width;
+    const {ctx, page} = await fresh(env, 'paths', 'desktop');
+    await page.setViewportSize({width, height: 800}); await sleep(500);
+    const res = [];
+    for(const view of ['brief', 'agenda', 'question', 'conditions']){
+      await toView(page, view, false);
+      let p = await pointOn(page, '#preview [data-select-decision]', {nth: 1, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+      if(!p) p = await pointOn(page, '#preview [data-select-decision]', {nth: 0, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+      if(!p){ res.push({view, none: true}); continue; }
+      await page.mouse.click(p.x, p.y); await sleep(500); await waitQuiet(page, {quiet: 400});
+      res.push({view, ...(await page.evaluate(() => {
+        const live = document.getElementById('overview-live'), rc = document.getElementById('overview-receipt'), sv = document.querySelector('#preview svg'), pv = document.getElementById('preview');
+        const r = rc.hidden ? null : rc.getBoundingClientRect(), s = sv.getBoundingClientRect(), pr = pv.getBoundingClientRect();
+        const layout = live.dataset.receiptLayout;
+        const overlap = !r ? false : !(r.right <= s.left + 1 || r.left >= s.right - 1 || r.bottom <= s.top + 1 || r.top >= s.bottom - 1);
+        return {layout, receipt: !!r, overlap, svgRight: Math.round(s.right), paneRight: Math.round(pr.right), overflow: Math.round(s.right - pr.right), svgW: Math.round(s.width)};
+      }))});
+    }
+    note('margin.detail', w, 'drawing vs margin per view', res);
+    const ok = res.filter(r => !r.none);
+    check('margin.clear', w, 'nothing in the drawing is under the decision margin', ok.map(r => r.view + ':' + r.layout + (r.overlap ? ' OVERLAP' : '')).join(' '), ok.every(r => !r.overlap), 'no overlap in any view');
+    check('margin.fits', w, 'the drawing fits the pane that remains', ok.map(r => r.view + ':' + r.overflow).join(' '), ok.every(r => r.overflow <= 1), 'not wider than its pane');
+    await ctx.close();
+  }
+}
+
+/* The pinned "Selected: ..." bar: shown while a question is selected and its detail is out of sight, hidden when the detail is on
+   screen, never over the view buttons, 44px on a phone, announced once; "Show details" goes to the detail, "Back to question" and
+   Escape return to where the reader was and to the question. */
+export async function pin(env){
+  const {check, note} = env.R;
+  for(const kind of ['desktop', 'phone']){
+    const phone = kind === 'phone', w = where('paths', kind, env.mode);
+    const {ctx, page} = await fresh(env, 'paths', kind);
+    const views = phone ? ['tree'] : ['agenda', 'question', 'conditions', 'tree'];
+    const rows = [];
+    for(const view of views){
+      await toView(page, view, phone);
+      await page.evaluate(() => scrollTo(0, 0)); await sleep(200);
+      const p = await pointOn(page, '#preview [data-select-decision]', {nth: 1, resolve: '[data-select-decision]'});
+      if(!p){ rows.push({view, none: true}); continue; }
+      await sleep(300);
+      const y0 = await page.evaluate(() => scrollY);
+      await press(page, p, phone); await sleep(450); await waitQuiet(page, {quiet: 300});
+      const read = () => page.evaluate(() => {
+        const bar = document.getElementById('selected-bar'), nav = document.querySelector('.paths-views').getBoundingClientRect(), br = bar.getBoundingClientRect();
+        const det = document.getElementById('decision-inspector').hidden ? document.getElementById('overview-receipt') : document.getElementById('decision-inspector');
+        const d = det.getBoundingClientRect();
+        return {y: Math.round(scrollY), bar: !bar.hidden, barTop: Math.round(br.top), barH: Math.round(br.height), navBottom: Math.round(nav.bottom), navVisible: nav.bottom > 0 && nav.top < innerHeight,
+          live: document.getElementById('selected-live').textContent, words: document.getElementById('selected-words').textContent, detailTop: Math.round(d.top), detailHidden: det.hidden,
+          active: window.__feel.describe(document.activeElement), onQuestion: !!document.activeElement?.matches?.('[data-select-decision]')};
+      });
+      const a = await read();
+      const row = {view, moved: a.y - y0, ...a};
+      if(a.bar){
+        await press(page, page.locator('#selected-show'), phone); await sleep(500);
+        const b = await read();
+        await press(page, page.locator('[data-back-to-question]').first(), phone); await sleep(600);
+        const c = await read();
+        row.show = {y: b.y, bar: b.bar, detailTop: b.detailTop, active: b.active};
+        row.back = {y: c.y, onQuestion: c.onQuestion, bar: c.bar};
+        if(view !== 'tree'){   /* Escape from an inline receipt goes back too */
+          await press(page, page.locator('#selected-show'), phone); await sleep(500);
+          await page.keyboard.press('Escape'); await sleep(600);
+          const d = await read(); row.esc = {y: d.y, onQuestion: d.onQuestion};
+        }else{
+          await press(page, page.locator('#selected-show'), phone); await sleep(500);
+          await page.keyboard.press('Escape'); await sleep(600);
+          const d = await read(); row.esc = {y: d.y, closed: d.detailHidden};
+        }
+      }
+      rows.push(row);
+      if(env.mode === 'normal') await shot(page, `${env.out}/shots/paths-${kind}-pin-${view}.png`);
+    }
+    /* at the top of the page the view buttons are on screen: the bar, shown by force, sits below them */
+    await page.evaluate(() => { scrollTo(0, 0); document.getElementById('selected-bar').hidden = false; }); await sleep(200);
+    const top = await page.evaluate(() => ({nav: Math.round(document.querySelector('.paths-views').getBoundingClientRect().bottom), bar: Math.round(document.getElementById('selected-bar').getBoundingClientRect().top)}));
+    check('pin.clear.top', w, 'at the top of the page the bar sits below the view buttons', top, top.bar >= top.nav - 1, 'bar top >= buttons bottom');
+    note('pin.rows', w, 'selected bar per view', rows);
+    const ok = rows.filter(r => !r.none);
+    check('pin.nomove', w, 'selecting moves the page by 0px', ok.map(r => r.view + ':' + r.moved).join(' '), ok.every(r => r.moved === 0), '0px');
+    check('pin.focus', w, 'focus stays on the selected question', ok.map(r => r.view + ':' + r.active).join(' '), ok.every(r => r.onQuestion || r.view === 'tree'), 'on the question');
+    const withBar = ok.filter(r => r.bar);
+    check('pin.shown', w, 'the bar appears when the detail is out of sight', ok.map(r => r.view + ':' + (r.bar ? 'bar' : 'detail ' + r.detailTop)).join(' '), ok.every(r => r.bar || (r.detailTop >= -10 && r.detailTop <= (phone ? 812 : 800) - 160) || r.detailHidden), 'bar, or the detail on screen');
+    check('pin.words', w, 'the bar names the question and is announced once', withBar.map(r => r.view + ':' + r.words.slice(0, 24) + '|' + r.live.slice(0, 20)).join(' '), withBar.every(r => r.words && /^Selected:/.test(r.live)), '"Selected: ..." in the bar and the live region');
+    check('pin.clear', w, 'the bar never covers the view buttons', withBar.map(r => r.view + ':' + r.barTop + '>=' + r.navBottom + (r.navVisible ? '' : '(buttons off screen)')).join(' '), withBar.every(r => !r.navVisible || r.barTop >= r.navBottom - 1), 'below the buttons while they are on screen');
+    if(phone) check('pin.tap', w, 'the bar is at least 44px tall on a phone', withBar.map(r => r.view + ':' + r.barH).join(' '), withBar.every(r => r.barH >= 44), '>= 44px');
+    check('pin.show', w, 'Show details takes the reader to the detail and hides the bar', withBar.map(r => r.view + ':' + JSON.stringify(r.show)).join(' '), withBar.every(r => r.show && r.show.detailTop >= 0 && r.show.detailTop <= 200 && !r.show.bar), 'detail head near the top, bar gone');
+    check('pin.back', w, 'Back to question returns to where the reader was and to the question', withBar.map(r => r.view + ':' + JSON.stringify(r.back)).join(' '), withBar.every(r => r.back && Math.abs(r.back.y - (r.y - r.moved)) <= 2 && r.back.onQuestion), 'same scroll, focus on the question');
+    check('pin.escape', w, 'Escape returns to where the reader was', withBar.map(r => r.view + ':' + JSON.stringify(r.esc)).join(' '), withBar.every(r => r.esc && Math.abs(r.esc.y - (r.y - r.moved)) <= 2 && (r.esc.onQuestion || r.esc.closed)), 'same scroll (and focus on the question or the inspector closed)');
+    await ctx.close();
+  }
+}
+
+/* "Edit in source": the page stays put when the decision's line is already on screen, and goes to the line (without a jump the
+   reader did not ask for) when it is not. Each of the first questions is tried; both cases must occur. */
+export async function editSourceLine(env){
+  const {check, note} = env.R;
+  const w = where('paths', 'desktop', env.mode);
+  const rows = [];
+  for(const railOpen of [false, true]) for(let i = 0; i < 4; i++){
+    const {ctx, page} = await fresh(env, 'paths', 'desktop');
+    if(railOpen){ await page.locator('#railtab').click(); await sleep(600); await waitQuiet(page, {quiet: 300}); }
+    const p = await pointOn(page, '#preview [data-select-decision]', {nth: i, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+    if(!p){ await ctx.close(); continue; }
+    await sleep(300);
+    await press(page, p, false); await sleep(500); await waitQuiet(page, {quiet: 300});
+    const btn = page.locator('#overview-receipt [data-edit-decision-source]');
+    if(!(await btn.isVisible())){ await ctx.close(); continue; }
+    const y0 = await page.evaluate(() => scrollY);
+    await btn.click(); await sleep(1000);
+    const r = await page.evaluate(() => { const l = document.querySelector('.cm-activeLine'); const b = l.getBoundingClientRect(); return {y: Math.round(scrollY), lineTop: Math.round(b.top + scrollY), inViewNow: b.top >= 0 && b.bottom <= innerHeight}; });
+    rows.push({railOpen, i, y0, ...r, scrolled: r.y !== y0});
+    await ctx.close();
+  }
+  /* the same press with the page scrolled so that the line (its position is known now) sits mid-screen */
+  const known = rows.find(r => r.railOpen);
+  if(known){
+    const {ctx, page} = await fresh(env, 'paths', 'desktop');
+    await page.locator('#railtab').click(); await sleep(600); await waitQuiet(page, {quiet: 300});
+    const p = await pointOn(page, '#preview [data-select-decision]', {nth: known.i, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+    await sleep(300); await press(page, p, false); await sleep(500); await waitQuiet(page, {quiet: 300});
+    await page.evaluate(top => scrollTo(0, top - 350), known.lineTop); await sleep(300);
+    const y0 = await page.evaluate(() => scrollY);
+    await page.locator('#overview-receipt [data-edit-decision-source]').evaluate(el => el.click()); await sleep(1000);
+    const r = await page.evaluate(() => { const l = document.querySelector('.cm-activeLine'); const b = l.getBoundingClientRect(); return {y: Math.round(scrollY), lineTop: Math.round(b.top + scrollY), inViewNow: b.top >= 0 && b.bottom <= innerHeight}; });
+    rows.push({railOpen: true, i: known.i, placed: true, y0, ...r, scrolled: r.y !== y0});
+    await ctx.close();
+  }
+  /* was the line on screen when pressed? the rail is the same height before and after, so compare against the pressed scroll */
+  for(const r of rows) r.wasInSight = r.lineTop - r.y0 >= 72 && r.lineTop - r.y0 <= 800 - 96;
+  note('editsource.line', w, 'Edit in source for the first questions', rows);
+  const vis = rows.filter(r => r.wasInSight), out = rows.filter(r => !r.wasInSight);
+  check('editsource.line.visible', w, 'the line was already on screen: the page did not scroll', vis.map(r => r.railOpen + '/' + r.i + ':' + r.y0 + '->' + r.y), vis.length > 0 && vis.every(r => !r.scrolled), 'unchanged (and the case occurs)');
+  check('editsource.line.hidden', w, 'the line was out of sight: the page scrolled to it', out.map(r => r.railOpen + '/' + r.i + ':' + r.y0 + '->' + r.y + (r.inViewNow ? '' : ' NOT IN VIEW')), out.length > 0 && out.every(r => r.scrolled && r.inViewNow), 'scrolled, line on screen (and the case occurs)');
+}

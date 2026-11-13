@@ -42,11 +42,13 @@ export const PLAN = [
   ['tree-nearbottom', ['tree'], N, async e => { await T.sliderNearBottom(e); await T.sliderNearBottom(e, {source: T.large(), label: 'large'}); }],
   ['tree-hit', ['tree'], N, async e => T.hitTargets(e)],
   ['paths-select', ['paths'], TM, async e => { for(const k of ['desktop', 'phone']) await P.select(e, k); await P.select(e, 'desktop', {source: P.large(), label: 'large'}); }],
+  ['paths-margin', ['paths'], N, async e => P.margin(e)],
+  ['paths-pin', ['paths'], N, async e => P.pin(e)],
   ['paths-sheet', ['paths'], N, async e => P.sheet(e)],
   ['paths-inspector', ['paths'], TM, async e => { for(const k of ['desktop', 'phone']) await P.inspectorEdit(e, k); }],
   ['paths-groups', ['paths'], N, async e => { for(const k of ['desktop', 'phone']) await P.groups(e, k); }],
   ['paths-handoff', ['paths'], N, async e => { for(const k of ['desktop', 'phone']) await P.handoff(e, k); }],
-  ['paths-editsource', ['paths'], N, async e => P.editSource(e)],
+  ['paths-editsource', ['paths'], N, async e => { await P.editSource(e); await P.editSourceLine(e); }],
 ];
 export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-stall', 'btp-menu', 'btp-eip', 'btp-theme', 'bets-values', 'tree-slider', 'paths-select'];
 

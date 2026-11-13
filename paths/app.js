@@ -334,9 +334,12 @@ function overviewSurfaceMetrics(){
   const surface = host.clientWidth ? host : preview;
   const width = surface.clientWidth || 0;
   const narrow = narrowWidth(surface) !== undefined;
-  const receiptLayout = narrow ? 'sheet' : width >= 900 ? 'rail' : 'overlay';
+  /* The Brief is drawn no narrower than 1100px (render-overview.js) and wider with more than three periods. A rail beside it is
+     used only where that much is left; otherwise the margin sits above the artefact, so nothing is drawn under it. */
+  const needs = Math.max(1100, 72 + 150 + 260 * (overview?.periods?.length || 0));
+  const receiptLayout = narrow ? 'sheet' : width - 366 >= needs ? 'rail' : width >= 900 ? 'inline' : 'overlay';
   return {width, narrow, receiptLayout,
-    previewWidth:receiptLayout === 'rail' ? Math.max(520, width - 366) : width,
+    previewWidth:receiptLayout === 'rail' ? width - 366 : width,
     focusLayout:width >= 760 ? 'split' : 'stacked'};
 }
 
@@ -692,7 +695,8 @@ function renderOverviewReceipt(){
     overviewReceiptSheetOpen = false;
   }
   if(!receiptEligible || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
-      (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
+      (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen) ||
+      (style === 'brief' && metrics.receiptLayout === 'inline' && !(selectedKey && selectedKey === selectedOverviewDecision?.key))){   // no rail beside the Brief: the margin appears on a click
     if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
       overviewReceiptReturnKey = null;
@@ -728,6 +732,11 @@ function renderOverviewReceipt(){
   identity.appendChild(node('p', 'receipt-state',
     (agendaEntry?.currentState || impact.currentState).sentence));
   head.appendChild(identity);
+  if(!sheet && !overlay){
+    const toQ = node('button', 'btn receipt-back', 'Back to question');
+    toQ.type = 'button'; toQ.dataset.backToQuestion = '';
+    head.appendChild(toQ);
+  }
   if(sheet || overlay){
     const close = node('button', 'receipt-close', 'Close');
     close.type = 'button';
@@ -964,6 +973,9 @@ function renderInspector(){
   title.tabIndex = -1;
   identity.appendChild(title);
   head.appendChild(identity);
+  const toQ = node('button', 'btn receipt-back', 'Back to question');
+  toQ.type = 'button'; toQ.dataset.backToQuestion = '';
+  head.appendChild(toQ);
   const close = node('button', 'inspector-close', 'Close');
   close.type = 'button';
   close.dataset.inspectorClose = '';
@@ -1199,7 +1211,7 @@ function doRefresh(){
       ? 'The phone view becomes an outline; every export remains the wide tree.'
       : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
-  if(pendingReveal){ pendingReveal = false; revealDetail(); }
+  updateSelectedBar();
   if(pendingFocus){
     const want = pendingFocus; pendingFocus = null;
     const ae = document.activeElement;
@@ -1215,24 +1227,54 @@ const typed = debounced(refresh, 120);
 /* a discrete edit (a commit, a menu pick, a view) paints at once; the debounce is for typing in the source only */
 function refreshNow(){ typed.cancel(); refresh(); }
 let motionOverride;                 // 'fade' for a view switch
-let pendingReveal = false;          // a selection was just made: bring its detail into view once the render lands
-let detailReturn = null;            // {y, style}: where the page was before a selection scrolled to its detail; Escape returns there
-/* The detail of the selected question (the Tree view's inspector, or the inline receipt) is below or above the fold:
-   scroll to it over the base duration (a jump under reduced motion). A rail or a phone sheet is already on screen. */
-function revealDetail(){
+let detailReturn = null;            // {y, style}: where the page was before "Show details" took the reader to the detail
+let selectedWords = '', selectedKey = null, selectedShown = false, barFrame = 0;
+/* The detail of the selected question (the Tree view's inspector, or the inline receipt) can be off screen. Selecting never moves
+   the page; instead a one-line bar pinned over the artefact says what is selected and offers to go to the detail. A rail or a
+   phone sheet is on screen by construction. */
+function detailElement(){
   const ins = $('decision-inspector'), rec = $('overview-receipt');
-  const el = !ins.hidden ? ins : (!rec.hidden && rec.dataset.layout === 'inline' && rec.dataset.sheet !== 'true') ? rec : null;
+  if(!ins.hidden) return ins;
+  if(!rec.hidden && rec.dataset.sheet !== 'true' && rec.dataset.layout === 'inline') return rec;
+  return null;
+}
+function detailOutOfSight(el){
+  const b = el.getBoundingClientRect();
+  return !(b.top >= -10 && b.top <= innerHeight - 160);
+}
+function updateSelectedBar(){
+  const bar = $('selected-bar'), el = selectedKey ? detailElement() : null;
+  const show = !!el && detailOutOfSight(el);
+  if(show) $('selected-words').textContent = selectedWords;
+  if(show === selectedShown) return;
+  selectedShown = show; bar.hidden = !show;
+  $('selected-live').textContent = show ? `Selected: ${selectedWords}. Its details are out of view. Show details is available.` : '';
+}
+function scheduleBar(){ if(!barFrame) barFrame = requestAnimationFrame(() => { barFrame = 0; updateSelectedBar(); }); }
+addEventListener('scroll', scheduleBar, {passive:true});
+addEventListener('resize', scheduleBar);
+function backToQuestion(){
+  const back = detailReturn; detailReturn = null;
+  const opener = selectedOpener(selectedKey);
+  if(back && back.style === model?.style) scrollPageTo(back.y);
+  else if(opener) scrollPageTo(scrollY + opener.getBoundingClientRect().top - innerHeight * 0.35);
+  opener?.focus({preventScroll:true});
+}
+function showDetails(){
+  const el = detailElement();
   if(!el) return;
-  const b = el.getBoundingClientRect(), vh = innerHeight;
-  if(b.top >= 0 && b.top <= vh * 0.5) return;           // its head is already on screen
-  /* the position to return to belongs to one view's selection: a different view starts its own */
   if(!detailReturn || detailReturn.style !== model?.style) detailReturn = {y:scrollY, style:model?.style};
-  scrollPageTo(scrollY + b.top - 72);
+  scrollPageTo(scrollY + el.getBoundingClientRect().top - 72);
+  el.querySelector('h2')?.focus({preventScroll:true});
 }
 function returnFromDetail(){
   const back = detailReturn; detailReturn = null;
   if(back && back.style === model?.style) scrollPageTo(back.y);
 }
+document.addEventListener('click', event => {
+  if(event.target.closest?.('#selected-show')) showDetails();
+  else if(event.target.closest?.('[data-back-to-question]')) backToQuestion();
+});
 let pendingFocus = null;            // what to focus once the next render lands (by identity): a selected question, a group toggle, a view button
 const paint = mountMotion(preview);
 
@@ -1355,7 +1397,7 @@ function chooseDecision(target, focusInspector = false){
     overviewReceiptReturnKey = sheet || overviewSurfaceMetrics().receiptLayout === 'overlay'
       ? resolved.key : null;
     focusOverviewReceiptAfterRender = focusInspector || sheet;
-    pendingReveal = true;
+    selectedKey = resolved.key; selectedWords = resolved.question || resolved.name || '';
     pendingFocus = () => selectedOpener(resolved.key);
     lastSvg = '';
     refresh();
@@ -1366,7 +1408,7 @@ function chooseDecision(target, focusInspector = false){
   selectedDecision = {key:resolved.key, srcLine:resolved.srcLine};
   treeInspectorReturnKey = resolved.key;
   focusInspectorAfterRender = focusInspector;
-  pendingReveal = true;
+  selectedKey = resolved.key; selectedWords = resolved.question || resolved.name || '';
   pendingFocus = () => selectedOpener(resolved.key);
   lastSvg = '';
   refresh();
@@ -1506,6 +1548,9 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     return;
   }
+  if(detailReturn && $('decision-inspector').hidden && detailElement()){
+    event.preventDefault(); backToQuestion(); return;   // an inline receipt the reader went to: back to the question and where they were
+  }
   if(overviewMode === 'focus'){
     event.preventDefault();
     overviewMode = 'overview';
@@ -1568,7 +1613,7 @@ function selectedTreeOpener(key = treeInspectorReturnKey){
 
 function editDecisionSource(decision, {closeReceipt = false, closeInspector = false} = {}){
   if(!decision || !ws) return;
-  /* the page behind the editor stays where the reader had it */
+  /* the page behind the editor stays where the reader had it unless the decision's line is out of sight (below) */
   const y = scrollY, hold = () => { if(Math.abs(scrollY - y) > 1) scrollTo(scrollX, y); };
   if(closeReceipt){
     overviewReceiptSheetOpen = false;
@@ -1590,7 +1635,7 @@ function editDecisionSource(decision, {closeReceipt = false, closeInspector = fa
     const lineNumber = Math.min(editor.view.state.doc.lines, Math.max(1, Number(decision.srcLine) + 1));
     const line = editor.view.state.doc.line(lineNumber);
     /* no scrollIntoView: the editor sits in the page's flow, so CodeMirror would scroll the page. The caret is on the decision's
-       line; the page stays where the reader had it (a line far down a long source is reached by scrolling, as for any editor). */
+       line; whether the page then moves is decided once the rail has opened. */
     editor.view.dispatch({selection:{anchor:line.from}});
     hold();
     /* Opening the rail changes its width over a short CSS transition. Defer the
@@ -1598,6 +1643,9 @@ function editDecisionSource(decision, {closeReceipt = false, closeInspector = fa
        vanished review control even though the source line was selected. */
     setTimeout(() => {
 editor.view.contentDOM.focus({preventScroll:true}); hold();
+      /* the rail has finished opening, so the line is where it will stay: the page moves only if the line is out of sight */
+      const lineY = editor.view.documentTop + editor.view.lineBlockAt(line.from).top;
+      if(lineY < 72 || lineY > innerHeight - 96) scrollPageTo(scrollY + lineY - innerHeight * 0.35);
     }, 180);
   });
   hold();
