@@ -5,7 +5,8 @@ questions whose evidence selects work; `when:` determines whether a later
 question applies, rather than adding another condition to a work item.
 
 An `answer` is a recorded decision receipt. An `assume` is a temporary planning
-basis and must remain visibly distinct. Completed work is history even if the
+basis and must remain visibly distinct. It is in force only once both `answer-by` and its own date have passed; an item it
+rules out is "set aside", not "following" it. Completed work is history even if the
 condition that once selected it would now resolve differently.
 
 `learn:` and `enough:` are an authored learning contract. Consumers may rank or

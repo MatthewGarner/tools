@@ -106,8 +106,12 @@ test('a held answer becomes effective when a hypothetical host opens its decisio
 });
 
 test('display evidence follows assumption, host exclusion, written answer and pending-answer precedence', () => {
-  const assumed = evaluate(parse(`${decision('a', '\n  assume: no 2026-12-20')}\n${decision('b')}\nNOW\n  Core: Assumed [if a and b]`), '2026-12-22');
-  assert.deepEqual(assumed.items[0].displayEvidence, {kind:'assumption', decision:'a', direction:'no'});
+  const assumed = evaluate(parse(`${decision('a', '\n  assume: no 2026-12-20')}\nNOW\n  Core: Assumed [unless a]`), '2026-12-22');
+  assert.deepEqual(assumed.items[0].displayEvidence, {kind:'assumption', decision:'a', direction:'no', decisions:['a']});
+  const ruledOut = evaluate(parse(`${decision('a', '\n  assume: no 2026-12-20')}\nNOW\n  Core: Ruled out [if a]`), '2026-12-22');
+  assert.deepEqual(ruledOut.items[0].displayEvidence, {kind:'set-aside', decision:'a', direction:'no', decisions:['a']});
+  const stillWaiting = evaluate(parse(`${decision('a', '\n  assume: no 2026-12-20')}\n${decision('b')}\nNOW\n  Core: Also needs b [if not a and b]`), '2026-12-22');
+  assert.equal(stillWaiting.items[0].itemState, 'waiting');
 
   const moot = evaluate(parse(`${decision('host', '\n  answer: no')}\n${decision('child', '\n  when: host')}\nNOW\n  Core: Moot [unless child]`), '2026-12-22');
   assert.deepEqual(moot.items[0].displayEvidence,

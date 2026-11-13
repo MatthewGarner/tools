@@ -262,6 +262,7 @@ function branchSentence(entry, direction){
   if(projected?.itemState === 'in-plan') return 'Would be in the plan';
   if(projected?.itemState === 'not-needed') return 'Would not be pursued';
   if(projected?.itemState === 'limbo') return 'Would be working to an assumption';
+  if(projected?.itemState === 'set-aside') return 'Would be set aside by an assumption';
   if(projected?.itemState === 'waiting') return 'Would still be waiting';
   return 'Logic would still need repair';
 }
@@ -286,7 +287,7 @@ function renderWorkCard(entry, direction, x, y, width, C, measure){
   const item = entry.item;
   const layout = workCardMeasure(entry, direction, width, measure);
   const state = item.displayState?.kind || 'waiting';
-  const inactive = entry?.[direction]?.itemState === 'not-needed' || state === 'not-pursuing';
+  const inactive = entry?.[direction]?.itemState === 'not-needed' || entry?.[direction]?.itemState === 'set-aside' || state === 'not-pursuing' || state === 'set-aside';
   let svg = '<g data-kind="question-work-card" data-item-identity="' + esc(String(item.identity)) +
     '" data-outcome="' + direction + '" data-current-state="' + esc(state) + '"><title>' +
     esc(`${item.title || 'Untitled item'} — ${branchSentence(entry, direction)}`) + '</title>' +

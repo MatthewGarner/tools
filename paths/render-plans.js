@@ -137,9 +137,9 @@ function decisionName(projection, key){
   return String(projection.decisionByName?.[key]?.name || key || 'an answer');
 }
 
-function assumptionApplies(currentItem, plan){
+function assumptionApplies(currentItem, plan, kind = 'assumption'){
   const evidence = currentItem?.displayEvidence;
-  if(evidence?.kind !== 'assumption') return null;
+  if(evidence?.kind !== kind) return null;
   const direction = evidence.direction === 'no' ? 'no' : 'yes';
   const assignments = plan.assignments || [];
   if(assignments.length && assignments.every(entry => entry.answers?.[evidence.decision] === direction))
@@ -156,7 +156,14 @@ export function planCellDisplay(projection, plan, identity){
   const evidence = planItem?.displayEvidence || currentItem?.displayEvidence || null;
   if(evidence?.kind === 'condition-error')
     return {kind:'waiting', label:'Condition needs fixing'};
-  if(state === 'not-needed') return {kind:'not-needed', label:'Not needed'};
+  if(state === 'not-needed'){
+    const setAside = assumptionApplies(currentItem, plan, 'set-aside');
+    return {kind:'not-needed', label:setAside ? `Set aside on an assumed ${setAside}` : 'Not needed'};
+  }
+  if(state === 'set-aside' || evidence?.kind === 'set-aside'){
+    const direction = evidence?.direction === 'no' ? 'no' : 'yes';
+    return {kind:'not-needed', label:`Set aside on an assumed ${direction}`};
+  }
   if(state === 'limbo' || evidence?.kind === 'assumption'){
     const direction = evidence?.direction === 'no' ? 'no' : 'yes';
     return {kind:'assumed', label:`Following an assumed ${direction}`};
@@ -208,8 +215,10 @@ function shareFigure(shares, x, y, width, C, measure, narrow = false){
     ['Following an assumed answer', shares.assumed, shares.assumedShare, C.assumed],
     ['Depends on an answer', shares.dependent, shares.dependentShare, C.waiting],
   ];
+  /* a fourth part appears only when an assumption sets something aside, so the parts always add up */
+  if(shares.setAside) parts.splice(2, 0, ['Set aside by an assumed answer', shares.setAside, shares.setAsideShare, C.muted]);
   const gap = narrow ? 8 : 12;
-  const partWidth = narrow ? width : (width - gap * 2) / 3;
+  const partWidth = narrow ? width : (width - gap * (parts.length - 1)) / parts.length;
   const partHeight = 54;
   let svg = '<g data-kind="share-figure">';
   for(const [index, part] of parts.entries()){
