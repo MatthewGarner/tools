@@ -103,7 +103,7 @@ test('BT-5 whole percent between 1% and 99%', () => {
 /* ---------- BT-6: no signed zero ---------- */
 test('BT-6 a small non-zero figure keeps a digit instead of printing "−0"', () => {
   const t = board('title: T\nunit: £k\nG\n  B: stake 10, odds 50%, payoff 19.4\n    kill: k\n  C: stake 5, odds 50%, payoff 30\n    kill: k');
-  assert.match(t, /−0\.300 \| −0\.300 \| −0\.300/, 'a small non-zero figure keeps the digits its step supports');
+  assert.match(t, /−0\.30 \| −0\.30 \| −0\.30/, 'a small non-zero figure keeps the digits its step supports');
   assert.doesNotMatch(t, /−0 \|/);
 });
 
@@ -198,7 +198,7 @@ test('BT-23 a snapshot in another unit draws no ghost band and says why', () => 
 test('BT-22 Markdown prints the board\'s figures', () => {
   const m = parse(LANTERN), s = simulate(m), md = markdown(m, s, '');
   assert.match(md, /Independent baseline: Median outcome \*\*\+10 £k\*\* \[−360 to \+390\]/);
-  assert.match(md, /−11\.1 to \+29\.4 \(\+6\.5\)/, 'Publisher EV row (stepped to its trio)');
+  assert.match(md, /−11 to \+29 \(\+6\)/, 'Publisher EV row (stepped to its trio)');
   assert.match(md, /\| \+69 to \+167 \(\+113\) \|/, 'Referral EV row');
   assert.doesNotMatch(md, /[−+]\d+–[−+]\d+/, 'no dash between two signed numbers');
 });

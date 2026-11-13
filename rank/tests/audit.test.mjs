@@ -178,3 +178,17 @@ test('RK-16 a | in a name is escaped in the Markdown table', () => {
   assert.equal(mdCell('two\nlines'), 'two lines');
   assert.match(readFileSync(new URL('../app.js', import.meta.url), 'utf8'), /mdCell\(s\.name\)/);
 });
+
+/* ---------- wording slips seen on the live page ---------- */
+test('names are joined "A, B and C", the way every other sentence joins them', () => {
+  const tie2 = verdictCopy([{name: 'A', ptop: .999}, {name: 'Home widget', ptop: .55}, {name: 'Club challenges', ptop: .45}, {name: 'D', ptop: .01}], 2);
+  assert.match(tie2.body, /a genuine tie between Home widget and Club challenges —/);
+  const tie3 = verdictCopy([{name: 'A', ptop: .999}, {name: 'B', ptop: .5}, {name: 'C', ptop: .4}, {name: 'D', ptop: .3}, {name: 'E', ptop: .01}], 2);
+  assert.match(tie3.body, /a genuine tie between B, C and D —/);
+  assert.match(verdictCopy([{name: 'A', ptop: .999}, {name: 'B', ptop: .998}, {name: 'C', ptop: .5}, {name: 'D', ptop: .4}], 3).body, /A and B make the cut under any reasonable weights/);
+});
+test('the knife-edge legend does not describe the wobble as ±N%', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /a stricter probe than the wobble above/);
+  assert.doesNotMatch(html, /stricter probe than the ±N% wobble/);
+});

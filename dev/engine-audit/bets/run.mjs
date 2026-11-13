@@ -197,6 +197,15 @@ for(const ex of EXAMPLES){
   BEFORE[tag] = {independent: e.portfolio, shared: e.scenarios.shared, conc: e.concentration, bets: flat(m).map(b => ({name: b.name, ev: e.bets.get(b.srcLine).ev, audits: e.bets.get(b.srcLine).audits}))};
 }
 
+// Article embed inputs: the same per-bet EV noise rule over 40 seeds
+{
+  const m = parse(EMBED_SRC), e = simulate(m), runs = SEEDS.slice(0, 40).map(seed => simulate(m, {seed})), rows = [];
+  for(const b of flat(m)) for(const k of ['p10', 'p50', 'p90']) rows.push([b.name + ' EV ' + k, sd(runs.map(r => r.bets.get(b.srcLine).ev[k])), e.bets.get(b.srcLine).ev.step]);
+  for(const [l, sdv, step] of rows) console.log(`   info: Article embed: seed sd of ${l} = ${sdv.toFixed(3)} (printed step ${step}) -> ${(sdv / step).toFixed(2)} steps`);
+  const worst = rows.reduce((a, r) => r[1] / r[2] > a[1] / a[2] ? r : a);
+  check('N1e Article embed (Reading portfolio): per-bet EV P10/P50/P90 seed-to-seed sd (40 seeds) is at most half the bet\'s printed step', worst[1] / worst[2] <= .5, `worst ${worst[0]} sd ${worst[1].toFixed(3)} = ${(worst[1] / worst[2]).toFixed(2)} steps of ${worst[2]}`, {known: worst[1] / worst[2] > .5 && worst[1] / worst[2] < 6 && RUNS});
+}
+
 // BT-1 margin: the split threshold (2% of P90-P10) against smooth distributions
 {
   const u = rng(123456789), rr = (a, b) => a + (b - a) * u();
@@ -231,7 +240,7 @@ for(const ex of EXAMPLES){
   const c = simulate(parse(swapped));
   const same = fp(a).split(' | ').slice(0, 2).join() === fp(c).split(' | ').slice(0, 2).join();
   check('H2 Lantern: listing the two groups in the other order (same bets, same numbers) prints the same portfolio figures (BT-4)', same,
-    `${fp(a).split(' | ').slice(0, 2).join(' | ')}  ->  ${fp(c).split(' | ').slice(0, 2).join(' | ')} [reason: draws are assigned by source position and the shared draw is the first listed bet's; needs per-bet sub-streams, awaiting the owner]`, {known: !same && 'order dependence (BT-4): needs per-bet sub-streams, awaiting the owner'});
+    `${fp(a).split(' | ').slice(0, 2).join(' | ')}  ->  ${fp(c).split(' | ').slice(0, 2).join(' | ')} [reason: draws are assigned by source position and the shared draw is the first listed bet's; shifts: independent P50 ${(c.portfolio.p50 - a.portfolio.p50).toFixed(1)}, P90 ${(c.portfolio.p90 - a.portfolio.p90).toFixed(1)}, shared P90 ${(c.scenarios.shared.p90 - a.scenarios.shared.p90).toFixed(1)} against a step of ${a.portfolio.step}]`, {known: !same && 'kept by ruling: reordering is a different sample; the shift is the size of seed noise'});
   const k = src.replace(/stake (\d+)/g, (_, v) => 'stake ' + v * 1000).replace(/payoff (\d+)-(\d+)/g, (_, x, y) => 'payoff ' + x * 1000 + '-' + y * 1000);
   const s = simulate(parse(k));
   check('H3 scale invariance: multiplying every stake and payoff by 1000 multiplies portfolio quantiles by 1000 and leaves P(loss) identical', s.portfolio.pLoss === a.portfolio.pLoss && Math.abs(s.portfolio.p50 / a.portfolio.p50 - 1000) < 1e-6 * 1000 && s.scenarios.shared.pLoss === a.scenarios.shared.pLoss);

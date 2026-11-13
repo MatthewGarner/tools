@@ -105,7 +105,7 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
   for(const s of sim){
     if(!s.ok){ bets.set(s.bet.srcLine, {ev: {p10: 0, p50: 0, p90: 0, step: 1}, audits: auditsFor(s.bet, {p50: 0}), scoreable: false}); continue; }
     const ev = threeQuantiles(s.ev);
-    ev.step = stepFor([ev.p10, ev.p50, ev.p90], 100);
+    ev.step = evStepFor([ev.p10, ev.p50, ev.p90]);
     bets.set(s.bet.srcLine, {ev, audits: auditsFor(s.bet, ev), scoreable: true});
   }
 
@@ -130,8 +130,15 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
   };
 }
 
-/* A figure is printed to what the runs support: a tenth (portfolio outcomes) or a
-   hundredth (a bet's EV trio) of the power of ten of the largest magnitude. */
+/* a bet's EV trio is printed to the smallest power of ten that is at least 0.5% of its largest
+   magnitude: the sampling noise of an EV quantile is about a quarter of a percent of it */
+export function evStepFor(values){
+  const top = Math.max(0, ...values.map(v => Math.abs(v)));
+  return top > 0 && Number.isFinite(top) ? Math.pow(10, Math.ceil(Math.log10(0.005 * top) - 1e-12)) : 1;
+}
+
+/* A figure is printed to what the runs support: for portfolio outcomes a tenth of the power
+   of ten of the largest of them. */
 export function stepFor(values, divisor){
   const top = Math.max(0, ...values.map(v => Math.abs(v)));
   return top > 0 && Number.isFinite(top) ? Math.pow(10, Math.floor(Math.log10(top))) / divisor : 1;

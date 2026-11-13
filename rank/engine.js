@@ -180,6 +180,8 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
    simulate()). The lines are applied to the figures as printed, so an item shown as
    "85%" is never also listed as contested. */
 const pctShown = p => Math.round(p * 100);
+/* "A", "A and B", "A, B and C" */
+const joinNames = names => names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
 export function verdictCopy(stats, k, info = {}){
   const n = stats.length;
   const secure = stats.filter(s => pctShown(s.ptop) >= 85);
@@ -206,12 +208,12 @@ export function verdictCopy(stats, k, info = {}){
     headline = secure.length + ' of the top ' + k + (secure.length === 1 ? ' is' : ' are') + ' settled.';
     const sure = secure.filter(s => s.ptop > 0.995), firm = secure.filter(s => !(s.ptop > 0.995));
     const parts = [];
-    if(sure.length) parts.push(sure.map(s => s.name).join(', ') + (sure.length === 1 ? ' makes' : ' make') + ' the cut under any reasonable weights.');
+    if(sure.length) parts.push(joinNames(sure.map(s => s.name)) + (sure.length === 1 ? ' makes' : ' make') + ' the cut under any reasonable weights.');
     for(const s of firm) parts.push(s.name + ' makes the cut in ' + pctStr(s.ptop) + ' of reasonable weightings.');
     const left = k - secure.length;
     body = ' ' + parts.join(' ') + ' The remaining ' + (left === 1 ? 'place is' : left + ' places are') +
       (contested.length >= 2
-        ? ' a genuine tie between ' + contested.map(s => s.name).join(', ') +
+        ? ' a genuine tie between ' + joinNames(contested.map(s => s.name)) +
           ' — the framework can’t decide it, so decide it on strategy or sequencing.'
         : contested.length === 1
           ? ' not settled: ' + contested[0].name + ' is the closest contender, but it misses the cut too often to call — decide it on strategy or sequencing.'

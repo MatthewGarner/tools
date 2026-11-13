@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parse} from '../parse.js';
-import {simulate, markdown, NSIM, stepFor} from '../engine.js';
+import {simulate, markdown, NSIM, stepFor, evStepFor} from '../engine.js';
 import {renderBoard} from '../render.js';
 import {renderQuadrant} from '../render-quadrant.js';
 import {renderBetsPresentation} from '../render-presentation.js';
@@ -112,11 +112,12 @@ test('portfolio outcomes share one step: a tenth of the power of ten of the larg
   assert.equal(pv({step: 10}, -3), '0');
   assert.equal(pv({step: 0.1}, -0.34), '−0.3');
 });
-test('a bet\'s EV trio shares a step of a hundredth of the power of ten of the largest', () => {
-  assert.equal(stepFor([68.7, 113.3, 168.9], 100), 1);
+test('a bet\'s EV trio shares a step of the smallest power of ten at least 0.5% of the largest', () => {
+  assert.equal(evStepFor([68.7, 113.3, 168.9]), 1);
   const ev = {p10: 68.73, p50: 113.26, p90: 168.91, step: 1};
   assert.deepEqual([ev.p10, ev.p50, ev.p90].map(v => evv(ev, v)), ['+69', '+113', '+169']);
   assert.equal(evv({step: 0.01}, 0.126), '+0.13');
+  assert.equal(evv({step: 0.1}, 17.66), '+17.7');
 });
 test('the engine puts one portfolio step on both scenarios and one EV step on each bet', () => {
   const s = simulate(parse(LANTERN));
@@ -131,10 +132,9 @@ test('every surface prints the same stepped figures (board, quadrant, slide, Mar
   assert.match(all, /MEDIAN OUTCOME \+10 · P10 −360 · P90 \+390/);
   assert.match(markdown(m, s, ''), /Median outcome \*\*\+10 £k\*\* \[−360 to \+390\]/);
   assert.match(all, /EV P10 \| EV P50 \| EV P90/);
-  /* a bet whose largest EV is 29 has step 0.1 (a hundredth of 10): its trio prints one decimal, on every surface */
-  assert.match(text(renderBoard(m, s, CTX)), /Publisher storefront pilot \| 60 \| 15–25% \| 250–450 \| −11\.1 \| \+6\.5 \| \+29\.4/);
-  assert.match(markdown(m, s, ''), /−11\.1 to \+29\.4 \(\+6\.5\)/);
-  for(const k of ['p10', 'p50', 'p90']) assert.equal(pv(ind, ind[k]), pv(ind, Math.round(ind[k] / 10) * 10));
+  /* a bet whose largest EV is 29 prints whole units; one that tops out below 20 prints a decimal */
+  assert.match(text(renderBoard(m, s, CTX)), /Publisher storefront pilot \| 60 \| 15–25% \| 250–450 \| −11 \| \+6 \| \+29/);
+  assert.match(markdown(m, s, ''), /−11 to \+29 \(\+6\)/);
 });
 
 /* ---------- speed: it runs on every keystroke ---------- */

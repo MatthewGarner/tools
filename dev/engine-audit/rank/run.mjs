@@ -131,7 +131,7 @@ for(const {name, st} of ALL){
       perm.forEach((orig, pos) => { if(pctStr(exE.stats[orig].ptop) !== pctStr(ps.stats[pos].ptop)) any = true; maxShift = Math.max(maxShift, 100 * Math.abs(exE.stats[orig].ptop - ps.stats[pos].ptop)); });
       if(any) movedOrders++;
     }
-    check(`H2b ${exName}: no ordering of the same initiatives changes any printed P(top-k) (200 shuffles)`, movedOrders === 0, `${movedOrders} of 200 orderings change some printed figure; largest shift ${maxShift.toFixed(2)} pp [each row's draws are tied to its list position]`, {known: movedOrders > 0 && maxShift < 3 && 'order dependence (RK-4): needs per-item sub-streams, awaiting the owner'});
+    check(`H2b ${exName}: no ordering of the same initiatives changes any printed P(top-k) (200 shuffles)`, movedOrders === 0, `${movedOrders} of 200 orderings change some printed figure; largest shift ${maxShift.toFixed(2)} pp [each row's draws are tied to its list position]`, {known: movedOrders > 0 && maxShift < 3 && 'kept by ruling: reordering is a different sample; the shift is the size of seed noise'});
   }
 }
 

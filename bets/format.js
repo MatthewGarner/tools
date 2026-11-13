@@ -20,7 +20,7 @@ export const sgn = v => (v < 0 && Number(digits(v)) !== 0 ? MINUS : '+') + digit
 
 /* ---------- a sampled figure is printed to what the runs support ----------
    Portfolio outcomes share ONE step (a tenth of the power of ten of the largest of them),
-   a bet's EV trio another (a hundredth). The engine puts `step` on each result; a value
+   a bet's EV trio another (0.5% of its largest). The engine puts `step` on each result; a value
    that rounds to zero prints "0". A result with no step (hand-built) prints whole numbers. */
 export function atStep(v, step){
   if(!(step > 0)) return sgn(v);
