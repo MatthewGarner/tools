@@ -6,16 +6,15 @@ const PRINT = c => c.startsWith('print:');
 
 export const KNOWN = [
   /* Bets */
-  {id: 'XB-5', match: is('bets', 'svg:overlap:text-shape', r => r.view === 'quadrant')},
+  /* a 64-bet Board is a long ledger: printed in rows (never cut mid-row) it takes 5 sheets, the probe allows 2 */
   {id: 'XB-13', match: r => r.tool === 'bets' && PRINT(r.check)},
   /* Tree */
-  {id: 'XT-7', match: r => r.tool === 'tree' && PRINT(r.check)},
+  /* the 81-node Tree's PNG is made at a reduced scale (stated on the page); the reference raster rounds its height 4px differently */
   {id: 'XT-8', match: r => r.tool === 'tree' && /png:scale-2x|png:matches-svg/.test(r.check)},
   /* Paths */
-  {id: 'XP-4', match: r => r.tool === 'paths' && r.view === 'tree' && /overlap/.test(r.check)},
-  {id: 'XP-9', match: is('paths', 'svg:truncation')},
-  {id: 'XP-12', match: r => r.tool === 'paths' && PRINT(r.check)},
+  /* the Question lens keeps a 43px top and 23px bottom margin (limit 14px apart): its layout trailing gaps differ by view, so no single margin fits all */
   {id: 'XP-13', match: r => r.tool === 'paths' && /svg:margins|png:margins-symmetric|png:ink-off-edge/.test(r.check)},
+  /* the 48-item Tree PNG is made at a reduced scale; the reference raster differs by 43px in height */
   {id: 'XP-15', match: is('paths', 'png:matches-svg')},
   /* Fermi */
   {id: 'XF-1', match: is('fermi', 'canvas:house-font')},
