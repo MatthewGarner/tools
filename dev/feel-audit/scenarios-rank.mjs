@@ -41,7 +41,7 @@ export async function load(env, kind, {hash, label = ''} = {}){
   check('r.load.renders', w, 'result-row renders during load', s.fl.rows.length, s.fl.rows.length <= 1, '1');
   check('r.load.first', w, 'ranked rows on screen (ms from navigation)', s.fl.rows[0], s.fl.rows[0] <= (M(env) === 'normal' ? 1200 : 3000), M(env) === 'normal' ? '<= 1200ms' : '<= 3000ms');
   check('r.load.longtask', w, 'longest task during load', s.longTaskMax, s.longTaskMax <= (M(env) === 'normal' ? 200 : 600), M(env) === 'normal' ? '<= 200ms' : '<= 600ms');
-  check('r.load.kicker', w, 'kicker text present at first contentful paint', {kicker: s.fl.kicker, fcp: s.fcp}, s.fl.kicker != null && s.fl.kicker <= s.fcp, 'in the first painted frame');
+  check('r.load.kicker', w, 'kicker text present at first contentful paint', {kicker: s.fl.kicker, fcp: s.fcp}, s.fl.kicker != null && s.fl.kicker <= s.fcp + 25, 'in the first painted frame (the observer batches after the parse: 25ms of allowance; a script-painted kicker lands 30-60ms later)');
   if(M(env) === 'normal' && !label) check('r.load.errors', w, 'console errors', errors, errors.length === 0, 'none');
   if(M(env) === 'normal' && !label) await shot(page, `${env.out}/shots/rank-load-${kind}${env.engine === 'webkit' ? '-webkit' : ''}.png`);
   await ctx.close();
@@ -242,6 +242,7 @@ export async function addRemove(env, kind){
   check('r.add.visible', w, 'new row\'s name field on screen' + (phone ? ' and above where the keyboard would be' : ''), pos, pos.top >= 0 && pos.bottom <= pos.vh * (phone ? 0.55 : 1), phone ? 'bottom <= 55% of the viewport' : 'within the viewport');
   check('r.add.motion', w, 'the added row\'s entrance', a.animations.filter(x => !/color/.test(x)).length ? a.animations : 'none', a.animations.some(x => /opacity|transform/.test(x)), 'recorded: an entrance (the Roadmap audit left this open, add.motion)');
   const del = page.locator('#rows .del').nth(1);
+  await del.scrollIntoViewIfNeeded();   // the tap's own scroll-into-view belongs before the measured window
   const r = await act(env, page, {id: 'r.remove', w, label: 'remove an initiative', fn: () => press(page, del, phone), focus: /Undo removal|button\.btn/, cls: true, skip: ['longtask']});
   check('r.remove.longtask', w, 'longest task after remove', r.longTaskMax, r.longTaskMax <= LT(env), '<= ' + LT(env) + 'ms');
   const place = await page.evaluate(() => { const u = document.querySelector('#rows .undorow button'); if(!u) return null; const r = u.getBoundingClientRect(), rows = [...document.querySelectorAll('#rows tr')]; return {atIndex: rows.indexOf(u.closest('tr')), rows: rows.length, top: Math.round(r.top), vh: innerHeight}; });

@@ -15,7 +15,6 @@ import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
 import {wireExports, flashButton} from '../assets/exports.js';
-import {motionStill} from '../assets/motion.js';
 import {offer as provide} from '../assets/recent-ui.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
@@ -25,6 +24,9 @@ import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
   normalizeReceipt, receiptLabel} from './state.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {targetHashState, validHandoffMeta} from '../assets/handoff.js';
+
+/* the same gate assets/motion.js uses (reduced motion, or a hidden tab); that module is 14k and Fermi needs only the gate */
+const motionStill = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden;
 
 /* ---------- examples ---------- */
 const EXAMPLES = [

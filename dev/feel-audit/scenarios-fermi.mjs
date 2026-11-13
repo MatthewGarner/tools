@@ -53,7 +53,7 @@ export async function load(env, kind, {hash, label = 'example'} = {}){
   const shown = s.fl.results.find(r => r[1] === 'grid');
   check(id + '.first', w, 'result on screen (ms from navigation)', shown ? shown[0] : null, shown && shown[0] <= (M(env) === 'normal' ? 1200 : 3000), M(env) === 'normal' ? '<= 1200ms' : '<= 3000ms');
   check(id + '.longtask', w, 'longest task during load', s.longTaskMax, s.longTaskMax <= (M(env) === 'normal' ? 200 : 600), M(env) === 'normal' ? '<= 200ms' : '<= 600ms');
-  check(id + '.kicker', w, 'kicker painted by script after the first paint (ms after FCP)', {kicker: s.fl.kicker, fcp: s.fcp}, s.fl.kicker != null && s.fl.kicker <= s.fcp, 'in the first painted frame');
+  check(id + '.kicker', w, 'kicker painted by script after the first paint (ms after FCP)', {kicker: s.fl.kicker, fcp: s.fcp}, s.fl.kicker != null && s.fl.kicker <= s.fcp + 25, 'in the first painted frame (the observer batches after the parse: 25ms of allowance; a script-painted kicker lands 30-60ms later)');
   if(label === 'example' && M(env) === 'normal') check(id + '.errors', w, 'console errors', errors, errors.length === 0, 'none');
   if(M(env) === 'normal' && label === 'example') await shot(page, `${env.out}/shots/fermi-load-${kind}${env.engine === 'webkit' ? '-webkit' : ''}.png`);
   await ctx.close();
