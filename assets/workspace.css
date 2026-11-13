@@ -46,6 +46,10 @@
 @media (min-width:901px) and (pointer:fine){
   .workspace.landing-fold{grid-template-columns:0px minmax(0,1fr)}
   .workspace.landing-fold .rail{height:0;min-height:0;overflow:hidden;opacity:0;visibility:hidden;padding:0;border-color:transparent;pointer-events:none}
+  /* ...and the rest of the reading layout (below), or the first paint sits 44px higher than the page it becomes: a page whose
+     first paint came before its artefact moved the whole stage when the reading view arrived. The tab is unseen until then. */
+  .workspace.landing-fold .stage{padding-top:62px}
+  .workspace.landing-fold .railtab{top:8px;left:18px;opacity:0;pointer-events:none}
 }
 .workspace.collapsed .rail,.workspace.focus-artefact .rail,
 .workspace.reading-pending:has(.preview svg) .rail{

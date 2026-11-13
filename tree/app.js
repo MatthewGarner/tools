@@ -512,6 +512,7 @@ exploreClose.addEventListener('click', () => {
 });
 
 const treeEip = attachEditInPlace(preview, {
+  hitSlop: 12,   // a mouse reaches a 9-11px number or label from 12px above or below it
   kinds: {
     /* custom (I-2): a hot (load-bearing) number's tap/Enter binds the slider instead of opening
        the text popover; a plain number keeps the popover untouched (checked via data-hot, which

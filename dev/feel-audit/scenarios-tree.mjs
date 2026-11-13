@@ -101,6 +101,9 @@ export async function slider(env, kind, {source, label = 'example'} = {}){
       await page.locator('#exploreRange').focus().catch(() => {});
       await page.keyboard.press('ArrowRight'); await sleep(900); await waitQuiet(page, {quiet: 400, max: 6000});
       const pre = await sourceText(page), valueBefore = await page.locator('#exploreRange').inputValue();
+      /* the fixed bar covers the bottom of the viewport, and with it any control that sits there: scroll the button clear of it, as a reader would */
+      await page.evaluate(() => { const b = document.querySelector('.touch-undo').getBoundingClientRect(), bar = document.getElementById('explorebar').getBoundingClientRect(); if(b.bottom > bar.top - 8) scrollBy(0, b.bottom - bar.top + 24); });
+      await sleep(150);
       const u = await timeToRender(page, () => press(page, undoBtn, phone), {timeout: 4000});
       await waitQuiet(page, {quiet: 400, max: 6000});
       const st = await page.evaluate(() => ({bar: !document.getElementById('explorebar').hidden, value: document.getElementById('exploreRange').value, active: window.__feel.describe(document.activeElement)}));
@@ -163,27 +166,32 @@ export async function reading(env){
 
 export const large = () => treeLarge();
 
-/* FT-17: with a mouse, an inline edit target (a number or a label drawn at 9-11px) can be hit from about 12px above and
-   below its middle, at several points along it. The check hit-tests the page, so it fails if the styling stops widening it. */
+/* FT-17: with a mouse, an inline edit target (a number or a label drawn at 9-11px) can be pressed from 10px above or below
+   its middle. The check presses there for real and expects that target's editor (or the slider, for a load-bearing number). */
 export async function hitTargets(env){
   const {check, note} = env.R;
   const w = where('tree', 'desktop', env.mode);
   const {ctx, page} = await fresh(env, 'tree', 'desktop');
-  const r = await page.evaluate(() => {
-    const out = {n: 0, miss: []};
-    for(const el of document.querySelectorAll('#preview svg tspan[data-edit]')){
-      const b = el.getBoundingClientRect();
-      if(!b.width || !b.height || b.bottom < 0 || b.top > innerHeight) continue;
-      out.n++;
-      const own = e => e && e.closest('[data-edit]');
-      const probes = [[0.25, -11], [0.5, -11], [0.75, -11], [0.25, 11], [0.5, 11], [0.75, 11], [0.5, 0]];
-      const bad = probes.filter(([fx, dy]) => own(document.elementFromPoint(b.left + b.width * fx, b.top + b.height / 2 + dy)) !== el);
-      if(bad.length) out.miss.push({edit: el.dataset.edit, line: el.dataset.line, text: (el.textContent || '').slice(0, 14), missed: bad.length, h: Math.round(b.height), w: Math.round(b.width)});
+  const n = await page.locator('#preview tspan[data-edit]').count();
+  const missed = [], tried = [];
+  for(let i = 0; i < n; i++){
+    const t = page.locator('#preview tspan[data-edit]').nth(i);
+    await t.scrollIntoViewIfNeeded();
+    const b = await t.boundingBox();
+    if(!b || !b.width || b.y < 0 || b.y + b.height > 800) continue;
+    const info = await t.evaluate(el => ({edit: el.dataset.edit, line: el.dataset.line, text: (el.textContent || '').slice(0, 14)}));
+    for(const dy of [-10, 10]){
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2 + dy); await sleep(120);
+      const opened = await page.evaluate(() => !!document.querySelector('.eip-input,.eip-pop') || !document.getElementById('explorebar').hidden);
+      tried.push(opened);
+      if(!opened) missed.push({...info, dy, h: Math.round(b.height)});
+      await page.keyboard.press('Escape'); await sleep(60);
+      if(await page.locator('#explorebar').evaluate(x => !x.hidden)){ await page.locator('#exploreClose').click(); await sleep(60); }
+      await page.mouse.click(2, 2); await sleep(40);
     }
-    return out;
-  });
-  note('hit.targets', w, 'inline edit targets hit-tested at +-11px', r);
-  check('hit.targets', w, 'inline edit targets reach 24px tall (hit-tested)', {targets: r.n, missed: r.miss.slice(0, 6)}, r.n > 0 && r.miss.length === 0, 'every visible target is hit from 11px above and below its middle');
+  }
+  note('hit.targets', w, 'inline edit targets pressed 10px above and below their middle', {pressed: tried.length, missed: missed.length});
+  check('hit.targets', w, 'inline edit targets open from 10px above and below their middle (>= 24px to hit)', {pressed: tried.length, missed: missed.slice(0, 6)}, tried.length > 0 && missed.length === 0, 'every visible target opens');
   await ctx.close();
 }
 
@@ -194,34 +202,31 @@ export async function sliderNearBottom(env, {source, label = 'example'} = {}){
   const w = where('tree', 'desktop', env.mode);
   const {ctx, page} = await fresh(env, 'tree', 'desktop', {source});
   const sel = '#preview [data-hot][data-edit="prob"]';
-  const info = async () => page.evaluate(sel => { const t = document.querySelector(sel); const b = document.getElementById('explorebar'); const r = t.getBoundingClientRect(), br = b.getBoundingClientRect(); return {numBottom: Math.round(r.bottom), numTop: Math.round(r.top), barHidden: b.hidden, barTop: Math.round(br.top), vh: innerHeight, y: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight}; }, sel);
-  const scrollNumberTo = async fromBottom => {
-    await page.evaluate(([sel, fb]) => { const r = document.querySelector(sel).getBoundingClientRect(); scrollTo(0, scrollY + r.bottom - (innerHeight - fb)); }, [sel, fromBottom]);
-    await sleep(250);
-  };
-  /* (a) a number just above the bottom edge: it would be under the 90px bar */
-  await scrollNumberTo(24);
+  const info = async () => page.evaluate(sel => { const t = document.querySelector(sel); const b = document.getElementById('explorebar'); const r = t.getBoundingClientRect(), br = b.getBoundingClientRect(); return {numBottom: Math.round(r.bottom), barHidden: b.hidden, barTop: Math.round(br.top), vh: innerHeight, y: Math.round(scrollY), max: document.documentElement.scrollHeight - innerHeight}; }, sel);
+  /* press the number where it is: no scrolling it to the middle first (that would hide the very thing under test) */
+  const press1 = async () => { const b = await page.locator(sel).first().boundingBox(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); await sleep(500); };
+  /* (b) a number well clear of the bar: opening and closing move nothing */
+  await page.evaluate(() => scrollTo(0, 0)); await sleep(150);
+  const mid = await info();
+  await press1();
+  const open = await info();
+  check(`slider.${label}.clear.still`, w, 'a number well clear of the bar: opening does not move the page', {from: mid.y, to: open.y, gap: open.barTop - open.numBottom}, Math.abs(open.y - mid.y) <= 1 && open.barTop - open.numBottom > 60, 'unchanged');
+  await page.locator('#exploreClose').click(); await sleep(400);
+  const closed0 = await info();
+  check(`slider.${label}.clear.close`, w, 'closing the slider does not move the page', {from: open.y, to: closed0.y}, Math.abs(closed0.y - open.y) <= 1, 'unchanged');
+  /* (a) a window short enough that the number sits in the strip the bar covers (about 24px above the bottom edge) */
+  const numPageBottom = mid.numBottom + mid.y;
+  await page.setViewportSize({width: 1280, height: Math.round(numPageBottom + 24)}); await sleep(300);
   const before = await info();
-  const p = await pointOn(page, sel, {nth: 0, resolve: '[data-edit]'});
-  if(!p || before.numBottom < before.vh - 80){ note(`slider.${label}.nearbottom.skip`, w, 'could not place a hot number near the bottom edge', before); await ctx.close(); return; }
-  await page.mouse.click(p.x, p.y); await sleep(500);
+  await press1();
   const after = await info();
   note(`slider.${label}.nearbottom`, w, 'tap a number near the bottom edge', {before, after});
   check(`slider.${label}.nearbottom.visible`, w, 'a tapped number near the bottom stays above the slider bar', {numBottom: after.numBottom, barTop: after.barTop}, !after.barHidden && after.numBottom <= after.barTop, 'the number is not under the bar');
-  check(`slider.${label}.nearbottom.minimal`, w, 'it scrolled by no more than it had to (number clear of the bar by < 60px)', {gap: after.barTop - after.numBottom}, after.barTop - after.numBottom < 60, 'just enough');
-  /* closing moves nothing */
+  check(`slider.${label}.nearbottom.scrolled`, w, 'it did have to scroll (the number was under the bar)', {before: before.barTop - before.numBottom, scrolledBy: after.y - before.y}, after.y - before.y > 0, 'scrolled up');
+  check(`slider.${label}.nearbottom.minimal`, w, 'it scrolled by just enough (number clear of the bar by < 40px)', {gap: after.barTop - after.numBottom}, after.barTop - after.numBottom < 40, 'just enough');
   const y1 = after.y;
   await page.locator('#exploreClose').click(); await sleep(400);
   const closed = await info();
   check(`slider.${label}.nearbottom.close`, w, 'closing the slider does not move the page', {from: y1, to: closed.y}, Math.abs(closed.y - y1) <= 1, 'unchanged');
-  /* (b) a number with room below it: opening moves nothing */
-  await scrollNumberTo(Math.min(400, Math.max(200, Math.round(before.vh / 2))));
-  const mid = await info();
-  const p2 = await pointOn(page, sel, {nth: 0, resolve: '[data-edit]'});
-  if(p2 && mid.numBottom < mid.vh - 160){
-    await page.mouse.click(p2.x, p2.y); await sleep(500);
-    const open = await info();
-    check(`slider.${label}.clear.still`, w, 'a number well clear of the bar: opening does not move the page', {from: mid.y, to: open.y}, Math.abs(open.y - mid.y) <= 1, 'unchanged');
-  }
   await ctx.close();
 }

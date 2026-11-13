@@ -279,7 +279,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       const epoch = renderEpoch, svg = svgEl();
       if(!svg) return; // Empty/invalid documents retain their visible source rail.
       if(readingFrame) cancelAnimationFrame(readingFrame);
-      readingFrame = requestAnimationFrame(() => resolveInitialReading(epoch, svg));
+      /* Decide in this task, before the first paint of the artefact. Waiting a frame let a loaded or slow page paint the pending
+         layout once and then move the whole stage when the reading view arrived (Bets, desktop: a 0.2 shift whenever the
+         paint came between the two). resolveInitialReading retries a frame later only if the artefact has no size yet. */
+      resolveInitialReading(epoch, svg);
     }
   }).observe(preview, {childList: true});
 
