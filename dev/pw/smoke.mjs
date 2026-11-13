@@ -1079,6 +1079,7 @@ for(const theme of FLOW_THEMES){
     await page.keyboard.type('outcome: Snap ' + theme);
     await page.waitForTimeout(500);
     const n = await page.locator('#snapsel option').count();
+    if(!(await page.locator('#snapsel').isVisible())) await page.getByText('History', {exact: true}).click();   // a press elsewhere closes the menu
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
     const svg = await page.locator('#preview svg').innerHTML();
@@ -1152,6 +1153,7 @@ for(const theme of FLOW_THEMES){
     await page.keyboard.type('Drift ' + theme + ' @ 90,10');
     await page.waitForTimeout(500);
     const n = await page.locator('#snapsel option').count();
+    if(!(await page.locator('#snapsel').isVisible())) await page.getByText('History', {exact: true}).click();   // a press elsewhere closes the menu
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
     const svg = await page.locator('#preview svg').innerHTML();
