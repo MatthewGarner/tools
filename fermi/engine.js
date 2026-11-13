@@ -297,6 +297,129 @@ export function simulateModel({ast, varNames, ranges, dists}, {seed, n, pinName 
   return {raw, sorted: out};
 }
 
+/* ---------- exact answers for product-type formulas ---------- */
+export const Z80 = 1.2815515655446004;           // Φ⁻¹(0.90): P10 and P90 sit at ∓Z80 sigma
+
+/* The normal curve, to double precision (error below 1e-13). A Taylor series for the body, the
+   Lentz continued fraction beyond (the same pair timeline/mergebias.js uses; copied, not imported
+   across tools). Q(x) = P(Z > x) for x >= 0. */
+function bodyQ(x){
+  let term = x, sum = x;
+  for(let n = 1; n < 200 && Math.abs(term) > 1e-18; n++){ term *= x * x / (2 * n + 1); sum += term; }
+  return 0.5 - Math.exp(-x * x / 2) / Math.SQRT2 / Math.sqrt(Math.PI) * sum;
+}
+function tailQ(x){
+  const K = x < 3 ? 400 : x < 6 ? 120 : 40;
+  let f = 0; for(let k = K; k >= 1; k--) f = k / (x + f);
+  return Math.exp(-x * x / 2 - 0.5 * Math.log(2 * Math.PI)) / (x + f);
+}
+export function normCdf(z){
+  if(Number.isNaN(z)) return NaN;
+  const x = Math.abs(z), q = x < 2 ? bodyQ(x) : tailQ(x);
+  return z < 0 ? q : 1 - q;
+}
+/* 1 − Φ(z), without losing the small tail to subtraction */
+export function normSurvival(z){ return normCdf(-z); }
+
+/* When the answer is exactly log-normal: log(answer) = ln c + Σ e_k·ln x_k, every varying input
+   log-normal with its range as the 90% interval, so mu and sigma are sums. Returns
+   {mu, sigma, terms: [{name, e, sigma}]} (sigma² = Σ (e_k·sigma_k)²) or null whenever that cannot
+   be shown: a sum or difference with a varying input, an input in an exponent, a normal or
+   uniform input, a non-positive or non-finite constant factor, nothing varying, a median that is
+   zero or not finite, or any construct not proved log-linear. */
+export function exactLogNormal({ast, varNames, ranges, dists}){
+  const info = Object.create(null);
+  for(const name of varNames){
+    const r = ranges[name];
+    if(!r || !isFinite(r[0]) || !isFinite(r[1])) return null;
+    const lo = Math.min(r[0], r[1]), hi = Math.max(r[0], r[1]);
+    if(lo === hi){ info[name] = {point: lo}; continue; }
+    if(effDist(dists && dists[name], lo) !== 'logn') return null;
+    info[name] = {mu: (Math.log(lo) + Math.log(hi)) / 2, sigma: (Math.log(hi) - Math.log(lo)) / (2 * Z90)};
+  }
+  /* a node is {v} (a constant) or {lc, e} (a positive constant factor exp(lc) times the product of
+     x^e over the Map e of name -> exponent); null means "not provable" */
+  const logOf = v => (v > 0 && isFinite(v)) ? Math.log(v) : null;
+  const scale = (e, k) => new Map([...e].map(([m, p]) => [m, p * k]));
+  function walk(n){
+    if(n.t === 'num') return {v: n.v};
+    if(n.t === 'var'){
+      const i = info[n.name];
+      return i.point !== undefined ? {v: i.point} : {lc: 0, e: new Map([[n.name, 1]])};
+    }
+    if(n.t === 'neg'){ const a = walk(n.e); return a && a.v !== undefined ? {v: -a.v} : null; }
+    if(n.t !== 'bin') return null;
+    const a = walk(n.l), b = walk(n.r);
+    if(!a || !b) return null;
+    const ca = a.v !== undefined, cb = b.v !== undefined;
+    if(ca && cb) return {v: evalNode({t: 'bin', op: n.op, l: {t: 'num', v: a.v}, r: {t: 'num', v: b.v}}, {})};
+    if(n.op === '^'){
+      if(ca || !isFinite(b.v)) return null;                          // an input in the exponent is not log-linear
+      return {lc: a.lc * b.v, e: scale(a.e, b.v)};
+    }
+    if(n.op !== '*' && n.op !== '/') return null;                    // + or − with a varying input
+    const div = n.op === '/';
+    if(ca || cb){
+      const k = logOf(ca ? a.v : b.v);
+      if(k === null) return null;
+      if(ca) return div ? {lc: k - b.lc, e: scale(b.e, -1)} : {lc: k + b.lc, e: b.e};
+      return {lc: div ? a.lc - k : a.lc + k, e: a.e};
+    }
+    const e = new Map(a.e);
+    for(const [m, p] of b.e) e.set(m, (e.get(m) || 0) + (div ? -p : p));
+    return {lc: div ? a.lc - b.lc : a.lc + b.lc, e};
+  }
+  const w = walk(ast);
+  if(!w || w.v !== undefined) return null;
+  let mu = w.lc, v = 0;
+  const terms = [];
+  for(const name of varNames){
+    const i = info[name];
+    if(i.point !== undefined) continue;
+    const e = w.e.get(name) || 0;
+    mu += e * i.mu;
+    v += (e * i.sigma) ** 2;
+    terms.push({name, e, sigma: i.sigma});
+  }
+  const sigma = Math.sqrt(v), median = Math.exp(mu);
+  if(!(sigma > 0) || !isFinite(sigma) || !isFinite(mu) || !(median > 0) || !isFinite(median)) return null;
+  return {mu, sigma, terms};
+}
+
+/* One simulate-then-summarise for the page, both Markdown exports, the PNG, copy-summary, compare,
+   the threshold readout and the goldens. The draws are exactly simulateModel's (the histogram,
+   the hover and the pour keep them); the headline percentiles come from the closed form when the
+   answer is exactly log-normal and from the sample otherwise. */
+export function summariseEstimate(model, {seed, n}){
+  const {raw, sorted} = simulateModel(model, {seed, n});
+  const exact = exactLogNormal(model);
+  const q = (p, z) => exact ? Math.exp(exact.mu + z * exact.sigma) : sorted.length ? quantile(sorted, p) : NaN;
+  return {raw, sorted, exact, p10: q(.1, -Z80), p50: q(.5, 0), p90: q(.9, Z80)};
+}
+/* share of runs above t, over ALL runs (sorted ascending) */
+export function shareAbove(sorted, t){
+  let lo = 0, hi = sorted.length;
+  while(lo < hi){ const m = (lo + hi) >> 1; if(sorted[m] <= t) lo = m + 1; else hi = m; }
+  return sorted.length ? (sorted.length - lo) / sorted.length : 0;
+}
+/* P(answer > t): closed form when exact (a value at or below zero is always exceeded), else counted */
+export function probAbove(s, t){
+  if(!s.exact) return shareAbove(s.sorted, t);
+  if(!(t > 0)) return 1;
+  return normSurvival((Math.log(t) - s.exact.mu) / s.exact.sigma);
+}
+/* P(B > A) for independently sampled variants: closed form when both are exact, else counted over
+   the paired draws */
+export function probExceeds(B, A){
+  if(A.exact && B.exact)
+    return normCdf((B.exact.mu - A.exact.mu) / Math.sqrt(A.exact.sigma ** 2 + B.exact.sigma ** 2));
+  const n = Math.min(A.raw.length, B.raw.length);
+  if(!n) return null;
+  let c = 0;
+  for(let i = 0; i < n; i++) if(B.raw[i] > A.raw[i]) c++;
+  return c / n;
+}
+
 /* Sensitivity as value of information (moved verbatim from the inline lint()):
    pin each variable at its median, remeasure the spread — "what would knowing
    this exactly buy you?" Same call order and seeds as the app has always used. */

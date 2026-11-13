@@ -1,15 +1,25 @@
 /* What Fermi says about its results: pure sentence and format helpers, no DOM, no random
    stream. app.js and the renderers import these so every surface prints a figure the
    same way and the sentences can be tested in node. */
-import {fmt, sig, ratioStr, effDist, parseNum, readNumber} from './engine.js';
+import {fmt, sig, ratioStr, effDist, parseNum, readNumber, shareAbove, probAbove} from './engine.js';
+export {shareAbove};
 
-/* a sampled probability, wherever it appears: tenths in both tails, whole percent between,
-   and never a flat 0% or 100% (20,000 runs cannot show that) */
-export function pctProb(p){
+/* a probability, wherever it appears. Default (exact figures, and the cash-flow ones): tenths in
+   both tails, whole percent between, and never a flat 0% or 100%. precision 'whole' is for a
+   probability counted from 20,000 samples, which cannot support tenths: whole percent from 1% to
+   99%, "<1%" and ">99%" outside. */
+export function pctProb(p, precision = 'tenths'){
+  if(precision === 'whole'){
+    if(!(p >= 0.01)) return '<1%';
+    if(p > 0.99) return '>99%';
+    return Math.round(p * 100) + '%';
+  }
   if(!(p >= 0.001)) return '<0.1%';
   if(p > 0.999) return '>99.9%';
   return (p * 100).toFixed(p < 0.095 || p > 0.905 ? 1 : 0) + '%';
 }
+/* P(answer > T) as printed for an estimate summary (exact: tenths; counted: whole percent) */
+export const probText = (summary, t) => pctProb(probAbove(summary, t), summary.exact ? 'tenths' : 'whole');
 /* IRR, wherever it appears: one decimal place */
 export const pctOne = v => v == null ? '—' : (v < 0 ? '−' : '') + (Math.abs(v) * 100).toFixed(1) + '%';
 
@@ -85,15 +95,11 @@ export function leverLine(sens, fullLabel){
 export function verdictSentence(p10, p50, p90, unit){
   return '“Probably around ' + p50 + (unit ? ' ' + unit : '') + ' — four runs in five land between ' + p10 + ' and ' + p90 + '.”';
 }
-/* share of runs above T, over ALL runs (sorted ascending) */
-export function shareAbove(sorted, t){
-  let lo = 0, hi = sorted.length;
-  while(lo < hi){ const m = (lo + hi) >> 1; if(sorted[m] <= t) lo = m + 1; else hi = m; }
-  return sorted.length ? (sorted.length - lo) / sorted.length : 0;
-}
-/* "already at even odds" is about P(>T) being within 2 points of 50%, not how near T is to P50 */
-export function evenOdds(sorted, t){
-  return Math.abs(shareAbove(sorted, t) - 0.5) <= 0.02;
+/* "already at even odds" is about P(>T) being within 2 points of 50%, not how near T is to P50.
+   Takes an estimate summary (exact or counted) or, for plain arrays, a sorted sample. */
+export function evenOdds(src, t){
+  const p = Array.isArray(src) || ArrayBuffer.isView(src) ? shareAbove(src, t) : probAbove(src, t);
+  return Math.abs(p - 0.5) <= 0.02;
 }
 
 /* ---------- notes under the results ---------- */
@@ -160,7 +166,7 @@ export function distOverrideNotes(varNames, ranges, dists){
     .map(n => nm(n) + ' is set to log-normal but its range reaches zero, so it runs as normal.');
 }
 /* what the estimate page's method line says: the shape each range really uses */
-export function estimateMethod(varNames, ranges, dists, n){
+export function estimateMethod(varNames, ranges, dists, n, exact = false){
   const counts = new Map();
   for(const v of varNames){
     const [a, b] = ranges[v], lo = Math.min(a, b);
@@ -168,7 +174,8 @@ export function estimateMethod(varNames, ranges, dists, n){
     counts.set(k, (counts.get(k) || 0) + 1);
   }
   const order = ['log-normal', 'normal', 'uniform (full range)', 'fixed'];
-  const runs = ' · ' + n.toLocaleString('en-GB') + ' samples';
+  const runs = exact ? ' · exact percentiles · histogram of ' + n.toLocaleString('en-GB') + ' samples'
+    : ' · ' + n.toLocaleString('en-GB') + ' samples, good to two figures';
   // every range log-normal is the usual case, and the plain sentence is then true as it stands
   if(counts.size === 1 && counts.has('log-normal')) return 'Log-normal fit to each 90% range' + runs;
   return 'Fit to each range: ' + order.filter(k => counts.has(k)).map(k => counts.get(k) + ' ' + k).join(', ') + runs;

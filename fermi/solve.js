@@ -8,7 +8,7 @@
    The effective dist is FROZEN at solve start and threaded through simulateModel (not re-derived
    from the shifted lo), so an 'auto' var whose lo crosses 0 can't flip shape mid-bisection. */
 
-import {simulateModel, effDist, sig} from './engine.js';
+import {simulateModel, exactLogNormal, effDist, sig} from './engine.js';
 import {SENS_N} from './seeds.js';
 import {quantile} from '../assets/series.js';
 
@@ -17,6 +17,16 @@ import {quantile} from '../assets/series.js';
 export const asciiNum = x => sig(x, 3).replace(/−/g, '-').replace(/e\+/g, 'e');
 
 export const CAP = 3;   // normalized-stretch cap: ×e^(3·halfwidth) up, or ±3 half-widths for additive
+
+/* The median of a candidate model: the closed form when the answer is exactly log-normal (valid
+   is 1, no draws are made, so "lands P50 on target" agrees with the page), otherwise the P50 of
+   the seeded run. */
+function medianOf(model, seed, np){
+  const x = exactLogNormal(model);
+  if(x) return {p50: Math.exp(x.mu), valid: 1};
+  const sim = simulateModel(model, {seed, n: np});
+  return {p50: sim.sorted.length ? quantile(sim.sorted, .5) : NaN, valid: sim.sorted.length / np};
+}
 
 /* A range typed high-to-low is the same range: read every range low-to-high before solving.
    (samplerFor swaps internally, so the draws are identical either way.) */
@@ -39,8 +49,7 @@ export function solveStretch(model, {seed, np = SENS_N, target, varName, cap = C
   const p50At = s => {
     const ranges = {...model.ranges, [varName]: rangeAt(s)};
     const dists = {...model.dists, [varName]: d};      // C2: the freeze must reach the sampler
-    const sim = simulateModel({ast: model.ast, varNames: model.varNames, ranges, dists}, {seed, n: np});
-    return {p50: sim.sorted.length ? quantile(sim.sorted, .5) : NaN, valid: sim.sorted.length / np};
+    return medianOf({ast: model.ast, varNames: model.varNames, ranges, dists}, seed, np);
   };
   const near = v => Math.abs(v - target);
   // bisect s in [a,b] (p50 assumed monotone across the bracket) to p50 ≈ target
@@ -104,7 +113,7 @@ function atStretch(r, s){
    plausible". Never more than a pair (YAGNI). */
 export function confess(model, {seed, np = SENS_N, target, cap = CAP}){
   model = ordered(model);
-  const base = quantile(simulateModel(model, {seed, n: np}).sorted, .5);
+  const base = medianOf(model, seed, np).p50;
   const dir = Math.sign(target - base) || 1;
   const cands = model.varNames.filter(v => model.ranges[v][0] !== model.ranges[v][1]);
   const each = cands.map(v => solveStretch(model, {seed, np, target, varName: v, cap}))
@@ -125,8 +134,7 @@ export function confess(model, {seed, np = SENS_N, target, cap = CAP}){
     const dists = {...model.dists,
       [a0.varName]: effDist(model.dists[a0.varName], model.ranges[a0.varName][0]),
       [b0.varName]: effDist(model.dists[b0.varName], model.ranges[b0.varName][0])};
-    const sim = simulateModel({ast: model.ast, varNames: model.varNames, ranges, dists}, {seed, n: np});
-    return sim.sorted.length ? quantile(sim.sorted, .5) : NaN;
+    return medianOf({ast: model.ast, varNames: model.varNames, ranges, dists}, seed, np).p50;
   };
   let a = 0, b = cap, pa = p50Pair(0);
   for(let i = 0; i < 16; i++){ const m = (a + b) / 2, pm = p50Pair(m);

@@ -1,14 +1,14 @@
 /* Formula parsing + Monte Carlo + sensitivity live in ./engine.js (pure, tested);
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
-  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, ratioStr, fmt} from './engine.js';
-import {quantile, readHashState, writeHashState, encodeHash} from '../assets/series.js';
+  distMedian, effDist, Z90, summariseEstimate, probExceeds, computeSensitivity, traceDraws, ratioStr, fmt} from './engine.js';
+import {readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
 import {mountPour, pourVerdict} from './pour.js';
 import {confess, asciiNum, CAP} from './solve.js';
 import {SEEDS, N, POUR_GRAINS, CF_SEED, CF_N} from './seeds.js';
-import {stretchLabel, shapeLabel, leverHint, leverLine, verdictSentence, shareAbove, evenOdds, invalidNote,
+import {stretchLabel, shapeLabel, leverHint, leverLine, verdictSentence, probText, evenOdds, invalidNote,
   unmeasuredNote, underflowNote, arithmeticSentence, waitingMessage, suffixWarnings, distOverrideNotes,
   estimateMethod, rangeAria, nothingPlausible, cashflowMethod, pctProb} from './words.js';
 import {simulateCashflow} from './cashflow.js';
@@ -244,20 +244,16 @@ function computeScenario(snap, scen){
       if(!isFinite(lo) || !isFinite(hi)) return null;
       ranges[n] = [lo, hi]; dists[n] = st.dist;
     }
-    const {raw, sorted} = simulateModel({ast, varNames: names, ranges, dists}, {seed: SEEDS[scen], n: N});
-    if(raw.length < N * 0.5) return null;
-    return {raw, p10:quantile(sorted, .1), p50:quantile(sorted, .5), p90:quantile(sorted, .9)};
+    const sum = summariseEstimate({ast, varNames: names, ranges, dists}, {seed: SEEDS[scen], n: N});
+    if(sum.raw.length < N * 0.5) return null;
+    return sum;
   }catch(e){ return null; }
 }
 function pBeatsStr(){
   const A = lastBy.A, B = lastBy.B;
   if(!A || !B) return null;
-  const n = Math.min(A.raw.length, B.raw.length);
-  if(!n) return null;
-  let c = 0;
-  for(let i = 0; i < n; i++) if(B.raw[i] > A.raw[i]) c++;
-  const p = c / n;
-  return pctProb(p);
+  const p = probExceeds(B, A);
+  return p === null ? null : pctProb(p);
 }
 function renderCompare(){
   const el = $('cmp');
@@ -296,8 +292,7 @@ function threshValue(){
 function threshPctText(){
   const t = threshValue();
   if(!last || t === null) return '—';
-  const p = shareAbove(last.valid, t);
-  return pctProb(p);
+  return probText(last, t);
 }
 function renderThresh(){ $('tout').textContent = threshPctText(); }
 
@@ -602,16 +597,13 @@ function lint(){
   /* Monte Carlo — reseed so identical models always give identical numbers */
   const dists = Object.create(null);
   for(const name of varNames) dists[name] = varState.get(name).dist;
-  function simulate(pinName, pinValue, n){
-    return simulateModel({ast, varNames, ranges, dists}, {seed: SEEDS[active], n, pinName, pinValue});
-  }
-  const main = simulate(null, 0, N);
+  const main = summariseEstimate({ast, varNames, ranges, dists}, {seed: SEEDS[active], n: N});
   const sorted = main.sorted;
   if(sorted.length < N * 0.5){
     showPlaceholder('More than half the simulated runs produced invalid maths (divide by zero, 0^negative…). Check ranges that cross zero.');
     return;
   }
-  const p10 = quantile(sorted, .10), p50 = quantile(sorted, .50), p90 = quantile(sorted, .90);
+  const {p10, p50, p90, exact} = main;
 
   /* sensitivity as value of information — pure, in ./engine.js (pinned runs at 8k) */
   const {sens, fullRatio, unmeasured} = computeSensitivity({ast, varNames, ranges, dists},
@@ -620,7 +612,7 @@ function lint(){
   const bases = Object.fromEntries(varNames.map(name => [name, normalizeReceipt(varState.get(name)?.base)]).filter(([, base]) => base));
   const rangeTexts = varNames.map(name => ({name, lo: varState.get(name).lo, hi: varState.get(name).hi}));
   const extraNotes = [...suffixWarnings({toks, ranges: rangeTexts, varNames}), ...distOverrideNotes(varNames, ranges, dists)];
-  last = {ast, ranges, dists, bases, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, unmeasured,
+  last = {ast, ranges, dists, bases, varNames, valid: sorted, sorted, exact, p10, p50, p90, sens, fullRatio, unmeasured,
     invalid: N - sorted.length, extraNotes};
   // pour needs at least one ranged driver AND a finite all-medians point estimate to pour FROM
   // (e.g. a / b with b crossing 0 pins to a 0 divisor → no spout); disable with a reason, never a dead button.
@@ -628,7 +620,7 @@ function lint(){
   const baseFinite = isFinite(evalNode(ast, meds));
   $('replay').disabled = !sens.length || !baseFinite;
   $('replay').title = (sens.length && !baseFinite) ? 'This model has no finite point estimate to pour from.' : '';
-  lastBy[active] = {raw: main.raw, p10, p50, p90};
+  lastBy[active] = main;
   if(compareOn){
     const other = active === 'A' ? 'B' : 'A';
     scenStore[active] = snapshot();
@@ -694,7 +686,7 @@ function renderResults(){
   // svg!==lastSvg / fermi's own varRowsSig gate, just for this DOM instead
   // of an SVG string.
   const sigNow = [p10Text, p50Text, p90Text, sayText, spreadText, warnText,
-    receiptSummary(r.varNames), estimateMethod(r.varNames, r.ranges, r.dists, N), cmpSig, sensSig, threshPct].join('¦');
+    receiptSummary(r.varNames), estimateMethod(r.varNames, r.ranges, r.dists, N, !!r.exact), cmpSig, sensSig, threshPct].join('¦');
   if(sigNow === resultsSig){
     $('tout').textContent = threshPct;
     drawHist();
@@ -711,7 +703,7 @@ function renderResults(){
   $('provenance').textContent = 'Input receipts: ' + receiptSummary(r.varNames) +
     '. They describe how each range entered this model, not how certain it is.';
   $('spread').textContent = spreadText;
-  $('estmethod').textContent = estimateMethod(r.varNames, r.ranges, r.dists, N);
+  $('estmethod').textContent = estimateMethod(r.varNames, r.ranges, r.dists, N, !!r.exact);
   const w = $('warn');
   w.textContent = warnText;
   w.style.display = notes.length ? 'block' : 'none';
@@ -1112,7 +1104,7 @@ function runConfession(){
   clearConfession();
   if(!last || threshValue() === null || view !== 'dist' || pageMode !== 'est') return;
   const T = threshValue();
-  if(evenOdds(last.sorted, T)){ lastConfess = {c: 'even', T}; paintConfession(); return; }   // within 2 points of 50%, whatever the spread
+  if(evenOdds(last, T)){ lastConfess = {c: 'even', T}; paintConfession(); return; }   // within 2 points of 50%, whatever the spread
   const model = {ast: last.ast, varNames: last.varNames, ranges: last.ranges, dists: last.dists};
   lastConfess = {c: confess(model, {seed: SEEDS[active], target: T}), T};
   paintConfession();
@@ -1210,7 +1202,7 @@ $('copydoc').addEventListener('click', async () => {
       ' — independently sampled B outputs exceed A in ' + pcmp + '. This is sensitivity analysis, not a chance state.');
   }
   lines.push('');
-  lines.push('_' + estimateMethod(last.varNames, last.ranges, last.dists, N) + ' · [live model](' + location.href + ')_');
+  lines.push('_' + estimateMethod(last.varNames, last.ranges, last.dists, N, !!last.exact) + ' · [live model](' + location.href + ')_');
   const txt = lines.join('\n');
   try{
     await navigator.clipboard.writeText(txt);
