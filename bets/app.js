@@ -33,8 +33,7 @@ import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {STARTER} from './starter.js';
-import {NSIM_TEXT} from './format.js';
-import {verdictCopy} from './engine.js';
+import {NSIM_TEXT, lossText, outcomeText} from './format.js';
 for(const el of document.querySelectorAll('[data-runs]')) el.textContent = NSIM_TEXT;   // the count on the page is the engine's constant
 
 const $ = id => document.getElementById(id);
@@ -154,8 +153,9 @@ function neededModels(){
   if(cur && hasBets(cur.model) && comparisonSafety(cur.model, model).safe) models.push(cur.model);
   return models;
 }
-const announcement = () => (sim && sim.portfolio && model)
-  ? verdictCopy(sim.portfolio, {kill: model.groups.reduce((t, g) => t + g.bets.filter(b => !b.kill).length, 0)}) : '';
+/* what a screen reader hears when the final figures arrive: the portfolio's own two lines, worded as the board words them */
+const announcement = () => (sim && sim.portfolio)
+  ? lossText(sim.portfolio) + ' chance of losing money; ' + outcomeText(sim.portfolio).toLowerCase() : '';
 /* the engine could not solve this document: the structure is the document's, the figures are the last that worked, and nothing is
    exported from them */
 function modelError(message){
