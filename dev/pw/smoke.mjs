@@ -161,10 +161,11 @@ const FLOW_THEMES = ['light'];
 if(!scope.focused){
   scope.unscoped();
   const {page, errors} = await freshPage('/product/');
-  check('landing: /product/ lands on the front door\'s Instruments', new URL(page.url()).pathname === '/' && new URL(page.url()).hash === '#instruments');
+  check('landing: /product/ lands on the front door\'s Instruments', new URL(page.url()).pathname === '/' && new URL(page.url()).hash === '#instruments' && await page.getByRole('tab', {name: /Instruments/}).getAttribute('aria-selected') === 'true');
   const instruments = TOOL_DIRS.filter(d => !BINDERS.includes(d));
-  check('landing: one flagship per job, each with its sketch', await page.locator('a.door-flagship').count() === 5 && await page.locator('a.door-flagship svg.sketch').count() === 5);
-  check('landing: the instruments the page names are all Product tools', (await page.locator('#instruments a').evaluateAll(as => as.map(a => a.getAttribute('href')))).every(h => TOOL_DIRS.includes(h.replaceAll('/', ''))) && instruments.length > 0);
+  await page.locator('.door-rooms.door-ready').waitFor({state: 'attached'});
+  check('landing: every staged tool is a card with its sketch and an Open link (46)', await page.locator('.door-card').count() === 46 && await page.locator('.door-card svg.sketch').count() === 46 && await page.locator('.door-card a.door-open').count() === 46);
+  check('landing: the instruments the page names are all Product tools', (await page.locator('[data-class="instruments"] a.door-open').evaluateAll(as => as.map(a => a.getAttribute('href')))).every(h => TOOL_DIRS.includes(h.replaceAll('/', ''))) && instruments.length > 0);
   const hrefs = await page.locator('main a[href^="/"]').evaluateAll(as => [...new Set(as.map(a => a.getAttribute('href')))]);
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);

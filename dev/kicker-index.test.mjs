@@ -29,11 +29,11 @@ test('energy catalogue numbers every instrument once in the canonical order', ()
   assert.deepEqual(rows.map(m=>[m[1],m[2]]),Object.entries(ENERGY_INSTRUMENTS));
 });
 
-test('home carries each binder as the flagship of its own job, never a numbered card', () => {
+test('home carries each binder as the first card of its own job, never a numbered card', () => {
   const home = read('home/index.html');
   for(const b of BINDERS){
-    assert.match(home, new RegExp('<a class="door-flagship" href="/' + b + '/">'),
-      b + ': home must show the binder as its job\'s flagship');
+    assert.match(home, new RegExp('<a class="door-open" href="/' + b + '/">Open '),
+      b + ': home must show the binder as a card of its own');
     assert.ok(!new RegExp('<a class="tool catalogue-row" href="/' + b + '/">').test(home),
       b + ': a binder must never be a numbered instrument card');
   }
