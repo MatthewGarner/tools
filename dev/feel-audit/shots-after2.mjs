@@ -78,7 +78,9 @@ try{
       const btn = page.locator(`[data-paths-view="${view}"]`);
       if(!(await btn.isVisible())){ await page.locator('.paths-more-views > summary').click(); await sleep(200); }
       await btn.click(); await waitQuiet(page, {quiet: 500});
-      const p = await pointOn(page, '#preview [data-select-decision]', {nth: 1, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+      let p = await pointOn(page, '#preview [data-select-decision]', {nth: 1, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+      if(!p) p = await pointOn(page, '#preview [data-select-decision]', {nth: 0, resolve: '[data-select-decision],[data-toggle-decision-group]'});
+      if(!p){ console.log('no point on', view); await ctx.close(); continue; }
       await sleep(300);
       const y0 = await page.evaluate(() => scrollY);
       const f = await grab(page, () => page.mouse.click(p.x, p.y), {n: 5, clip: DESK, gap: 30});
