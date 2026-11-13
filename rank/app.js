@@ -371,7 +371,7 @@ $('copydoc').addEventListener('click', async () => {
   say('');
   try{
     await navigator.clipboard.writeText(txt);
-    $('copydoc').textContent = 'Copied — paste into your doc';
+    $('copydoc').textContent = 'Copied';
     clearTimeout(copyTimer); copyTimer = setTimeout(() => { $('copydoc').textContent = 'Copy as markdown'; }, 2000);
   }catch(e){ say('Copy blocked by this browser. The Markdown is in the prompt that opened: copy it from there.'); prompt('Copy this:', txt); }
 });
