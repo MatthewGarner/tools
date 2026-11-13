@@ -116,3 +116,10 @@ test('receiptLabel is explicit about source without certifying authority', () =>
   assert.equal(invalid.question, '');
   assert.equal(invalid.unit, '');
 });
+
+test('an unknown distribution in a link means automatic (FM-28)', () => {
+  const state = unpackScen({f: 'a * b', v: {a: ['10', '40', 'bogus'], b: ['2', '8', 'norm'], c: ['1', '2', 7]}});
+  assert.equal(state.vars.get('a').dist, 'auto');
+  assert.equal(state.vars.get('b').dist, 'norm');
+  assert.equal(state.vars.get('c').dist, 'auto');
+});

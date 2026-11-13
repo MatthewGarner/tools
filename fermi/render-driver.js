@@ -3,7 +3,7 @@
    value-of-information share printed on every leaf edge. Pure: SVG string out,
    colours and text measure from ctx only. */
 import {esc, tint, txt} from '../assets/svg.js';
-import {fmt, sig} from './engine.js';
+import {fmt, ratioStr} from './engine.js';
 import {normalizeReceipt, receiptChipLabel, receiptLabel} from './state.js';
 
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
@@ -68,7 +68,7 @@ export function renderDriverTree(model, ctx){
   /* header */
   s.push(txt(PAD, PAD + 4, 'WHAT DRIVES THE ANSWER' + (scenLabel ? ' — SCENARIO ' + scenLabel : ''),
     10, c.muted, {weight: 600, tracking: 1}));
-  const fullLabel = isFinite(fullRatio) ? '×' + sig(fullRatio, 2) : fmt(p10) + ' – ' + fmt(p90);
+  const fullLabel = isFinite(fullRatio) ? '×' + ratioStr(fullRatio) : fmt(p10) + ' – ' + fmt(p90);
   const headline = !top ? 'Give the inputs ranges to see what drives the spread.'
     : top.share > 0.35
       ? 'Research ' + top.name.replace(/_/g, ' ') + ' first — pinning it cuts the spread from ' +

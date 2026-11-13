@@ -2,17 +2,18 @@
    out, colours/measure from ctx. The fan is undiscounted cumulative cash; NPV
    and IRR are the discounted numbers in the verdict. */
 import {esc, tint, txt, wrapText} from '../assets/svg.js';
-import {fmt, sig} from './engine.js';
+import {fmt} from './engine.js';
+import {pctWhole, pctOne} from './words.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const W = 860, PAD = 26;
 const f1 = n => (Math.round(n * 100) / 100).toString();
-const pctS = v => Math.round(v * 100) + '%';
+const pctS = pctWhole;
 const money = v => (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v));
 
 function periodWord(grain, t){ return grain === 'month' ? 'month ' + t : 'year ' + t; }
 
-const pct1 = v => v == null ? '—' : (v < 0 ? '−' : '') + (Math.abs(v) * 100).toFixed(1) + '%';
+const pct1 = pctOne;
 const dscrF = n => n.toFixed(2);
 
 /* the financing verdict: what gearing does to the EQUITY returns. Levered vs
@@ -63,7 +64,7 @@ export function verdictLines(r){
   const head = 'NPV P50 ' + money(npv.p50) + ' — 90% range ' + money(npv.p10) + ' to ' + money(npv.p90) + '.';
   const bits = ['P(NPV > 0) ' + pctS(npv.pPos)];
   if(irr.p50 !== null){
-    bits.push('IRR P50 ' + pctS(irr.p50) +
+    bits.push('IRR P50 ' + pct1(irr.p50) +
       (irr.undefinedShare > 0 ? ' (undefined in ' + pctS(irr.undefinedShare) + ' of runs)' : ''));
   }
   bits.push(period.neverShare >= 1 ? 'never pays back'

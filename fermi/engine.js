@@ -6,24 +6,64 @@ import {mulberry32, gaussian, quantile} from '../assets/series.js';
 export const SUFFIX = {k: 1e3, m: 1e6, b: 1e9, t: 1e12};
 export const Z90 = 1.6448536;
 
-/* ---------- number formatting (moved verbatim from the inline script) ---------- */
-export function sig(x, n){ return Number(x.toPrecision(n)).toString(); }
+/* ---------- number formatting ---------- */
+/* Round first, then pick the unit, so a value never prints across a boundary
+   ("1000k", "1000M"). A huge value past 999T stays readable in digits, never an exponent. */
+export function sig(x, n){
+  const t = Number(x.toPrecision(n)).toString();
+  const m = t.match(/^(-?)(\d)(?:\.(\d+))?e\+(\d+)$/);
+  if(!m) return t;
+  const digits = m[2] + (m[3] || ''), exp = Number(m[4]);
+  return m[1] + digits + '0'.repeat(Math.max(0, exp + 1 - digits.length));
+}
+const UNITS = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
 export function fmt(v){
   if(!isFinite(v)) return '—';
   if(v < 0) return '−' + fmt(-v);
   if(v === 0) return '0';
-  const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
-  for(const [m, s] of units) if(v >= m) return sig(v / m, 3) + s;
-  if(v >= 1) return sig(v, 3);
-  if(v >= 0.001) return sig(v, 2);
+  if(v >= 1){
+    const r = Number(v.toPrecision(3));
+    for(const [m, s] of UNITS){
+      if(r < m) continue;
+      const u = Number((r / m).toPrecision(3));
+      return (s === 'T' && u >= 1000 ? u.toLocaleString('en-GB') : String(u)) + s;
+    }
+    return String(r);
+  }
+  if(Number(v.toPrecision(2)) >= 0.001) return sig(v, 2);
   return v.toExponential(1);
 }
+/* A spread ratio (P90 / P10, or a factor): one printer on every surface. From x2 up it is
+   two significant figures; below x2 it is the excess over 1 to two significant figures, so
+   x1.05 and x1.029 are not both "x1" and a narrow spread is never doubled. */
+export function ratioStr(r){
+  if(!(r > 1) || r >= 2) return sig(r, 2);
+  const e = Number((r - 1).toPrecision(2));
+  return String(Number((1 + e).toFixed(12)));
+}
 
+/* One number grammar, shared by the formula box and the range boxes. Digits may be grouped
+   by underscores, or by commas in threes (never a decimal comma); one decimal point, a
+   trailing dot is fine. The range boxes also take a sign (ASCII or the page's own minus),
+   an exponent (1e+6) and a one-letter magnitude suffix. */
+const MANTISSA = /^(?:\d+(?:_\d+)*|\d{1,3}(?:,\d{3})+)?(?:\.(?:\d+(?:_\d+)*)?)?$/;
+export function readMantissa(text){
+  if(!/\d/.test(text) || !MANTISSA.test(text)) return NaN;
+  return parseFloat(text.replace(/[,_]/g, ''));
+}
+export function readNumber(s){
+  const m = String(s).trim().match(/^([-−]?)([\d.,_]+)(?:[eE]([-−+]?\d+))?\s*([kKmMbBtT])?$/);
+  if(!m) return null;
+  const base = readMantissa(m[2]);
+  if(!isFinite(base)) return null;
+  const num = m[3] ? parseFloat(m[2].replace(/[,_]/g, '') + 'e' + m[3].replace('−', '-')) : base;
+  const suffix = m[4] || '';
+  const value = (m[1] ? -1 : 1) * num * (SUFFIX[suffix.toLowerCase()] || 1);
+  return isFinite(value) ? {value, suffix} : null;
+}
 export function parseNum(s){
-  s = String(s).trim().replace(/,/g, '');
-  const m = s.match(/^(-?\d*\.?\d+(?:e-?\d+)?)\s*([kKmMbBtT])?$/);
-  if(!m) return NaN;
-  return parseFloat(m[1]) * (SUFFIX[(m[2] || '').toLowerCase()] || 1);
+  const r = readNumber(s);
+  return r ? r.value : NaN;
 }
 
 /* ---------- tokenizer + parser ---------- */
@@ -35,11 +75,11 @@ export function tokenize(src){
     if(/[0-9.]/.test(c)){
       let j = i;
       while(j < src.length && /[0-9._,]/.test(src[j])) j++;
+      const mantissa = readMantissa(src.slice(i, j));
+      if(!isFinite(mantissa)) throw {pos: i, msg: 'that number didn’t parse'};
       let suf = '';
       if(j < src.length && /[kKmMbBtT]/.test(src[j]) && !/[A-Za-z0-9_]/.test(src[j+1] || '')){ suf = src[j]; j++; }
-      const num = parseFloat(src.slice(i, j).replace(/[,_]/g, ''));
-      if(!isFinite(num)) throw {pos: i, msg: 'that number didn’t parse'};
-      toks.push({t: 'num', v: num * (SUFFIX[suf.toLowerCase()] || 1), pos: i});
+      toks.push({t: 'num', v: mantissa * (SUFFIX[suf.toLowerCase()] || 1), pos: i, suf, text: src.slice(i, j)});
       i = j; continue;
     }
     if(/[A-Za-z_]/.test(c)){
@@ -246,7 +286,7 @@ export function computeSensitivity(model, {seed, np = 8000, p10, p90}){
     let share, label;
     if(posSpread && q10 > 0 && fullRatio > 1.0001){
       share = 1 - Math.log(Math.max(q90 / q10, 1.0001)) / Math.log(fullRatio);
-      label = '×' + sig(q90 / q10, 2);
+      label = '×' + ratioStr(q90 / q10);
     } else {
       share = fullRange > 0 ? 1 - (q90 - q10) / fullRange : 0;
       label = fmt(q10) + ' – ' + fmt(q90);

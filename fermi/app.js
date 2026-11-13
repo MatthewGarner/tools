@@ -1,12 +1,13 @@
 /* Formula parsing + Monte Carlo + sensitivity live in ./engine.js (pure, tested);
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
-  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, sig, fmt} from './engine.js';
+  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, ratioStr, sig, fmt} from './engine.js';
 import {quantile, readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
 import {mountPour, pourVerdict} from './pour.js';
 import {confess, asciiNum} from './solve.js';
+import {stretchLabel, shapeLabel} from './words.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -662,7 +663,7 @@ function renderResults(){
     p10Text + ' to ' + p90Text + '.”';
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
   const spreadText = isFinite(ratio)
-    ? 'Spread: ×' + sig(ratio, 2) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
+    ? 'Spread: ×' + ratioStr(ratio) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
     : 'Spread: ' + fmt(r.p90 - r.p10) + ' (P90 − P10)';
   const notes = [];
   if(r.invalid > N * 0.01){
@@ -712,7 +713,7 @@ function renderResults(){
   $('sens').style.display = sens.length > 1 ? 'block' : 'none';
   if(sens.length > 1){
     const top = sens[0];
-    const fullLabel = isFinite(r.fullRatio) ? '×' + sig(r.fullRatio, 2) : fmt(r.p10) + ' – ' + fmt(r.p90);
+    const fullLabel = isFinite(r.fullRatio) ? '×' + ratioStr(r.fullRatio) : fmt(r.p10) + ' – ' + fmt(r.p90);
     $('senshint').textContent = top.share > 0.35
       ? 'Each bar: how much of the spread disappears if you learn that number exactly. Pin ' +
         top.name.replace(/_/g,' ') + ' and the spread drops from ' + fullLabel + ' to ' + top.label + ' — research it first.'
@@ -1033,9 +1034,6 @@ $('replay').addEventListener('click', () => { ensureFreshEstimate(); replay(); }
 let lastConfess = null;   // {c, T} cache so a theme flip repaints without re-solving
 const threshFmt = v => fmt(v).replace(/−/g, '-');   // I-1: ASCII minus so a negative threshold parses back
 const nmOf = n => n.replace(/_/g, ' ');
-const stretchLabel = r => r.kind === 'mult'
-  ? '×' + r.factor.toFixed(1) + ' stretch'
-  : 'shifted ' + (r.delta >= 0 ? '+' : '−') + fmt(Math.abs(r.delta));
 function clearConfession(){
   document.querySelectorAll('.cghost').forEach(el => el.remove());
   const v = $('confessverdict'); v.textContent = ''; v.className = 'confessverdict'; v.hidden = true;
@@ -1162,7 +1160,7 @@ $('copy').addEventListener('click', async () => {
   if(!last) return;
   await flushEstimateHash();
   const txt = ($('estimatequestion').value.trim() ? $('estimatequestion').value.trim() + ' — ' : '') + ($('estimateunit').value.trim() ? 'Results in ' + $('estimateunit').value.trim() + ' — ' : '') + 'P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
-    (last.p10 > 0 ? ' (spread ×' + sig(last.p90 / last.p10, 2) + ')' : '') +
+    (last.p10 > 0 ? ' (spread ×' + ratioStr(last.p90 / last.p10) + ')' : '') +
     ' — ' + $('formula').value + ' — Input receipts: ' + receiptSummary(last.varNames) + ' — ' + location.href;
   try{
     await navigator.clipboard.writeText(txt);
@@ -1182,7 +1180,7 @@ $('copydoc').addEventListener('click', async () => {
   lines.push('**Estimate — `' + $('formula').value.trim() + '`**');
   lines.push('');
   let head = 'P50 ≈ **' + fmt(last.p50) + '** · 90% range ' + fmt(last.p10) + ' – ' + fmt(last.p90);
-  if(last.p10 > 0) head += ' (spread ×' + sig(last.p90 / last.p10, 2) + ')';
+  if(last.p10 > 0) head += ' (spread ×' + ratioStr(last.p90 / last.p10) + ')';
   lines.push(head);
   const t = threshValue();
   if(t !== null) lines.push('P(> ' + fmt(t) + ') = ' + $('tout').textContent);
@@ -1194,7 +1192,7 @@ $('copydoc').addEventListener('click', async () => {
   }
   if(last.sens.length > 1){
     const top = last.sens[0];
-    const fullLabel = isFinite(last.fullRatio) ? '×' + sig(last.fullRatio, 2) : fmt(last.p10) + ' – ' + fmt(last.p90);
+    const fullLabel = isFinite(last.fullRatio) ? '×' + ratioStr(last.fullRatio) : fmt(last.p10) + ' – ' + fmt(last.p90);
     lines.push('');
     lines.push('Biggest lever: ' + top.name.replace(/_/g,' ') +
       ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.');
@@ -1236,7 +1234,7 @@ $('png').addEventListener('click', async () => {
     {text:'ASSUMPTIONS · 90% INPUT RANGES', size:11, weight:600},
     ...result.varNames.map(name => {
       const st = snap.vars.get(name);
-      return {text:name+': '+st.lo+' – '+st.hi+' · '+({logn:'log-normal',norm:'normal',uniform:'uniform'}[effDist(st.dist,Math.min(parseNum(st.lo),parseNum(st.hi)))] || st.dist)+' · '+receiptLabel(st.base),size:12};
+      return {text:name+': '+st.lo+' – '+st.hi+' · '+shapeLabel(st.dist, Math.min(parseNum(st.lo), parseNum(st.hi)))+' · '+receiptLabel(st.base),size:12};
     }),
     {text:'20,000 seeded samples, independent inputs. These ranges are assumptions, not a guarantee of outcomes.', size:11},
   ];
