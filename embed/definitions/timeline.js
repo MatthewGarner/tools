@@ -7,4 +7,5 @@ const v1=sourceDefinition({id:'timeline',title:'Timeline',description:'An editab
   views:{model:{title:'Model',description:'The complete authored model in its native reading view.',controls:['source'],render(s,ctx){const m=parse(s.t),c=context(ctx);c.today=Math.floor(Date.parse(c.today)/86400000);return {svg:render(m,c,null,{edit:false,intent:c.width<600?'live-narrow':'live-wide'}),summary:sourceSummary('Timeline',m,timelineVerdict(m,m.today??c.today).line+' Forecast intervals are supplied estimates.')} ;}}}
 });
 // Version 3: the lane model (minimum rule, conditional on not finished by today), one today, one date and duration printer. Versions 1 and 2 stay frozen as published.
-export const definition={...v1,version:3};
+// Version 4: a live review with no snapshot keeps the chart still (the hint moves to the page's control row); exports keep the line.
+export const definition={...v1,version:4};
