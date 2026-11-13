@@ -117,6 +117,18 @@ function reference(gens, demand){      // slow, obviously-correct: unit-by-unit 
   R.check('SW1', 'pass', 'price/rent/unmet independent of input order', bad.shuffle === 0, `viol=${bad.shuffle}`);
 }
 
+{ // boundary tolerance: demand 4e-15 either side of a step dispatches as the step does (random stacks, every step)
+  const rnd2 = rng(99); let bad = 0, n = 0;
+  for(let t = 0; t < 300; t++){
+    const gens = Array.from({length: 1 + Math.floor(rnd2() * 10)}, (_, i) => G('Q' + i, Math.round(rnd2() * 200) / 10, Math.round(rnd2() * 300 - 40)));
+    let acc = 0;
+    for(const g of [...gens].sort((a, b) => a.cost - b.cost)){ acc += g.capacity;
+      const on = dispatch(gens, acc);
+      for(const d of [acc + 4e-15, acc - 4e-15]){ n++; const r = dispatch(gens, d); if(r.clearingPrice !== on.clearingPrice || r.marginalName !== on.marginalName || r.unmet !== on.unmet) bad++; } }
+  }
+  R.check('B1', 'pass', `demand within float noise of a step prices and dispatches as the step does (${n} probes)`, bad === 0, `viol=${bad}`);
+}
+
 /* ---------- 3. pricing formulae (stack.js) ---------- */
 {
   // CCGT 60%, gas 100p/th, carbon £50, VOM 3. Hand: 100p/th = £1/th; 1 th = 0.0293071 MWh (GCV) -> £34.1215/MWh GCV;

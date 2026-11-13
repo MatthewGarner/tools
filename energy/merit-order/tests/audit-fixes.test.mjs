@@ -145,3 +145,27 @@ test('F-MO-5b: a met demand still shows rent exactly as before', () => {
   assert.match(R.renderStack(st, {colors: {bg:'#fff', card:'#fff', border:'#ccc', ink:'#111', muted:'#777', accent:'#c05621', err:'#b00'}, measure: t => t.length * 7, palette: R.MERIT_PALETTE.light}), /class='rent'/);
   assert.match(R.calloutMath(gens[0], r.perPlant.A, null, true), /rent £200k\/h/);
 });
+
+/* Float coin-toss: a demand within 1e-9 GW of a stack step is ON the step (dispatch's BOUNDARY_EPS). */
+test('boundary: demand 4e-15 either side of a step dispatches exactly as the step does', () => {
+  const gens = [G('A', 10, 10), G('B', 10, 30), G('C', 10, 80)];
+  const on = dispatch(gens, 20);
+  assert.equal(on.marginalName, 'B');
+  for(const d of [20 + 4e-15, 20 - 4e-15, 20 + 9e-10, 20 - 9e-10]){
+    const r = dispatch(gens, d);
+    assert.equal(r.marginalName, 'B', `demand ${d}`);
+    assert.equal(r.clearingPrice, 30, `demand ${d}`);
+    assert.deepEqual(Object.fromEntries(Object.entries(r.perPlant).map(([k, v]) => [k, v.dispatchedMW])), {A: 10, B: 10, C: 0}, `demand ${d}`);
+    assert.equal(r.unmet, 0);
+  }
+  const top = dispatch(gens, 30 + 4e-15);
+  assert.equal(top.unmet, 0, 'on the last step: nothing unmet'); assert.equal(top.marginalName, 'C');
+  assert.equal(dispatch(gens, 4e-15).marginalName, null, 'on the zero step: no demand');
+});
+
+test('boundary: away from every step (more than 1e-9 GW) nothing changes', () => {
+  const gens = [G('A', 10, 10), G('B', 10, 30)];
+  assert.equal(dispatch(gens, 10 + 1e-6).marginalName, 'B');
+  assert.equal(dispatch(gens, 10 - 1e-6).marginalName, 'A');
+  assert.ok(Math.abs(dispatch(gens, 20 + 1e-6).unmet - 1e-6) < 1e-12);
+});

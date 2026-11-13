@@ -513,7 +513,7 @@ const PAGES = {
   /* 156k -> 163k (2026-08-04 interaction reliability): stable callout-focus
      restoration, one owned playback loop, reduced-motion settle and viewport
      clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
-  'energy/intraday/index.html': 180_000,  /* 178k -> 180k (2026-11-13 engine audit): the part-slice re-entry pass, trough/peak clamp, hash validation and merit-order verdict/rent helpers added ~1.8k to this page's load; not trimmed — it is readable code and copy. 166k -> 178k (2026-08-20 P1): the composite export renderer is eager for reliable actions. */
+  'energy/intraday/index.html': 180_500,  /* 180k -> 180.5k (2026-11-13: the dispatch boundary tolerance, ~0.3k, in the shared merit-order engine). 178k -> 180k (2026-11-13 engine audit): the part-slice re-entry pass, trough/peak clamp, hash validation and merit-order verdict/rent helpers added ~1.8k to this page's load; not trimmed — it is readable code and copy. 166k -> 178k (2026-08-20 P1): the composite export renderer is eager for reliable actions. */
   /* 817k -> 878k (2026-08-13 integration): Paths deliberately carries both
      the all-outcomes Brief / Question lens / Conditions renderers and the
      fail-closed exact-world Roadmap projection. These share the evaluator and
