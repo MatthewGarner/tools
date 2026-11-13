@@ -34,7 +34,7 @@ function plan(range, dist){
   return {kind: NORM, a: (lo + hi) / 2, b: (hi - lo) / (2 * Z90)};
 }
 
-export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
+export function simulate(model, {seed = SEED, nsim = NSIM, keepRuns = false} = {}){
   /* mulberry32 and the carried-spare polar normal from assets/series.js, written inline so the
      hot loop pays no closure calls; the stream is the same, draw for draw (tests transcribe it) */
   let state = seed | 0, spare = 0, hasSpare = false;
@@ -115,11 +115,12 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
     b.stake[0] === b.stake[1] && b.payoff[0] === b.payoff[1] && b.odds[0] === b.odds[1] && (b.odds[0] === 0 || b.odds[0] === 100));
   const independent = scoreableCount ? portfolioSummary(portfolio, nsim, certain) : null;
   const shared = scoreableCount ? portfolioSummary(sharedPortfolio, nsim, certain) : null;
-  /* every printed portfolio outcome (both scenarios, the split values) shares ONE step */
+  /* every printed portfolio outcome (both scenarios, the split values) shares ONE step. A and B lie
+     between P10 and P90, so the step is known before the split is decided. */
   if(independent){
-    const values = [];
-    for(const pf of [independent, shared]){ values.push(pf.p10, pf.p50, pf.p90); if(pf.split) values.push(pf.split.lo, pf.split.hi); }
-    independent.step = shared.step = stepFor(values, 10);
+    const step = stepFor([independent.p10, independent.p90, shared.p10, shared.p90], 10);
+    independent.step = shared.step = step;
+    splitFor(independent, step); splitFor(shared, step);
   }
   return {
     bets,
@@ -127,6 +128,7 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
     portfolio: independent,
     scenarios: {declared: 'independent', independent, shared},
     concentration: concentrationOf(live.map(record => record.bet)),
+    ...(keepRuns ? {runs: {independent: portfolio, shared: sharedPortfolio}} : {}),
   };
 }
 
@@ -204,62 +206,53 @@ function threeQuantiles(a){
 }
 
 /* Everything printed from the outcome distribution comes from a handful of order
-   statistics, so the 40,000 runs are partitioned, never fully sorted: P10/P50/P90, the
-   45-55% band (sorted, it is a tenth of the runs) for the empty-stretch test, and the
-   medians of the runs either side of a gap. Reorders `outcomes`. */
+   statistics, so the 40,000 runs are partitioned, never fully sorted. First stage here
+   (P10/P50/P90, loss count, histogram); the split test needs the print step, which depends
+   on P10 and P90 of both scenarios, so it runs after (splitFor). */
 function portfolioSummary(outcomes, nsim, certain){
   let lossRuns = 0;
   for(let i = 0; i < nsim; i++) if(outcomes[i] < 0) lossRuns++;
   const pLoss = lossRuns / nsim;
   const picture = histogram(outcomes.slice(0, Math.min(nsim, HIST_RUNS)));   // a picture: the first runs are plenty
-  const ix = rankIndex(outcomes), n = nsim;
-  const [p10, p50, p90] = rankQuantiles(ix, [[0.1, 0, n], [0.5, 0, n], [0.9, 0, n]]);
-  const split = medianSplitOf(ix, n, p10, p90);
-  return {
-    p10, p50, p90,
-    pLoss, lossRuns, runs: nsim, certain, gapShare: split.share, split: split.split,
-    histogram: picture,
-  };
+  const ix = rankIndex(outcomes);
+  const [p10, p50, p90] = rankQuantiles(ix, [[0.1, 0, nsim], [0.5, 0, nsim], [0.9, 0, nsim]]);
+  const pf = {p10, p50, p90, pLoss, lossRuns, runs: nsim, certain, split: null, splitSpan: 0, histogram: picture};
+  Object.defineProperty(pf, 'ix', {value: ix, enumerable: false});
+  return pf;
 }
 
-/* A median that falls in an empty stretch of the outcome distribution is not a
-   stable figure: which side of the gap it lands on is an accident of the seed.
-   Among the sorted outcomes lying between the 45% and 55% levels, take the widest
-   gap between neighbours as a share of P90 - P10. If it is more than SPLIT_SHARE (2%;
-   smooth portfolios measure under 0.5%, real gaps over 3%),
-   report the median of the runs below the gap and the median of the runs above
-   it (two ordinary quantiles of the same sorted runs). Detection only: no extra draw. */
-export const SPLIT_SHARE = 0.02;
-const BAND_LO = 0.45, BAND_HI = 0.55;
-function bandGap(a, from, to, range){            // a[from..to] sorted
-  let widest = 0, at = -1;
-  for(let i = from; i < to; i++){
-    const gap = a[i + 1] - a[i];
-    if(gap > widest){ widest = gap; at = i; }
-  }
-  return {share: widest / range, at};
+/* A median is split when the runs do not pin it down to the step it is printed at. With n
+   sorted runs x[0..n-1] and d = 1.5 / sqrt(n) (three standard errors of the median's level),
+   lo and hi are the outcomes at levels 0.5 - d and 0.5 + d. If hi - lo is more than three
+   steps, the median is not a stable figure: which side of a gap it lands on is an accident of
+   the seed. The split point is the middle of the widest gap between neighbouring runs lying
+   between lo and hi; A and B are the medians of the runs below and above it. Detection only:
+   no extra draw. */
+const SPLIT_D = 1.5, SPLIT_STEPS = 3;
+const splitIndices = n => { const d = SPLIT_D / Math.sqrt(n); return {d, ilo: Math.round((0.5 - d) * (n - 1)), ihi: Math.round((0.5 + d) * (n - 1))}; };
+function widestCentralGap(x, ilo, ihi){            // x(r): sorted value at position r
+  let at = ilo, widest = -1;
+  for(let r = ilo; r < ihi; r++){ const gap = x(r + 1) - x(r); if(gap > widest){ widest = gap; at = r; } }
+  return at;
 }
-/* on an already-sorted array (the definition, kept for tests) */
-export function widestGap(sorted, p10, p90){
-  const n = sorted.length, range = p90 - p10;
-  if(n < 3 || !(range > 0)) return {share: 0, at: -1};
-  return bandGap(sorted, Math.floor(BAND_LO * (n - 1)), Math.ceil(BAND_HI * (n - 1)), range);
+/* on an already-sorted array: the definition, used by tests and the harness */
+export function medianSplitTest(sorted, step){
+  const n = sorted.length, {d, ilo, ihi} = splitIndices(n);
+  const lo = sorted[ilo], hi = sorted[ihi], span = (hi - lo) / step;
+  if(!(hi - lo > SPLIT_STEPS * step)) return {d, lo, hi, span, split: null, point: null};
+  const at = widestCentralGap(r => sorted[r], ilo, ihi);
+  return {d, lo, hi, span, point: (sorted[at] + sorted[at + 1]) / 2,
+    split: {lo: quantile(sorted.slice(0, at + 1), 0.5), hi: quantile(sorted.slice(at + 1), 0.5)}};
 }
-export function medianSplit(sorted, p10, p90){
-  const {share, at} = widestGap(sorted, p10, p90);
-  if(!(share > SPLIT_SHARE)) return null;
-  return {lo: quantile(sorted.slice(0, at + 1), 0.5), hi: quantile(sorted.slice(at + 1), 0.5)};
-}
-/* the same answer from unsorted runs, by rank index (see portfolioSummary) */
-function medianSplitOf(ix, n, p10, p90){
-  const range = p90 - p10;
-  if(n < 3 || !(range > 0)) return {share: 0, split: null};
-  const from = Math.floor(BAND_LO * (n - 1)), to = Math.ceil(BAND_HI * (n - 1));
-  const band = sortedRange(ix, from, to);
-  const {share, at: i} = bandGap(band, 0, band.length - 1, range), at = i + from;
-  if(!(share > SPLIT_SHARE)) return {share, split: null};
-  const [lo, hi] = rankQuantiles(ix, [[0.5, 0, at + 1], [0.5, at + 1, n - at - 1]]);
-  return {share, split: {lo, hi}};
+/* the same answer from unsorted runs, sorting only the central window */
+function splitFor(pf, step){
+  const n = pf.runs, ix = pf.ix, {ilo, ihi} = splitIndices(n);
+  const win = sortedRange(ix, ilo, ihi), lo = win[0], hi = win[ihi - ilo];
+  pf.splitSpan = (hi - lo) / step;
+  if(!(hi - lo > SPLIT_STEPS * step)) return;
+  const at = widestCentralGap(r => win[r - ilo], ilo, ihi);
+  const [a, b] = rankQuantiles(ix, [[0.5, 0, at + 1], [0.5, at + 1, n - at - 1]]);
+  pf.split = {lo: a, hi: b};
 }
 
 function auditsFor(bet, ev){

@@ -183,14 +183,14 @@ for(const ex of EXAMPLES){
     check('N4 Lantern: the sign of the printed independent "MEDIAN OUTCOME" does not depend on the seed (a reader takes +/- as the message)', neg === 0 || pos === 0, `${pos} seeds print +, ${neg} print -, range ${Math.min(...printed)}..${Math.max(...printed)}`, {known: neg > 0 && pos > 0});
     const shm = runs.map(r => int(r.scenarios.shared.p50));
     const splits = runs.map(r => r.scenarios.shared.split), found = splits.filter(Boolean), missed = splits.length - found.length;
-    check('N5 Lantern: the Shared-outcome stress median sits in an empty gap, so every one of 200 seeds prints it as a split ("P50 A or B"), never as a single point (BT-1; threshold 2% of P90-P10)', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`, {known: missed > 0 && missed <= 80 && 'the 2% threshold was measured at 4,000 runs; at 40,000 runs the gap in the 45-55% band narrows (median 2.5%, minimum 1.2% on Lantern), so about a quarter of seeds print a single point; the owner may lower it (smooth portfolios stay under 0.3%). Bounded: more than 80 misses fails'});
+    check('N5 Lantern: the Shared-outcome stress median does not pin down to its print step, so every one of 200 seeds prints it as a split ("P50 A or B"), never as a single point (BT-1: hi - lo > 3 steps at levels 0.5 +- 1.5/sqrt(n))', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`);
     const first40 = found.slice(0, 40), sdA = sd(first40.map(x => x.lo)), sdB = sd(first40.map(x => x.hi));
     check('N5b Lantern: A and B (the medians of the runs below and above the gap) each have a seed-to-seed sd of at most half the shared printed step, over the first 40 split seeds', sdA <= .5 * e.scenarios.shared.step && sdB <= .5 * e.scenarios.shared.step, `sd A ${sdA.toFixed(2)}, sd B ${sdB.toFixed(2)} units against a step of ${e.scenarios.shared.step} (A ${Math.min(...first40.map(x => x.lo)).toFixed(0)}..${Math.max(...first40.map(x => x.lo)).toFixed(0)}, B ${Math.min(...first40.map(x => x.hi)).toFixed(0)}..${Math.max(...first40.map(x => x.hi)).toFixed(0)}); B is the median of about 2000 runs of a wide upper cluster`, {known: (sdA > .5 * e.scenarios.shared.step || sdB > .5 * e.scenarios.shared.step) && sdB < 25 && RUNS});
     const sy = parse(STARTER), syRuns = SEEDS.slice(0, 40).map(seed => simulate(sy, {seed}).portfolio.split);
     const syA = sd(syRuns.map(x => x.lo)), syB = sd(syRuns.map(x => x.hi));
     const syStep = simulate(sy).portfolio.step;
     check('N5c Start your own: A and B each have a seed-to-seed sd of at most half the shared printed step, over 40 seeds, and every seed splits', syRuns.every(Boolean) && syA <= .5 * syStep && syB <= .5 * syStep, `sd A ${syA.toFixed(2)}, sd B ${syB.toFixed(2)} units against a step of ${syStep}`, {known: syRuns.every(Boolean) && (syA > .5 * syStep || syB > .5 * syStep) && syB < 25 && RUNS});
-    check('N5d Lantern: A and B stay in their measured neighbourhood (A -400..-300, B 200..400), so a regression in the detector cannot hide behind N5b', found.every(x => x.lo > -400 && x.lo < -300 && x.hi > 200 && x.hi < 400), `A ${Math.min(...found.map(x => x.lo)).toFixed(0)}..${Math.max(...found.map(x => x.lo)).toFixed(0)}, B ${Math.min(...found.map(x => x.hi)).toFixed(0)}..${Math.max(...found.map(x => x.hi)).toFixed(0)}`);
+    check('N5d Lantern: A and B stay in their measured neighbourhood (A -400..-300, B 200..400)', found.every(x => x.lo > -400 && x.lo < -300 && x.hi > 200 && x.hi < 400), `A ${Math.min(...found.map(x => x.lo)).toFixed(0)}..${Math.max(...found.map(x => x.lo)).toFixed(0)}, B ${Math.min(...found.map(x => x.hi)).toFixed(0)}..${Math.max(...found.map(x => x.hi)).toFixed(0)}`);
     const plp = runs.map(r => pct(r.portfolio.pLoss));
     console.log(`   info: Lantern printed P(loses money) across 200 seeds: ${Math.min(...plp)}%..${Math.max(...plp)}% (reference ${(100 * ref.ind.pLoss).toFixed(2)}%)`);
   }
@@ -206,10 +206,10 @@ for(const ex of EXAMPLES){
   check('N1e Article embed (Reading portfolio): per-bet EV P10/P50/P90 seed-to-seed sd (40 seeds) is at most half the bet\'s printed step', worst[1] / worst[2] <= .5, `worst ${worst[0]} sd ${worst[1].toFixed(3)} = ${(worst[1] / worst[2]).toFixed(2)} steps of ${worst[2]}`, {known: worst[1] / worst[2] > .5 && worst[1] / worst[2] < 6 && RUNS});
 }
 
-// BT-1 margin: the split threshold (2% of P90-P10) against smooth distributions
+// BT-1 rule check on a random population: calm scenarios never split, unstable ones always (or nearly) do
 {
   const u = rng(123456789), rr = (a, b) => a + (b - a) * u();
-  const worst = [];
+  const cells = {}; let calmSplit = 0, calm = 0, unstable = 0, unstableSplit = 0, mid = 0, midSplit = 0;
   for(let k = 0; k < 200; k++){
     const nb = 5 + Math.floor(u() * 5); let src = 'G\n';
     for(let i = 0; i < nb; i++){
@@ -217,10 +217,16 @@ for(const ex of EXAMPLES){
       const odds = u() < .5 ? [ol, oh] : [100 - oh, 100 - ol];
       src += `  B${i}: stake ${sl.toFixed(0)}-${sh.toFixed(0)}, odds ${odds[0].toFixed(0)}-${odds[1].toFixed(0)}%, payoff ${pl.toFixed(0)}-${ph.toFixed(0)}\n`;
     }
-    const e = simulate(parse(src)); worst.push(Math.max(e.portfolio.gapShare, e.scenarios.shared.gapShare));
+    const m = parse(src), runs = SEEDS.slice(0, 8).map(seed => simulate(m, {seed}));
+    for(const pick of [e => e.portfolio, e => e.scenarios.shared]){
+      const pfs = runs.map(pick), step = pfs[0].step, spread = sd(pfs.map(p => p.p50)) / step, nsplit = pfs.filter(p => p.split).length;
+      if(spread < .25){ calm++; if(nsplit) calmSplit++; }
+      if(spread > 1){ unstable++; if(nsplit >= 6) unstableSplit++; }
+      if(spread > .5 && spread <= 1){ mid++; if(nsplit >= 6) midSplit++; }
+    }
   }
-  const max = Math.max(...worst);
-  check('N6 BT-1 margin: on 200 smooth random portfolios (5-9 ranged bets, odds away from 50%) the widest neighbour gap between the 45% and 55% levels never exceeds 1% of P90-P10, well under the 2% split threshold', max < .01, `max ${(100 * max).toFixed(2)}% (median ${(100 * worst.slice().sort((a, b) => a - b)[100]).toFixed(2)}%); built-ins: Lantern independent ${(100 * simulate(parse(EXAMPLES[0].src)).portfolio.gapShare).toFixed(2)}%, Lantern shared ${(100 * simulate(parse(EXAMPLES[0].src)).scenarios.shared.gapShare).toFixed(1)}%, Quick ${(100 * simulate(parse(EXAMPLES[1].src)).scenarios.shared.gapShare).toFixed(2)}%`);
+  check('N6 BT-1 rule on 200 random portfolios (both scenarios, 8 seeds each): no calm scenario (seed sd of the single-point P50 under a quarter step) ever splits', calmSplit === 0, `${calm} calm scenarios, ${calmSplit} split; ${unstable} scenarios with sd over one step, ${unstableSplit} of them split on at least 6 of 8 seeds; ${mid} with sd between half a step and one, ${midSplit} of them split on at least 6 of 8`);
+  check('N6b BT-1 rule: scenarios whose single-point P50 sd is over one step split on at least 6 of 8 seeds', unstableSplit === unstable, `${unstableSplit} of ${unstable}`);
 }
 
 // =============================================================================================

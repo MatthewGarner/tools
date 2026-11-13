@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parse} from '../parse.js';
-import {simulate, markdown, medianSplit} from '../engine.js';
+import {simulate, markdown} from '../engine.js';
 import {renderBoard} from '../render.js';
 import {renderQuadrant} from '../render-quadrant.js';
 import {renderBetsPresentation} from '../render-presentation.js';
@@ -51,22 +51,8 @@ test('BT-1 a smooth distribution is not split, in either scenario', () => {
   const s = simulate(m);
   assert.equal(s.portfolio.split, null);
   assert.equal(s.scenarios.shared.split, null);
-  assert.ok(s.portfolio.gapShare < 0.01 && s.scenarios.shared.gapShare < 0.01, 'smooth: the widest 45-55% gap is under 1% of P90 - P10');
+  assert.ok(s.portfolio.splitSpan <= 3 && s.scenarios.shared.splitSpan <= 3, 'smooth: the runs pin the median down to within three steps');
   assert.doesNotMatch(text(renderBoard(m, s, CTX)), / or [−+]\d/);
-});
-
-test('BT-1 the two printed values are the medians of the runs below and above the gap', () => {
-  const low = Array.from({length: 2000}, (_, i) => -300 + i * 0.01), high = Array.from({length: 2000}, (_, i) => 100 + i * 0.5);
-  const sorted = [...low, ...high];                       // gap -280 .. 100 sits exactly at the 50% level
-  const sp = medianSplit(sorted, -295, 900);
-  assert.ok(Math.abs(sp.lo - (-300 + 999.5 * 0.01)) < 1e-9, 'median of the lower cluster, not its top edge (' + sp.lo + ')');
-  assert.ok(Math.abs(sp.hi - (100 + 999.5 * 0.5)) < 1e-9, 'median of the upper cluster, not its bottom edge (' + sp.hi + ')');
-});
-test('BT-1 a gap of 2.5% of P90 - P10 splits; 1.5% does not', () => {
-  const mk = gap => [...Array.from({length: 2000}, (_, i) => i * 0.001), ...Array.from({length: 2000}, (_, i) => 2 + gap + i * 0.001)];
-  const range = 1000;                                      // P90 - P10 as passed in
-  assert.ok(medianSplit(mk(0.025 * range), 0, range));
-  assert.equal(medianSplit(mk(0.015 * range), 0, range), null);
 });
 
 /* ---------- BT-5: chance of a loss, counted from the runs ---------- */
