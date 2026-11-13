@@ -62,6 +62,7 @@ export const FR_KNOWN = [
   ['f.cf.example.feedback', 'FF-18 left: as above'],
   ['f.cf.example.longtask', 'FF-18 left: as above'],
   ['f.cf.debt.longtask', 'FF-18 left: the debt sizing and its simulation'],
+  ['r.slider.page@rank/phone/normal/webkit', 'WebKit phone only, intermittent (about 1 run in 3, only in a full run): a full re-render lands mid-drag and the page shifts 21px; not reproduced alone or in a 2.4 s drag, cause not found'],
   ['f.menu.escape', SHARED + ' (FF-21: the Method disclosure)'],
   ['f.menu.outside', SHARED + ' (FF-21: the Method disclosure)'],
   ['f.controls.focus', SHARED + ' (FF-26: the verdict Copy chip ring, assets/page.css)'],

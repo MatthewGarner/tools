@@ -129,7 +129,10 @@ async function checkSvg(page, add, ctx, file, {liveSvg, theme, man, tool, doc, d
   if(liveSvg && !id.includes('receipt') && !id.startsWith('agenda') && !id.startsWith('closeout')){
     const exportWords = new Set(words(svgTexts(svg).join(' ')));
     const liveWords = words(svgTexts(liveSvg).filter(t => t !== '⋯' && t !== '+').join(' '));
-    const missing = [...new Set(liveWords.filter(w => !exportWords.has(w)))];
+    /* a word the live view cut short ("customers_…") is mirrored by the longer word it stands for, whatever face each is set in */
+    const cutPrefixes = [...new Set(svgTexts(liveSvg).flatMap(t => t.split(/\s+/)).filter(w => /…$/.test(w)).map(w => w.replace(/[^\p{L}\p{N}]+$/gu, '')))];
+    const exportList = [...exportWords];
+    const missing = [...new Set(liveWords.filter(w => !exportWords.has(w) && !(cutPrefixes.includes(w) && exportList.some(e => e.startsWith(w)))))];
     add(ctx, 'svg:mirrors-live-words', missing.length === 0, {missing: missing.slice(0, 30), count: missing.length}, 'every word drawn in the live view is in the export (wrapping may differ)');
   }
   /* Fermi: the driver tree is headed by the question (XF-14); a comparison export describes both variants (XF-7) */

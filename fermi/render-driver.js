@@ -122,7 +122,7 @@ export function renderDriverTree(model, ctx){
           (isTop ? tint(c.accent) : c.card) + '" stroke="' + (isTop ? c.accent : c.border) + '"/>');
         const shownName = fit(nd.n.name, capW - 26, '600 12px ' + MONO, measure);
         let nameText = txt(PAD + 13, nd.y - 10, shownName, 12, c.ink, {weight: 600, mono: monoAttr});
-        if(shownName !== nd.n.name) nameText = nameText.replace(/<\/text>$/, '<title>' + esc(nd.n.name) + '</title></text>');   // a cut name keeps its full text
+        if(shownName !== nd.n.name) nameText = nameText.replace(/<\/text>$/, ' <title>' + esc(nd.n.name) + '</title></text>');   // a cut name keeps its full text
         s.push(nameText);
         s.push(txt(PAD + 13, nd.y + 5, rangeText(ranges[nd.n.name]), 11, isTop ? c.ink : c.muted));   /* on the highlighted card muted ink is under 4.5:1 */
         const receipt = receiptChipLabel(baseFor(nd.n.name));
