@@ -126,7 +126,7 @@ function refPrice(gens, d){            // independent unit-by-unit reference
   return price;
 }
 {
-  let boundaryHours = 0;
+  let boundaryHours = 0, coinToss = 0;
   const bad = {reclear: 0, slice: 0, ident: 0, nonneg: 0, planned: 0, dropped: 0, net: 0};
   let n = 0;
   for(let t = 0; t < 120; t++){
@@ -135,11 +135,11 @@ function refPrice(gens, d){            // independent unit-by-unit reference
     for(let h = 0; h < 24; h++){
       const net = D.demandAt(h, p) + r.sched.charge[h] - r.sched.discharge[h];
       if(!near(net, r.flat.hours[h].demand, 1e-9)) bad.net++;
-      { // a net demand within 1e-9 GW of a step boundary is a float coin-toss in dispatch (4e-15 GW above 29.64 reads as the next plant): counted, not failed
+      { // a net demand within 1e-9 GW of a step IS on the step (dispatch's BOUNDARY_EPS): no float coin-toss
         const st = [...D.hourStack(p, h)].sort((a, b) => a.cost - b.cost); let acc = 0, onEdge = false;
         for(const g of st){ acc += g.capacity; if(Math.abs(net - acc) < 1e-9) onEdge = true; }
         if(onEdge) boundaryHours++;
-        else if(!near(refPrice(D.hourStack(p, h), net), r.flat.prices[h], 1e-9)) bad.reclear++;
+        if(!near(refPrice(D.hourStack(p, h), net), r.flat.prices[h], 1e-9)){ bad.reclear++; if(onEdge) coinToss++; }
       }
       if(!near(refPrice(D.hourStack(p, h), D.demandAt(h, p)), r.raw.prices[h], 1e-9)) bad.reclear++;
     }
@@ -157,7 +157,7 @@ function refPrice(gens, d){            // independent unit-by-unit reference
     if(r.sched.charge.some(v => v > p.fleetGW + 1e-9) || r.sched.discharge.some(v => v > p.fleetGW + 1e-9)) bad.slice++;
   }
   R.check('RD1', 'pass', `runDay: net demand = demand + charge - discharge; every hour re-clears to an independent reference price (${n} days)`, bad.net === 0 && bad.reclear === 0, `net viol=${bad.net} reclear viol=${bad.reclear}`);
-  R.info('RD1', 'hours whose net demand sits within 1e-9 GW of a stack step (float-sensitive price)', `${boundaryHours} of ${n * 24}`);
+  R.check('RD1', 'pass', 'no float coin-toss: every hour whose net demand sits within 1e-9 GW of a stack step prices as the step does', coinToss === 0, `${coinToss} flipped of ${boundaryHours} edge hours in ${n * 24}`);
   R.check('RD1', 'pass', 'runDay: achieved/planned margin identities, dischargedGWh, droppedGWh >= 0', bad.ident === 0 && bad.dropped === 0, `ident=${bad.ident} dropped=${bad.dropped}`);
   R.check('RD1', 'pass', 'runDay: achievedMargin >= 0; never exceeds plannedMargin (verdict "keeps X of Y" stays X<=Y)', bad.nonneg === 0 && bad.planned === 0, `nonneg=${bad.nonneg} X>Y=${bad.planned}`);
   R.check('RD1', 'pass', 'runDay: SoC within [0,cap], empty at close, power within fleetGW after back-off', bad.slice === 0, `viol=${bad.slice}`);

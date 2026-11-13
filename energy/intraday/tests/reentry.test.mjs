@@ -5,6 +5,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DAY_DEFAULTS, runDay, rawDay, greedySchedule, scheduleFromPairs, clearDay, demandAt} from '../day.js';
 import {buildDayVerdict} from '../render-day.js';
+import {hourStack} from '../day.js';
+import {dispatch} from '../../merit-order/engine.js';
 
 const GAS185 = {...DAY_DEFAULTS, trough: 29, peak: 35, solarPeak: 3, gas: 185, carbon: 30};
 const netOf = (p, s) => Array.from({length: 24}, (_, h) => demandAt(h, p) + s.charge[h] - s.discharge[h]);
@@ -89,4 +91,18 @@ test('F-ID-1b: "thinner than the round-trip loss" survives when the plan itself 
   assert.equal(r.dischargedGWh, 0);
   assert.equal(r.droppedGWh, 0, 'the plan is empty too');
   assert.match(buildDayVerdict(r, p), /thinner than the round-trip loss/);
+});
+
+test('float coin-toss: net demand 4e-15 GW above the 29.64 GW step clears at £80, not the next plant', () => {
+  // default-style day, 10:00 stack: the step at 29.64 GW is the end of the £80 block (Imports)
+  const p = {...DAY_DEFAULTS, trough: 26, peak: 39, solarPeak: 8, gas: 100, carbon: 55, rte: 1};
+  const stack = hourStack(p, 21);
+  const sorted = [...stack].sort((a, b) => a.cost - b.cost);
+  let acc = 0, step = null;
+  for(const g of sorted){ acc += g.capacity; if(Math.abs(acc - 29.64) < 1e-9) step = acc; }
+  assert.ok(step !== null, 'the 21:00 stack has a step at 29.64 GW');
+  const at = dispatch(stack, 29.64), above = dispatch(stack, step + 4e-15);
+  assert.equal(at.clearingPrice, 80);
+  assert.equal(above.clearingPrice, 80, `got £${above.clearingPrice}`);
+  assert.equal(above.marginalName, at.marginalName);
 });
