@@ -14,6 +14,7 @@ import {registry, KNOWN} from './checks.mjs';
 import * as S from './scenarios.mjs';
 import * as D from './disclosures.mjs';
 import {controls} from './controls.mjs';
+import {FR_PLAN, FR_WEBKIT, FR_KNOWN} from './plan-fermi-rank.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : dflt; };
@@ -51,9 +52,11 @@ const PLAN = [
   ['disclosures', ['roadmap', 'timeline'], N, async (e, t) => { for(const k of ['desktop', 'phone']) await D.disclosures(e, t, k); }],
   ['controls', ['roadmap', 'timeline'], N, async (e, t) => { for(const k of ['desktop', 'phone']) await controls(e, t, k); }],
   ['zoom', ['roadmap', 'timeline'], N, async (e, t) => { for(const k of ['desktop', 'phone']) await S.zoom(e, t, k); }],
+  ...FR_PLAN,
 ];
 /* WebKit has no CDP throttling, touch CDP or clipboard permission: the core interactions only */
-const WEBKIT_PLAN = new Set(['load', 'views', 'rail', 'type', 'menu', 'eip', 'theme']);
+const WEBKIT_PLAN = new Set(['load', 'views', 'rail', 'type', 'menu', 'eip', 'theme', ...FR_WEBKIT]);
+FR_KNOWN.forEach(k => KNOWN.add(k));
 
 const R = registry();
 const server = await startServer();
