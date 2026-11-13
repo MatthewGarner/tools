@@ -48,7 +48,7 @@
 <!-- identity:header:end -->
 <div class="wrap">
   <header data-tool-header data-shell>
-    <p class="kicker" id="kicker"></p>
+    <p class="kicker" id="kicker"><span class="num"><span class="kw">Instrument </span>01</span> — The plan as an artefact</p>
     <!-- shell:start -->
     <div class="tool-titlerow" data-shell-row>
       <h1>Roadmap</h1>
@@ -75,7 +75,7 @@
 </div>
 
 <main id="main" tabindex="-1">
-<div class="workspace" id="workspace">
+<div class="workspace collapsed" id="workspace" data-workspace-view="collapsed">
     <aside class="rail">
       <div id="cmhost" aria-label="Roadmap source editor"></div>
       <div class="importbox" id="importbox">
@@ -144,7 +144,7 @@
         </dl>
       </details>
     </aside>
-    <button class="railtab" id="railtab" aria-label="Edit roadmap source">Edit roadmap source</button>
+    <button class="railtab" id="railtab" aria-label="Edit roadmap source" title="Edit roadmap source" aria-expanded="false" aria-controls="cmhost">Edit roadmap source</button>
     <section class="stage">
       <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
         <p class="handoff-copy"><strong id="handofftitle">Delivery projection from Paths</strong><small>This is a separate Roadmap. Edits here do not update Paths.</small></p>
@@ -180,8 +180,8 @@
         <select class="ctl" id="boardjump" aria-label="Jump Board window to horizon"></select>
         <button class="btn board-step" id="boardnext" type="button" aria-label="Next Board horizons" title="Next Board horizons">›</button>
       </div>
-      <p id="fontstatus" role="status"><span id="fontmessage">Loading roadmap typography…</span> <button class="btn" id="retryfonts" type="button">Retry fonts</button></p>
-      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <p id="fontstatus" role="status" hidden><span id="fontmessage">Loading roadmap typography…</span> <button class="btn" id="retryfonts" type="button">Retry fonts</button></p>
+      <div class="preview" id="preview"><p class="placeholder" data-boot>Start typing — or load an example.</p></div>
       <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
       </div>

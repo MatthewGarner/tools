@@ -47,7 +47,7 @@
 <!-- identity:header:end -->
 <div class="wrap">
   <header data-tool-header data-shell>
-    <p class="kicker" id="kicker"></p>
+    <p class="kicker" id="kicker"><span class="num"><span class="kw">Instrument </span>02</span> — Ranges, not promises</p>
     <!-- shell:start -->
     <div class="tool-titlerow" data-shell-row>
       <h1>Timeline</h1>
@@ -77,7 +77,7 @@
   <button class="btn" id="exportdeck" type="button" data-icon="download">Export deck</button>
   <button class="btn" id="editsource" type="button" data-icon="edit">Edit source</button>
 </div></div>
-<div class="workspace" id="workspace">
+<div class="workspace collapsed" id="workspace" data-workspace-view="collapsed">
     <aside class="rail">
       <div id="cmhost" aria-label="Timeline source editor"></div>
       <ul id="warns"></ul>
@@ -117,7 +117,7 @@
         </dl>
       </details>
     </aside>
-    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <button class="railtab" id="railtab" aria-label="Show source editor" title="Show source editor" aria-expanded="false" aria-controls="cmhost">Source</button>
     <section class="stage">
       <div class="observatory-settings">
         <div class="stylepick segmented" id="stylepicker" role="group" aria-label="Timeline view">
@@ -129,9 +129,9 @@
           <label>Accent <input id="accentchoice" type="color" value="#326752"></label>
         </div></details>
       </div>
-      <p id="fontstatus" role="status"><span id="fontmessage">Loading typography…</span> <button class="btn" id="retryfonts" type="button">Retry</button></p>
+      <p id="fontstatus" role="status" hidden><span id="fontmessage">Loading typography…</span> <button class="btn" id="retryfonts" type="button">Retry</button></p>
       <div class="observatory-body" id="observatorybody">
-        <div class="preview" id="preview" data-capability="views.field"><p class="placeholder">Start typing — or load an example.</p></div>
+        <div class="preview" id="preview" data-capability="views.field"><p class="placeholder" data-boot>Start typing — or load an example.</p></div>
         <aside class="milestone-inspector" id="inspector" aria-labelledby="inspecttitle" hidden></aside>
       </div>
       <div class="actions">

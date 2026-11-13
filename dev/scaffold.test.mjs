@@ -57,9 +57,13 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
   for(const dir of numbered){
     const html = read(dir + '/index.html');
     if(dir==='timeline')assert.match(html, /data-visual-family="observatory"/);
-    assert.match(html, /<p class="kicker" id="kicker"><\/p>/,
-      dir + ': missing the .kicker slot above its h1');
+    /* The slot is empty and painted by app.js, or it carries that same text in the static HTML (so it is there in the first
+       paint); the numeral in the HTML must be the canonical one, since app.js repaints over it. */
+    const slot = /<p class="kicker" id="kicker">(<span class="num"><span class="kw">Instrument <\/span>(\d\d)<\/span> — ([^<]+))?<\/p>/.exec(html);
+    assert.ok(slot, dir + ': missing the .kicker slot above its h1');
+    if(slot[2]) assert.equal(slot[2], INSTRUMENTS[dir], dir + ': the static kicker numeral must be the canonical instrument number');
     const js = read(dir + '/app.js');
+    if(slot[3]) assert.ok(js.includes("'" + slot[3] + "'"), dir + ': the static kicker words must be the ones app.js paints');
     const call = new RegExp("paintKicker\\(\\$?\\(?['\"]?kicker['\"]?\\)?,\\s*'(\\d\\d)'");
     const m = call.exec(js);
     assert.ok(m, dir + ': app.js never calls paintKicker with a two-digit number');

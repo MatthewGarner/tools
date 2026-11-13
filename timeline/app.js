@@ -22,7 +22,7 @@ import {stripEmbeddedFonts} from '../assets/chapter-fonts.js';
 import {createSlideZip} from '../assets/export-zip.js';
 import {inspectorHTML} from './inspector.js';
 import {mountActionIcons} from '../assets/action-icons.js';
-import {wireExports} from '../assets/exports.js';
+import {wireExports, flashButton} from '../assets/exports.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -82,6 +82,7 @@ let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
 let selectedKey = null, selectedLine = null, inspectorEditing = false, selectionOrigin = null;
 let deckCache = null;
+let lastWidth = 0, pendingFocus = null;   // lastWidth: the width the artefact was last drawn at; pendingFocus: what to focus once the next render lands
 
 function currentDiff(){
   const cur = snaps && snaps.current();
@@ -94,6 +95,13 @@ function ctx(intent){
 function activeRender(intent, edit = false, width, dark){
   return render(model, {...ctx(intent),...(width?{width}:{}),...(dark!==undefined?{dark}:{})}, currentDiff(), {edit,intent});
 }
+/* focus asked for by a handler that cannot know when the render lands: applied right after it, once */
+function restorePending(){
+  if(!pendingFocus) return;
+  const want = pendingFocus; pendingFocus = null;
+  const el = want();
+  if(el) el.focus({preventScroll: true});
+}
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
 }
@@ -104,15 +112,19 @@ function doRefresh(){
   /* Empty is a first-class Field: it carries the keyboard add route and the
      same native/presentation export boundary as a populated forecast. */
   if(!chapterFontsReady()) return;
-  const width=Math.max(280, Math.round(pv.getBoundingClientRect().width)),intent=width<600?'live-narrow':'live-wide';
+  const measured=Math.round(pv.getBoundingClientRect().width),width=Math.max(280, measured),intent=width<600?'live-narrow':'live-wide';
+  lastWidth=measured;   // drawn at this width: the resize observer below must not draw it again
   const svg = activeRender(intent,true,width);
-  paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
+  /* no FLIP: only the P50 circles and the today line carried a data-mskey, so edits and view switches moved a few marks
+     while the rest cut. A view switch cross-fades; everything else repaints in place. */
+  paint(svg, REVEAL, {scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
   lastSvg = svg;
   motionOverride = undefined;
   renderWarnings();
   deckCache = null;
   syncSettings();
   syncInspector();
+  restorePending();
   $('readout').textContent = timelineReadout(model, effToday());
   setActionsEnabled(!!lastSvg);
   $('exportdeck').disabled = !model.items.length;
@@ -123,10 +135,13 @@ function doRefresh(){
   hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
+const typed = debounced(refresh, 120);
+/* a discrete edit (a commit, a menu pick, a view) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ typed.cancel(); refresh(); }
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange: debounced(refresh, 120),
+  onChange: typed,
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function modelLinkState(){
@@ -151,7 +166,7 @@ ws = initWorkspace({
   preview: $('preview'), zoomHost: $('zoomctl'),
   initialCollapsed: true,
   focusEditor: () => editor.view.focus(),
-  onCollapseChange(){ if(!ws)return; $('editsource').setAttribute('aria-expanded', String(!ws.collapsed())); clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+  onCollapseChange(){ if(!ws)return; $('editsource').setAttribute('aria-expanded', String(!ws.collapsed())); doRefresh(); clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 const paint = mountMotion($('preview'));   // reveal on load, zoom-scaled FLIP on edit
 let motionOverride;                         // 'none' for theme/relayout re-renders
@@ -191,8 +206,8 @@ function milestoneMenu(m, srcLine){
 
 const eip = attachEditInPlace($('preview'), {
   kinds: {
-    label: {validate: validators.label},
-    dates: {validate: validators.dates},
+    label: {validate: validators.label, hint: 'enter a name without a date or tag.'},
+    dates: {validate: validators.dates, hint: 'use a date like 2026-10-21, or a P50 .. P90 range.'},
     /* the real state list (not the ['cycle'] sentinel): a FINE click still steps
        '' → done → risk → '' instantly (edit-in-place hands us the next value), a
        COARSE tap opens the marked picker — no silent status commit on any coarse
@@ -209,6 +224,11 @@ const eip = attachEditInPlace($('preview'), {
       placeholder: () => model ? timelineVerdict(model, effToday()).line : ''},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    commitEdit(kind, lineNo, oldRaw, newValue, el);
+    refreshNow();
+  },
+});
+function commitEdit(kind, lineNo, oldRaw, newValue, el){
     if(handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
       configRe: /^(title|palette|accent|today|verdict|style|font)\s*:/i,
@@ -237,8 +257,7 @@ const eip = attachEditInPlace($('preview'), {
       : kind === 'dates' ? editDates(line, oldRaw, newValue)
       : editLabel(line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
-  },
-});
+}
 
 /* ---------- examples and the blank start: File menu ---------- */
 const startFrom = ex => editor.setText(ex.src);
@@ -340,15 +359,9 @@ $('topremortem').addEventListener('click', async () => {
 $('copymd').addEventListener('click', async () => {
   if(!model) return;
   const md = toMarkdown(model, currentDiff(), location.href, effToday());
-  try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
+  try{ await navigator.clipboard.writeText(md); flashButton($('copymd'), 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }
 });
-function flash(id, msg, ms){
-  const b = $(id), was = b.textContent;
-  b.textContent = msg;
-  setTimeout(() => { b.textContent = was; }, ms);
-}
-
 /* fingers open at 100% zoom — pan so the first upcoming milestone lands ~30% in
    (TODAY stays in view when it's close), not the empty left board. Falls back to
    the today line if there's no [data-next] marker (empty doc). */
@@ -378,10 +391,13 @@ new MutationObserver(panToToday).observe($('preview'), {childList: true});
 /* ---------- theme and available-width reflow ---------- */
 function rerender(){ motionOverride = 'none'; paint.reset(); lastSvg = ''; deckCache=null; refresh(); }
 onThemeChange(rerender);
-let lastWidth=0;
+/* A change of width that the page itself caused (rail, inspector) is drawn by that change's own render and recorded in
+   lastWidth, so this only answers a width nothing has drawn yet: a window resize, coalesced to its final width. */
 new ResizeObserver(()=>{
   const width=Math.round($('preview').getBoundingClientRect().width);
-  if(width && Math.abs(width-lastWidth)>2){lastWidth=width;rerender();}
+  if(!width) return;
+  if(!lastWidth){lastWidth=width;return;}
+  if(Math.abs(width-lastWidth)>2) rerender();
 }).observe($('preview'));
 
 /* ---------- boot ---------- */
@@ -418,22 +434,36 @@ function syncSettings(){
 }
 $('stylepicker').addEventListener('click',event=>{
   const button=event.target.closest('[data-style]');if(!button)return;
-  editor.setText(setConfig(editor.getText(),'style',button.dataset.style));refresh();
+  button.focus({preventScroll:true});   // Safari does not focus a button on click
+  for(const b of $('stylepicker').querySelectorAll('[data-style]')) b.setAttribute('aria-pressed',String(b===button));   // pressed with the press, not a frame behind the view
+  motionOverride='fade';
+  editor.setText(setConfig(editor.getText(),'style',button.dataset.style));refreshNow();
 });
 for(const [id,key] of [['fontchoice','font'],['accentchoice','accent']]) $(id).addEventListener('change',()=>{
   editor.setText(setConfig(editor.getText(),key,$(id).value));refresh();
 });
-$('editsource').addEventListener('click',()=>{ws.setCollapsed(!ws.collapsed());if(!ws.collapsed())editor.view.focus();});
+$('editsource').addEventListener('click',()=>{ws.setCollapsed(!ws.collapsed());if(!ws.collapsed())editor.view.focus();});   // the rail is visible from the first frame of the open, so focus lands
 $('editsource').setAttribute('aria-expanded','false');
 $('editsource').setAttribute('aria-controls','cmhost');
 // #themechoice delegates to the shared appearance controller through its
 // data-mg-theme-choice attribute; page preference is not Timeline source state.
 mountActionIcons();
 async function prepareTypography(){
-  try{await loadChapterFonts();$('fontstatus').hidden=true;refresh();return true;}
-  catch(error){$('fontstatus').hidden=false;$('fontmessage').textContent='Typography could not load. Retry to render and export with the correct fonts.';setActionsEnabled(false);$('exportdeck').disabled=true;return false;}
+  /* a normal load never shows a loading note: only a slow one does */
+  const slow=setTimeout(()=>{$('fontstatus').hidden=false;},800);
+  try{await loadChapterFonts();clearTimeout(slow);$('fontstatus').hidden=true;refresh();return true;}
+  catch(error){clearTimeout(slow);$('fontstatus').hidden=false;$('fontmessage').textContent='Typography could not load. Retry to render and export with the correct fonts.';setActionsEnabled(false);$('exportdeck').disabled=true;return false;}
 }
 $('retryfonts').addEventListener('click',prepareTypography);
+
+/* A milestone's field targets are 1px anchors (they place the inline input). When one takes keyboard focus the visible ring
+   goes on the row it edits, so no Tab stop is invisible. */
+$('preview').addEventListener('focusin',event=>{
+  const t=event.target;
+  if(!t.dataset?.edit || t.dataset.edit==='cardmenu' || !t.matches(':focus-visible') || t.getBoundingClientRect().width>=4) return;
+  $('preview').querySelector(`[data-inspect][data-line="${Number(t.dataset.line)}"]`)?.setAttribute('data-kbd-ring','');
+});
+$('preview').addEventListener('focusout',()=>$('preview').querySelector('[data-kbd-ring]')?.removeAttribute('data-kbd-ring'));
 
 /* Selection is a transient reading state. All authored changes remain one
    undoable text transaction and exports always retain the complete timeline. */
@@ -444,21 +474,26 @@ function syncInspector(){
   selectedLine=item.srcLine;
   panel.hidden=false;
   panel.setAttribute('role',innerWidth<=900?'dialog':'complementary');
-  if(!inspectorEditing || !panel.querySelector('#inspectform')) panel.innerHTML=inspectorHTML(item,effToday(),inspectorEditing);
+  if(!inspectorEditing || !panel.querySelector('#inspectform')){
+    /* the same facts are the same panel: replacing its DOM would drop the focus held on its Close button */
+    const html=inspectorHTML(item,effToday(),inspectorEditing);
+    if(panel.dataset.html!==html){panel.innerHTML=html;panel.dataset.html=html;}
+  }
 }
 function inspectRow(row){
   selectedKey=row.dataset.inspect;selectedLine=Number(row.dataset.line);selectionOrigin={key:selectedKey,line:selectedLine};inspectorEditing=false;
-  syncInspector();refresh();
-  requestAnimationFrame(()=>$('inspectclose')?.focus({preventScroll:true}));
+  syncInspector();
+  pendingFocus=()=>$('inspectclose');
+  doRefresh();   // in this task: the panel has narrowed the artefact's pane, and no frame may show the old drawing at the new width
 }
 function closeInspector(){
   const origin=selectionOrigin;
-  selectedKey=null;selectedLine=null;inspectorEditing=false;$('inspector').hidden=true;refresh();
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  selectedKey=null;selectedLine=null;inspectorEditing=false;$('inspector').hidden=true;
+  pendingFocus=()=>{
     const rows=[...$('preview').querySelectorAll('[data-inspect]')];
-    const row=rows.find(el=>el.dataset.inspect===origin?.key) || rows.find(el=>Number(el.dataset.line)===origin?.line);
-    row?.focus({preventScroll:true});
-  }));
+    return rows.find(el=>el.dataset.inspect===origin?.key) || rows.find(el=>Number(el.dataset.line)===origin?.line);
+  };
+  doRefresh();
 }
 $('preview').addEventListener('click',event=>{
   if(event.target.closest('[data-edit]'))return;
@@ -495,7 +530,9 @@ $('inspector').addEventListener('submit',event=>{
   line=editNote(line,item.note || '',values.note);
   editor.replaceLine(item.srcLine,line);
   selectedKey=parse(editor.getText()).items.find(it=>it.srcLine===item.srcLine)?.identity || null;
-  inspectorEditing=false;refresh();
+  inspectorEditing=false;
+  pendingFocus=()=>$('inspectedit');
+  refresh();
 });
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && !$('inspector').hidden && !$('slidepreviewdialog').open){event.preventDefault();closeInspector();}

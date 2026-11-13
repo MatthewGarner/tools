@@ -2,7 +2,7 @@ import {saveTrackedWork} from '../assets/work-metadata.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
-import {wireExports} from '../assets/exports.js';
+import {wireExports, flashButton} from '../assets/exports.js';
 import {createSlideZip} from '../assets/export-zip.js';
 import {renderChapter, renderChapterPages} from './chapter-svg.js';
 import {chapterHero as focusHeroIndex, chapterNativeWidth} from './chapter-layout.js';
@@ -114,7 +114,9 @@ function makeDiff(model){
 /* ---------- refresh loop ---------- */
 let model = null, lastSvg = '', hashTimer = null, inboundHandoff = null, boardWindowStart = null, gridStack = false, boardCapacityLast = null;
 let sourceReady = false;
+let previousStageWidth = 0;
 let inspectedIdentity = null, inspectOpener = null, inspectionSource = null;
+let fadeNext = false;   // set on a view switch or a what-if flip: the next render cross-fades (shared motion.js 'fade')
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
@@ -166,6 +168,7 @@ function setWhatIf(nameLc, value){
   const ae = document.activeElement;
   if(ae && ae.dataset && ae.dataset.whatif === nameLc) pendingWhatIfFocus = nameLc;
   if(value) whatIf[nameLc] = value; else delete whatIf[nameLc];
+  fadeNext = true;
   lastSvg = ''; paint.reset(); refresh();
 }
 /* cycles a bet's preview: unresolved -> won -> lost -> unresolved (the capsule click/tap gesture). */
@@ -189,28 +192,11 @@ function restoreWhatIfFocus(pv){
 function resetWhatIf(){
   if(!whatIfNames().length) return;
   whatIf = {};
+  fadeNext = true;
   lastSvg = ''; paint.reset(); refresh();
 }
-/* A world flip changes condition labels and strike-through, while Chapter keeps
-   full text contrast. Animate that state change itself rather than waiting for a
-   permanent opacity difference. Source lines are stable during a what-if toggle. */
-function captureLineOpacity(){
-  return new Map([...previewEl.querySelectorAll('[data-edit="cardmenu"]')].map(el=>
-    [el.dataset.line,{world:el.dataset.worldState,opacity:el.getAttribute('opacity')||'1'}]));
-}
-function fadeLineOpacity(old){
-  if(motionStill() || !old)return;
-  const changed=[];
-  for(const el of previewEl.querySelectorAll('[data-edit="cardmenu"]')){
-    const prev=old.get(el.dataset.line);if(!prev)continue;
-    if(prev.world!==el.dataset.worldState)changed.push([el,'0']);
-    else if(prev.opacity!==(el.getAttribute('opacity')||'1'))changed.push([el,prev.opacity]);
-  }
-  for(const [el,opacity] of changed){el.style.transition='none';el.style.opacity=opacity;}
-  if(changed.length)requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    for(const [el] of changed){el.style.transition='';el.style.opacity='';}
-  }));
-}
+/* A world flip changes condition labels and strike-through. It cross-fades like a view switch (doRefresh's 'fade'), the
+   same way every time, rather than tweening each changed card's opacity. */
 /* the chip: a roadmap-only element OUTSIDE #preview (the paint innerHTML-swap
    wipes anything inside it) — sibling of the verdict block in index.html.
    role="status" (in the markup) so a world flip is announced; hidden when no
@@ -288,6 +274,23 @@ function syncInspectionMark(){
     }
   }
 }
+/* Item review lives below the artefact on a phone. Reaching it glides the page there over the base duration (a jump
+   under reduced motion), and closing glides back to where the reader was, with focus on the item. */
+let reviewReturnY = null, glideId = 0;
+function glideTo(y){
+  cancelAnimationFrame(glideId);
+  const from = scrollY, d = y - from;
+  if(Math.abs(d) < 2) return;
+  if(motionStill()){ scrollTo({top: y, behavior: 'instant'}); return; }
+  const t0 = performance.now(), ms = 200;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    scrollTo({top: from + d * (1 - Math.pow(1 - k, 3)), behavior: 'instant'});
+    if(k < 1) glideId = requestAnimationFrame(step);
+  };
+  glideId = requestAnimationFrame(step);
+}
+for(const type of ['wheel', 'touchstart', 'keydown']) addEventListener(type, () => cancelAnimationFrame(glideId), {passive: true});
 function clearInspection({restoreFocus = false} = {}){
   const opener = inspectionOpenerEl();
   const wasMargin = $('workspace').classList.contains('review-margin');
@@ -299,7 +302,12 @@ function clearInspection({restoreFocus = false} = {}){
   host.hidden = true;
   host.replaceChildren();
   syncInspectionMark();
-  if(restoreFocus) requestAnimationFrame(() => opener?.focus({preventScroll:wasMargin}));
+  const glideBack = reviewReturnY;
+  reviewReturnY = null;
+  if(restoreFocus) requestAnimationFrame(() => {
+    opener?.focus({preventScroll: wasMargin || glideBack != null});
+    if(glideBack != null) glideTo(glideBack);
+  });
 }
 function renderInspection(m, {focus = false} = {}){
   const facts = inspectionFacts(m, inspectedIdentity);
@@ -354,7 +362,14 @@ function renderInspection(m, {focus = false} = {}){
   summary.setAttribute('aria-live', 'polite');
   summary.textContent = facts.summary;
   host.appendChild(summary);
-  if(focus) requestAnimationFrame(() => title.focus({preventScroll:false}));
+  if(focus) requestAnimationFrame(() => {
+    title.focus({preventScroll: true});
+    const r = host.getBoundingClientRect();
+    if(r.top < 0 || r.top > innerHeight - 120){
+      reviewReturnY = scrollY;
+      glideTo(Math.max(0, scrollY + r.top - 72));
+    }
+  });
   syncInspectionMark();
   return true;
 }
@@ -527,14 +542,14 @@ function doRefresh(){
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
       // A what-if world flip has no flipAttr (nothing moves) — the opacity
       // capture/apply pair around paint() cross-fades what changed state.
-      const opState = captureLineOpacity();
-      paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom});
-      fadeLineOpacity(opState);
+      paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom, mode: fadeNext ? 'fade' : undefined});
       lastSvg = svg;
       flipNext = false;
+      previousStageWidth = previewEl.clientWidth;   // this render IS at the current width: the resize observer must not repeat it
     }
     syncInspectionMark();
   }
+  fadeNext = false;
   restoreWhatIfFocus(pv);
   /* the header/verdict anatomy rides this same loop — both painters bail out
      when their strings are unchanged, so a keystroke that doesn't move a count
@@ -553,22 +568,27 @@ function doRefresh(){
 }
 const refresh = rafBatched(doRefresh);
 
+const typed = debounced(refresh, 120);
+/* a discrete edit (a commit, a menu pick, a drop, a view) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ typed.cancel(); refresh(); }
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange: debounced(refresh, 120),
+  onChange: typed,
 });
 mountTouchUndo($('zoomctl').closest('.actions'), editor);   // phones have no ⌘Z (Rule 2)
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true, initialCollapsed: true,
+  focusEditor: () => editor.view.focus(),
   fitToFold: false, // Chapter reflows source previews; preserve type size and scroll vertically.
   collapsedLabel: 'Edit roadmap source',
   collapsedAriaLabel: 'Edit roadmap source',
   expandedLabel: 'Read roadmap',
   onCollapseChange(_collapsed, {auto = false} = {}){
-    // A phone collapse leaves the preview unchanged; keep its live edit targets.
-    refresh();
+    // A phone collapse leaves the preview unchanged; keep its live edit targets. A reader's own toggle draws in this
+    // task (no frame shows the old drawing at the new width); the automatic fold happens inside a render, so it waits a frame.
+    if(auto) refresh(); else doRefresh();
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */
     if(!auto){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }
@@ -689,9 +709,9 @@ function itemMenu(m, srcLine, whatIfMap){
   return rows;
 }
 
-attachEditInPlace($('preview'), {
+const eip = attachEditInPlace($('preview'), {
   kinds: {
-    title: {validate: eipValidators.title},
+    title: {validate: eipValidators.title, hint: 'enter a name for the item.'},
     note: {validate: eipValidators.note},
     status: {options: EDIT_STATUSES},
     lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
@@ -703,6 +723,11 @@ attachEditInPlace($('preview'), {
     story: {validate: v => !v.trim().startsWith('//')},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    commitEdit(kind, lineNo, oldRaw, newValue, el);
+    if(kind !== 'inspect') refreshNow();   // opening the review changes no source: nothing to repaint, and a repaint would rebuild the receipt that is taking focus
+  },
+});
+function commitEdit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'inspect'){ inspectItem(lineNo); return; }
     if(kind === 'headline'){ editor.setText(setHeadline(editor.getText(), newValue)); return; }
     if(kind === 'story'){ editor.setText(setStory(editor.getText(), newValue)); return; }
@@ -724,6 +749,7 @@ attachEditInPlace($('preview'), {
       const lines = text.split(/\r?\n/);
       lines.splice(afterLine + 1, 0, lane ? lane + ': ' + newValue : newValue);
       editor.setText(lines.join('\n'));   // one transaction → one undo step, even when a header was inserted too
+      eip.focusAt({kind: 'cardmenu', line: afterLine + 1}, {origin: el});   // focus follows the new item
       return;
     }
     if(kind === 'movehorizon'){
@@ -787,8 +813,7 @@ attachEditInPlace($('preview'), {
     const line = editor.getLine(lineNo);
     const newLine = eipApplies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
-  },
-});
+}
 
 /* Keep the verdict handler on its own sibling root: a stage-wide handler also
    receives successful preview edits and falsely announces an unsupported kind. */
@@ -964,7 +989,12 @@ $('stylepicker').addEventListener('click', e => {
   // so refresh() immediately (rafBatched → next frame) — the switch feels instant,
   // not ~150ms behind a bets-style toggle (audit 2026-07-16). The debounced pass
   // still fires and coalesces (same doc ⇒ memoised render, no flash).
-  if(b){ editor.setText(setStyle(editor.getText(), b.dataset.style)); refresh(); }
+  if(b){
+    b.focus({preventScroll: true});              // Safari does not focus a button on click
+    syncStylePicker({style: b.dataset.style});   // the pressed state moves with the press, not a frame behind the new view
+    fadeNext = true;
+    editor.setText(setStyle(editor.getText(), b.dataset.style)); refreshNow();
+  }
 });
 $('boardprev').addEventListener('click', () => setBoardWindowStart(boardWindowStart - 1));
 $('boardnext').addEventListener('click', () => setBoardWindowStart(boardWindowStart + 1));
@@ -1002,8 +1032,7 @@ $('copymd').addEventListener('click', async () => {
   const markdown = roadmapToMarkdown(model, {href: location.href, includeStory: !!makeDiff(model)});
   try{
     await navigator.clipboard.writeText(markdown);
-    $('copymd').textContent = 'Copied';
-    setTimeout(() => { $('copymd').textContent = 'Copy as markdown'; }, 1500);
+    flashButton($('copymd'), 'Copied', 1500);
   }catch(e){ prompt('Copy this:', markdown); }
 });
 
@@ -1037,6 +1066,7 @@ $('importgo').addEventListener('click', () => {
 
 /* ---------- drag-and-drop: a drop is a text edit ---------- */
 const postDragClick = createPostDragClickGuard();
+let dragFrame = 0;   // pointermove only records where the pointer is; the hit test and dropline run once per frame
 const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null,
   edge: null, edgeChip: null, pointerId: null};   // edge = the span edit gesture (left/right handle); its own mode
 /* drag is a fine-pointer affordance only: on a coarse (touch) device it fights
@@ -1078,12 +1108,23 @@ function hbandAt(cx, cy){
    drag is the lane×horizon cell path (cellAt), not the band path. Lockstep with
    doRefresh (focus drags rail↔hero via its own data-hdrop bands, same mechanism). */
 const inBandView = () => model && (model.style === 'register' || model.style === 'board' || model.style === 'focus');
-function clearHover(){
+function clearHover({keepDropline = false} = {}){
   if(drag.hover){
     drag.hover.el.setAttribute('fill', 'transparent');
     drag.hover = null;
   }
-  if(drag.dropline){ drag.dropline.remove(); drag.dropline = null; }
+  if(drag.dropline){
+    if(keepDropline) drag.dropline.style.display = 'none';   // one element per gesture, moved rather than recreated
+    else{ drag.dropline.remove(); drag.dropline = null; }
+  }
+}
+/* the accent is read once per gesture, not on every pointermove */
+function dragTint(){
+  if(drag.tint === undefined){
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    drag.tint = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent';
+  }
+  return drag.tint;
 }
 /* where the card would land: above the before-card, or under the cell's last card */
 function positionDropline(cell, srcLine){
@@ -1103,13 +1144,17 @@ function positionDropline(cell, srcLine){
   }
   const ref = anchor ? anchor.getBoundingClientRect() : cell.el.getBoundingClientRect();
   const yEdge = anchor ? (above ? ref.top - 5 : ref.bottom + 3) : ref.top + 6;
-  const line = document.createElement('div');
-  line.className = 'dropline';
+  let line = drag.dropline;
+  if(!line){
+    line = document.createElement('div');
+    line.className = 'dropline';
+    pv.appendChild(line);
+    drag.dropline = line;
+  }
+  line.style.display = '';
   line.style.left = (ref.left - pvRect.left + pv.scrollLeft) + 'px';
   line.style.top = (yEdge - pvRect.top + pv.scrollTop) + 'px';
   line.style.width = ref.width + 'px';
-  pv.appendChild(line);
-  drag.dropline = line;
 }
 function endDrag(){
   clearHover();
@@ -1119,6 +1164,8 @@ function endDrag(){
   document.body.style.cursor = '';
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
   drag.edge = null; drag.edgeChip = null; drag.pointerId = null;   // a cancelled edge must not leave the mode armed
+  drag.tint = undefined; drag.pt = null;
+  if(dragFrame){ cancelAnimationFrame(dragFrame); dragFrame = 0; }
 }
 /* (FLIP glide migrated to the shared motion.js applyFlip — keyed data-key=title,
    zoom-scale-aware; triggered via flipNext on a drop, see doRefresh.) */
@@ -1164,8 +1211,7 @@ window.addEventListener('pointermove', e => {
     const cell = cellAt(e.clientX, e.clientY);
     const it = model && model.items.find(i => i.srcLine === drag.edge.line);
     if(cell){
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-      cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      cell.el.setAttribute('fill', dragTint());
       drag.hover = cell;
     }
     if(!drag.edgeChip){
@@ -1198,28 +1244,33 @@ window.addEventListener('pointermove', e => {
   }
   drag.ghost.style.left = (e.clientX + 12) + 'px';
   drag.ghost.style.top = (e.clientY + 14) + 'px';
-  clearHover();
+  drag.pt = {x: e.clientX, y: e.clientY};
+  if(!dragFrame) dragFrame = requestAnimationFrame(dragStep);
+});
+function dragStep(){
+  dragFrame = 0;
+  if(!drag.active || !drag.pt) return;
+  const {x, y} = drag.pt;
+  clearHover({keepDropline: true});
   if(inBandView()){
     /* register/board: no drop-line (there's no lane/order to preview — the row
        keeps its own lane and lands at the end of the target horizon), just the
        band highlight. */
-    const h = hbandAt(e.clientX, e.clientY);
+    const h = hbandAt(x, y);
     if(h !== null){
       const band = document.querySelector('#preview svg rect[data-hdrop="' + h + '"]');
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-      band.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      band.setAttribute('fill', dragTint());
       drag.hover = {el: band, h, lane: null};
     }
   } else {
-    const cell = cellAt(e.clientX, e.clientY);
+    const cell = cellAt(x, y);
     if(cell){
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-      cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      cell.el.setAttribute('fill', dragTint());
       drag.hover = cell;
       positionDropline(cell, drag.armed.line);
     }
   }
-});
+}
 window.addEventListener('pointerup', e => {
   if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   if(drag.edge){
@@ -1234,7 +1285,7 @@ window.addEventListener('pointerup', e => {
       const next = edge.side === 'r'
         ? setSpan(editor.getText(), it.srcLine, targetH - it.h + 1)   // setSpan clamps at 1
         : setSpanStart(editor.getText(), it.srcLine, targetH, model);
-      if(next !== editor.getText()){ flipNext = true; editor.setText(next); }
+      if(next !== editor.getText()){ flipNext = true; editor.setText(next); refreshNow(); }
     }
     return;
   }
@@ -1265,12 +1316,14 @@ window.addEventListener('pointerup', e => {
     if(!r) return;
     flipNext = true;
     editor.setText(r.text);
+    refreshNow();
     return;
   }
   const r = moveItem(editor.getText(), model, src, target);
   if(!r) return;
   flipNext = true;   // the post-drop re-render captures + glides cards into place (shared FLIP)
   editor.setText(r.text);   // one transaction → one undo step
+  refreshNow();
 });
 window.addEventListener('keydown', e => {
   if(e.key !== 'Escape') return;
@@ -1351,7 +1404,6 @@ onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
 watchNarrowBucket(previewEl, rerender);
-let previousStageWidth = 0;
 new ResizeObserver(() => {
   const widthChanged = previewEl.clientWidth !== previousStageWidth;
   previousStageWidth = previewEl.clientWidth;
@@ -1364,8 +1416,10 @@ new ResizeObserver(() => {
 
 /* ---------- boot: hash > localStorage > empty ---------- */
 async function prepareTypography(){
-  try{ await loadChapterFonts(); $('fontstatus').hidden=true; refresh(); }
-  catch(error){ $('fontstatus').hidden=false; $('fontmessage').textContent='The roadmap fonts could not load. Retry to render and export with the right typography.'; setActionsEnabled(false); }
+  /* a normal load never shows a loading note: only a slow one does */
+  const slow = setTimeout(() => { $('fontstatus').hidden = false; }, 800);
+  try{ await loadChapterFonts(); clearTimeout(slow); $('fontstatus').hidden=true; refresh(); }
+  catch(error){ clearTimeout(slow); $('fontstatus').hidden=false; $('fontmessage').textContent='The roadmap fonts could not load. Retry to render and export with the right typography.'; setActionsEnabled(false); }
 }
 $('retryfonts').addEventListener('click',prepareTypography);
 prepareTypography();
