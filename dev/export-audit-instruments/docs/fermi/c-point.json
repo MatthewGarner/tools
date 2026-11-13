@@ -1,0 +1,18 @@
+{
+ "about": "a point estimate (lo = hi): zero spread",
+ "state": {
+  "f": "a * b",
+  "v": {
+   "a": [
+    "5",
+    "5",
+    "auto"
+   ],
+   "b": [
+    "3",
+    "3",
+    "auto"
+   ]
+  }
+ }
+}

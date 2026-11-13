@@ -1,0 +1,35 @@
+{
+ "about": "built-in example: Piano tuners in Chicago",
+ "state": {
+  "f": "households * share_with_piano * tunings_per_year / (tunings_per_day * working_days)",
+  "q": "How many piano tuners does Chicago need?",
+  "u": "tuners",
+  "v": {
+   "households": [
+    "3M",
+    "4M",
+    "auto"
+   ],
+   "share_with_piano": [
+    "0.02",
+    "0.08",
+    "auto"
+   ],
+   "tunings_per_year": [
+    "0.5",
+    "2",
+    "auto"
+   ],
+   "tunings_per_day": [
+    "2",
+    "5",
+    "auto"
+   ],
+   "working_days": [
+    "220",
+    "260",
+    "auto"
+   ]
+  }
+ }
+}

@@ -1,0 +1,10 @@
+// warnings: bad currency, odd indent, valueless leaf, p over 1
+title: Warnings
+currency: ¥
+Root
+  Leaf without value
+   Odd indent : 5
+  Chance
+    Over one (p=1.4) : 10
+    Missing p : 5
+    Rest (p=rest) : 1
