@@ -4,8 +4,9 @@
    Spec: docs/superpowers/specs/2026-07-06-cycle-budget-design.md §2. */
 import {mulberry32, gaussian, quantile, fmt, rangeSampler} from '../../assets/series.js';
 import {complete} from './parse.js';
+import {rangeQuantile} from '../../assets/quantile-grid.js';
 
-export const N_BASE = 1000, DAYS = 365, SOH_FLOOR = 0.10, MAX_IT = 20, TOL = 1e-3;
+export const N_BASE = 10000, DAYS = 365, SOH_FLOOR = 0.10, MAX_IT = 20, TOL = 1e-3;
 /* The page's run: ONE seed and ONE size, shared by app.js, sim-worker.js and render.js (whose ribbon
    rebuilds the same day sample). simulate()'s own default n stays 10000 for the embed (audit CYC-Q2). */
 export const RUN = Object.freeze({seed: 1, n: 5000});
@@ -27,15 +28,21 @@ export function above(S, x){
   return {count: S.n - lo, sum: S.suf[lo]};
 }
 
-/* two sorted day samples: S1 = best spread, S2 = pairwise f×spread (null without second:) */
+/* two sorted day samples: S1 = best spread, S2 = pairwise f×spread (null without second:).
+   DETERMINISTIC (audit CYC-7): the day-to-day spread is ONE lognormal, so S1 is its quantile grid
+   S1[i] = Q((i+½)/N) — the base was the whole sampling error when it was random. S2 pairs each day with
+   a second-cycle fraction along a rank-1 lattice, S2[i] = S1[i]·clamp01(Qf(frac((i+½)·φ⁻¹))), then sorts.
+   `seed` is accepted and ignored: it drives only the belief draws. */
+const GOLDEN = 0.6180339887;
 export function makeBase(model, seed){
-  const rand = mulberry32(seed), gauss = gaussian(rand);
-  const s = rangeSampler(model.spread.lo, model.spread.hi, 'logn', rand, gauss);
-  const days = Array.from({length: N_BASE}, s);
+  const qs = rangeQuantile(model.spread.lo, model.spread.hi, 'logn');
+  const days = Float64Array.from({length: N_BASE}, (_, i) => qs((i + 0.5) / N_BASE));
   let S2 = null;
   if(model.second){
-    const f = rangeSampler(model.second.lo, model.second.hi, 'norm', rand, gauss);
-    S2 = sortedSuffix(days.map(d => d * clamp01(f())));
+    const qf = rangeQuantile(model.second.lo, model.second.hi, 'norm');
+    S2 = sortedSuffix(Array.from(days, (d, i) => {
+      const u = (i + 0.5) * GOLDEN; return d * clamp01(qf(Math.min(1 - 1e-12, Math.max(1e-12, u - Math.floor(u)))));
+    }));
   }
   return {S1: sortedSuffix(days), S2};
 }
@@ -269,6 +276,12 @@ export function fmtUnit(v, unit){
   const s = fmt(Math.abs(v) < 1e-9 ? 0 : v);
   return m ? m[1] + s + m[2] : s + ' ' + unit;
 }
+/* A cycle price is printed to the nearest £0.1/MWh at most: its seed-to-seed error (belief draws, n=5000)
+   is 0.01-0.03, so a finer digit was noise (audit CYC-7). */
+export const fmtPrice = v => fmtUnit(Math.round(v * 10) / 10, '£/MWh');
+/* The second-cycle £ figures and the forgone value carry a seed-to-seed error of 0.1-0.5% (up to ~2% of
+   the NPV): two significant figures is what they support. */
+export const fmtRough = (v, unit) => fmtUnit(Number(Number(v).toPrecision(2)), unit);
 const tenRuns = t => t + ' run' + (t === 1 ? '' : 's') + ' in 10';
 const inTen = p => tenRuns(Math.round(p * 10));
 /* "warranty a/10 · wear b/10": the second figure is 10 minus the first, so the pair always sums to 10
@@ -281,7 +294,7 @@ export function bindPercents(share){ const a = Math.round(share * 100); return [
    first-occurrence split can only land on it. Lives here, beside the sentence,
    so figure and line cannot drift; cycles-verdict.test.mjs pins both. */
 export function thresholdFigure(out){
-  return out && out.threshold ? fmtUnit(out.threshold.p50, '£/MWh') : '';
+  return out && out.threshold ? fmtPrice(out.threshold.p50) : '';
 }
 
 export function verdict(band, out){
@@ -289,14 +302,14 @@ export function verdict(band, out){
     const t = out.threshold;
     const days = Math.round(t.clearingDays) + ' days a year';
     if(t.p50 === 0)
-      return 'Cycles are worth ' + fmtUnit(0, '£/MWh') + ' each in year 1 — nothing binds: the warranty has room and wear costs nothing, ' +
+      return 'Cycles are worth ' + fmtPrice(0) + ' each in year 1 — nothing binds: the warranty has room and wear costs nothing, ' +
         'so dispatch whenever a cycle earns anything; ' + days + ' do.';
     const [w, e] = bindTenths(t.bindingShare);
     const binder = t.bindingShare >= 0.5
       ? 'In year 1 it’s the warranty doing the rationing, not the wear, in ' + tenRuns(w) + '.'
       : 'In year 1 it’s the wear cost setting the bar, not the warranty, in ' + tenRuns(e) + '.';
-    return 'Cycles are worth ' + fmtUnit(t.p50, '£/MWh') + ' each in year 1 (P10 ' + fmtUnit(t.p10, '£/MWh') +
-      ' – P90 ' + fmtUnit(t.p90, '£/MWh') + ') — only dispatch above that; ' + days + ' clear it. ' + binder;
+    return 'Cycles are worth ' + fmtPrice(t.p50) + ' each in year 1 (P10 ' + fmtPrice(t.p10) +
+      ' – P90 ' + fmtPrice(t.p90) + ') — only dispatch above that; ' + days + ' clear it. ' + binder;
   }
   if(band === 'second'){
     if(!out.second) return null;
@@ -304,10 +317,10 @@ export function verdict(band, out){
     const cappedBit = s.capped >= 0.3
       ? ' The warranty caps the pair in year 1 in ' + inTen(s.capped) + ' — the second cycle spends budget the best single days want back.'
       : '';
-    return 'The second cycle earns ' + fmtUnit(s.dRev, '£/yr') + ' and costs ' + fmtUnit(s.dWear, '£/yr') +
-      ' of wear in year 1 — ' + fmtUnit(s.dNet, '£/yr') + ' net' +
+    return 'The second cycle earns ' + fmtRough(s.dRev, '£/yr') + ' and costs ' + fmtRough(s.dWear, '£/yr') +
+      ' of wear in year 1 — ' + fmtRough(s.dNet, '£/yr') + ' net' +
       (s.lifetimeNpvDelta > 0 ? ', and it pays over the life' : ', but over the life it destroys value') +
-      ' (' + fmtUnit(s.lifetimeNpvDelta, '£') + ' NPV).' + cappedBit;
+      ' (' + fmtRough(s.lifetimeNpvDelta, '£') + ' NPV).' + cappedBit;
   }
   if(band === 'augment'){
     if(!out.augment) return null;
@@ -316,7 +329,7 @@ export function verdict(band, out){
     if(a.pNever >= 0.35) return 'It’s a coin flip whether augmentation pays at all (never in ' + inTen(a.pNever) +
       ') — when it does, the window is years ' + a.window[0] + '–' + a.window[1] + ' (P25–P75).';
     return 'Augment in years ' + a.window[0] + '–' + a.window[1] + ' (P25–P75): earlier wastes warranty headroom, a year later forgoes ' +
-      fmtUnit(a.forgoneP50, '£') + ' (P50).' + (a.pNever > 0.15 ? ' (Never pays at all in ' + inTen(a.pNever) + '.)' : '');
+      fmtRough(a.forgoneP50, '£') + ' (P50).' + (a.pNever > 0.15 ? ' (Never pays at all in ' + inTen(a.pNever) + '.)' : '');
   }
   return null;
 }
