@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parse} from '../parse.js';
-import {simulate, markdown} from '../engine.js';
+import {simulate, markdown, medianSplit} from '../engine.js';
 import {renderBoard} from '../render.js';
 import {renderQuadrant} from '../render-quadrant.js';
 import {renderBetsPresentation} from '../render-presentation.js';
@@ -24,30 +24,32 @@ const LANTERN = [...readFileSync(new URL('bets/app.js', ROOT), 'utf8').matchAll(
 const board = (src, extra = {}) => { const m = parse(src); return text(renderBoard(m, simulate(m), {...CTX, ...extra})); };
 
 /* ---------- BT-1: a median in an empty stretch prints as a split ---------- */
-test('BT-1 the Lantern shared median is a split on every seed, and every surface prints it as one', () => {
+test('BT-1 the Lantern shared median is a split on all 200 seeds, and every surface prints it as one', () => {
   const m = parse(LANTERN);
-  const seeds = Array.from({length: 20}, (_, i) => 1000 + i * 7919);
+  const seeds = Array.from({length: 200}, (_, i) => 1000 + i * 7919);
   const shapes = new Set();
   for(const seed of seeds){
     const s = simulate(m, {seed}), pf = s.scenarios.shared;
     assert.ok(pf.split && pf.split.lo < pf.split.hi, 'seed ' + seed + ' carries the two values either side of the gap');
     const board = text(renderBoard(m, s, CTX));
-    assert.match(board, /MEDIAN OUTCOME −\d+ or −\d+/, 'board receipt');
-    assert.match(board, /BELOW ZERO · MEDIAN −\d+ or −\d+/, 'outcome rail');
-    assert.match(text(renderBetsPresentation(m, s, {...CTX, intent: 'presentation'})), /P50 −\d+ or −\d+/, 'slide');
-    assert.match(text(renderQuadrant(m, s, CTX)), /MEDIAN OUTCOME −\d+ or −\d+/, 'quadrant');
-    assert.match(markdown(m, s, ''), /median outcome split: about even odds of \*\*−\d+ or −\d+/i, 'markdown');
-    assert.match(renderBoard(m, s, CTX), /median outcome split: about even odds of −\d+ or −\d+/, 'alt text');
+    assert.match(board, /MEDIAN OUTCOME [−+]\d+ or [−+]\d+/, 'board receipt');
+    assert.match(board, /BELOW ZERO · MEDIAN [−+]\d+ or [−+]\d+/, 'outcome rail');
+    assert.match(text(renderBetsPresentation(m, s, {...CTX, intent: 'presentation'})), /P50 [−+]\d+ or [−+]\d+/, 'slide');
+    assert.match(text(renderQuadrant(m, s, CTX)), /MEDIAN OUTCOME [−+]\d+ or [−+]\d+/, 'quadrant');
+    assert.match(markdown(m, s, ''), /median outcome split: about even odds of \*\*[−+]\d+ or [−+]\d+/i, 'markdown');
+    assert.match(renderBoard(m, s, CTX), /median outcome split: about even odds of [−+]\d+ or [−+]\d+/, 'alt text');
     assert.match(renderBoard(m, s, CTX), /data-median-split/, 'two notches joined by a hairline');
     shapes.add(board.replace(/[−+]?\d[\d.]*/g, '#'));
   }
   assert.equal(shapes.size, 1, 'the printed shape of the shared median is identical on every seed (no single point value is quoted)');
 });
 
-test('BT-1 a median in the middle of a populated stretch is not split', () => {
-  const m = parse('G\n  A: stake 10-20, odds 40-60%, payoff 25-45\n  B: stake 5-15, odds 30-50%, payoff 20-60');
+test('BT-1 a smooth distribution is not split, in either scenario', () => {
+  const m = parse('G\n  A: stake 20-40, odds 15-30%, payoff 120-200\n  B: stake 30-60, odds 60-80%, payoff 70-120\n  C: stake 10-30, odds 10-25%, payoff 150-260\n  D: stake 40-80, odds 70-90%, payoff 90-150\n  E: stake 25-50, odds 20-35%, payoff 110-190');
   const s = simulate(m);
   assert.equal(s.portfolio.split, null);
+  assert.equal(s.scenarios.shared.split, null);
+  assert.ok(s.portfolio.gapShare < 0.01 && s.scenarios.shared.gapShare < 0.01, 'smooth: the widest 45-55% gap is under 1% of P90 - P10');
   assert.doesNotMatch(text(renderBoard(m, s, CTX)), / or [−+]\d/);
 });
 
@@ -56,6 +58,20 @@ test('BT-1 detection adds no draw: every built-in figure other than the split is
   assert.equal(s.portfolio.p50, 9.740620622106064);
   assert.equal(s.scenarios.shared.p50, -288.55730176318957);
   assert.equal(s.portfolio.pLoss, 0.485);
+});
+
+test('BT-1 the two printed values are the medians of the runs below and above the gap', () => {
+  const low = Array.from({length: 2000}, (_, i) => -300 + i * 0.01), high = Array.from({length: 2000}, (_, i) => 100 + i * 0.5);
+  const sorted = [...low, ...high];                       // gap -280 .. 100 sits exactly at the 50% level
+  const sp = medianSplit(sorted, -295, 900);
+  assert.ok(Math.abs(sp.lo - (-300 + 999.5 * 0.01)) < 1e-9, 'median of the lower cluster, not its top edge (' + sp.lo + ')');
+  assert.ok(Math.abs(sp.hi - (100 + 999.5 * 0.5)) < 1e-9, 'median of the upper cluster, not its bottom edge (' + sp.hi + ')');
+});
+test('BT-1 a gap of 2.5% of P90 - P10 splits; 1.5% does not', () => {
+  const mk = gap => [...Array.from({length: 2000}, (_, i) => i * 0.001), ...Array.from({length: 2000}, (_, i) => 2 + gap + i * 0.001)];
+  const range = 1000;                                      // P90 - P10 as passed in
+  assert.ok(medianSplit(mk(0.025 * range), 0, range));
+  assert.equal(medianSplit(mk(0.015 * range), 0, range), null);
 });
 
 /* ---------- BT-5: chance of a loss, counted from the runs ---------- */
@@ -186,8 +202,10 @@ test('BT-23 a snapshot in another unit draws no ghost band and says why', () => 
 /* ---------- BT-22 ---------- */
 test('BT-22 Markdown prints the board\'s figures', () => {
   const m = parse(LANTERN), s = simulate(m), md = markdown(m, s, '');
-  assert.match(md, /Independent baseline: Median outcome \*\*\+10 £k\*\* \[−360–\+388\]/);
-  assert.match(md, /−11–\+30 \(\+7\)/, 'Publisher EV row');
+  assert.match(md, /Independent baseline: Median outcome \*\*\+10 £k\*\* \[−360 to \+388\]/);
+  assert.match(md, /−11 to \+30 \(\+7\)/, 'Publisher EV row');
+  assert.match(md, /\| \+69 to \+169 \(\+113\) \|/, 'Referral EV row');
+  assert.doesNotMatch(md, /[−+]\d+–[−+]\d+/, 'no dash between two signed numbers');
 });
 
 /* ---------- BT-16 to BT-21: the one number reader ---------- */
@@ -232,13 +250,21 @@ test('BT-21 an impossible calendar date warns; a real one does not', () => {
 });
 
 /* ---------- BT-Q1: moving together can lower the chance of a loss ---------- */
-test('BT-Q1 the page says when the shared scenario lowers the chance of a loss', () => {
-  const src = 'G\n  A: stake 100, odds 90%, payoff 110\n  B: stake 100, odds 90%, payoff 110', m = parse(src), s = simulate(m);
+test('BT-Q1 the page says when the shared scenario lowers the chance of a loss, and "widens the swing" only when the printed width is larger', () => {
+  const narrower = 'G\n  A: stake 100, odds 90%, payoff 110\n  B: stake 100, odds 90%, payoff 110', m = parse(narrower), s = simulate(m);
   assert.ok(s.scenarios.shared.pLoss < s.portfolio.pLoss);
-  const line = /Moving together lowers the chance of a loss here \(\d+% against \d+%\) and widens the swing\./;
-  assert.match(text(renderBoard(m, s, CTX)), line);
+  assert.ok(Math.round(s.scenarios.shared.p90) - Math.round(s.scenarios.shared.p10) <= Math.round(s.portfolio.p90) - Math.round(s.portfolio.p10), 'fixture: the shared width is not larger');
+  const stops = /Moving together lowers the chance of a loss here \(\d+% against \d+%\)\.(?! and)/;
+  assert.match(text(renderBoard(m, s, CTX)), stops);
+  assert.doesNotMatch(text(renderBoard(m, s, CTX)), /widens the swing/);
+  assert.match(markdown(m, s, ''), stops);
   assert.match(text(renderBoard(m, s, {...CTX, width: 390})), /Moving together lowers the chance of a loss here/);
-  assert.match(markdown(m, s, ''), line);
+  /* wider: three likely wins; sharing the draw lowers P(loss) (14% against 37%) and stretches the range */
+  const wider = parse('G\n  A: stake 100, odds 85%, payoff 130\n  B: stake 100, odds 85%, payoff 130\n  C: stake 100, odds 85%, payoff 130'), ws = simulate(wider);
+  const [ind, sh] = [ws.portfolio, ws.scenarios.shared];
+  if(Math.round(sh.pLoss * 100) < Math.round(ind.pLoss * 100) && Math.round(sh.p90) - Math.round(sh.p10) > Math.round(ind.p90) - Math.round(ind.p10)){
+    assert.match(text(renderBoard(wider, ws, CTX)), /lowers the chance of a loss here \(\d+% against \d+%\) and widens the swing\./);
+  } else assert.fail('fixture does not lower P(loss) and widen the range: ' + JSON.stringify([ind.pLoss, sh.pLoss, ind.p90 - ind.p10, sh.p90 - sh.p10]));
   const lantern = parse(LANTERN);
   assert.doesNotMatch(text(renderBoard(lantern, simulate(lantern), CTX)), /Moving together lowers/, 'silent when it does not');
 });

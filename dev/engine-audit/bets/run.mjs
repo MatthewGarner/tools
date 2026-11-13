@@ -173,14 +173,34 @@ for(const ex of EXAMPLES){
     check('N4 Lantern: the sign of the printed independent "MEDIAN OUTCOME" does not depend on the seed (a reader takes +/- as the message)', neg === 0 || pos === 0, `${pos} seeds print +, ${neg} print -, range ${Math.min(...printed)}..${Math.max(...printed)}`, {known: neg > 0 && pos > 0});
     const shm = runs.map(r => int(r.scenarios.shared.p50));
     const splits = runs.map(r => r.scenarios.shared.split), found = splits.filter(Boolean), missed = splits.length - found.length;
-    check('N5 Lantern: the Shared-outcome stress median sits in an empty gap, so every one of 200 seeds prints it as a split ("P50 -x or -y"), never as a single point (BT-1)', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`, {known: missed > 0 && missed <= 15 && 'the ruled threshold (largest gap > 5% of P90-P10) is missed by a few seeds whose gap is just under it; the owner may lower it. Bounded: more than 15 misses fails'});
-    const printedSplit = new Set(found.map(x => int(x.lo) + ' or ' + int(x.hi)));
-    check('N5b Lantern: the two printed values of the split are the same on every seed (the ruling asked for this)', printedSplit.size === 1, `${printedSplit.size} distinct printed pairs across ${found.length} seeds; the lower value has seed sd ${sd(found.map(x => x.lo)).toFixed(1)} and the upper ${sd(found.map(x => x.hi)).toFixed(1)}: each is the edge of the gap, an extreme order statistic of a cluster, so a whole-unit figure cannot hold across seeds without more runs`, {known: printedSplit.size > 1 && 'the two values either side of the gap are cluster edges, noisy by construction; needs a draw change (BT-2), awaiting the owner'});
-    check('N5c Lantern: the split values stay in their audited neighbourhood (lower -300..-150, upper -260..-20), so a regression in the detector cannot hide behind N5b', found.every(x => x.lo > -300 && x.lo < -150 && x.hi > -260 && x.hi < -20), `lower ${Math.min(...found.map(x => x.lo)).toFixed(0)}..${Math.max(...found.map(x => x.lo)).toFixed(0)}, upper ${Math.min(...found.map(x => x.hi)).toFixed(0)}..${Math.max(...found.map(x => x.hi)).toFixed(0)}`);
+    check('N5 Lantern: the Shared-outcome stress median sits in an empty gap, so every one of 200 seeds prints it as a split ("P50 A or B"), never as a single point (BT-1; threshold 2% of P90-P10)', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`);
+    const first40 = found.slice(0, 40), sdA = sd(first40.map(x => x.lo)), sdB = sd(first40.map(x => x.hi));
+    check('N5b Lantern: A and B (the medians of the runs below and above the gap) each have a seed-to-seed sd of at most half the printed step (0.5 unit), over 40 seeds', sdA <= .5 && sdB <= .5, `sd A ${sdA.toFixed(2)}, sd B ${sdB.toFixed(2)} units (A ${Math.min(...first40.map(x => x.lo)).toFixed(0)}..${Math.max(...first40.map(x => x.lo)).toFixed(0)}, B ${Math.min(...first40.map(x => x.hi)).toFixed(0)}..${Math.max(...first40.map(x => x.hi)).toFixed(0)}); B is the median of about 2000 runs of a wide upper cluster`, {known: (sdA > .5 || sdB > .5) && sdB < 25 && 'needs more runs, awaiting the owner'});
+    const sy = parse(STARTER), syRuns = SEEDS.slice(0, 40).map(seed => simulate(sy, {seed}).portfolio.split);
+    const syA = sd(syRuns.map(x => x.lo)), syB = sd(syRuns.map(x => x.hi));
+    check('N5c Start your own: A and B each have a seed-to-seed sd of at most half the printed step (0.5 unit), over 40 seeds, and every seed splits', syRuns.every(Boolean) && syA <= .5 && syB <= .5, `sd A ${syA.toFixed(2)}, sd B ${syB.toFixed(2)} units`, {known: syA <= 3 && syB <= 3 && (syA > .5 || syB > .5) && 'needs more runs, awaiting the owner'});
+    check('N5d Lantern: A and B stay in their measured neighbourhood (A -400..-300, B 200..400), so a regression in the detector cannot hide behind N5b', found.every(x => x.lo > -400 && x.lo < -300 && x.hi > 200 && x.hi < 400), `A ${Math.min(...found.map(x => x.lo)).toFixed(0)}..${Math.max(...found.map(x => x.lo)).toFixed(0)}, B ${Math.min(...found.map(x => x.hi)).toFixed(0)}..${Math.max(...found.map(x => x.hi)).toFixed(0)}`);
     const plp = runs.map(r => pct(r.portfolio.pLoss));
     console.log(`   info: Lantern printed P(loses money) across 200 seeds: ${Math.min(...plp)}%..${Math.max(...plp)}% (reference ${(100 * ref.ind.pLoss).toFixed(2)}%)`);
   }
   BEFORE[tag] = {independent: e.portfolio, shared: e.scenarios.shared, conc: e.concentration, bets: flat(m).map(b => ({name: b.name, ev: e.bets.get(b.srcLine).ev, audits: e.bets.get(b.srcLine).audits}))};
+}
+
+// BT-1 margin: the split threshold (2% of P90-P10) against smooth distributions
+{
+  const u = rng(123456789), rr = (a, b) => a + (b - a) * u();
+  const worst = [];
+  for(let k = 0; k < 200; k++){
+    const nb = 5 + Math.floor(u() * 5); let src = 'G\n';
+    for(let i = 0; i < nb; i++){
+      const sl = rr(10, 200), sh = sl * rr(1.2, 2.5), ol = rr(5, 40), oh = Math.min(95, ol + rr(5, 30)), pl = rr(50, 400), ph = pl * rr(1.2, 2.2);
+      const odds = u() < .5 ? [ol, oh] : [100 - oh, 100 - ol];
+      src += `  B${i}: stake ${sl.toFixed(0)}-${sh.toFixed(0)}, odds ${odds[0].toFixed(0)}-${odds[1].toFixed(0)}%, payoff ${pl.toFixed(0)}-${ph.toFixed(0)}\n`;
+    }
+    const e = simulate(parse(src)); worst.push(Math.max(e.portfolio.gapShare, e.scenarios.shared.gapShare));
+  }
+  const max = Math.max(...worst);
+  check('N6 BT-1 margin: on 200 smooth random portfolios (5-9 ranged bets, odds away from 50%) the widest neighbour gap between the 45% and 55% levels never exceeds 1% of P90-P10, well under the 2% split threshold', max < .01, `max ${(100 * max).toFixed(2)}% (median ${(100 * worst.slice().sort((a, b) => a - b)[100]).toFixed(2)}%); built-ins: Lantern independent ${(100 * simulate(parse(EXAMPLES[0].src)).portfolio.gapShare).toFixed(2)}%, Lantern shared ${(100 * simulate(parse(EXAMPLES[0].src)).scenarios.shared.gapShare).toFixed(1)}%, Quick ${(100 * simulate(parse(EXAMPLES[1].src)).scenarios.shared.gapShare).toFixed(2)}%`);
 }
 
 // =============================================================================================

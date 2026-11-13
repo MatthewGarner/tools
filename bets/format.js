@@ -69,7 +69,8 @@ export function concentrationLine(conc){
 export function togetherNote(independent, shared){
   if(!independent || !shared) return null;
   if(!(lossWhole(shared) < lossWhole(independent))) return null;
-  /* one shared draw adds positive covariance between the bets, so the swing always widens */
+  /* "widens the swing" only when the printed P10 to P90 width really is larger */
+  const width = pf => Math.round(pf.p90) - Math.round(pf.p10);
   return 'Moving together lowers the chance of a loss here (' + lossText(shared) + ' against ' +
-    lossText(independent) + ') and widens the swing.';
+    lossText(independent) + ')' + (width(shared) > width(independent) ? ' and widens the swing.' : '.');
 }

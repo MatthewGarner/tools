@@ -81,26 +81,34 @@ function portfolioSummary(outcomes, nsim, certain){
   const p10 = quantile(outcomes, 0.1), p90 = quantile(outcomes, 0.9);
   return {
     p10, p50: quantile(outcomes, 0.5), p90,
-    pLoss, lossRuns, runs: nsim, certain, split: medianSplit(outcomes, p10, p90),
+    pLoss, lossRuns, runs: nsim, certain, gapShare: widestGap(outcomes, p10, p90).share, split: medianSplit(outcomes, p10, p90),
     histogram: histogram(outcomes, nsim),
   };
 }
 
 /* A median that falls in an empty stretch of the outcome distribution is not a
    stable figure: which side of the gap it lands on is an accident of the seed.
-   Among the sorted outcomes lying between the 45% and 55% levels, if the widest
-   gap between neighbours is more than 5% of P90 - P10, report the two values
-   either side of it. Detection only: no extra draw. */
-export function medianSplit(sorted, p10, p90){
+   Among the sorted outcomes lying between the 45% and 55% levels, take the widest
+   gap between neighbours as a share of P90 - P10. If it is more than SPLIT_SHARE (2%;
+   smooth portfolios measure under 0.5%, real gaps over 3%),
+   report the median of the runs below the gap and the median of the runs above
+   it (two ordinary quantiles of the same sorted runs). Detection only: no extra draw. */
+export const SPLIT_SHARE = 0.02;
+export function widestGap(sorted, p10, p90){
   const n = sorted.length, range = p90 - p10;
-  if(n < 3 || !(range > 0)) return null;
+  if(n < 3 || !(range > 0)) return {share: 0, at: -1};
   const from = Math.floor(0.45 * (n - 1)), to = Math.ceil(0.55 * (n - 1));
   let widest = 0, at = -1;
   for(let i = from; i < to; i++){
     const gap = sorted[i + 1] - sorted[i];
     if(gap > widest){ widest = gap; at = i; }
   }
-  return widest > 0.05 * range ? {lo: sorted[at], hi: sorted[at + 1]} : null;
+  return {share: widest / range, at};
+}
+export function medianSplit(sorted, p10, p90){
+  const {share, at} = widestGap(sorted, p10, p90);
+  if(!(share > SPLIT_SHARE)) return null;
+  return {lo: quantile(sorted.slice(0, at + 1), 0.5), hi: quantile(sorted.slice(at + 1), 0.5)};
 }
 
 function auditsFor(bet, ev){
@@ -161,7 +169,7 @@ export function markdown(model, sim, href, {comparison = null, sourceLabel = ''}
       const r = sim.bets.get(b.srcLine);
       const kill = b.kill ? b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '') : '—';
       out.push('| ' + [g.name, b.name, stakeOf(b), oddsOf(b), payoffOf(b),
-        r.scoreable ? sgn(r.ev.p10) + '–' + sgn(r.ev.p90) + ' (' + sgn(r.ev.p50) + ')' : 'NOT SCORED', kill,
+        r.scoreable ? sgn(r.ev.p10) + ' to ' + sgn(r.ev.p90) + ' (' + sgn(r.ev.p50) + ')' : 'NOT SCORED', kill,
         r.scoreable ? (r.audits.join('; ') || '—') : 'NOT SCORED — correct invalid or missing terms']
         .map(mdCell).join(' | ') + ' |');
     }
@@ -170,7 +178,7 @@ export function markdown(model, sim, href, {comparison = null, sourceLabel = ''}
   const shared = scenarioReading(sim, 'shared');
   const line = reading => {
     if(!reading.available) return reading.label + ': **Not available — no scoreable bets.**';
-    const pf = reading.portfolio, range = ' [' + sgn(pf.p10) + '–' + sgn(pf.p90) + ']';
+    const pf = reading.portfolio, range = ' [' + sgn(pf.p10) + ' to ' + sgn(pf.p90) + ']';
     return reading.label + ': ' + (pf.split
       ? 'Median outcome split: about even odds of **' + sgn(pf.split.lo) + ' or ' + sgn(pf.split.hi) + u + '**'
       : 'Median outcome **' + sgn(pf.p50) + u + '**') + range + ' · P(loses money) **' + lossText(pf) + '**.';
