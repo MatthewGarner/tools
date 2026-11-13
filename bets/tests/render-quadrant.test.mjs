@@ -112,7 +112,7 @@ test('unscored bets are listed but never plotted or counted as stake', () => {
 test('loss is carried by the affected allocation mark, not a washed-out region', () => {
   // "Sure loser" (odds 10-20%, payoff 50-80, stake 100) should EV-lose at p50.
   const svg = renderQuadrant(model, sim, CTX);
-  const loser = svg.match(/<g data-allocation-mark="" data-id="B02">([\s\S]*?)<\/g>/)?.[1] || '';
+  const loser = svg.match(/<g data-allocation-mark="" data-mc="" data-id="B02">([\s\S]*?)<\/g>/)?.[1] || '';
   assert.match(loser, new RegExp('stroke="' + COLORS.err + '"'));
 });
 

@@ -13,6 +13,8 @@ const axisNum = v => Math.abs(v) < 1e-9 ? '0' : sgn(v);
 const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: [], scoreable: false};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 const oddsRange = b => b.odds || [0, 0];
+/* an element whose value comes from the simulation carries data-mc: the page dims exactly these while a run is pending (attribute only) */
+const mc = s => s.replace(/^<([a-z]+)/, '<$1 data-mc=""');
 const lossAlt = pf => lossText(pf) + ' lose money, ' + p50Alt(pf);
 
 function conditionReceipt(readings, x0, y0, width, c, narrow, measure){
@@ -33,9 +35,9 @@ function conditionReceipt(readings, x0, y0, width, c, narrow, measure){
       '" y2="' + (y0 + h - 2) + '" stroke="' + c.border + '"/>');
     parts.push(txt(x, y0 + 13, item.label.toUpperCase(), narrow ? 8.5 : 8.2, c.muted,
       {weight: 700, tracking: '0.035em'}));
-    parts.push(txt(x, y0 + 33, !pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + lossText(pf), narrow ? 11 : 12.5,
-      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, mono: true}));
-    medOf(item).forEach((ln, li) => parts.push(txt(x, y0 + 50 + li * 10, ln, narrow ? 8.2 : 8.6, c.ink, {weight: 600, mono: true})));
+    parts.push(mc(txt(x, y0 + 33, !pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + lossText(pf), narrow ? 11 : 12.5,
+      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, mono: true})));
+    medOf(item).forEach((ln, li) => parts.push(mc(txt(x, y0 + 50 + li * 10, ln, narrow ? 8.2 : 8.6, c.ink, {weight: 600, mono: true}))));
     if(narrow) captionOf(item).forEach((line, li) => parts.push(txt(x, y0 + 67 + extra + li * 10, line, 8.5, c.muted)));
     parts.push('</g>');
   });
@@ -57,7 +59,7 @@ export function renderQuadrant(model, sim, ctx = {}){
    padded — mirrors render.js's prep so both views agree on scale logic). */
 export function prep(model, sim){
   const records = sourceBets(model, sim).map(record => ({...record, gi: record.groupIndex}));
-  const flat = records.filter(record => record.rec.scoreable !== false);
+  const flat = records.filter(record => record.rec.scoreable !== false && !record.rec.pending);   // a bet with no figures yet has no bubble
   const unscored = records.filter(record => record.rec.scoreable === false);
   let elo = 0, ehi = 1, maxStake = 0, totalStake = 0;
   for(const {b} of flat){
@@ -386,7 +388,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
     if(zero) parts.push(lineSegments(plotX0, y, plotX1, y, blockers).map(seg =>
       '<line data-allocation-zero="" x1="' + r2(seg[0]) + '" y1="' + r2(seg[1]) + '" x2="' + r2(seg[2]) + '" y2="' + r2(seg[3]) +
       '" stroke="' + c.ink + '" stroke-width="1.5"/>').join(''));
-    parts.push(txt(plotX0 - 8, y + 3, axisNum(t), tickSize, c.muted, {anchor: 'end', mono: true}));
+    parts.push(mc(txt(plotX0 - 8, y + 3, axisNum(t), tickSize, c.muted, {anchor: 'end', mono: true})));
   }
   // x ticks: fixed 0/25/50/75/100 (the axis domain is fixed, unlike y)
   for(const t of [0, 25, 50, 75, 100]){
@@ -411,7 +413,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   for(const it of items){
     const mark = it.e.p50 < 0 ? c.err : it.hue;
     const stroke = ' stroke="' + mark + '" stroke-width="1.5" stroke-opacity="0.55"';
-    marks.push('<g data-allocation-mark="" data-id="' + it.id + '">');
+    marks.push('<g data-allocation-mark="" data-mc="" data-id="' + it.id + '">');
     marks.push(pieces(it.hx0, it.ty, it.hx1, it.ty, chipBoxes, stroke, false));
     marks.push(pieces(it.tx, it.vy0, it.tx, it.vy1, chipBoxes, stroke, false));
     marks.push('<circle data-key="' + it.id + '" cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius) + '" fill="' + mark +

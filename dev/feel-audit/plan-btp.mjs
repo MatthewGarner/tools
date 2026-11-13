@@ -39,6 +39,7 @@ export const PLAN = [
   ['bets-narrow', ['bets'], N, async e => B.narrow(e)],
   ['sim-edit', ['bets', 'tree'], TM, async (e, t) => M.simEdit(e, t)],
   ['sim-export', ['bets', 'tree'], N, async (e, t) => M.simExport(e, t)],
+  ['sim-dim', ['bets'], N, async e => M.simDim(e)],
   ['sim-stale', ['bets', 'tree'], N, async (e, t) => M.simStale(e, t)],
   ['sim-error', ['bets', 'tree'], N, async (e, t) => M.simError(e, t)],
   ['tree-slider', ['tree'], TM, async e => { for(const k of ['desktop', 'phone']) await T.slider(e, k); await T.slider(e, 'desktop', {source: T.large(), label: 'large'}); }],

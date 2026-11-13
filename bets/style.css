@@ -30,7 +30,8 @@
 /* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
 .export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
 
-/* a run is going (assets/sim-pending.js): the figures on the page are the last result, dimmed once the wait is long enough to be seen */
-.preview[data-sim-dim] svg{opacity:.6;transition:opacity var(--dur-fast) var(--ease-out)}   /* the transition sits on the dimmed state only: a transition on every artefact slowed the first zoom step */
+/* a run is going (assets/sim-pending.js): the simulated figures (data-mc in the drawing) are the last result, dimmed once the wait is long enough to be seen;
+   everything else is the current document at full strength */
+.preview[data-sim-dim] svg [data-mc]{opacity:.6;transition:opacity var(--dur-fast) var(--ease-out)}   /* the transition sits on the dimmed state only */
 .actions button[data-working]{opacity:.6;cursor:progress}
-@media (prefers-reduced-motion:reduce){.preview[data-sim-dim] svg{transition:none}}
+@media (prefers-reduced-motion:reduce){.preview[data-sim-dim] svg [data-mc]{transition:none}}

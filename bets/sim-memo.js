@@ -23,26 +23,28 @@ export const SMALL_PORTFOLIO = 8;
 export const isSmall = model => flat(model).filter(b => b.stake && b.odds && b.payoff).length <= SMALL_PORTFOLIO;
 
 /* What a pending picture is drawn from. The last result is carried onto the portfolio as edited: a bet is the one it was if it has
-   the same name (failing that, the same place in the list, which is a rename), and keeps that bet's figures; the portfolio line is
-   the last one. A bet that was not in the last result, and a portfolio with no last result at all, take a coarse run of the
-   engine's own function (a few hundred runs, a few milliseconds): never final, always drawn as pending, always replaced. */
-export const COARSE_RUNS = 400;
+   the same name (failing that, the same place in the list, which is a rename), and keeps that bet's figures; the portfolio lines are
+   the last ones. A bet that was not in the last result is marked `pending`: the renderers draw an ellipsis for its figures and no
+   exposure bar until the run returns. With no last result at all every bet is pending and so is the portfolio (`pendingAll`).
+   Nothing here is simulated. */
 const flat = model => model.groups.flatMap(g => g.bets);
-export function carrySim(last, model, coarse = m => simulateModel(m, {nsim: COARSE_RUNS})){
-  if(!last) return withNames(coarse(model), model);
-  const before = flat(last.model), now = flat(model);
+const waiting = b => ({pending: true, ev: {p10: 0, p50: 0, p90: 0, step: 1}, audits: [], scoreable: !!(b.stake && b.odds && b.payoff)});
+export function carrySim(last, model){
+  const now = flat(model);
+  if(!last){
+    const bets = new Map(now.map(b => [b.srcLine, waiting(b)]));
+    return withNames({bets, scoreableCount: 0, portfolio: null, scenarios: {declared: 'independent', independent: null, shared: null}, pendingAll: true}, model);
+  }
+  const before = flat(last.model);
   const byName = new Map();
   for(const b of before) if(!byName.has(b.name)) byName.set(b.name, b);
   const taken = new Set(), source = new Array(now.length).fill(null);
   now.forEach((b, i) => { const hit = byName.get(b.name); if(hit && !taken.has(hit)){ source[i] = hit; taken.add(hit); } });
   now.forEach((b, i) => { if(!source[i] && before[i] && !taken.has(before[i]) && !now.some(x => x.name === before[i].name)){ source[i] = before[i]; taken.add(before[i]); } });
-  let rough = null;
   const bets = new Map();
   now.forEach((b, i) => {
     const kept = source[i] && last.sim.bets.get(source[i].srcLine);
-    if(kept){ bets.set(b.srcLine, kept); return; }
-    rough = rough || coarse(model);
-    if(rough.bets.has(b.srcLine)) bets.set(b.srcLine, rough.bets.get(b.srcLine));
+    bets.set(b.srcLine, kept || waiting(b));
   });
   return withNames({...last.sim, bets}, model);
 }

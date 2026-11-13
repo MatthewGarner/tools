@@ -21,36 +21,37 @@ G
 test('an edited bet keeps its last figures; they are the last result, not the new one', () => {
   const before = parse(SRC), sim = simulate(before);
   const edited = parse(SRC.replace('stake 100', 'stake 250'));
-  const carried = carrySim({model: before, sim}, edited, () => { throw new Error('nothing new: no coarse run'); });
+  const carried = carrySim({model: before, sim}, edited);
   assert.deepStrictEqual(carried.bets.get(edited.groups[0].bets[0].srcLine), sim.bets.get(before.groups[0].bets[0].srcLine));
   assert.equal(carried.portfolio, sim.portfolio);
 });
 
-test('figures follow a bet when a line is inserted above it', () => {
+test('figures follow a bet when a line is inserted above it; the new bet has none yet', () => {
   const before = parse(SRC), sim = simulate(before);
   const edited = parse(SRC.replace('  B:', '  Extra: stake 10, odds 50%, payoff 30\n  B:'));
-  let coarse = 0;
-  const carried = carrySim({model: before, sim}, edited, m => { coarse++; return simulate(m, {nsim: 400}); });
+  const carried = carrySim({model: before, sim}, edited);
   const [, extra, b] = edited.groups[0].bets;
   assert.deepStrictEqual(carried.bets.get(b.srcLine), sim.bets.get(before.groups[0].bets[1].srcLine), 'B keeps B\'s figures at its new line');
-  assert.equal(coarse, 1, 'one coarse run, for the bet that was not there');
-  assert.ok(carried.bets.get(extra.srcLine).scoreable);
+  assert.equal(carried.bets.get(extra.srcLine).pending, true, 'the new bet is pending: an ellipsis, no bar');
+  assert.equal(carried.pendingAll, undefined);
 });
 
 test('a renamed bet keeps its figures (same place, name gone from the portfolio)', () => {
   const before = parse(SRC), sim = simulate(before);
   const edited = parse(SRC.replace('A:', 'Alpha:'));
-  const carried = carrySim({model: before, sim}, edited, () => { throw new Error('no coarse run'); });
+  const carried = carrySim({model: before, sim}, edited);
   assert.deepStrictEqual(carried.bets.get(edited.groups[0].bets[0].srcLine), sim.bets.get(before.groups[0].bets[0].srcLine));
 });
 
-test('with no last result the whole picture comes from one coarse run of the engine\'s own function', () => {
-  const model = parse(SRC);
-  let runs = 0;
-  const carried = carrySim(null, model, m => { runs++; return simulate(m, {nsim: 400}); });
-  assert.equal(runs, 1);
-  assert.equal(carried.bets.size, 2);
-  assert.ok(carried.portfolio);
+test('with no last result every bet and the portfolio are pending; an invalid bet stays not scored', () => {
+  const model = parse(SRC + '\n  Bad: stake 5');
+  const carried = carrySim(null, model);
+  assert.equal(carried.pendingAll, true);
+  assert.equal(carried.portfolio, null);
+  const recs = [...carried.bets.values()];
+  assert.equal(recs.length, 3);
+  assert.ok(recs.every(r => r.pending));
+  assert.deepStrictEqual(recs.map(r => r.scoreable), [true, true, false]);
 });
 
 test('peek answers from the kept result and never simulates; put keeps a result computed elsewhere', () => {

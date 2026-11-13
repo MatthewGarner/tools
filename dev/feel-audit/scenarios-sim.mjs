@@ -197,3 +197,55 @@ self.onmessage = ({data: {payload, reqId}}) => {
   await shot(page, `${env.out}/shots/${tool}-sim-error-${env.mode}.png`);
   await ctx.close();
 }
+
+/* Bets while a run is pending: only the simulated figures (data-mc) dim, to 60%; names, stakes, odds and payoffs stay at full strength, and
+   a bet added during the wait shows an ellipsis for its figures and no exposure bar until the run returns. A stand-in worker answers
+   two seconds late so the state can be read; it runs the real function. */
+export async function simDim(env){
+  const {check, note} = env.R, w = where('bets', 'desktop', env.mode);
+  const stand = `import {runSimulations} from './sim-memo.js';
+self.onmessage = ({data: {payload, reqId}}) => { const reply = {result: runSimulations(payload), reqId}; setTimeout(() => self.postMessage(reply), 2000); };`;
+  const {ctx, page} = await fresh(env, 'bets', 'desktop', {source: LARGE.bets(), contextOptions: {serviceWorkers: 'block'}});
+  await page.route('**/bets/sim-worker.js', route => route.fulfill({contentType: 'text/javascript', body: stand}));
+  await page.reload({waitUntil: 'load'});
+  await page.waitForFunction(() => document.getElementById('preview').dataset.sim === 'final', null, {timeout: 20000});
+  const closed = await page.locator('#workspace').evaluate(el => el.classList.contains('collapsed') || el.classList.contains('focus-artefact'));
+  if(closed) await press(page, page.locator('#railtab'), false);
+  await waitQuiet(page, {quiet: 400});
+  /* a new bet under the first one */
+  await page.evaluate(async () => {
+    const {EditorView} = await import('/assets/vendor/codemirror.js');
+    const view = EditorView.findFromDOM(document.querySelector('.cm-editor'));
+    const line = view.state.doc.line(5);
+    view.dispatch({changes: {from: line.to, insert: '\n  Newcomer bet: stake 12, odds 50%, payoff 40'}});
+  });
+  await page.waitForFunction(() => 'simDim' in document.getElementById('preview').dataset, null, {timeout: 6000, polling: 10});
+  await sleep(300);   // the dim is a 120ms transition
+  const read = await page.evaluate(() => {
+    const svg = document.querySelector('#preview svg');
+    const eff = el => { let o = 1; for(let e = el; e && e !== svg.parentNode; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity); return Math.round(o * 100) / 100; };
+    const texts = [...svg.querySelectorAll('text')];
+    const row = name => [...svg.querySelectorAll('[data-row="bet"]')].find(g => g.textContent.includes(name));
+    const old = row('Bet 1.2'), fresh = row('Newcomer');
+    const nameOf = (g, s) => [...g.querySelectorAll('text')].find(t => t.textContent.includes(s));
+    const stakeOf = g => g.querySelector('[data-edit="stake"]');
+    const evs = [...old.querySelectorAll('text')].filter(t => t.closest('[data-mc]') && /^[−+]?\d/.test(t.textContent.trim()));
+    return {sim: document.getElementById('preview').dataset.sim,
+      title: eff(svg.querySelector('[data-bets-title-line]')), name: eff(nameOf(old, 'Bet 1.2')), stake: eff(stakeOf(old)),
+      ev: evs.length ? Math.max(...evs.map(eff)) : null, evMin: evs.length ? Math.min(...evs.map(eff)) : null, evCount: evs.length,
+      newName: fresh ? eff(nameOf(fresh, 'Newcomer')) : null,
+      newEllipses: fresh ? [...fresh.querySelectorAll('text')].filter(t => t.textContent.trim() === '…' && t.closest('[data-mc]')).length : -1,
+      newBars: fresh ? fresh.querySelectorAll('[data-exposure-range]').length : -1};
+  });
+  await shot(page, `${env.out}/shots/bets-sim-pending-${env.mode}.png`);
+  await page.waitForFunction(() => document.getElementById('preview').dataset.sim === 'final', null, {timeout: 10000});
+  const after = await page.evaluate(() => { const svg = document.querySelector('#preview svg'); const row = [...svg.querySelectorAll('[data-row="bet"]')].find(g => g.textContent.includes('Newcomer'));
+    return {ellipses: [...svg.querySelectorAll('text')].filter(t => t.textContent.trim() === '…').length, bars: row ? row.querySelectorAll('[data-exposure-range]').length : -1}; });
+  note('sim.dim', w, 'Bets while pending', {read, after});
+  check('sim.dim.figures', w, 'while pending the simulated figures are at 60% and the title, a bet name and its stake at full opacity',
+    {title: read.title, name: read.name, stake: read.stake, ev: [read.evMin, read.ev, read.evCount]}, read.sim === 'pending' && read.title === 1 && read.name === 1 && read.stake === 1 && read.ev === 0.6 && read.evMin === 0.6 && read.evCount > 0, 'names/stakes 1, EV figures 0.6');
+  check('sim.dim.ellipsis', w, 'a bet added during the wait has its name at full strength, an ellipsis in each figure and no exposure bar', {newName: read.newName, ellipses: read.newEllipses, bars: read.newBars},
+    read.newName === 1 && read.newEllipses === 3 && read.newBars === 0, 'name 1, three "…", no bar');
+  check('sim.dim.final', w, 'when the run returns the ellipses are gone and the new bet has its bar', after, after.ellipses === 0 && after.bars === 1, 'no "…", one bar');
+  await ctx.close();
+}
