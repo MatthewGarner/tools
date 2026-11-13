@@ -9,14 +9,18 @@ store, delivery plan, or decision recommendation.
 
 **Settled place**: an item that remains in the chosen top-*k* in at least 85%
 of the simulation runs under the authored wobble. It means the ranking is
-stable under those assumptions, not that the item should be funded.
+stable under those assumptions, not that the item should be funded. "The top *k*
+is settled" is a claim about the set: *k* items clear the line and one exact group
+of *k* wins in at least 85% of runs. Items with exactly equal scores share the
+places they occupy.
 
 **Contested place**: a top-*k* place whose membership changes under the
 authored wobble. Resolve it with strategy, sequencing, or better inputs; the
 simulation must not manufacture a winner.
 
 **Weight wobble**: the stated 90% uncertainty interval applied to criterion
-weights. It represents disagreement about relative importance, not a
+weights. It is multiplicative: a wobble of 50 means each weight is up to 1.5×
+larger or smaller (÷1.5 to ×1.5), not ±50%. It represents disagreement about relative importance, not a
 probability that a criterion is true.
 
 **Score wobble**: the stated perturbation applied to initiative scores. It

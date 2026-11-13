@@ -23,7 +23,10 @@ marginal odds: one shared draw resolves every Bet. It is a stress reading, not a
 correlation coefficient or a causal dependency graph.
 
 **Median outcome**:
-The P50 of realised Portfolio outcomes. _Avoid_: Net EV.
+The P50 of realised Portfolio outcomes. _Avoid_: Net EV. When the middle of the
+outcome distribution has an empty stretch (typically one large bet winning or
+losing on the shared draw), the median is not a stable figure, so it is shown as
+the two values either side of that stretch ("P50 −300 or −144"), never a point.
 
 **Kill criterion**:
 The authored condition that says when a Bet should stop. It is an audit of one
