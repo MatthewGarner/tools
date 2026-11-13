@@ -132,7 +132,8 @@ const inBounds = (box, b) => box.x >= b.x0 && box.x + box.w <= b.x1 && box.y >= 
 function scoreOf(box, placed, bubbles){
   let s = 0;
   for(const p of placed) s += overlapArea(box, p);
-  for(const bub of bubbles) s += circleOverlap(box, bub.cx, bub.cy, bub.r);
+  /* a bubble is kept clear by its bounding square (what a viewer's eye and a checker both take as its extent) */
+  for(const bub of bubbles) s += overlapArea(box, {x: bub.cx - bub.r, y: bub.cy - bub.r, w: bub.r * 2, h: bub.r * 2}) * 2;
   return s;
 }
 
