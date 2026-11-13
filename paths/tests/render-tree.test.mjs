@@ -416,7 +416,7 @@ test('the Unplaced wash ends at the tree body and cannot cover the verdict canva
   const topology = treeProjection(projection);
   const layout = treeLayout(topology, {width:700, measure});
   const svg = renderTree(topology, layout, {colors, measure, dark:false, today:'2026-12-01', projection});
-  const match = /<g data-kind="unplaced"><rect x="0" y="([^"]+)" width="[^"]+" height="([^"]+)"/.exec(svg);
+  const match = /<g data-kind="unplaced"><rect x="36" y="([^"]+)" width="[^"]+" height="([^"]+)"/.exec(svg);
   assert.ok(match, 'unplaced wash geometry is emitted');
   assert.ok(Number(match[1]) + Number(match[2]) <= layout.totalHeight,
     'translated wash stays inside bodyHeight');

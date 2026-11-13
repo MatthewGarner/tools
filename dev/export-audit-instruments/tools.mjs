@@ -24,7 +24,7 @@ export const TOOLS = {
       await page.waitForFunction(v => document.querySelector(`#viewtoggle [data-view="${v}"]`)?.getAttribute('aria-pressed') === 'true', view).catch(() => {});
       await settle(page);
     },
-    exports: () => [...PIC, {id: 'md', kind: 'md', sel: '#copymd'}, {id: 'verdict', kind: 'text', sel: '.vcopy'}],
+    exports: () => [...PIC, {id: 'slide', kind: 'copypng', sel: '#copyslide'}, {id: 'md', kind: 'md', sel: '#copymd'}, {id: 'verdict', kind: 'text', sel: '.vcopy'}],
   },
   tree: {
     path: '/tree/',
@@ -33,7 +33,7 @@ export const TOOLS = {
     live: '#preview',
     views: () => ['diagram'],
     async select(){},
-    exports: () => [...PIC],
+    exports: () => [...PIC, {id: 'slide', kind: 'copypng', sel: '#copyslide'}],
   },
   paths: {
     path: '/paths/',

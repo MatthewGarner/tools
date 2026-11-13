@@ -34,6 +34,8 @@ try{
         const dir = ensure(join(OUT, 'print', tool, doc.name, theme));
         const pdf = join(dir, 'print.pdf');
         await page.emulateMedia({media: 'print'});
+        /* page.pdf() does not send beforeprint, which is where a page builds its print sheets (as export-fidelity does for Roadmap) */
+        await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
         await page.pdf({path: pdf, format: 'A4', printBackground: true});
         await ctx.close();
         for(const f of readdirSync(dir)) if(/^page-\d+\.png$/.test(f)) execFileSync('rm', [join(dir, f)]);

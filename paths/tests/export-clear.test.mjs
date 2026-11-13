@@ -120,3 +120,16 @@ test('a tree card that cuts a long item title keeps the whole text in the SVG, a
   const cut = [...svg.matchAll(/>([^<>]*…)</g)].map(m => m[1]);
   for(const c of cut){ const stem = c.replace(/…$/, ''); if(title.startsWith(stem.slice(0, 20))) assert.ok(title.startsWith(stem) && /\s/.test(title[stem.length] || ' '), 'cut mid-word: ' + c); }
 });
+
+/* XP-8: muted type reads at 4.5:1 on the tinted panels as well as on the paper */
+import {legibleMuted} from '../../assets/artefact-parts.js';
+test('muted type is darkened until it reads on a tinted panel, and left alone when it already does', () => {
+  const lum = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4); return .2126 * r + .7152 * g + .0722 * b; };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + .05) / (Math.min(lum(a), lum(b)) + .05);
+  const out = legibleMuted('#6B6B68', '#111111', '#FBFBFA', '#1F4FD8');
+  assert.ok(out !== '#6B6B68');
+  const panel = '#' + [0xFB, 0xFB, 0xFA].map((c, k) => Math.round(c * .9 + [0x1F, 0x4F, 0xD8][k] * .1).toString(16).padStart(2, '0')).join('');
+  assert.ok(ratio(out, '#FBFBFA') >= 4.6 && ratio(out, panel) >= 4.5, out);
+  assert.equal(legibleMuted('#333333', '#111111', '#FBFBFA', '#1F4FD8'), '#333333');
+  assert.equal(legibleMuted('currentColor', '#111111', '#FBFBFA', '#1F4FD8'), 'currentColor');
+});

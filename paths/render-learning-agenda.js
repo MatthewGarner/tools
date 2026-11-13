@@ -354,7 +354,7 @@ function dossierSection(section, x, y, width, C, measure, narrow, selectedKey, i
       entry.key === selectedKey, interactive);
     svg += drawn.svg; cursor += drawn.height + 12;
   }
-  return {height:cursor - y, svg:svg + '</g>'};
+  return {height:cursor - y, trail:12, svg:svg + '</g>'};
 }
 
 function dossierHeader(agenda, x, y, width, C, measure, narrow){
@@ -403,9 +403,9 @@ function renderDossierAgenda(agenda, ctx, narrow){
   const rosterHeadHeight = narrow ? 66 : 53;
   const total = pad + header.height + rosterHeadHeight + roster.height + 22 + (selected ? focusHeight + 26 : 0) +
     sectionHeights.reduce((sum, h) => sum + h + 20, 0) + pad;
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${total}" viewBox="0 0 ${width} ${total}" ` +
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="__H__" viewBox="0 0 ${width} __H__" ` +
     `font-family="${SANS}" ${rootRole(ctx)} data-kind="learning-agenda${narrow ? '-narrow' : ''}" data-layout="${narrow ? 'dossier-stack' : 'dossier-board'}" ` +
-    `data-min-readable-scale="${MIN_READABLE_SCALE}">` + dossierHead(agenda, selected) + rect(0, 0, width, total, C.bg) + header.svg;
+    `data-min-readable-scale="${MIN_READABLE_SCALE}">` + dossierHead(agenda, selected) + `<rect x="0" y="0" width="${width}" height="__H__" fill="${C.bg}"/>` + header.svg;
   let y = pad + header.height;
   svg += txt(pad, y + 10, 'PARALLEL LEARNING MOVES', 9, C.accentInk, {weight:800, tracking:1});
   svg += txt(width - pad, y + 10, String(parallelEntries(agenda).length), 11, C.muted, {weight:700, anchor:'end'});
@@ -423,12 +423,15 @@ function renderDossierAgenda(agenda, ctx, narrow){
     const focus = dossierFocus(selected, pad, y, contentWidth, C, measure, false);
     svg += focus.svg; y += focus.height + 26;
   }
+  let inkEnd = y;
   for(const section of sections){
     const drawn = dossierSection(section, pad, y, contentWidth, C, measure, narrow, selectedKey,
       !!ctx?.interactive, selectedInRoster);
-    svg += drawn.svg; y += drawn.height + 20;
+    svg += drawn.svg; inkEnd = y + drawn.height - (drawn.trail || 0); y += drawn.height + 20;
   }
-  return svg + '</svg>';
+  /* the picture ends a house margin below its last ink, the same distance as its top margin: no band of empty paper */
+  void total;
+  return (svg + '</svg>').replaceAll('__H__', String(Math.ceil(inkEnd + pad)));
 }
 
 export function renderLearningAgenda(agenda, ctx = {}){ useFace(ctx); return renderDossierAgenda(agenda, ctx, false); }

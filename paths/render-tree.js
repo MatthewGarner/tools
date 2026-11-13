@@ -4,6 +4,7 @@ import {btnAttrs, esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
 import {SANS, SERIF, useFace} from './face.js';
+import {legibleMuted} from '../assets/artefact-parts.js';
 import {verdict} from './verdict.js';
 
 /* fonts are read at call time (a face is chosen per render), so they are objects that stringify on use */
@@ -29,7 +30,7 @@ function palette(colors){
   const border = pick(muted, 'line', 'border', 'rule', 'muted', 'ink');
   const accent = pick(ink, 'accent', 'brand', 'ink');
   return {
-    ink, muted, bg, surface, border, accent,
+    ink, muted: legibleMuted(muted, ink, bg, accent), bg, surface, border, accent,
     brandText:pick(accent, 'brandText', 'accentInk', 'accent', 'brand', 'ink'),
     yes:pick(accent, 'yes', 'positive', 'success', 'accent', 'brand', 'ink'),
     no:pick(accent, 'no', 'negative', 'danger', 'accent', 'brand', 'ink'),
@@ -566,9 +567,10 @@ export function renderTree(projection, layout, ctx){
 
   if(layout.unplaced?.length){
     const top = Math.max(0, (layout.unplacedY || layout.unplaced[0].y) - 28);
-    svg += '<g data-kind="unplaced">' + rect(0, top, width, Math.max(0, bodyHeight - top), wash(C.muted, '0A')) +
-      line(0, top, width, top, C.border, 1) +
-      txt(36, top + 18, 'Unplaced', 10, C.muted, {weight:700, tracking:1}) + '</g>';
+    /* inset to the frame's margin: a panel that bleeds to the canvas edge leaves no margin there */
+    svg += '<g data-kind="unplaced">' + rect(FRAME_PAD, top, Math.max(0, width - FRAME_PAD * 2), Math.max(0, bodyHeight - top), wash(C.muted, '0A')) +
+      line(FRAME_PAD, top, width - FRAME_PAD, top, C.border, 1) +
+      txt(FRAME_PAD + 12, top + 18, 'Unplaced', 10, C.muted, {weight:700, tracking:1}) + '</g>';
   }
 
   svg += line(layout.spineRun.x1, layout.spineRun.y, layout.spineRun.x2, layout.spineRun.y, C.ink, 2);
