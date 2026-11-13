@@ -351,8 +351,18 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   const items = layoutBubbles(P, sim, geo);
   const zeroY = sy(0);
   const plan = labelPlan(items, {...geo, zeroY}, measure);
-  const chips = plan.filter(p => p.unplaced);
-  spreadChips(chips, {bounds: {x0: plotX0, x1: plotX1, y0: plotY0, y1: plotY1}});
+  const keyed = plan.filter(p => p.unplaced);
+  spreadChips(keyed, {bounds: {x0: plotX0, x1: plotX1, y0: plotY0, y1: plotY1}});
+  /* A number is printed on the plot only where it sits clear of every other bubble and every other number. At this density
+     (64 bets) the rest are left unnumbered on the plot, named in the key below, and the picture says how many. */
+  const chips = [], square = it => ({x: it.cx - it.radius - 5, y: it.cy - it.radius - 5, w: (it.radius + 5) * 2, h: (it.radius + 5) * 2});
+  for(const it of keyed.slice().sort((a, b) => (b.stake - a.stake) || (a.sourceOrder - b.sourceOrder))){
+    const box = chipBox(it);
+    const clear = !plan.some(o => o !== it && boxesOverlap(box, square(o))) && !chips.some(o => boxesOverlap(box, chipBox(o)));
+    if(clear) chips.push(it);
+  }
+  chips.sort((a, b) => a.sourceOrder - b.sourceOrder);
+  const keyOnly = keyed.filter(it => !chips.includes(it));
   const labelled = plan.filter(p => !p.unplaced);
   /* what a line must not run through: every label, both zone captions, every chip */
   const labelBoxes = labelled.map(p => ({x: p.box.x, y: p.box.y, w: p.box.w, h: p.box.h}));
@@ -460,8 +470,14 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   let bottomY = ly + 6;
 
   // the key below the plot names the bets that wear a number
-  if(chips.length){
-    const key = makeKey(chips, geo, measure, geo.keyX0, geo.keyX1, bottomY + 16);
+  if(keyed.length){
+    if(keyOnly.length){
+      const ids = keyOnly.map(it => it.sourceOrder).sort((a, b) => a - b), spans = [];
+      for(let i = 0; i < ids.length;){ let j = i; while(j + 1 < ids.length && ids[j + 1] === ids[j] + 1) j++; const id = n => 'B' + String(n).padStart(2, '0'); spans.push(i === j ? id(ids[i]) : id(ids[i]) + '–' + id(ids[j])); i = j + 1; }
+      parts.push(txt(geo.keyX0, bottomY + 18, (keyed.length - keyOnly.length) + ' of ' + keyed.length + ' bets carry their number on the plot; ' + spans.join(', ') + ' (' + keyOnly.length + ') are in the key only.', legendSize, c.muted, {weight: 700}));
+      bottomY += 20;
+    }
+    const key = makeKey(keyed, geo, measure, geo.keyX0, geo.keyX1, bottomY + 16);
     parts.push(...drawKey(key, c));
     bottomY = key.y0 + key.height;
   }

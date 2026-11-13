@@ -200,14 +200,17 @@ function renderWide(model, sim, ctx){
     y += 14;
   }
   for(const g of model.groups){
+    /* a long group heading wraps inside the ledger (tracking widens it, so it is measured wider) and pushes the rows down */
+    const headSize = plan.mode === 'board' ? 10 : 9.5, headTrack = plan.mode === 'board' ? '0.14em' : '0.12em';
+    const headLines = measuredLines(g.name.toUpperCase(), '700 ' + headSize + 'px ' + SANS, (C.right - C.left - 110) / 1.16, measure);
+    const headBase = plan.mode === 'board' ? 17 : 14;
+    headLines.forEach((ln, i) => body.push(txt(C.left, y + headBase + i * 13, ln, headSize, c.accentInk, {weight: 700, tracking: headTrack})));
     if(plan.mode === 'board'){
-      body.push(txt(C.left, y + 17, g.name.toUpperCase(), 10, c.accentInk, {weight: 700, tracking: '0.14em'}));
       const gStake = g.bets.reduce((t, b) => t + stakeMid(b), 0);
       body.push(txt(C.right, y + 17, 'STAKE ' + amount(gStake), 9, c.muted, {mono: true, anchor: 'end'}));
-      y += 25;
+      y += 25 + (headLines.length - 1) * 13;
     } else {
-      body.push(txt(C.left, y + 14, g.name.toUpperCase(), 9.5, c.accentInk, {weight: 700, tracking: '0.12em'}));
-      y += 20;
+      y += 20 + (headLines.length - 1) * 13;
     }
     for(const b of g.bets){
       const rec = recOf(sim, b), e = rec.ev;

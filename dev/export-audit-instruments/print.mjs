@@ -12,7 +12,7 @@ import {knownFor} from './known.mjs';
 const OUT = arg('out', '/Users/matthew/repos/tools/docs/superpowers/specs/export-audit-instruments');
 const tools = asList(arg('tool')) || Object.keys(TOOLS);
 const docFilter = asList(arg('doc')) || ['a0', 'a-example', 'many', 'long'];
-const CHROME_WORDS = /\b(Copy PNG|Copy as markdown|Copy summary|Export|Share|Undo|Edit formula|Add initiative|Paste from spreadsheet|Syntax reference|More views|Replay the maths)\b/i;
+const CHROME_WORDS = /\b(Copy PNG|Copy as markdown|Copy summary|Export|Undo|Edit formula|Add initiative|Paste from spreadsheet|Syntax reference|More views|Replay the maths)\b/i;
 
 const env = await boot();
 const lines = [], results = [];
@@ -44,7 +44,8 @@ try{
         const text = execFileSync('pdftotext', ['-layout', pdf, '-']).toString();
         writeFileSync(join(dir, 'print.txt'), text);
         const c = {tool, doc: doc.name, theme, view};
-        const chrome = text.match(CHROME_WORDS);
+        /* the Share button is chrome; "share" inside the artefact's own words ("revenue share") is content */
+        const chrome = text.match(CHROME_WORDS) || text.match(/\bShare\b(?=\s{2,}|\s*$)/m);
         add(c, 'print:artefact-alone', !chrome, {pages: pages.length, chromeWord: chrome?.[0]});
         add(c, 'print:pages', pages.length <= 2, {pages: pages.length});
         /* the artefact is on paper whole: every word of the downloaded SVG for this view is in the PDF's text */
@@ -52,7 +53,9 @@ try{
         if(existsSync(svgFile)){
           const ws = s => new Set(normText(s).split(' ').map(w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')).filter(w => w.length > 2));
           const svgWords = ws(svgTexts(readFileSync(svgFile, 'utf8')).join(' ')), printed = ws(text);
-          const missing = [...svgWords].filter(w => !printed.has(w));
+          /* letter-spaced headings come out of the PDF as "W H AT WO U L D": a word counts as printed if it is there without the spacing */
+          const squashed = text.replace(/\s+/g, '').toLowerCase();
+          const missing = [...svgWords].filter(w => !printed.has(w) && !squashed.includes(w.toLowerCase()));
           add(c, 'print:artefact-complete', missing.length <= svgWords.size * .02, {missing: missing.slice(0, 20), count: missing.length, of: svgWords.size});
         }
         /* how dark is page 1? a dark artefact printed on paper wastes ink and loses contrast */

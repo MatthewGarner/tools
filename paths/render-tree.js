@@ -351,9 +351,9 @@ function renderItem(box, decisions, C, measure){
   const status = itemStatus(item);
   if(rows.meta){
     if(rows.meta.lane){
-      svg += txt(left + rows.meta.lane.x, box.y + rows.meta.y + 10,
+      svg += '<g><title>' + esc(String(item.lane)) + '</title>' + txt(left + rows.meta.lane.x, box.y + rows.meta.y + 10,
         clipped(item.lane, rows.meta.lane.w, measure, SMALL_FONT), 9, C.muted,
-        {weight:600, tracking:0.35});
+        {weight:600, tracking:0.35}) + '</g>';
     }
     if(status && rows.meta.status){
       const colour = C[status.key];
@@ -483,8 +483,8 @@ function renderStump(box, C, measure){
     txt(box.x + box.w / 2, box.y + 16, fits ? phrase : '+' + count, 11, C.muted,
       {weight:700, anchor:'middle'});
   for(const [index, item] of (box.items || []).entries()){
-    svg += txt(box.x + 8, box.y + 32 + index * 16,
-      clipped(item.title, box.w - 16, measure, SMALL_FONT), 9, C.muted, {weight:600});
+    svg += '<g><title>' + esc(String(item.title ?? '')) + '</title>' + txt(box.x + 8, box.y + 32 + index * 16,
+      clipped(item.title, box.w - 16, measure, SMALL_FONT), 9, C.muted, {weight:600}) + '</g>';
   }
   return svg + '</g>';
 }

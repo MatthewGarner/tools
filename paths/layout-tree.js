@@ -374,7 +374,7 @@ export function treeLayout(projection, {width = 1200, measure = text => String(t
   const spineRun = {x1:today.x + today.w, x2:terminal?.x ?? lastCenter, y:axisY, items:spine};
   const treeBottom = axisY + Math.max(spineHalf,
     branchNodeHalf + (armRadius ? G.branchGap + armRadius : 0));
-  const unplacedTop = treeBottom + (projection.unplaced.length ? 42 : 0);
+  const unplacedTop = treeBottom + (projection.unplaced.length ? 62 : 0);   // clear of the "If not" label under a decision
   const loose = placeUnplaced(projection.unplaced, unplacedTop, canvasWidth, measure, G);
   const height = Math.ceil((projection.unplaced.length ? loose.bottom : treeBottom) + G.marginY);
 
