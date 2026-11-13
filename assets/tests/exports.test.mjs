@@ -175,3 +175,25 @@ test('valid Copy PNG calls clipboard.write in the originating click turn', async
     }
   }
 });
+
+/* A confirmation pressed again must still end on the label the button rests on (the harness found "Copied — paste into
+   your deck" left on screen for good, and a literal lower-case "markdown" replacing the page's own capitalisation). */
+test('flashButton restarts its timer on a second press and returns to the original label', async () => {
+  const {flashButton} = await import('../exports.js');
+  const btn = {textContent: 'Copy as Markdown', setAttribute(n, v){ this[n] = v; }};
+  const timers = [];
+  const real = {set: globalThis.setTimeout, clear: globalThis.clearTimeout};
+  globalThis.setTimeout = fn => timers.push({fn, live: true}) && timers.length;
+  globalThis.clearTimeout = id => { if(timers[id - 1]) timers[id - 1].live = false; };
+  try {
+    flashButton(btn, 'Copied', 1500);
+    assert.equal(btn.textContent, 'Copied');
+    flashButton(btn, 'Copied', 1500);                       // pressed again while it still says Copied
+    assert.equal(timers.filter(t => t.live).length, 1, 'the first timer is cancelled, not left to fire');
+    timers.find(t => t.live).fn();
+    assert.equal(btn.textContent, 'Copy as Markdown', 'back to the original, capitalisation intact');
+    flashButton(btn, 'Copied', 1500);                       // a later press starts again from the same label
+    timers.filter(t => t.live).at(-1).fn();
+    assert.equal(btn.textContent, 'Copy as Markdown');
+  } finally { globalThis.setTimeout = real.set; globalThis.clearTimeout = real.clear; }
+});

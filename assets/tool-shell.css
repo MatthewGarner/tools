@@ -19,6 +19,8 @@ body.mg-site [data-tool-header][data-shell] h1{flex:1 1 auto;min-width:0;margin:
 .tool-file summary::after{content:"";width:6px;height:6px;margin:-3px 0 0 2px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
 .tool-file[open] summary{border-color:var(--mg-ink)}
 .tool-share{background:var(--mg-ink);border-color:var(--mg-ink);color:var(--mg-paper)}
+.tool-file summary:hover{background:var(--mg-ink);color:var(--mg-paper)}
+.tool-share:not(:disabled):hover{background:transparent;color:var(--mg-ink)}
 /* Controls ship disabled. For four seconds a not-yet-wired one looks enabled, so a normal load never
    flashes dim; then --tool-late flips to 1, they dim, and the menu says why. The clock runs on the
    always-rendered header (a closed menu's own animations would restart on open), in CSS only, so it

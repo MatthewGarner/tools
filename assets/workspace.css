@@ -25,11 +25,11 @@
   padding:0;
   background:var(--card);
 }
-@media (prefers-reduced-motion: no-preference){
-  .workspace{transition: grid-template-columns .28s cubic-bezier(.2,.8,.2,1)}
-  .rail{transition: opacity .2s ease, visibility 0s linear .28s}
-  .stage .preview svg{transition: width .28s cubic-bezier(.2,.8,.2,1)}
+/* Layout changes in one step. Opening the rail fades its content in (opacity + transform) and never animates a layout property. */
+@media (prefers-reduced-motion: no-preference) and (min-width: 901px){
+  .workspace.rail-opening > .rail{animation:rail-in var(--dur-fast) var(--ease-out)}
 }
+@keyframes rail-in{from{opacity:0;transform:translateX(-8px)}}
 .workspace.collapsed,.workspace.focus-artefact,.workspace.reading-pending:has(.preview svg){grid-template-columns:0px minmax(0,1fr)}
 .workspace.collapsed::before,.workspace.focus-artefact::before{
   content:'';position:absolute;z-index:1;inset:0 auto 0 0;width:1px;background:var(--border);pointer-events:none;
@@ -206,6 +206,9 @@ footer{margin: 48px 0 8px}
    edit-in-place, so the floor lives here once. Asserted in dev/pw/check-eip.mjs. */
 @media (pointer: coarse){ .eip-input{font-size: 16px} }
 .eip-input.invalid{border-color: var(--err); animation: eip-shake .3s}
+.eip-err{position:fixed;z-index:61;box-sizing:border-box;width:max-content;max-width:min(300px,calc(100vw - 16px));padding:5px 8px;
+  background:var(--card);color:var(--err);border:1px solid var(--err);font-size:12.5px;line-height:1.4}
+.eip-err:empty{width:1px;height:1px;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0)}
 @keyframes eip-shake{
   20%{transform: translateX(-3px)} 40%{transform: translateX(3px)}
   60%{transform: translateX(-2px)} 80%{transform: translateX(2px)}

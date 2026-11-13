@@ -81,6 +81,52 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   }
   function announceMiss(){ announce('The new item could not be opened here. Focus returned to the original control.'); }
 
+  /* A commit repaints the artefact and the repaint drops focus. Hand it back by identity: the same item (data-key, else
+     source line); after a removal the next item, else the previous, else the add control. Never from a reader who moved on. */
+  const visible = e => e.isConnected && e.getClientRects().length > 0;
+  const editsOf = kind => [...preview.querySelectorAll('[data-edit]')].filter(e => e.dataset.edit === kind && visible(e));
+  const keyOf = e => e.closest('[data-key]')?.dataset.key ?? e.dataset.key;
+  function snapshot(el){
+    if(!el || !el.dataset || el.dataset.edit == null || el.dataset.line == null || !preview.contains(el)) return null;
+    const list = editsOf(el.dataset.edit);
+    return {el, kind: el.dataset.edit, line: el.dataset.line, key: keyOf(el), index: list.indexOf(el)};
+  }
+  function findAfter(snap, removed){
+    if(removed){
+      const list = editsOf(snap.kind);
+      return list[snap.index] || list[snap.index - 1] || editsOf('additem')[0] || null;
+    }
+    const same = editsOf(snap.kind);
+    if(snap.key){
+      const byKey = same.filter(e => keyOf(e) === snap.key);
+      if(byKey.length === 1) return byKey[0];
+    }
+    const atLine = same.filter(e => e.dataset.line === snap.line);
+    if(atLine.length === 1) return atLine[0];
+    const card = editsOf('cardmenu').filter(e => e.dataset.line === snap.line);
+    return card.length === 1 ? card[0] : null;
+  }
+  function restoreFocus(snap, removed){
+    if(!snap) return;
+    const t0 = performance.now();
+    const attempt = () => {
+      if(snap.el.isConnected){          // not repainted yet; if it never is (a view-state edit) focus never left
+        if(performance.now() - t0 < 600) requestAnimationFrame(attempt);
+        return;
+      }
+      const ae = document.activeElement;
+      if(ae && ae !== document.body && ae.isConnected) return;   // the reader has moved on
+      findAfter(snap, removed)?.focus({preventScroll: true});
+    };
+    requestAnimationFrame(attempt);
+  }
+  function commitAndRestore(kind, line, raw, value, el){
+    const removed = kind === 'removeitem' || /^(✖Remove|×$)/.test(String(value));
+    const snap = kind === 'additem' ? null : snapshot(el);   // an add's caller focuses the NEW item itself
+    onCommit(kind, line, raw, value, el);
+    restoreFocus(snap, removed);
+  }
+
   function close(restore = true){
     if(!active) return;
     const {input, away, el, errEl} = active;
@@ -126,7 +172,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       b.addEventListener('click', () => {
         if(row.commit){
           close();
-          onCommit(row.commit.kind, row.commit.line, row.commit.oldRaw || '', row.commit.value, activeEl);
+          commitAndRestore(row.commit.kind, row.commit.line, row.commit.oldRaw || '', row.commit.value, activeEl);
         } else if(row.opens){
           /* HTML-hosted targets (cycles/risk verdict blocks) have no svg ancestor —
              fall back to the attach container so opens works on both renditions */
@@ -159,7 +205,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
              any particular field. There is no "missing target" concept for an
              action row to fall back from. */
           close();
-          onCommit(activeEl.dataset.edit, +activeEl.dataset.line, activeEl.dataset.raw || '', '✖' + row.label, activeEl);
+          commitAndRestore(activeEl.dataset.edit, +activeEl.dataset.line, activeEl.dataset.raw || '', '✖' + row.label, activeEl);
         }
       });
       pop.appendChild(b);
@@ -185,14 +231,14 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     if(isRemove){
       const b = document.createElement('button');
       b.textContent = 'Remove'; b.classList.add('danger');
-      b.addEventListener('click', () => { close(); onCommit(kind, line, raw, '×', el); });
+      b.addEventListener('click', () => { close(); commitAndRestore(kind, line, raw, '×', el); });
       pop.appendChild(b);
     } else {
       for(const v of cyc){
         const b = document.createElement('button');
         b.textContent = v || 'none';
         if(v === raw) b.classList.add('on');
-        b.addEventListener('click', () => { close(); if(v !== raw) onCommit(kind, line, raw, v, el); });
+        b.addEventListener('click', () => { close(); if(v !== raw) commitAndRestore(kind, line, raw, v, el); });
         pop.appendChild(b);
       }
     }
@@ -253,7 +299,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       const isRemove = cyc.length === 1 && cyc[0] === '×';
       if(coarse() && (cyc.length > 1 || isRemove)){ openCyclePopover(el, rect, kind, raw, cyc, isRemove); return; }
       const i = cyc.indexOf(raw);
-      onCommit(kind, +el.dataset.line, raw, cyc[(i + 1 + cyc.length) % cyc.length], el);
+      commitAndRestore(kind, +el.dataset.line, raw, cyc[(i + 1 + cyc.length) % cyc.length], el);
       return;
     }
     /* menu kinds open a card popover: rows either open another target on the
@@ -279,7 +325,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         b.addEventListener('click', () => {
           const line = +el.dataset.line;
           close();
-          if(opt !== raw) onCommit(kind, line, raw, opt, el);
+          if(opt !== raw) commitAndRestore(kind, line, raw, opt, el);
         });
         pop.appendChild(b);
       }
@@ -299,7 +345,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
           b.addEventListener('click', () => {
             const line = +el.dataset.line;
             close();
-            onCommit(kind, line, raw, '✖' + act.label, el);
+            commitAndRestore(kind, line, raw, '✖' + act.label, el);
           });
           pop.appendChild(b);
         }
@@ -327,11 +373,10 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.style.top = (rect.top - 6) + 'px';
     input.style.minWidth = Math.max(rect.width + 34, 96) + 'px';
     document.body.appendChild(input);
-    /* always-present (empty until invalid), sr-only error text — a screen
-       reader hears it via aria-live the moment validate() fails; sighted
-       users keep the existing shake + red border as the primary signal. */
+    /* always-present error text: empty it is screen-reader-only (so aria-live announces it the moment validate()
+       fails); filled, the same sentence is shown beside the field, so a sighted reader is told what is wrong too. */
     const errEl = document.createElement('div');
-    errEl.className = 'eip-err sr-only';
+    errEl.className = 'eip-err';
     errEl.id = 'eip-err-' + (++errUid);
     errEl.setAttribute('aria-live', 'polite');
     document.body.appendChild(errEl);
@@ -350,13 +395,16 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         void input.offsetWidth;          // restart the shake
         input.classList.add('invalid');
         input.setAttribute('aria-invalid', 'true');
-        errEl.textContent = 'That value isn’t valid for ' + kind + ' — try again.';
+        errEl.textContent = 'That value isn’t valid for ' + kind + ' — ' + (spec.hint || 'try again.');
+        const ir = input.getBoundingClientRect();
+        errEl.style.left = Math.max(8, Math.min(ir.left, innerWidth - errEl.offsetWidth - 8)) + 'px';
+        errEl.style.top = (ir.bottom + 4) + 'px';
         input.focus();
         return;
       }
       const line = +el.dataset.line;
       close();
-      onCommit(kind, line, raw, v.trim(), el);
+      commitAndRestore(kind, line, raw, v.trim(), el);
     };
     input.addEventListener('keydown', e => {
       if(e.key === 'Enter'){ e.preventDefault(); commit(); }

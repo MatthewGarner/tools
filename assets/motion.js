@@ -168,6 +168,36 @@ export function applyFlip(container, attr, old, {scale = 1} = {}){
   }));
 }
 
+/* View switch: the new view is in place at once; a copy of the old one (fixed, on <body>, no ids or data- hooks, so it never
+   touches the pane's layout) fades out over it. A second switch discards the copy it interrupted. */
+const GHOST_MS = 140;
+function ghostBefore(container){
+  const old = container.querySelector('svg');
+  if(!old || motionStill()) return null;
+  const r = old.getBoundingClientRect(), c = container.getBoundingClientRect();
+  if(r.width < 1 || r.height < 1) return null;
+  for(const g of document.querySelectorAll('.mo-ghost')) g.remove();
+  const ghost = old.cloneNode(true);
+  for(const n of [ghost, ...ghost.querySelectorAll('*')]){
+    n.removeAttribute('id'); n.removeAttribute('tabindex'); n.removeAttribute('style');
+    for(const a of [...n.attributes]) if(a.name.startsWith('data-')) n.removeAttribute(a.name);
+  }
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.classList.add('mo-ghost');
+  const top = Math.max(0, c.top - r.top), left = Math.max(0, c.left - r.left);
+  const bottom = Math.max(0, r.bottom - c.bottom), right = Math.max(0, r.right - c.right);
+  Object.assign(ghost.style, {left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px',
+    clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px)`, animationDuration: GHOST_MS + 'ms'});
+  return ghost;
+}
+function ghostAfter(ghost){
+  if(!ghost) return;
+  const done = () => ghost.remove();
+  ghost.addEventListener('animationend', done, {once: true});
+  setTimeout(done, GHOST_MS + 200);
+  document.body.appendChild(ghost);
+}
+
 /* One helper owns {lastSvg, revealed} + the memoized swap, so per-tool wiring is
    ~3 lines and the state machine can't drift. The reveal stays ARMED until it
    actually plays (the element is scrolled fully into view) — so an edit to a
@@ -210,9 +240,11 @@ export function mountMotion(container){
     }
     const m = force || 'flip';                           // revealed: flip on settle, else plain swap
     const flipState = (m === 'flip' && flipAttr) ? captureFlip(container, flipAttr) : null;
+    const ghost = m === 'fade' ? ghostBefore(container) : null;   // mode 'fade' = a view switch (see ghostBefore)
     container.innerHTML = svg; lastSvg = svg;
     if(onSwap) onSwap();
     if(flipState) applyFlip(container, flipAttr, flipState, {scale: (scale ? scale() : 1)});
+    ghostAfter(ghost);
     return container;
   }
   paint.reveal = () => { revealed = false; };

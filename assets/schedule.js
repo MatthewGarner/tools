@@ -16,7 +16,9 @@
 
 export function debounced(fn, ms){
   let t = null;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  const run = (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  run.cancel = () => clearTimeout(t);   // a discrete edit paints at once and drops the typing pass it would otherwise repeat
+  return run;
 }
 
 export function rafBatched(fn){

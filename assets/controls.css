@@ -55,7 +55,12 @@
 }
 @media (prefers-reduced-motion: no-preference){
   .segmented button{transition:color .15s,background-color .15s}
+  /* the pressed fill lands with the press (and the view it picks), not 150ms behind it; only hover and release ease */
+  .segmented button.on,.segmented button[aria-pressed="true"],.segmented button[aria-selected="true"]{transition:none}
 }
+
+/* a tap is a tap: no double-tap-zoom delay on any control */
+button,summary,.btn,.chip,.segmented button{touch-action:manipulation}
 
 /* Author display rules (flex/grid) must never defeat the hidden attribute —
    the trap that made gauge's export row visible pre-reveal (2026-07-05). */

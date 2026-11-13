@@ -62,6 +62,9 @@ h1{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size
 .action-menu{position:absolute;z-index:40;left:0;top:calc(100% + 6px);min-width:220px;
   padding:5px;background:var(--card);border:1px solid var(--ink);box-shadow:var(--shadow)}
 .action-disclosure.history .action-menu{left:auto;right:0;min-width:250px}
+/* One entrance for every menu (card, disclosure, File): opacity and a 4px rise, fast; closing is immediate. */
+@keyframes menu-in{from{opacity:0;transform:translateY(4px)}}
+@media (prefers-reduced-motion: no-preference){.action-menu,.eip-pop,.tool-menu{animation:menu-in var(--dur-fast) var(--ease-out)}}
 .action-menu .btn{display:flex;width:100%;justify-content:flex-start;text-align:left;
   border-color:transparent;padding:9px 11px}
 .action-menu .btn:hover{border-color:var(--ink)}
