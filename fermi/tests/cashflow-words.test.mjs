@@ -61,9 +61,9 @@ test('FM-3: with no never-runs the quantiles are the plain ones (Runway sentence
 test('FM-21: shares that are neither 0 nor 1 never print 0% or 100%', () => {
   const v = verdictLines({...base, npv: {...base.npv, pPos: 0.9962},
     irr: {p50: 0.12, undefinedShare: 0.004}, period: {kind: 'payback', p10: 3, p50: 4, p90: 5, neverShare: 0.003}});
-  assert.match(v.sub, /P\(NPV > 0\) >99%/);
-  assert.match(v.sub, /undefined in <1% of runs/);
-  assert.match(v.sub, /never in <1%/);
+  assert.match(v.sub, /P\(NPV > 0\) 99\.6%/);
+  assert.match(v.sub, /undefined in 0\.4% of runs/);
+  assert.match(v.sub, /never in 0\.3%/);
   assert.doesNotMatch(v.sub, /(^|[^.\d])(100|0)%/);
 });
 

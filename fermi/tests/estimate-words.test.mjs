@@ -156,7 +156,10 @@ test('FM-17: a uniform input is labelled a full range; a log-normal on zero says
   const notes = distOverrideNotes(['a', 'b', 'c'], {a: [0, 10], b: [1, 10], c: [-5, 5]}, {a: 'logn', b: 'logn', c: 'auto'});
   assert.deepEqual(notes, ['a is set to log-normal but its range reaches zero, so it runs as normal.']);
   assert.match(estimateMethod(['a', 'b', 'c'], {a: [1, 2], b: [1, 2], c: [-1, 1]}, {a: 'auto', b: 'uni', c: 'auto'}, 20000),
-    /^Fit per range: 1 log-normal, 1 normal, 1 uniform \(full range\) · 20,000 samples$/);
+    /^Fit to each range: 1 log-normal, 1 normal, 1 uniform \(full range\) · 20,000 samples$/);
+  // every range log-normal: the plain sentence is true as it stands
+  assert.equal(estimateMethod(['a', 'b'], {a: [1, 2], b: [3, 9]}, {a: 'auto', b: 'logn'}, 20000),
+    'Log-normal fit to each 90% range · 20,000 samples');
 });
 
 test('FM-Q9: "nothing plausible" says how far it looked', () => {

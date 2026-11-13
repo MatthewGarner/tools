@@ -10,7 +10,7 @@ import {confess, asciiNum, CAP} from './solve.js';
 import {SEEDS, N, POUR_GRAINS, CF_SEED, CF_N} from './seeds.js';
 import {stretchLabel, shapeLabel, leverHint, leverLine, verdictSentence, shareAbove, evenOdds, invalidNote,
   unmeasuredNote, underflowNote, arithmeticSentence, waitingMessage, suffixWarnings, distOverrideNotes,
-  estimateMethod, rangeAria, nothingPlausible, cashflowMethod} from './words.js';
+  estimateMethod, rangeAria, nothingPlausible, cashflowMethod, pctProb} from './words.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -257,7 +257,7 @@ function pBeatsStr(){
   let c = 0;
   for(let i = 0; i < n; i++) if(B.raw[i] > A.raw[i]) c++;
   const p = c / n;
-  return p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  return pctProb(p);
 }
 function renderCompare(){
   const el = $('cmp');
@@ -297,7 +297,7 @@ function threshPctText(){
   const t = threshValue();
   if(!last || t === null) return '—';
   const p = shareAbove(last.valid, t);
-  return p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  return pctProb(p);
 }
 function renderThresh(){ $('tout').textContent = threshPctText(); }
 
@@ -1486,7 +1486,7 @@ function cfRenderThresh(){
   let lo = 0, hi = s.length;
   while(lo < hi){ const m = (lo + hi) >> 1; if(s[m] <= t) lo = m + 1; else hi = m; }
   const p = (s.length - lo) / s.length;
-  el.textContent = p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  el.textContent = pctProb(p);
 }
 $('cftin').addEventListener('input', () => { cfRenderThresh(); cfWriteHashSafe(); });
 

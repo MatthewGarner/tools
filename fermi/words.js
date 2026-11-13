@@ -3,12 +3,12 @@
    same way and the sentences can be tested in node. */
 import {fmt, sig, ratioStr, effDist, parseNum, readNumber} from './engine.js';
 
-/* a whole-number share: never "0%" or "100%" for a value that is neither */
-export function pctWhole(p){
-  if(!(p > 0)) return '0%';
-  if(p >= 1) return '100%';
-  const r = Math.round(p * 100);
-  return r === 0 ? '<1%' : r === 100 ? '>99%' : r + '%';
+/* a sampled probability, wherever it appears: tenths in both tails, whole percent between,
+   and never a flat 0% or 100% (20,000 runs cannot show that) */
+export function pctProb(p){
+  if(!(p >= 0.001)) return '<0.1%';
+  if(p > 0.999) return '>99.9%';
+  return (p * 100).toFixed(p < 0.095 || p > 0.905 ? 1 : 0) + '%';
 }
 /* IRR, wherever it appears: one decimal place */
 export const pctOne = v => v == null ? '—' : (v < 0 ? '−' : '') + (Math.abs(v) * 100).toFixed(1) + '%';
@@ -168,8 +168,10 @@ export function estimateMethod(varNames, ranges, dists, n){
     counts.set(k, (counts.get(k) || 0) + 1);
   }
   const order = ['log-normal', 'normal', 'uniform (full range)', 'fixed'];
-  return 'Fit per range: ' + order.filter(k => counts.has(k)).map(k => counts.get(k) + ' ' + k).join(', ') +
-    ' · ' + n.toLocaleString('en-GB') + ' samples';
+  const runs = ' · ' + n.toLocaleString('en-GB') + ' samples';
+  // every range log-normal is the usual case, and the plain sentence is then true as it stands
+  if(counts.size === 1 && counts.has('log-normal')) return 'Log-normal fit to each 90% range' + runs;
+  return 'Fit to each range: ' + order.filter(k => counts.has(k)).map(k => counts.get(k) + ' ' + k).join(', ') + runs;
 }
 /* "nothing plausible" says how far the solver looked */
 export function nothingPlausible(dir, t, cap){

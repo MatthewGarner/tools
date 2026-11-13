@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseNum, tokenize, parse, evalNode, fmt, sig, ratioStr, readNumber} from '../engine.js';
-import {pctWhole, pctOne, shapeLabel, stretchLabel} from '../words.js';
+import {pctProb, pctOne, shapeLabel, stretchLabel} from '../words.js';
 import {parseCashflowScalar, parseCashflowTenor} from '../interactions.js';
 
 const val = src => evalNode(parse(tokenize(src)), {});
@@ -87,16 +87,6 @@ test('FM-11: stretch labels keep two figures and call a factor below 1 a shrink'
   assert.equal(stretchLabel({kind: 'add', delta: -3}), 'shifted −3');
 });
 
-test('FM-21: a share that is neither 0 nor 1 never prints 0% or 100%', () => {
-  assert.equal(pctWhole(0.9962), '>99%');
-  assert.equal(pctWhole(0.003), '<1%');
-  assert.equal(pctWhole(0.004), '<1%');
-  assert.equal(pctWhole(0), '0%');
-  assert.equal(pctWhole(1), '100%');
-  assert.equal(pctWhole(0.012), '1%');
-  assert.equal(pctWhole(0.5), '50%');
-  assert.equal(pctWhole(0.994), '99%');
-});
 
 test('FM-22: IRR prints to one decimal place', () => {
   assert.equal(pctOne(0.1327), '13.3%');
@@ -122,4 +112,17 @@ test('FM-28: cash-flow scalar fields use the range reader', () => {
   assert.equal(parseCashflowTenor('1e1').valid, false);
   assert.equal(parseCashflowTenor('9.5').valid, false);
   assert.equal(parseCashflowTenor('').valid, true);
+});
+
+test('FM-21: one probability printer for every surface: tenths in both tails, never 0% or 100% for a value that is neither', () => {
+  assert.equal(pctProb(0.9962), '99.6%');   // the old threshold printer said "100%" here
+  assert.equal(pctProb(0.9996), '>99.9%');
+  assert.equal(pctProb(0.0004), '<0.1%');
+  assert.equal(pctProb(0.012), '1.2%');
+  assert.equal(pctProb(0.0949), '9.5%');
+  assert.equal(pctProb(0.64), '64%');
+  assert.equal(pctProb(0.5), '50%');
+  assert.equal(pctProb(0.9051), '90.5%');
+  assert.equal(pctProb(0), '<0.1%');
+  assert.equal(pctProb(1), '>99.9%');
 });

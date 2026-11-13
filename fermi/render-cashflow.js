@@ -3,12 +3,12 @@
    and IRR are the discounted numbers in the verdict. */
 import {esc, tint, txt, wrapText} from '../assets/svg.js';
 import {fmt} from './engine.js';
-import {pctWhole, pctOne, cashflowMethod} from './words.js';
+import {pctProb, pctOne, cashflowMethod} from './words.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const W = 860, PAD = 26;
 const f1 = n => (Math.round(n * 100) / 100).toString();
-const pctS = pctWhole;
+const pctS = pctProb;
 const money = v => (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v));
 
 function periodWord(grain, t){ return grain === 'month' ? 'month ' + t : 'year ' + t; }
