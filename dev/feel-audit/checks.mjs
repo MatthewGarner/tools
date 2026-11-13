@@ -5,6 +5,8 @@ export const BAR = {
   paint: {normal: 100, cpu4x: 200},          // input -> next paint, ms
   settleView: {normal: 350, cpu4x: 900},     // view switch fully settled, ms
   settleEdit: {normal: 350, cpu4x: 1000},    // an edit commit visibly applied, ms
+  commit: {normal: 50, cpu4x: 200},          // a discrete commit (Enter, menu pick, drop) -> the artefact repainted, ms
+  pick: {normal: 100, cpu4x: 400},           // a menu pick -> artefact settled, ms
   keyRender: {normal: 200, cpu4x: 500},      // keystroke -> artefact updated, ms
   menuOpen: {normal: 50, cpu4x: 150},        // popover on screen after the click, ms
   feedback: 100,                             // every click acknowledged within, ms
@@ -13,32 +15,12 @@ export const BAR = {
   inputFont: 16,
 };
 
-/* Checks confirmed as defects by the 2026-11-13 audit (findings.json ids in comments).
-   'id' tags every location; 'id@where' tags locations whose where-string contains it. */
+/* Checks confirmed as defects by the 2026-11-13 audit that are still open after the fix pass (the rest were fixed, passed, and
+   lost their tag). 'id' tags every location; 'id@where' tags locations whose where-string contains it. */
 export const KNOWN = new Set([
-  'load.example.cls', 'load.dense.cls',                                   // F01
-  'load.example.replacements', 'load.dense.replacements',                 // F02
-  'rail.open.layoutprops', 'rail.open.rerenders', 'rail.open.dropped',    // F05
-  'rail.open.focus@timeline', 'rail.open.focus@roadmap',                  // F06, F07
-  'eip.commit.focus', 'menu.commit.focus',                                // F08, F09
-  'add.focus@roadmap', 'remove.focus',                                    // F10, F11
-  'inspect.escape.focus@timeline/desktop', 'inspect.open.rerenders@timeline/desktop', // F12, F13
-  'drag.dropgap', 'drag.glide', 'drag.frames',                            // F14, F15, F35
-  'view.transition@roadmap',                                              // F16
-  'menu.open.motion', 'add.motion',                                       // F18 (+ no entrance for added items)
-  'disclosure.escape', 'disclosure.outside',                              // F19
-  'disclosure.onscreen@phone', 'snapshot.feedback@phone',                 // F20
-  'disclosure.onscreen@timeline/desktop',                                 // F21
-  'copy.png.double', 'copy.md.label',                                     // F22, F23, F24
-  'eip.invalid.visible',                                                  // F25
-  'keyboard.tiny@timeline',                                               // F26
-  'hover.silent',                                                         // F27
-  'touch.dbltapzoom', 'touch.select@timeline', 'touch.targets@timeline',  // F28, F29, F30
-  'touch.hoveronly@timeline',                                             // F31
-  'menu.commit.settle@timeline',                                          // F32
-  'deck.open.paint@timeline',                                             // F33
-  'view.dense.longtask@timeline',                                         // F34
-  'whatif.motion',                                                        // F37 (intermittent)
+  'add.motion',                       // an added item has no entrance (the audit's F18 note; no ruling asked for one)
+  'deck.open.paint@timeline',         // F33: one 80ms task building the deck pages before the dialog paints (left, under 100ms)
+  'view.dense.longtask@timeline',     // F34: one 55-60ms task rendering the dense document (left; it is the renderer, not the FLIP)
 ]);
 
 export function registry(){

@@ -60,6 +60,12 @@ function pageLoad(page, skip = LAZY){
   return files;
 }
 
+/* 2026-11-13 feel audit (Roadmap + Timeline interaction fixes): the shared code the fixes live in grew every page that loads it,
+   by up to 9.2k on a page that loads all of it (edit-in-place's focus restore + visible error 2.6k, motion's view cross-fade 1.7k,
+   tool-shell's disclosure menus 1.2k, workspace 0.9k, exports/page/controls/tokens ~1.4k) and 3-5k on pages that load part. Each affected budget below was raised by
+   what it needed plus ~1.5k (rounded up to 0.5k): home +2.0k, fermi +3.5k, rank +5.0k, flow +3.0k, premortem +2.0k, tree +3.5k,
+   map +2.5k, gauge +8.0k, timeline +14.0k (its own app.js/style/markup are ~3.5k of that), wardley +6.0k, bets +3.0k,
+   energy/risk +9.0k, energy/cycles +9.5k, energy/frequency +4.5k, energy/merit-order +6.0k, energy/intraday +6.5k. */
 const PAGES = {
   // Article demos carry a frozen model and focused shell, with no identity fonts.
   'embed/v1/flow/index.html': 40_000,
@@ -87,7 +93,7 @@ const PAGES = {
      rather than nineteen times (the Swiss 6b precedent). --- */
   'explore/index.html': 90_000,
   'backup/index.html': 75_000,
-  'home/index.html': 40_000,
+  'home/index.html': 42_000,
   /* fermi 120k -> 132k (2026-07-15, debt sizing / levered returns): debt.js
      (sculpt + co-fund + leverTrials), engine.js probit/distQuantile/irrOf, the
      financing card in render-cashflow.js, and the debt inputs in app.js. Eager
@@ -165,14 +171,14 @@ const PAGES = {
      reduced to chart pixels. Actual 225.4k; ~9.6k headroom. */
   /* 2026-09-07 usability: authored question/units and fresh model-link copying
      add ~11.6k over the earlier measured 225.4k. Actual 237k; 5k headroom. */
-  'fermi/index.html': 265_000 /* 250k -> 265k 2026-11-13 exact answers: the closed-form log-normal (exactLogNormal, the double-precision normal curve, one summary/probability/compare seam), the variance-share transform and one dominance rule, the unconditional cash-flow draw order with its selection-based quantiles, Newton IRR and shared money step. Actual 491.0k against a 477.5k ceiling before; ~1.5k headroom (0.1k was a trap: the next 150-byte fix tripped it). */ /* 242k -> 250k 2026-11-13 engine correctness: fermi/words.js (every sentence and format the page prints, now testable in node, 9.8k), seeds.js, the one number reader, IRR sign-change scan. Actual 475.8k against a 469.5k ceiling before; ~1.7k headroom. */, 'rank/index.html': 110_500 /* Design-bar recovery + atomic export: actual 108.6k, ~1.9k headroom. */, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  'fermi/index.html': 268_500 /* 250k -> 265k 2026-11-13 exact answers: the closed-form log-normal (exactLogNormal, the double-precision normal curve, one summary/probability/compare seam), the variance-share transform and one dominance rule, the unconditional cash-flow draw order with its selection-based quantiles, Newton IRR and shared money step. Actual 491.0k against a 477.5k ceiling before; ~1.5k headroom (0.1k was a trap: the next 150-byte fix tripped it). */ /* 242k -> 250k 2026-11-13 engine correctness: fermi/words.js (every sentence and format the page prints, now testable in node, 9.8k), seeds.js, the one number reader, IRR sign-change scan. Actual 475.8k against a 469.5k ceiling before; ~1.7k headroom. */, 'rank/index.html': 115_500 /* Design-bar recovery + atomic export: actual 108.6k, ~1.9k headroom. */, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
   /* 116k -> 122k (2026-08-04 interaction reliability): the visibility-gated
      queue animation runtime, export/hash flush and preset state semantics are
      first-load correctness code. Actual 116.9k; retain about 5k headroom. */
-  'flow/index.html': 149_000,   /* 144k->146k 2026-08-15 start-your-own: the shared on-ramp chip (assets/app-common.js exampleChips + .chip.start in controls.css) — flow carries no starter of its own, it just pays for shared code. NB the 2026-08-13 note below claimed ~6k headroom; flow had already grown to 143.7k (313 bytes slack) before this change, so that figure was stale. Actual 144.5k; ~1.5k headroom. */   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+  'flow/index.html': 152_000,   /* 144k->146k 2026-08-15 start-your-own: the shared on-ramp chip (assets/app-common.js exampleChips + .chip.start in controls.css) — flow carries no starter of its own, it just pays for shared code. NB the 2026-08-13 note below claimed ~6k headroom; flow had already grown to 143.7k (313 bytes slack) before this change, so that figure was stale. Actual 144.5k; ~1.5k headroom. */   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   /* 102k -> 108k (2026-08-04 interaction reliability): keyboard threshold
      policy, pointer lifecycle cleanup, selected-preset state and dialog focus
      restoration are first-load interaction correctness. Actual 103.1k; leave
@@ -192,7 +198,7 @@ const PAGES = {
      entry point and shared phase language. It deliberately does not reuse risk
      scoring, so the retained code is semantic protection rather than duplicated
      presentation. Actual ~120.2k; retain ~4.8k headroom. */
-  'premortem/index.html': 136_000 /* shared accessible copy-dialog CSS; actual 132.5k */, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
+  'premortem/index.html': 138_000 /* shared accessible copy-dialog CSS; actual 132.5k */, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
   'signal-vs-noise/index.html': 107_000,   /* 103k -> 107k (2026-08-20 P1): shared first-load code now totals 103.0k; restore real headroom. */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -389,13 +395,13 @@ const PAGES = {
   /* The same shared joined rail/stage edge reaches Tree. Roadmap's named DSL
      return path is an optional workspace label, so Tree pays only the tiny
      shared parameter. Actual 554669 bytes; retain 331 bytes of headroom. */
-  'tree/index.html': 568_000,   /* 557k -> 568k (2026-08-20 P1): reader-state workspace code is eager by design; actual 561.2k retains ~6.8k. */   /* 555k->557k 2026-08-15 start-your-own: tree/starter.js plus the shared on-ramp chip (exampleChips + .chip.start). Actual 556.0k. */   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
+  'tree/index.html': 571_500,   /* 557k -> 568k (2026-08-20 P1): reader-state workspace code is eager by design; actual 561.2k retains ~6.8k. */   /* 555k->557k 2026-08-15 start-your-own: tree/starter.js plus the shared on-ramp chip (exampleChips + .chip.start). Actual 556.0k. */   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
   /* 538k -> 550k (2026-08-15 Mapping family): Map now includes the shared
      review-margin treatment for source-owned spatial inspection. Actual 542.8k. */
-  'map/index.html': 562_000 /* current-state model-link copy + fallback; actual 558.9k */,
+  'map/index.html': 564_500 /* current-state model-link copy + fallback; actual 558.9k */,
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -428,7 +434,7 @@ const PAGES = {
      explicit author route, and focus-safe session feedback. They share the live
      SVG statistics rather than creating a second model; actual 565.6k leaves a
      4.4k guardrail. */
-  'gauge/index.html': 585_000 /* separate author/participant surfaces and phone labels; actual 581k */, 'timeline/index.html': 677_000 /* 668k -> 677k (2026-11-13, engine correctness; +1,000 for the date-relative Start your own and the lane fold, actual 912,069 against 911,500): the lane model (double-precision normal, log-survival conditional), one date/duration printer, clock and the new verdict, Compare and Markdown rules; page load actual 910,910 bytes against the old limit of 903,500; the new limit is 911,500, +8,000. */ /* 665k -> 668k (2026-11-12, export round 4): print paper behind the "(continued)" strip and the stop-short slice end, both in assets/print-artefact.js, which Timeline loads. Page load actual 900,934 bytes against the old limit of 900,500; the new limit is 903,500, +3,000 */,   /* Timeline Observatory adds the local font registry, measured four-view renderer and complete PNG decks (~646k). */ /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
+  'gauge/index.html': 593_000 /* separate author/participant surfaces and phone labels; actual 581k */, 'timeline/index.html': 691_000 /* 668k -> 677k (2026-11-13, engine correctness; +1,000 for the date-relative Start your own and the lane fold, actual 912,069 against 911,500): the lane model (double-precision normal, log-survival conditional), one date/duration printer, clock and the new verdict, Compare and Markdown rules; page load actual 910,910 bytes against the old limit of 903,500; the new limit is 911,500, +8,000. */ /* 665k -> 668k (2026-11-12, export round 4): print paper behind the "(continued)" strip and the stop-short slice end, both in assets/print-artefact.js, which Timeline loads. Page load actual 900,934 bytes against the old limit of 900,500; the new limit is 903,500, +3,000 */,   /* Timeline Observatory adds the local font registry, measured four-view renderer and complete PNG decks (~646k). */ /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
@@ -440,7 +446,7 @@ const PAGES = {
   /* 530k -> 538k (2026-08-28): comparison identity refusal and clean export
      composition are eager reader truth, shared by snapshots and exports.
      Actual 533.0k; retain a normal ~5k guardrail. */
-  'wardley/index.html': 538_000,
+  'wardley/index.html': 544_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
@@ -457,7 +463,7 @@ const PAGES = {
      chrome. Actual 563.3k; retain ~6.7k headroom. */
   /* 580k -> 582k (2026-08-28): strict source integrity and complete
      comparison markdown are eager export behavior. Actual 580.9k. */
-  'bets/index.html': 585_000,   /* 570k -> 580k (2026-08-20 P1): shared reader/export seams put the eager graph at 572.3k; retain ~7.7k. */   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
+  'bets/index.html': 588_000,   /* 570k -> 580k (2026-08-20 P1): shared reader/export seams put the eager graph at 572.3k; retain ~7.7k. */   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool
@@ -468,12 +474,12 @@ const PAGES = {
      ~5.2k headroom) — it was the tightest energy page before this. */
   /* Risk 462k -> 472k (2026-08-04): exact default-add target and Escape/
      two-step undo safety are first-load behavior. Actual 466.1k; keep ~6k. */
-  'energy/index.html': 40_000, 'energy/risk/index.html': 500_000,   /* 498k -> 500k (2026-11-12 engine audit): the AS241 inverse-normal grid and the parse warnings add ~0.4k; the page was 368 bytes over, retains ~1.6k. */   /* 486k -> 498k (2026-08-20 P1): the reader-state workspace path is eager; actual 490.2k retains ~7.8k. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 481k, ~5k headroom */   /* 2026-08-04 fold: merged actual 474.1k, ~6k headroom */   /* 449k->453k 2026-08-02 verdict-eip bytes */
+  'energy/index.html': 40_000, 'energy/risk/index.html': 509_000,   /* 498k -> 500k (2026-11-12 engine audit): the AS241 inverse-normal grid and the parse warnings add ~0.4k; the page was 368 bytes over, retains ~1.6k. */   /* 486k -> 498k (2026-08-20 P1): the reader-state workspace path is eager; actual 490.2k retains ~7.8k. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 481k, ~5k headroom */   /* 2026-08-04 fold: merged actual 474.1k, ~6k headroom */   /* 449k->453k 2026-08-02 verdict-eip bytes */
   /* Cycles 486k -> 501k (2026-08-04): worker-revision stale-edit protection,
      exact default-add focus and the narrow editable discount field. Actual
      494.2k; retain ~6.8k. */
-  'energy/cycles/index.html': 532_500,   /* 529k -> 532.5k (2026-11-12, CYC-7 revised): the shared quantile-grid module (AS241) and the price/rough formatters; was 2.9k over, retains ~0.6k. */   /* 526k -> 529k (2026-11-12 engine audit): unit-aware parse + refused-input handling + model-error path, year-1 copy; the page was 2.1k over, retains ~0.9k. */   /* 514k -> 526k (2026-08-20 P1): the reader-first workspace is first-load code; actual 518.2k retains ~7.8k. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 509k, ~5k headroom */   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
-  'energy/frequency/index.html': 121_500,   /* 121k -> 121.5k (2026-11-12 engine audit): one shared Hz formatter and the inertia wording; 24 bytes over, retains ~0.5k. */ 'energy/merit-order/index.html': 167_000,   /* P1: Frequency’s semantic scene/canvas graph is 111.4k; Merit Order’s shared seams are 158.1k. Keep 4.9–6.6k rather than hairline budget traps. */   /* 156.2k->157.5k 2026-08-15 start-your-own: merit-order carries no starter, it just pays for the shared chip bytes; its own 138-byte tripwire (below) left no room for them. Actual 156.8k. */   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
+  'energy/cycles/index.html': 542_000,   /* 529k -> 532.5k (2026-11-12, CYC-7 revised): the shared quantile-grid module (AS241) and the price/rough formatters; was 2.9k over, retains ~0.6k. */   /* 526k -> 529k (2026-11-12 engine audit): unit-aware parse + refused-input handling + model-error path, year-1 copy; the page was 2.1k over, retains ~0.9k. */   /* 514k -> 526k (2026-08-20 P1): the reader-first workspace is first-load code; actual 518.2k retains ~7.8k. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 509k, ~5k headroom */   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
+  'energy/frequency/index.html': 126_000,   /* 121k -> 121.5k (2026-11-12 engine audit): one shared Hz formatter and the inertia wording; 24 bytes over, retains ~0.5k. */ 'energy/merit-order/index.html': 173_000,   /* P1: Frequency’s semantic scene/canvas graph is 111.4k; Merit Order’s shared seams are 158.1k. Keep 4.9–6.6k rather than hairline budget traps. */   /* 156.2k->157.5k 2026-08-15 start-your-own: merit-order carries no starter, it just pays for the shared chip bytes; its own 138-byte tripwire (below) left no room for them. Actual 156.8k. */   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
      block) and app.js gained a small popover focus-trap import + keydown
@@ -513,7 +519,7 @@ const PAGES = {
   /* 156k -> 163k (2026-08-04 interaction reliability): stable callout-focus
      restoration, one owned playback loop, reduced-motion settle and viewport
      clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
-  'energy/intraday/index.html': 180_500,  /* 180k -> 180.5k (2026-11-13: the dispatch boundary tolerance, ~0.3k, in the shared merit-order engine). 178k -> 180k (2026-11-13 engine audit): the part-slice re-entry pass, trough/peak clamp, hash validation and merit-order verdict/rent helpers added ~1.8k to this page's load; not trimmed — it is readable code and copy. 166k -> 178k (2026-08-20 P1): the composite export renderer is eager for reliable actions. */
+  'energy/intraday/index.html': 187_000,  /* 180k -> 180.5k (2026-11-13: the dispatch boundary tolerance, ~0.3k, in the shared merit-order engine). 178k -> 180k (2026-11-13 engine audit): the part-slice re-entry pass, trough/peak clamp, hash validation and merit-order verdict/rent helpers added ~1.8k to this page's load; not trimmed — it is readable code and copy. 166k -> 178k (2026-08-20 P1): the composite export renderer is eager for reliable actions. */
   /* 817k -> 878k (2026-08-13 integration): Paths deliberately carries both
      the all-outcomes Brief / Question lens / Conditions renderers and the
      fail-closed exact-world Roadmap projection. These share the evaluator and

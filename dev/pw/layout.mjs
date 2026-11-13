@@ -57,7 +57,7 @@ const TOOLS = [
   {path: '/roadmap/', source: 'Edit roadmap source', narrowTab: true, chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit question source', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
-  {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false},
+  {path: '/timeline/', chip: 'App launch programme', source: 'Edit source', narrowTab: false},   // Timeline's one opener is the labelled Edit source; its rail tab is hidden while collapsed
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   /* Bets keeps source open for editing, but its fit advisory has a named manual
      reader route. That route must release the hidden editor's layout height; a
@@ -216,6 +216,12 @@ if(scope.wants("proxy")){
 
 /* Runs for every tool, deep or not: `narrowTab` is per-tool markup rather than
    shared-module behaviour, and its true branch lives only in the reduced set. */
+/* Timeline hides its rail tab while the rail is collapsed (Edit source is its one opener); every other tool reopens with the tab */
+async function reopenRail(page){
+  const tab = page.locator('#railtab');
+  if(await tab.isVisible()) await tab.click(); else await page.locator('#editsource').click();
+}
+
 async function narrowStacks(page, path, narrowTab){
   await page.setViewportSize({width: 800, height: 900});
   await page.waitForTimeout(300);
@@ -313,7 +319,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
        what the first version of this reduction got wrong: it ran the check straight
        off the collapse and failed all ten shallow tools. 600ms clears the rail's
        0.28s reopen transition, the same margin the `[` check below uses. */
-    await page.locator('#railtab').click();
+    await reopenRail(page);
     await page.waitForTimeout(600);
     await narrowStacks(page, path, narrowTab);
     check(path + ' no console/page errors', errors.length === 0);

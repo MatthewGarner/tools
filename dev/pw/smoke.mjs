@@ -31,6 +31,8 @@ async function showSourceIfReading(page){
   // about to move behind the source rail.
   await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
   if(await source.isVisible()) await source.click();
+  /* Timeline hides its rail tab while collapsed: its opener is the labelled Edit source button */
+  else if(await page.locator('#workspace.collapsed').count() && await page.locator('#editsource').isVisible()) await page.locator('#editsource').click();
 }
 
 /* The PNG-export path decodes the SVG string as an <img>; invalid XML (e.g. a
@@ -1396,6 +1398,8 @@ for(const theme of FLOW_THEMES){
     await page.keyboard.press('Enter');
     await page.keyboard.type('Ops: Snap ' + theme + ' 2027-03 .. 2027-05');
     await page.waitForTimeout(500);
+    /* clicking the editor closed the History menu (a press elsewhere closes a disclosure): open it again to pick the baseline */
+    if(!(await page.locator('#snapsel').isVisible())) await page.getByText('History', {exact: true}).click();
     const n = await page.locator('#snapsel option').count();
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
@@ -1479,6 +1483,8 @@ if(scope.wants("roadmap")){
   check('roadmap: Board card resolved by title carries data-edit=cardmenu',
     (await page.locator('#preview svg [data-edit="cardmenu"][data-item-title="Resume where you left off"]').count()) >= 1);
   // WYSIWYG export: Download SVG from Board view yields the live board artefact, not the chart
+  /* the view picker is outside the Export menu, so pressing it closed the menu: open it again */
+  if(!(await page.locator('#dlsvg').isVisible())) await page.getByText('Export', {exact: true}).click();
   const [brd] = await Promise.all([
     page.waitForEvent('download', {timeout: 8000}),
     page.locator('#dlsvg').click(),
@@ -1516,6 +1522,7 @@ if(scope.wants("roadmap")){
     (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Gamma task'}).count()) >= 1);
 
   // WYSIWYG export: Download SVG from Focus view yields the live focus artefact, not the chart
+  if(!(await page.locator('#dlsvg').isVisible())) await page.getByText('Export', {exact: true}).click();
   const [foc] = await Promise.all([
     page.waitForEvent('download', {timeout: 8000}),
     page.locator('#dlsvg').click(),

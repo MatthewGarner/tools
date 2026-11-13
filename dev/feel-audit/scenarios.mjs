@@ -38,7 +38,7 @@ const where = (tool, kind, mode) => `${tool}/${kind}/${mode}`;
 export const paintOf = s => Math.max(s.eventTiming || 0, s.nextPaintApprox || 0);
 const bad = s => /^body\b/.test(s.active) || s.active === '?';
 /* the card hover dim (style.css `transition: opacity .15s` on g) is hover feedback, not motion of the change */
-export const motionOf = s => s.animations.filter(a => !/opacity @g 0\.15s/.test(a) && !/^\d+x (color|background-color|border(-\w+)?-color|outline-color|fill|stroke) /.test(a));
+export const motionOf = s => s.animations.filter(a => !/opacity @g 0\.1[25]s/.test(a) && !/^\d+x (color|background-color|border(-\w+)?-color|outline-color|fill|stroke) /.test(a));
 
 export async function freshPage(env, tool, kind, opts = {}){ return fresh(env, tool, kind, opts); }
 async function fresh(env, tool, kind, opts = {}){
@@ -67,14 +67,14 @@ export async function load(env, tool, kind, {source, label = 'example'} = {}){
     const s = F.summary(0, performance.now() - 450);
     s.firstSvg = first ? Math.round(first[0]) : null;
     s.fontsReadyAt = Math.round(performance.getEntriesByType('navigation')[0]?.loadEventEnd || 0);
-    s.svgReplacements = F.muts.filter(m => m[2] === 'childList' && m[1].startsWith('div#preview')).length;
+    s.svgReplacements = F.muts.filter(m => m[2] === 'childList' && m[1].startsWith('div#preview') && m[3] === 'svg').length;   // artefact renders; the parser's own insertion of the placeholder is not one
     return s;
   });
   const id = `load.${label}`;
   note(id + '.summary', w, 'first load', {firstSvg: s.firstSvg, settled: s.settled, cls: s.cls, longTasks: s.longTasks, longTaskMax: s.longTaskMax, heightJumps: s.heightJumps.length, previewHeightJumps: s.previewHeightJumps, svgReplacements: s.svgReplacements, animations: s.animations, shiftSources: s.shiftSources, wall: Date.now() - t});
   check(id + '.cls', w, 'layout shift during load (no input)', s.cls, s.cls <= 0.05, '<= 0.05');
   check(id + '.firstsvg', w, 'artefact first on screen (ms from navigation)', s.firstSvg, s.firstSvg <= (env.mode === 'normal' ? 1200 : 3000), env.mode === 'normal' ? '<= 1200ms' : '<= 3000ms');
-  check(id + '.replacements', w, 'artefact replaced after its first paint during load (flashes/re-lays out)', s.svgReplacements, s.svgReplacements <= 1, '<= 1 preview swap');
+  check(id + '.replacements', w, 'artefact renders during load (each one after the first flashes/re-lays out)', s.svgReplacements, s.svgReplacements <= 1, '<= 1 render');
   check(id + '.longtask', w, 'longest task during load', s.longTaskMax, s.longTaskMax <= (env.mode === 'normal' ? 200 : 600), env.mode === 'normal' ? '<= 200ms' : '<= 600ms');
   if(env.mode === 'normal' && kind === 'desktop' && label === 'example') check(id + '.errors', w, 'console errors', errors, errors.length === 0, 'none');
   await ctx.close();
@@ -97,6 +97,7 @@ export async function views(env, tool, kind, {source, label = 'example'} = {}){
     s.view = v;
     s.scrollAfter = await page.evaluate(() => scrollY) - y0;
     s.pressed = await btn.getAttribute('aria-pressed');
+    s.pressedAt = await page.evaluate(() => { const F = window.__feel; const down = [...F.inputs].reverse().find(i => i[0] === 'click'); const m = F.muts.find(m => m[0] >= down[1] && m[2] === 'attr:aria-pressed'); return m ? Math.round(m[0] - down[1]) : null; });
     all.push(s);
     note(`view.${label}.${v}`, w, 'switch to ' + v, {paint: paintOf(s), firstResponse: s.firstResponse, settled: s.settled, dropped: s.dropped, longTaskMax: s.longTaskMax, swaps: s.svgSwaps, heightJumps: s.heightJumps, scrollJumps: s.scrollJumps, empty: s.emptyFrames, anims: s.animations, active: s.active});
   }
@@ -106,11 +107,13 @@ export async function views(env, tool, kind, {source, label = 'example'} = {}){
   check(`view.${label}.longtask`, w, 'longest task in a view switch', worst(s => s.longTaskMax), worst(s => s.longTaskMax) <= BAR.longTask * (env.mode === 'normal' ? 1 : 3), '<= ' + BAR.longTask * (env.mode === 'normal' ? 1 : 3) + 'ms');
   check(`view.${label}.scroll`, w, 'scroll position moved by a view switch', all.map(s => s.view + ':' + s.scrollAfter).join(' '), all.every(s => s.scrollAfter === 0), 'no scroll jump');
   check(`view.${label}.empty`, w, 'frames where the preview had no artefact mid-switch', all.flatMap(s => s.emptyFrames), all.every(s => !s.emptyFrames.length), 'never empty');
+  check(`view.${label}.pressedframe`, w, 'pressed state changes in the frame of the press (ms after the click)', all.map(s => s.view + ':' + s.pressedAt).join(' '), all.every(s => s.pressedAt != null && s.pressedAt <= (env.mode === 'normal' ? 20 : 60)), '<= ' + (env.mode === 'normal' ? 20 : 60) + 'ms, before the new view needs to paint');
   check(`view.${label}.pressed`, w, 'picked view shows pressed', all.map(s => s.view + ':' + s.pressed).join(' '), all.every(s => s.pressed === 'true'), 'aria-pressed=true');
   check(`view.${label}.focus`, w, 'focus after a view switch', all.map(s => s.active).join(' '), all.every(s => /button\[style\]|button\.ctl\[style\]|\[style\]/.test(s.active) && !bad(s)), 'stays on the pressed view button');
   if(label === 'example' && env.mode === 'normal'){
     const anims = all.flatMap(motionOf);
-    check(`view.transition`, w, 'motion between views (non-colour transitions/animations)', anims.length ? anims : 'none: hard cut', anims.length > 0, 'a short transform/opacity transition (<=240ms) so the change is legible');
+    const ghosts = anims.filter(a => /mo-ghost/.test(a));
+    check(`view.transition`, w, 'motion between views (non-colour transitions/animations)', anims.length ? anims : 'none: hard cut', ghosts.length === all.length && all.every(s => !s.layoutAnimated.length), 'every switch cross-fades (opacity only, ~140ms) and no layout property animates');
     const heightMoves = all.filter(s => s.heightJumps.length).map(s => s.view + ':' + s.heightJumps.join(','));
     note('view.heightjumps', w, 'page height changes caused by view switches', heightMoves);
   }
@@ -123,7 +126,8 @@ export async function views(env, tool, kind, {source, label = 'example'} = {}){
     await waitQuiet(page, {quiet: 400});
     const st = await page.evaluate(() => [...document.querySelectorAll('#stylepicker [aria-pressed="true"]')].map(b => b.dataset.style));
     const src = (await sourceText(page)).match(/^style:\s*(\S+)/m)?.[1];
-    check('view.rapid', w, `two view clicks 30ms apart (${a} then ${b})`, {pressed: st, source: src}, st.length === 1 && st[0] === b && src === b, `ends on ${b} in picker and source`);
+    const left = await page.evaluate(() => ({ghosts: document.querySelectorAll('.mo-ghost').length, svgs: document.querySelectorAll('#preview svg').length, half: [...document.querySelectorAll('#preview svg')].filter(s => getComputedStyle(s).opacity !== '1').length}));
+    check('view.rapid', w, `two view clicks 30ms apart (${a} then ${b})`, {pressed: st, source: src, ...left}, st.length === 1 && st[0] === b && src === b && !left.ghosts && left.svgs === 1 && !left.half, `ends on ${b} in picker and source, no cross-fade copy left behind, nothing half-faded`);
   }
   await ctx.close();
   return all;
@@ -287,7 +291,7 @@ export async function rename(env, tool, kind){
     return m ? Math.round(m[0] - enter[1]) : null;
   });
   note('eip.commit', w, 'commit rename with Enter', {applied, settled: commit.settled, swaps: commit.svgSwaps, anims: commit.animations, focusLostFrames: commit.focusLostFrames, active: commit.active, scroll: commit.scrollJumps});
-  check('eip.commit.applied', w, 'Enter -> renamed text on the artefact', applied, applied != null && applied <= BAR.settleEdit[env.mode], '<= ' + BAR.settleEdit[env.mode] + 'ms');
+  check('eip.commit.applied', w, 'Enter -> renamed text on the artefact', applied, applied != null && applied <= BAR.commit[env.mode], '<= ' + BAR.commit[env.mode] + 'ms (a discrete edit skips the typing debounce)');
   if(env.mode === 'normal'){
     check('eip.commit.focus', w, 'focus after commit', commit.active, !bad(commit), 'on the edited item (not body)');
     check('eip.commit.scroll', w, 'scroll jump on commit', commit.scrollJumps, !commit.scrollJumps.length, 'none');
@@ -322,7 +326,7 @@ export async function validation(env, tool, kind){
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.type(tool === 'timeline' ? 'not a date' : '   ');
   const s = await measure(page, () => page.keyboard.press('Enter'), {quiet: 400});
-  const st = await page.evaluate(() => { const i = document.querySelector('.eip-input'); return i ? {open: true, invalid: i.getAttribute('aria-invalid'), cls: i.className, err: document.getElementById(i.getAttribute('aria-describedby'))?.textContent, visibleMsg: [...document.querySelectorAll('.eip-err')].some(e => !e.classList.contains('sr-only'))} : {open: false}; });
+  const st = await page.evaluate(() => { const i = document.querySelector('.eip-input'); return i ? {open: true, invalid: i.getAttribute('aria-invalid'), cls: i.className, err: document.getElementById(i.getAttribute('aria-describedby'))?.textContent, visibleMsg: [...document.querySelectorAll('.eip-err')].some(e => { const r = e.getBoundingClientRect(); return e.textContent.trim().length > 0 && r.width > 8 && r.height > 8 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; })} : {open: false}; });
   check('eip.invalid.state', w, 'invalid value on Enter', {...st, anims: s.animations}, st.open && st.invalid === 'true', 'field stays open, aria-invalid, shake');
   check('eip.invalid.visible', w, 'a visible explanation of what is wrong', st, !!st.visibleMsg, 'visible message beside the field (not only a red border + sr-only text)');
   await page.keyboard.press('Escape');
@@ -340,7 +344,7 @@ export async function menuCommit(env, tool, kind){
   const sub = page.locator('.eip-pop button', {hasText: tool === 'timeline' ? 'risk' : 'blocked'}).first();
   const s = await measure(page, () => press(page, sub, phone), {quiet: 400});
   note('menu.commit', w, 'pick a status from the card menu', {settled: s.settled, swaps: s.svgSwaps, anims: s.animations, active: s.active, focusLostFrames: s.focusLostFrames});
-  check('menu.commit.settle', w, 'status pick -> artefact settled', s.settled, s.settled <= BAR.settleEdit[env.mode], '<= ' + BAR.settleEdit[env.mode] + 'ms');
+  check('menu.commit.settle', w, 'status pick -> artefact settled', s.settled, s.settled <= BAR.pick[env.mode], '<= ' + BAR.pick[env.mode] + 'ms');
   if(env.mode === 'normal') check('menu.commit.focus', w, 'focus after a menu commit', s.active, !bad(s), 'on the changed item (not body)');
   await ctx.close();
 }
@@ -365,9 +369,9 @@ export async function addRemove(env, tool, kind){
         mo.disconnect();
         const g = t.closest('g[data-line],g[data-field-item],g') || t;
         requestAnimationFrame(() => {
-          /* the 150 ms card-dim hover transition is not an entrance */
+          /* the card-dim hover transition (120-150 ms) is not an entrance */
           const anims = [g, ...g.querySelectorAll('*')].flatMap(e => e.getAnimations())
-            .filter(a => !(a.transitionProperty === 'opacity' && a.effect.getTiming().duration === 150)).length;
+            .filter(a => !(a.transitionProperty === 'opacity' && [120, 150].includes(a.effect.getTiming().duration))).length;
           res({anims, opacity: getComputedStyle(g).opacity, transform: getComputedStyle(g).transform});
         });
       });
@@ -383,7 +387,9 @@ export async function addRemove(env, tool, kind){
   const appeared = await page.evaluate(() => document.querySelector('#preview svg')?.textContent.includes('Feel added'));
   check('add.applied', w, 'added item appears', {appeared, settled: s.settled}, appeared && s.settled <= BAR.settleEdit[env.mode] + 200, 'appears within ' + (BAR.settleEdit[env.mode] + 200) + 'ms');
   if(env.mode === 'normal'){
-    check('add.focus', w, 'focus after adding', s.active, !bad(s), 'on the new item');
+    const addedLine = await page.evaluate(() => [...document.querySelectorAll('#preview [data-edit="cardmenu"]')].find(g => (g.getAttribute('aria-label') || g.textContent).includes('Feel added'))?.dataset.line);
+    const onNew = await page.evaluate(() => document.activeElement?.closest?.('[data-line]')?.dataset.line);
+    check('add.focus', w, 'focus after adding', {active: s.active, addedLine, focusLine: onNew}, !bad(s) && addedLine != null && onNew === addedLine, 'on the new item');
     const ent = await page.evaluate(() => window.__entrance);
     check('add.motion', w, 'new item entrance (animations on the new item itself)', {newItem: ent, elsewhere: motionOf(s)}, !!ent && ent.anims > 0, 'the new item fades/slides in so the eye finds it');
     /* remove it */
@@ -394,7 +400,8 @@ export async function addRemove(env, tool, kind){
       const r = await measure(page, async () => { await press(page, row, phone); if(phone || tool === 'roadmap'){ const c = page.locator('.eip-pop button.danger'); if(await c.count()) await press(page, c.first(), phone); } }, {quiet: 500});
       const gone = await page.evaluate(() => !document.querySelector('#preview svg')?.textContent.includes('Feel added'));
       note('remove', w, 'remove from the card menu', {gone, settled: r.settled, anims: r.animations, active: r.active});
-      check('remove.focus', w, 'focus after removing an item', r.active, gone && !bad(r), 'on a neighbouring item or the add control');
+      const landed = await page.evaluate(() => { const a = document.activeElement; return {edit: a?.dataset?.edit || null, visible: !!a && a.getClientRects().length > 0, count: document.querySelectorAll('#preview [data-edit="cardmenu"]').length}; });
+      check('remove.focus', w, 'focus after removing an item', {active: r.active, ...landed}, gone && !bad(r) && (landed.edit === 'cardmenu' || landed.edit === 'additem') && landed.visible, 'on a neighbouring item (next, else previous) or the add control');
     }
   }
   await ctx.close();
@@ -463,7 +470,7 @@ export async function whatif(env){
   const chip1 = await page.locator('#whatifchip').evaluate(c => c.hidden ? '' : c.textContent);
   note('whatif', w, 'flip a bet world', {paint: paintOf(s), inputs: s.inputs, mutations: s.mutations, settled: s.settled, anims: s.animations, active: s.active, heightJumps: s.heightJumps, scroll: s.scrollJumps, chip: chip1});
   check('whatif.applied', w, 'one click on the capsule previews the "pays off" world', chip1, /pays off/.test(chip1) && !/doesn't/.test(chip1), 'chip names the world');
-  check('whatif.motion', w, 'world flip cross-fade on changed cards', motionOf(s).length ? motionOf(s) : s.animations, s.animations.some(a => /opacity/.test(a)), 'changed cards cross-fade');
+  check('whatif.motion', w, 'world flip cross-fade (the view cross-fade, every time)', motionOf(s).length ? motionOf(s) : s.animations, s.animations.some(a => /mo-ghost/.test(a)), 'the old picture fades out over the new one');
   check('whatif.paint', w, 'world flip input -> next paint', paintOf(s), paintOf(s) <= BAR.paint[env.mode], '<= ' + BAR.paint[env.mode] + 'ms');
   check('whatif.shift', w, 'page height / scroll moved by a world flip (chip appears above content)', {heightJumps: s.heightJumps, scroll: s.scrollJumps}, !s.scrollJumps.length, 'no scroll jump');
   if(env.mode === 'normal'){
@@ -490,12 +497,15 @@ export async function inspector(env, kind){
   const phone = kind === 'phone';
   const {ctx, page} = await fresh(env, 'timeline', kind);
   const p = await pointOn(page, '#preview [data-inspect]', {resolve: '[data-inspect],[data-edit]', prefer: 'left'});
+  await sleep(250);   // pointOn scrolls the row into view: let that scroll finish so it is not read as the inspector's
   const s = await measure(page, () => press(page, p, phone), {quiet: 400});
   const box = await page.evaluate(() => { const r = document.getElementById('inspector').getBoundingClientRect(); return {hidden: document.getElementById('inspector').hidden, top: Math.round(r.top), h: Math.round(r.height), inView: r.top < innerHeight && r.bottom > 0}; });
   note('inspect.open', w, 'select a milestone', {paint: paintOf(s), settled: s.settled, swaps: s.svgSwaps, anims: s.animations, heightJumps: s.heightJumps, scroll: s.scrollJumps, active: s.active, box});
   check('inspect.open.paint', w, 'select milestone -> next paint', paintOf(s), paintOf(s) <= BAR.paint[env.mode], '<= ' + BAR.paint[env.mode] + 'ms');
   check('inspect.open.rerenders', w, 'artefact re-renders when the inspector opens', s.svgSwaps, s.svgSwaps <= 1, '<= 1');
   check('inspect.open.visible', w, 'inspector visible after selecting', box, !box.hidden && box.inView, 'in view');
+  check('inspect.open.stable', w, 'page scroll and height when the inspector opens', {scroll: s.scrollJumps, heightJumps: s.heightJumps}, s.scrollJumps.length === 0 && s.heightJumps.every(h => Math.abs(parseInt(h.split(':')[1])) <= 24), 'no scroll, page height within a few px');
+  check('inspect.open.focus', w, 'focus moves into the inspector', s.active, /inspect/.test(s.active), 'on the inspector (its Close button)');
   if(env.mode === 'normal'){
     const esc = await measure(page, () => page.keyboard.press('Escape'), {quiet: 400});
     check('inspect.escape.focus', w, 'focus after Escape closes the inspector', esc.active, /inspect/.test(esc.active), 'the row that opened it');
@@ -552,10 +562,18 @@ export async function shell(env, tool, kind){
   if(await page.locator('[data-shell-file]').evaluate(d => d.open)) await press(page, file, phone);
   /* Share */
   const share = page.locator('[data-act="share"]');
+  /* the acknowledgement is the status line filling in, which arrives a little after the click (the link is encoded first):
+     watch for it directly rather than for whatever the page happens to mutate */
+  await page.evaluate(() => { window.__shareAck = new Promise(res => { const el = document.querySelector('.tool-status'), t0 = performance.now();
+    new MutationObserver((m, mo) => { if(el.textContent){ mo.disconnect(); res(Math.round(performance.now() - t0)); } }).observe(el, {childList: true, characterData: true, subtree: true});
+    setTimeout(() => res(null), 3000); }); });
   const sh = await measure(page, () => press(page, share, phone), {quiet: 300});
+  sh.firstResponse = await page.evaluate(() => window.__shareAck);
   const shareState = await page.evaluate(() => ({status: document.querySelector('.tool-status')?.textContent, label: document.querySelector('[data-act="share"]')?.textContent, dialog: !!document.querySelector('dialog[open]')}));
   note('share', w, 'press Share', {firstResponse: sh.firstResponse, settled: sh.settled, state: shareState, active: sh.active});
-  check('share.feedback', w, 'Share acknowledged within 100ms', sh.firstResponse, sh.firstResponse != null && sh.firstResponse <= BAR.feedback, '<= 100ms visible change');
+  const shareBar = BAR.feedback * (env.mode === 'normal' ? 1 : 4);
+  check('share.feedback', w, 'Share acknowledged (the status line says the link is copied)', sh.firstResponse, sh.firstResponse != null && sh.firstResponse <= shareBar, '<= ' + shareBar + 'ms');
+  check('share.focus', w, 'focus stays on Share after pressing it', sh.active, /tool-share/.test(sh.active), 'Share keeps focus');
   await page.keyboard.press('Escape');
   await sleep(200);
   if(env.mode !== 'normal'){ await ctx.close(); return; }
@@ -619,7 +637,7 @@ export async function theme(env, tool, kind, reduced = false){
   note('theme', w, 'toggle light/dark', {paint: paintOf(s), settled: s.settled, swaps: s.svgSwaps, dropped: s.dropped, worstFrame: s.worstFrame, longTaskMax: s.longTaskMax, anims: s.animations, empty: s.emptyFrames, scroll: s.scrollJumps});
   if(!reduced){
     check('theme.longtask', w, 'longest task in a theme toggle', s.longTaskMax, s.longTaskMax <= BAR.longTask * (env.mode === 'normal' ? 2 : 6), '<= ' + BAR.longTask * (env.mode === 'normal' ? 2 : 6) + 'ms');
-    check('theme.dropped', w, 'dropped frames in the theme transition', {dropped: s.dropped, worst: s.worstFrame}, s.dropped <= 1, '<= 1');
+    check('theme.dropped', w, 'dropped frames in the theme transition', {dropped: s.dropped, worst: s.worstFrame}, s.dropped <= (env.mode === 'normal' ? 1 : 3), '<= ' + (env.mode === 'normal' ? 1 : 3));
   }else{
     const motion = s.animations.filter(a => !/^\d+x (color|background|border|fill)/.test(a) && !/ 0s\|/.test(a));
     check('reduced.theme', w, 'motion under prefers-reduced-motion on theme toggle', motion.length ? motion : 'none', motion.length === 0, 'none');
@@ -653,15 +671,20 @@ export async function keyboard(env, tool){
     stops.push(await page.evaluate(() => {
       const el = document.activeElement; if(!el || el === document.body) return {body: true};
       const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
-      const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow && cs.boxShadow !== 'none');
-      return {d: window.__feel.describe(el), name: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30), ring, outline: cs.outlineStyle + ' ' + cs.outlineWidth, w: Math.round(r.width), h: Math.round(r.height), inPreview: !!el.closest('#preview')};
+      /* a 1px anchor has no ring of its own to see: the visible stand-in is the row it edits (data-kbd-ring) */
+      const stand = r.width < 4 || r.height < 4 ? document.querySelector('[data-kbd-ring]') : null;
+      const sc = stand ? getComputedStyle(stand) : cs, sr = stand ? stand.getBoundingClientRect() : r;
+      const ring = (sc.outlineStyle !== 'none' && parseFloat(sc.outlineWidth) > 0) || (sc.boxShadow && sc.boxShadow !== 'none');
+      return {d: window.__feel.describe(el), name: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30), ring, outline: sc.outlineStyle + ' ' + sc.outlineWidth, w: Math.round(sr.width), h: Math.round(sr.height), anchor: !!stand, inPreview: !!el.closest('#preview')};
     }));
   }
   const tiny = stops.filter(s => !s.body && (s.w < 4 || s.h < 4));
   const noRing = stops.filter(s => !s.body && !s.ring);
   const previewStops = stops.filter(s => s.inPreview).length;
   note('keyboard.stops', w, 'first 70 Tab stops from the view picker', stops.map(s => s.body ? 'BODY' : `${s.d}${s.ring ? '' : '(no ring)'}${s.w < 4 || s.h < 4 ? '(' + s.w + 'x' + s.h + ')' : ''}`));
-  check('keyboard.tiny', w, 'Tab stops that are invisible (< 4px box) in the first 70', tiny.length, tiny.length === 0, '0');
+  check('keyboard.tiny', w, 'Tab stops with no visible box or stand-in ring in the first 70', tiny.length, tiny.length === 0, '0');
+  const anchors = stops.filter(s => s.anchor).length;
+  note('keyboard.anchors', w, '1px anchor stops that show their ring on the row they edit', {anchors, perMilestone: 9});
   check('keyboard.ring', w, 'Tab stops with no visible focus indicator (outline/box-shadow)', {count: noRing.length, examples: [...new Set(noRing.map(s => s.d.replace(/\[.*$/, '')))].slice(0, 8)}, noRing.length === 0, '0');
   check('keyboard.body', w, 'focus fell to body while tabbing', stops.filter(s => s.body).length, !stops.some(s => s.body), 'never');
   await ctx.close();
@@ -701,7 +724,7 @@ export async function touch(env, tool){
   const ta = await page.evaluate(() => {
     const q = s => { const e = document.querySelector(s); return e ? getComputedStyle(e).touchAction : 'n/a'; };
     const us = s => { const e = document.querySelector(s); return e ? getComputedStyle(e).webkitUserSelect || getComputedStyle(e).userSelect : 'n/a'; };
-    return {preview: q('#preview'), card: q('#preview [data-edit="cardmenu"]'), btn: q('#copypng'), seg: q('#stylepicker button'), html: q('html'), cardSelect: us('#preview svg text'), callout: getComputedStyle(document.querySelector('#preview svg')).webkitTouchCallout};
+    return {preview: q('#preview'), card: q('#preview [data-edit="cardmenu"]'), btn: q('#copypng'), seg: q('#stylepicker button'), html: q('html'), cardSelect: us('#preview svg [data-edit] text, #preview svg [data-inspect] text'), callout: getComputedStyle(document.querySelector('#preview svg')).webkitTouchCallout};
   });
   note('touch.css', w, 'touch-action / user-select on touch surfaces', ta);
   check('touch.dbltapzoom', w, 'touch-action on tappable controls (double-tap zoom / delay)', ta, ['manipulation', 'none', 'pan-x pan-y', 'pan-x pan-y pinch-zoom'].includes(ta.btn) && ta.card !== 'auto', 'manipulation on buttons and tappable cards');

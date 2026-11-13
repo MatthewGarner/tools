@@ -68,7 +68,7 @@ export function probe(){
     for(const m of ms){
       const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
       if(!el || (el.closest && el.closest('.cm-editor'))) continue;
-      F.muts.push([now, describe(el), m.type === 'attributes' ? 'attr:' + m.attributeName : m.type]);
+      F.muts.push([now, describe(el), m.type === 'attributes' ? 'attr:' + m.attributeName : m.type, m.addedNodes && m.addedNodes[0] ? m.addedNodes[0].nodeName.toLowerCase() : '']);
       F.lastMut = now;
     }
     if(F.muts.length > 50000) F.muts.splice(0, 25000);
@@ -90,7 +90,8 @@ export function probe(){
     const muts = F.muts.filter(m => m[0] >= tIn && m[0] <= t1);
     const firstMut = muts.length ? muts[0][0] - tIn : null;
     const lastMut = muts.length ? muts[muts.length - 1][0] - tIn : 0;
-    const anims = F.anims.filter(a => a[1] >= t0 && a[1] <= t1);
+    /* the card hover dim (an opacity transition on a <g>) answers the pointer sitting still while the artefact repaints under it: not part of the change */
+    const anims = F.anims.filter(a => a[1] >= t0 && a[1] <= t1 && !(a[0].startsWith('transition') && a[2] === 'opacity' && /^g(?![a-z])/.test(a[3])));
     const lastAnim = anims.length ? Math.max(...anims.map(a => a[1])) - tIn : 0;
     const settled = Math.max(lastMut, lastAnim, 0);
     const frames = F.frames.filter(f => f[0] >= tIn && f[0] <= Math.max(tIn + Math.max(settled, 50), lastIn) + 34);
@@ -162,9 +163,12 @@ export async function measure(page, act, {quiet = 300, max = 5000, pre = 0} = {}
   if(pre) await sleep(pre);
   const t0 = await page.evaluate(() => performance.now());
   await act();
+  /* give a reaction that arrives after the input (a clipboard write, a debounced pass) time to begin: without this a page
+     that was already quiet reads as "quiet" before anything has happened, and the window below comes out empty */
+  await sleep(Math.min(quiet, 250));
   const quietOk = await waitQuiet(page, {quiet, max});
   const t1 = await page.evaluate(() => performance.now());
-  const s = await page.evaluate(([a, b]) => window.__feel.summary(a, b), [t0, t1 - quiet + 30]);
+  const s = await page.evaluate(([a, b]) => window.__feel.summary(a, b), [t0, Math.max(t1 - quiet + 30, t0 + Math.min(quiet, 250))]);
   s.quiet = quietOk;
   return s;
 }

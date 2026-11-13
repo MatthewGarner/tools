@@ -12,7 +12,7 @@ export async function disclosures(env, tool, kind){
   const {ctx, page} = await freshPage(env, tool, kind);
   const sums = page.locator('details > summary:visible');
   const n = await sums.count();
-  const off = [], seen = [], escLeftOpen = [], outsideLeftOpen = [];
+  const off = [], seen = [], escLeftOpen = [], outsideLeftOpen = [], escFocusLost = [];
   for(let i = 0; i < n; i++){
     const sum = sums.nth(i);
     const name = (await sum.textContent()).trim().slice(0, 30);
@@ -31,6 +31,7 @@ export async function disclosures(env, tool, kind){
     await page.keyboard.press('Escape');
     await sleep(80);
     if(await sum.evaluate(su => su.parentElement.open)){ escLeftOpen.push(name); await press(page, sum, phone); await sleep(60); }
+    else if(!(await sum.evaluate(su => document.activeElement === su))) escFocusLost.push(name);
     await press(page, sum, phone); await sleep(80);
     await press(page, {x: phone ? 365 : 1270, y: 120}, phone); await sleep(100);
     if(await sum.evaluate(su => su.parentElement.open)){ outsideLeftOpen.push(name); await press(page, sum, phone); await sleep(60); }
@@ -38,6 +39,7 @@ export async function disclosures(env, tool, kind){
   note('disclosure.all', w, 'every disclosure menu', seen);
   check('disclosure.onscreen', w, 'disclosure menu items outside the viewport when opened', off.length ? off : 'none', off.length === 0, 'every item on screen');
   check('disclosure.escape', w, 'disclosure menus that Escape does not close', escLeftOpen.length ? escLeftOpen : 'none', escLeftOpen.length === 0, 'Escape closes every menu');
+  check('disclosure.focus', w, 'disclosure menus whose opener does not get focus back after Escape', escFocusLost.length ? escFocusLost : 'none', escFocusLost.length === 0, 'focus returns to the summary that opened the menu');
   check('disclosure.outside', w, 'disclosure menus left open after a click elsewhere', outsideLeftOpen.length ? outsideLeftOpen : 'none', outsideLeftOpen.length === 0, 'a click elsewhere closes them (as the card menu does)');
   check('disclosure.motion', w, 'disclosure menus with an entrance', seen.map(s => s.name + ':' + (s.motion.length ? 'animated' : 'instant')).join(' '), true, 'recorded (consistency)');
   await ctx.close();

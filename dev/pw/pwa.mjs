@@ -37,6 +37,8 @@ async function showSourceIfReading(page, timeout = 5000){
   const source = page.getByRole('button', {name: 'Show source editor'});
   await source.waitFor({state: 'visible', timeout}).catch(() => {});
   if(await source.isVisible()) await source.click();
+  /* Timeline hides its rail tab while collapsed: its opener is the labelled Edit source button */
+  else if(await page.locator('#workspace.collapsed').count() && await page.locator('#editsource').isVisible()) await page.locator('#editsource').click();
 }
 
 async function installAndWait(page){
