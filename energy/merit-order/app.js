@@ -6,8 +6,8 @@ import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.
    State is {condition, params, adv}: params drive buildStack; adv is per-block
    hand-edits ({name:[cap,cost]}); condition names the active Conditions preset. */
 import {dispatch} from './engine.js';
-import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, outcomeLine, receiptLines as makeReceiptLines, calloutMath, isPriced, MERIT_PALETTE} from './render.js';
-import {buildStack, applyAdv, editAdv} from './stack.js';
+import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, outcomeLine, importLine, receiptLines as makeReceiptLines, calloutMath, isPriced, MERIT_PALETTE} from './render.js';
+import {buildStack, applyAdv, editAdv, importsOffer} from './stack.js';
 import {DEFAULT_PARAMS, CONDITIONS, paramsFor, conditionNote, WORLDS} from './scenarios.js';
 import {encodeStateV2, decodeStateV2} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -386,7 +386,7 @@ async function boot(){
     getTargets: () => currentState().generators.map(g => ({name:g.name})),
     open: ({name}, button) => openCallout(name, plantEl(name) || button),
   });
-  const receiptLines = () => makeReceiptLines(currentState(), {worldLabel: (WORLDS[state.world] || WORLDS.gbToday).label, gas: state.params.gas, carbon: state.params.carbon});
+  const receiptLines = () => makeReceiptLines(currentState(), {worldLabel: (WORLDS[state.world] || WORLDS.gbToday).label, gas: state.params.gas, carbon: state.params.carbon, importsInstalled: importsOffer(state.params, catalogue())?.installed, adv: state.adv});
   /* ---- the refresh loop ---- */
   function render(settle, motionMode){
     // settle=false (mid-drag) → no motion; settle=true → reveal (first) then FLIP.
@@ -394,7 +394,7 @@ async function boot(){
     const mode = motionMode !== undefined ? motionMode : (settle ? undefined : 'none');
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
-    outcome.textContent = outcomeLine(result, cs) + (note ? `. ${note}` : '');
+    outcome.textContent = outcomeLine(result, cs) + (note ? `. ${note}` : '') + ' · ' + importLine(cs.generators, importsOffer(state.params, catalogue())?.installed, state.adv);
     updatePlants();
     const rw = renderWidth();
     const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});
@@ -413,10 +413,13 @@ async function boot(){
     /* metrics: the world being stacked, then the three inputs that decide who is
        marginal — how many plants are in the stack, the demand crossing it, and
        the fuel/carbon prices that set the staircase. All from the dispatch. */
+    const imp = cs.generators.find(g => g.family === 'imports');
+    const importsEdited = () => Array.isArray(state.adv[imp.name]) && state.adv[imp.name].some(v => v != null);
     paintMetrics($('metrics'), (WORLDS[state.world] || WORLDS.gbToday).label, [
       `${result.sorted.length} plants`,
       `${Math.round(cs.demand * 10) / 10} GW demand`,
       `${state.params.gas} p/th gas · £${state.params.carbon}/t carbon`,
+      ...(imp ? [`${fmtGW(imp.capacity)} of ${fmtGW(importsOffer(state.params, catalogue()).installed)} GW imports, ${importsEdited() ? 'edited' : 'at an assumed price'}`] : []),
     ]);
 
     if(settle && !reducedMotion.matches && lastMarginalName !== undefined && result.marginalName !== lastMarginalName){

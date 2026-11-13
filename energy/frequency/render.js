@@ -94,6 +94,7 @@ export function assumptionLines(p){
   return [
     `${p.eSync} GVA·s synchronous + ${effective-p.eSync} GVA·s effective grid-forming = ${effective} GVA·s effective inertia (${p.eGfm || 0} requested).`,
     `Trip ${p.trip} GW · load ${p.load} GW · battery response: DR ${p.drMw || 0}, DM ${p.dmMw || 0}, DC ${p.dcMw || 0} GW · ${basis}.`,
+    'Load that is shed stays off for the 30 seconds shown, and damping uses demand as it was before shedding.',
   ];
 }
 export function toMarkdown(result, p, link = 'https://energy.matthewgarner.me/frequency/'){

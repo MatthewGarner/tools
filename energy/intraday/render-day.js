@@ -126,8 +126,11 @@ export function buildDayVerdictParts(result, p){
      the kept figure is a ceiling (no degradation, no forecast error) and exports
      quote it without the about copy attached. */
   return {fig: `£${perMW} of the £${perMWPlanned}`,
-    line: `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. Even with perfect foresight it keeps £${perMW} of the £${perMWPlanned} per MW per day it planned on the raw shape${tank}.`};
+    line: `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. Even with perfect foresight and one cycle a day it keeps £${perMW} of the £${perMWPlanned} per MW per day it planned on the raw shape${tank}.`};
 }
+
+/* The export's limitation line: the scope of the "perfect foresight" the verdict quotes. */
+export const DAY_LIMITATION = 'Illustrative fixed day shape and GB fleet; perfect foresight and one cycle a day, no network constraints. Generated date is not a market observation.';
 
 /* The plain line — every existing consumer (the export SVG, the markdown, the
    aria-label) wants only this. */

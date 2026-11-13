@@ -64,6 +64,13 @@ export function buildStack(params, catalogue = GB_TODAY){
   return gens;
 }
 
+/* What the world offers as imports: the GW offered (the params figure, capped at the interconnection
+   installed), the installed GW, and the assumed neighbour price. null when the world has no imports. */
+export function importsOffer(params, catalogue = GB_TODAY){
+  const t = catalogue.find(x => x.bid.kind === 'imports');
+  return t ? {offered: Math.min(params.imports, t.installed), installed: t.installed, price: t.bid.price} : null;
+}
+
 /* A hand-edit pins only the field that was edited: adv[name] = [capacity|null, cost|null], null meaning
    "still follows the sliders". A legacy pair of two numbers pins both, as old links always did. */
 export function applyAdv(gens, adv){

@@ -1,8 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {runDay, DAY_DEFAULTS} from '../day.js';
+import {runDay, DAY_DEFAULTS as NEW_DEFAULTS} from '../day.js';
 import {renderDay, buildDayVerdict} from '../render-day.js';
 import {MERIT_PALETTE} from '../../merit-order/diagram.js';
+/* These checks were written on the earlier default day (trough 22, peak 44, solar 6 GW); they keep that day by name
+   so their figures stay byte-for-byte what they were. The summer-weekday default is tested in default-day.test.mjs. */
+const DAY_DEFAULTS = {...NEW_DEFAULTS, trough: 22, peak: 44, solarPeak: 6};
 
 const ctx = {width: 900, height: 420,
   colors: {ink: '#1b2733', muted: '#66727e', accent: '#C05621', grid: '#e3e7ea', card: '#ffffff'},

@@ -20,7 +20,7 @@ const state = () => ({generators: hourStack(DAY_DEFAULTS, 18), demand: demandAt(
 
 test('flags absent: default demand label + storage legend clause (byte-pinned by goldens)', () => {
   const svg = renderStack(state(), ctx);
-  assert.ok(svg.includes('>demand 44 GW<'), 'default demand label draws');
+  assert.ok(svg.includes('>demand 32 GW<'), 'default demand label draws');
   assert.ok(svg.includes('(storage: the arbitrage spread)'), 'legend keeps the storage clause');
   assert.equal(svg, renderStack(state(), ctx, {}), 'empty opts identical to absent opts');
 });
@@ -28,7 +28,7 @@ test('flags absent: default demand label + storage legend clause (byte-pinned by
 test('demandLabel replaces the demand annotation verbatim', () => {
   const svg = renderStack(state(), ctx, {demandLabel: 'net demand 41.5 GW'});
   assert.ok(svg.includes('>net demand 41.5 GW<'), 'override drawn');
-  assert.ok(!svg.includes('>demand 44 GW<'), 'default label gone');
+  assert.ok(!svg.includes('>demand 32 GW<'), 'default label gone');
 });
 
 test('legendStorageNote:false drops only the storage clause', () => {
