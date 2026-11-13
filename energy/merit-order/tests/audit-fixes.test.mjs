@@ -131,6 +131,9 @@ test('F-MO-5b: unmet demand shows no rent — shading, legend, sentences, callou
   const svg = R.renderStack(st, ctx);
   assert.doesNotMatch(svg, /class='rent'/, 'no rent overlay');
   assert.doesNotMatch(svg, /earns above running cost/, 'no rent legend');
+  // seen on the live page: the badge said "sets the price" directly above "no price clears"
+  assert.doesNotMatch(svg, /sets the price/, 'the last plant is not badged as setting a price when none clears');
+  assert.match(svg, /LAST OFFER/, 'the last plant is badged as the last offer');
   assert.match(R.calloutMath(gens[0], r.perPlant.A, null, false), /no price clears$/);
   assert.doesNotMatch(R.calloutMath(gens[0], r.perPlant.A, null, false), /rent|k\/h/);
   const md = R.toMarkdown(st, r);
