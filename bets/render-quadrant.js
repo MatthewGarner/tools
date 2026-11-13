@@ -4,7 +4,7 @@
 import {esc, txt} from '../assets/svg.js';
 import {PALETTES, niceTicks} from '../assets/series.js';
 import {conditionReadings, measuredLines, quadrantDensity, sourceBets} from './layout.js';
-import {sgn, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
+import {NSIM_TEXT, sgn, pv, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const WIDE = 960;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -30,7 +30,7 @@ function conditionReceipt(readings, x0, y0, width, c, narrow){
       {weight: 700, tracking: '0.035em'}));
     parts.push(txt(x, y0 + 33, !pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + lossText(pf), narrow ? 11 : 12.5,
       lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, mono: true}));
-    parts.push(txt(x, y0 + 50, pf ? 'MEDIAN OUTCOME ' + p50Text(pf) + ' · ' + sgn(pf.p10) + '–' + sgn(pf.p90) : 'ADD SCOREABLE BETS',
+    parts.push(txt(x, y0 + 50, pf ? 'MEDIAN OUTCOME ' + p50Text(pf) + ' · ' + pv(pf, pf.p10) + '–' + pv(pf, pf.p90) : 'ADD SCOREABLE BETS',
       narrow ? 8.2 : 8.6, c.ink, {weight: 600, mono: true}));
     if(narrow) captionOf(item).forEach((line, li) => parts.push(txt(x, y0 + 67 + li * 10, line, 8.5, c.muted)));
     parts.push('</g>');
@@ -421,7 +421,7 @@ function renderWide(model, sim, ctx){
 
   const panelBot = bottomY + 14;
   parts.push(...body);
-  parts.push(txt(30, panelBot + 22, 'PER-BET P50 EV · P10–P90 RANGES · 4,000 SIMULATIONS', 9, c.muted, {tracking: '0.04em'}));
+  parts.push(txt(30, panelBot + 22, 'PER-BET P50 EV · P10–P90 RANGES · ' + NSIM_TEXT + ' SIMULATIONS', 9, c.muted, {tracking: '0.04em'}));
   if(model.unit) parts.push(txt(right, panelBot + 22, 'ALL FIGURES ' + model.unit.toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
 
   const H = panelBot + 40;

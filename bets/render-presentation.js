@@ -2,7 +2,7 @@
    deterministic selection, not a compressed claim that all bets are shown. */
 import {esc, txt} from '../assets/svg.js';
 import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
-import {sgn, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
+import {NSIM_TEXT, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const W = 1920, H = 1080;
 const TABLE_LIMIT_Y = 720;
@@ -11,7 +11,7 @@ const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 const reading = value => value ? {
   loss: 'P(LOSES MONEY) ' + lossText(value),
   median: value.split ? p50Alt(value) : 'MEDIAN OUTCOME ' + p50Text(value),
-  range: 'P10 ' + sgn(value.p10) + ' · P90 ' + sgn(value.p90),
+  range: 'P10 ' + pv(value, value.p10) + ' · P90 ' + pv(value, value.p90),
 } : {loss: 'Not available', median: 'Add a scoreable bet', range: 'Correct invalid terms'};
 
 function compactIds(records){
@@ -160,7 +160,7 @@ function conditionReceipt(readings, x0, y0, width, c){
     parts.push(txt(x, y0 + 13, item.label.toUpperCase(), 10.5, c.muted, {weight: 700, tracking: '0.07em'}));
     parts.push(txt(x, y0 + 40, !pf ? 'NOT AVAILABLE' : 'P(LOSES MONEY) ' + lossText(pf), 20,
       lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, mono: true}));
-    parts.push(txt(x, y0 + 61, pf ? 'MEDIAN ' + p50Text(pf) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90) : 'Correct invalid terms',
+    parts.push(txt(x, y0 + 61, pf ? 'MEDIAN ' + p50Text(pf) + ' · P10 ' + pv(pf, pf.p10) + ' · P90 ' + pv(pf, pf.p90) : 'Correct invalid terms',
       11.5, c.ink, {weight: 600, mono: true}));
     parts.push('</g>');
   });
@@ -197,10 +197,10 @@ function portfolioExposureRails(readings, x0, x1, y0, c){
       exRound(scale(result.split.hi)) + '" y2="' + (y + 28) + '" stroke="' + (index ? c.err : c.ink) + '" stroke-width="1"/>' +
       notch(result.split.lo) + notch(result.split.hi));
     else out.push(notch(result.p50));
-    out.push(txt(scale(result.p10), y + 48, 'P10 ' + sgn(result.p10), 9.5, c.muted, {mono: true, anchor: 'middle'}));
+    out.push(txt(scale(result.p10), y + 48, 'P10 ' + pv(result, result.p10), 9.5, c.muted, {mono: true, anchor: 'middle'}));
     out.push(txt(scale(result.split ? (result.split.lo + result.split.hi) / 2 : result.p50), y + 48, 'P50 ' + p50Text(result), 9.5, index ? c.err : c.ink,
       {mono: true, weight: 700, anchor: 'middle'}));
-    out.push(txt(scale(result.p90), y + 48, 'P90 ' + sgn(result.p90), 9.5, c.muted, {mono: true, anchor: 'middle'}));
+    out.push(txt(scale(result.p90), y + 48, 'P90 ' + pv(result, result.p90), 9.5, c.muted, {mono: true, anchor: 'middle'}));
     out.push('</g>');
   });
   return out;
@@ -301,7 +301,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     for(const [x, value] of [[C.stake, stakeOf(b)], [C.odds, oddsOf(b)], [C.payoff, payoffOf(b)]])
       parts.push(txt(x, y + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
     for(const [x, value] of [[C.p10, e.p10], [C.p50, e.p50], [C.p90, e.p90]])
-      parts.push(txt(x, y + 21, sgn(value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
+      parts.push(txt(x, y + 21, evv(e, value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
     parts.push('<line x1="' + C.range0 + '" y1="' + (y + 18) + '" x2="' + C.range1 + '" y2="' + (y + 18) + '" stroke="' + c.border + '"/>');
     parts.push('<line data-exposure-range="" x1="' + ex(e.p10) + '" y1="' + (y + 18) + '" x2="' + ex(e.p90) + '" y2="' + (y + 18) + '" stroke="' + (e.p50 < 0 ? c.err : c.accent) + '" stroke-width="5" stroke-opacity="0.72"/>');
     parts.push('<line data-exposure-median="" x1="' + ex(e.p50) + '" y1="' + (y + 10) + '" x2="' + ex(e.p50) + '" y2="' + (y + 26) + '" stroke="' + c.ink + '" stroke-width="2"/>');
@@ -317,7 +317,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
 
   if(partial) parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
     {weight: 700, tracking: '0.1em'}));
-  parts.push(txt(1824, 1040, 'P10–P90 RANGES · 4,000 SIMULATIONS', 11, c.muted,
+  parts.push(txt(1824, 1040, 'P10–P90 RANGES · ' + NSIM_TEXT + ' SIMULATIONS', 11, c.muted,
     {anchor: 'end', tracking: '0.06em'}));
   const baseline = reading(conditions.baseline.result), stress = reading(conditions.stress.result);
   const svgTitle = esc(authoredTitle + ' — allocation field');

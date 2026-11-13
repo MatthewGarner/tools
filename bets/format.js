@@ -3,6 +3,9 @@
    median reads the same wherever it appears. */
 
 export const MINUS = '−';
+/* simulated runs behind every sampled figure; every surface that names the count reads this */
+export const NSIM = 40000;
+export const NSIM_TEXT = NSIM.toLocaleString('en-US');
 
 /* A whole number, except that a non-zero value which would round to zero keeps
    enough digits to show it ("−0.3"), never a bare "−0" or "0". */
@@ -14,6 +17,19 @@ function digits(v){
 }
 export const num = v => (v < 0 && Number(digits(v)) !== 0 ? MINUS : '') + digits(v);
 export const sgn = v => (v < 0 && Number(digits(v)) !== 0 ? MINUS : '+') + digits(v);
+
+/* ---------- a sampled figure is printed to what the runs support ----------
+   Portfolio outcomes share ONE step (a tenth of the power of ten of the largest of them),
+   a bet's EV trio another (a hundredth). The engine puts `step` on each result; a value
+   that rounds to zero prints "0". A result with no step (hand-built) prints whole numbers. */
+export function atStep(v, step){
+  if(!(step > 0)) return sgn(v);
+  const decimals = step >= 1 ? 0 : Math.round(-Math.log10(step));
+  const text = (Math.round(Math.abs(v) / step) * step).toFixed(decimals);
+  return Number(text) === 0 ? '0' : (v < 0 ? MINUS : '+') + text;
+}
+export const pv = (pf, v) => atStep(v, pf.step);
+export const evv = (ev, v) => atStep(v, ev.step);
 
 /* totals of authored amounts: whole numbers, with one decimal while the total is
    a small fraction (a 1.5 total is not "2") */
@@ -27,7 +43,7 @@ export function amount(v){
 /* ---------- chance of losing money, counted from the runs ---------- */
 export function lossText(pf){
   if(!pf) return null;
-  const p = pf.pLoss || 0, runs = pf.runs || 4000, certain = !!pf.certain;
+  const p = pf.pLoss || 0, runs = pf.runs || NSIM, certain = !!pf.certain;
   const whole = Math.round(p * 100);
   if(whole < 1) return p === 0 && certain ? '0%' : '<1%';
   if(whole > 99) return p * runs >= runs && certain ? '100%' : '>99%';
@@ -40,10 +56,10 @@ export const lossIsHigh = pf => !!pf && lossWhole(pf) >= 50;
 
 /* ---------- the portfolio median, or the two values it splits between ---------- */
 export const isSplit = pf => !!(pf && pf.split);
-export const p50Text = pf => pf.split ? sgn(pf.split.lo) + ' or ' + sgn(pf.split.hi) : sgn(pf.p50);
+export const p50Text = pf => pf.split ? pv(pf, pf.split.lo) + ' or ' + pv(pf, pf.split.hi) : pv(pf, pf.p50);
 export const p50Alt = pf => pf.split
-  ? 'median outcome split: about even odds of ' + sgn(pf.split.lo) + ' or ' + sgn(pf.split.hi)
-  : 'median outcome ' + sgn(pf.p50);
+  ? 'median outcome split: about even odds of ' + pv(pf, pf.split.lo) + ' or ' + pv(pf, pf.split.hi)
+  : 'median outcome ' + pv(pf, pf.p50);
 
 /* ---------- authored inputs, as written ---------- */
 const plain = r => !r ? '—' : r[0] === r[1] ? String(r[0]) : r[0] + '–' + r[1];
@@ -70,7 +86,8 @@ export function togetherNote(independent, shared){
   if(!independent || !shared) return null;
   if(!(lossWhole(shared) < lossWhole(independent))) return null;
   /* "widens the swing" only when the printed P10 to P90 width really is larger */
-  const width = pf => Math.round(pf.p90) - Math.round(pf.p10);
+  const at = (pf, v) => pf.step > 0 ? Math.round(v / pf.step) * pf.step : Math.round(v);
+  const width = pf => at(pf, pf.p90) - at(pf, pf.p10);
   return 'Moving together lowers the chance of a loss here (' + lossText(shared) + ' against ' +
     lossText(independent) + ')' + (width(shared) > width(independent) ? ' and widens the swing.' : '.');
 }

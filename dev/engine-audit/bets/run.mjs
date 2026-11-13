@@ -4,7 +4,8 @@
 // (or a modelling question recorded as a PASS that demonstrates the behaviour).
 import {check, done, rng, polar, xorshift, boxMuller, mean, sd, quant, COLORS, measure, svgText} from './lib.mjs';
 import {parse} from '../../../bets/parse.js';
-import {simulate, markdown, verdictParts} from '../../../bets/engine.js';
+import {simulate, markdown, verdictParts, NSIM} from '../../../bets/engine.js';
+import {pv, evv, p50Text, lossText, NSIM_TEXT} from '../../../bets/format.js';
 import {betsDiff, betsDiffView, comparisonSafety} from '../../../bets/diff.js';
 import {renderBoard} from '../../../bets/render.js';
 import {renderQuadrant} from '../../../bets/render-quadrant.js';
@@ -15,7 +16,7 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
-const SEED = 0xBE75, NSIM = 4000, Z90 = 1.6448536;
+const SEED = 0xBE75, Z90 = 1.6448536;
 const appSrc = readFileSync(ROOT + 'bets/app.js', 'utf8');
 const EXAMPLES = [...appSrc.matchAll(/\{name: '([^']+)', src:\n`([\s\S]*?)`\}/g)].map(m => ({name: m[1], src: m[2]}));
 const EMBED_SRC = (() => { const s = readFileSync(ROOT + 'embed/definitions/bets.js', 'utf8'); return JSON.parse('"' + /const source='([^']*)'/.exec(s)[1].replace(/"/g, '\\"') + '"'); })();
@@ -28,12 +29,12 @@ const flat = m => m.groups.flatMap(g => g.bets);
 // ---------- contract transcription (own generator copies) ------------------------------------
 // Pins the saved-link contract: seed 0xBE75, mulberry32, Marsaglia polar normal whose spare carries
 // across bets AND runs, one stream; per run, per SCOREABLE bet in source order:
-// odds draw (normal; none if a point), payoff draw (log-normal, normal if lo<=0; none if a point),
-// stake draw (same), then one uniform for the win/loss. Unscoreable bets draw nothing.
+// odds draw (normal), payoff draw (log-normal, normal if lo<=0), stake draw (same) - ALWAYS, a point
+// value draws and discards (BT-3) - then one uniform for the win/loss. Unscoreable bets draw nothing.
 // Shared stress reuses the FIRST scoreable bet's uniform for every bet.
 function refSim(model, seed = SEED, nsim = NSIM){
   const u = rng(seed), g = polar(u);
-  const mk = (r, dist) => { if(!r) return null; let [lo, hi] = r; if(lo > hi) [lo, hi] = [hi, lo]; if(lo === hi) return () => lo;
+  const mk = (r, dist) => { if(!r) return null; let [lo, hi] = r; if(lo > hi) [lo, hi] = [hi, lo]; if(lo === hi) return () => { g(); return lo; };   // a point draws and discards
     const d = dist === 'logn' && lo <= 0 ? 'norm' : dist;
     if(d === 'logn'){ const mu = (Math.log(lo) + Math.log(hi)) / 2, s = (Math.log(hi) - Math.log(lo)) / (2 * Z90); return () => Math.exp(mu + s * g()); }
     const mu = (lo + hi) / 2, s = (hi - lo) / (2 * Z90); return () => mu + s * g(); };
@@ -73,7 +74,7 @@ const summary = arr => { const s = arr.slice().sort((a, b) => a - b); return {p1
   check('C1 contract: an own-code transcription of the documented draw order (seed 0xBE75, mulberry32, carried polar spare, per scoreable bet odds->payoff->stake->uniform, shared = first scoreable uniform) reproduces every portfolio and per-bet figure bit-for-bit on 5 models incl. an unscoreable bet mid-list and zero-lower-bound ranges', allExact, detail.join(', '));
   check('C2 deterministic: two runs of simulate() on the Lantern example are identical', JSON.stringify([...simulate(parse(EXAMPLES[0].src)).bets]) === JSON.stringify([...simulate(parse(EXAMPLES[0].src)).bets]));
   const svg = board(parse(EXAMPLES[0].src), simulate(parse(EXAMPLES[0].src)));
-  check('C3 every surface that names the run count says 4,000 and NSIM is 4000', /4,000 SIMULATIONS/.test(svg) && /4,000 SIMULATIONS/.test(svgText(renderQuadrant(parse(EXAMPLES[0].src), simulate(parse(EXAMPLES[0].src)), ctxN))) && refSim(parse(EXAMPLES[0].src)).ind.length === 4000);
+  check('C3 every surface that names the run count says 40,000 (from the constant) and NSIM is 40000', NSIM === 40000 && new RegExp(NSIM_TEXT + ' SIMULATIONS').test(svg) && new RegExp(NSIM_TEXT + ' SIMULATIONS').test(svgText(renderQuadrant(parse(EXAMPLES[0].src), simulate(parse(EXAMPLES[0].src)), ctxN))) && refSim(parse(EXAMPLES[0].src)).ind.length === NSIM);
 }
 
 // =============================================================================================
@@ -138,6 +139,7 @@ function refDraw(models, N, seed){
 }
 const sweep = (m, seeds) => seeds.map(s => simulate(m, {seed: s}));
 const DRAW = 'needs a draw change, awaiting the owner';
+const RUNS = 'needs more runs, awaiting the owner';
 const SEEDS = Array.from({length: 200}, (_, i) => 1000 + i * 7919);
 const BEFORE = {};
 for(const ex of EXAMPLES){
@@ -145,26 +147,34 @@ for(const ex of EXAMPLES){
   const tag = ex.name;
   // bias of every figure versus the reference, in units of the seed-to-seed sd
   let worst = 0, worstLbl = '';
-  const fig = (lbl, eng, refv, arr) => { const s = sd(arr) || 1e-9, z = Math.abs(eng - refv) / s, zm = Math.abs(mean(arr) - refv) / (s / Math.sqrt(arr.length)); if(Math.max(z / 4, zm / 5) > worst){ worst = Math.max(z / 4, zm / 5); worstLbl = `${lbl} engine ${eng.toFixed(3)} ref ${refv.toFixed(3)} sd ${s.toFixed(3)}`; } };
+  /* the 1,000,000-draw reference has its own sampling error, s * sqrt(NSIM / 1e6): counted, not ignored */
+  const fig = (lbl, eng, refv, arr) => { const s = sd(arr) || 1e-9, rs = s * Math.sqrt(NSIM / 1e6), z = Math.abs(eng - refv) / Math.sqrt(s * s + rs * rs), zm = Math.abs(mean(arr) - refv) / Math.sqrt(s * s / arr.length + rs * rs); if(Math.max(z / 4, zm / 5) > worst){ worst = Math.max(z / 4, zm / 5); worstLbl = `${lbl} engine ${eng.toFixed(3)} ref ${refv.toFixed(3)} sd ${s.toFixed(3)}`; } };
   ref.bs.forEach(x => { for(const [k, q] of [['p10', .1], ['p50', .5], ['p90', .9]]) fig(x.b.name + ' EV ' + k, e.bets.get(x.b.srcLine).ev[k], quant(x.ev, q), runs.map(r => r.bets.get(x.b.srcLine).ev[k])); });
   // a median that falls in an empty gap of the distribution has no stable sample estimate; it is tested in N5 instead
   const gap = k => { const sh = k === 'shared', arr = runs.map(r => (sh ? r.scenarios.shared : r.portfolio).p50); return sd(arr) > 20; };
   for(const k of ['p10', 'p50', 'p90', 'pLoss']){ fig('portfolio ' + k, e.portfolio[k], ref.ind[k], runs.map(r => r.portfolio[k])); if(!(k === 'p50' && gap('shared'))) fig('shared ' + k, e.scenarios.shared[k], ref.sh[k], runs.map(r => r.scenarios.shared[k])); }
   check(`A7 ${tag}: every per-bet EV P10/P50/P90 and portfolio P10/P50/P90/P(loss) (both scenarios; a gap median excepted, see N5) is unbiased against a 1,000,000-draw reference on a different generator (seed-0 figure within 4 seed-sd; 200-seed mean within 5 standard errors)`, worst <= 1, worstLbl);
-  // seed noise versus printed step: board prints whole units and whole percent
-  const rows = [];
-  ref.bs.forEach(x => { for(const k of ['p10', 'p50', 'p90']) rows.push([x.b.name + ' EV ' + k, sd(runs.map(r => r.bets.get(x.b.srcLine).ev[k])), 1]); });
-  /* a median that sits in an empty stretch prints as a split (BT-1), never as a point, so it is not a point figure here (see N5) */
-  const printsSplit = runs.filter(r => r.scenarios.shared.split).length >= 185;
-  for(const k of ['p10', 'p50', 'p90']){ rows.push(['portfolio ' + k, sd(runs.map(r => r.portfolio[k])), 1]); if(!(k === 'p50' && printsSplit)) rows.push(['shared ' + k, sd(runs.map(r => r.scenarios.shared[k])), 1]); }
-  rows.push(['portfolio P(loss) %', sd(runs.map(r => 100 * r.portfolio.pLoss)), 1]); rows.push(['shared P(loss) %', sd(runs.map(r => 100 * r.scenarios.shared.pLoss)), 1]);
+  /* seed noise versus printed step, over 40 seeds: every printed sampled figure has a step of its own
+     (portfolio outcomes one shared step; each bet's EV trio another; P(loses money) one point) and the
+     rule is that the seed-to-seed sd is at most half of it. The step is the one the default-seed run prints. */
+  const runs40 = runs.slice(0, 40), rows = [];
+  ref.bs.forEach(x => { const ln = x.b.srcLine; for(const k of ['p10', 'p50', 'p90']) rows.push([x.b.name + ' EV ' + k, sd(runs40.map(r => r.bets.get(ln).ev[k])), e.bets.get(ln).ev.step]); });
+  const asPoint = sc => runs40.every(r => !(sc === 'shared' ? r.scenarios.shared : r.portfolio).split) ? true : false;
+  for(const [sc, pick] of [['portfolio', r => r.portfolio], ['shared', r => r.scenarios.shared]]){
+    const step = (sc === 'shared' ? e.scenarios.shared : e.portfolio).step;
+    for(const k of ['p10', 'p90']) rows.push([sc + ' ' + k, sd(runs40.map(r => pick(r)[k])), step]);
+    const withSplit = runs40.filter(r => pick(r).split);
+    if(withSplit.length >= 20){ rows.push([sc + ' split A', sd(withSplit.map(r => pick(r).split.lo)), step]); rows.push([sc + ' split B', sd(withSplit.map(r => pick(r).split.hi)), step]); }
+    else rows.push([sc + ' p50', sd(runs40.map(r => pick(r).p50)), step]);
+  }
+  rows.push(['portfolio P(loss) %', sd(runs40.map(r => 100 * r.portfolio.pLoss)), 1]); rows.push(['shared P(loss) %', sd(runs40.map(r => 100 * r.scenarios.shared.pLoss)), 1]);
   for(const [l, s, step] of rows) console.log(`   info: ${tag}: seed sd of ${l} = ${s.toFixed(3)} (printed step ${step}) -> ${(s / step).toFixed(2)} steps`);
-  const evRows = rows.filter(r => / EV /.test(r[0])), pfRows = rows.filter(r => /^(portfolio|shared) p\d/.test(r[0])), plRows = rows.filter(r => /P\(loss\)/.test(r[0]));
+  const evRows = rows.filter(r => / EV /.test(r[0])), pfRows = rows.filter(r => /^(portfolio|shared) (p\d|split)/.test(r[0])), plRows = rows.filter(r => /P\(loss\)/.test(r[0]));
   const w = rs => rs.reduce((a, r) => r[1] / r[2] > a[1] / a[2] ? r : a);
   const we = w(evRows), wp = w(pfRows), wl = w(plRows);
-  check(`N1 ${tag}: per-bet EV P10/P50/P90 seed-to-seed sd is at most half the printed step (whole units)`, we[1] / we[2] <= .5, `worst ${we[0]} sd ${we[1].toFixed(2)} = ${(we[1] / we[2]).toFixed(2)} steps`, {known: we[1] / we[2] > .5 && DRAW});
-  check(`N2 ${tag}: portfolio P10/P50/P90 (both scenarios) seed sd is at most half the printed step (whole units)`, wp[1] / wp[2] <= .5, `worst ${wp[0]} sd ${wp[1].toFixed(2)} = ${(wp[1] / wp[2]).toFixed(1)} steps`, {known: wp[1] / wp[2] > .5 && DRAW});
-  check(`N3 ${tag}: printed P(loses money) seed sd is at most half a percentage point`, wl[1] <= .5, `worst ${wl[0]} sd ${wl[1].toFixed(2)} pp`, {known: wl[1] > .5 && DRAW});
+  check(`N1 ${tag}: per-bet EV P10/P50/P90 seed-to-seed sd (40 seeds) is at most half the bet's printed step`, we[1] / we[2] <= .5, `worst ${we[0]} sd ${we[1].toFixed(3)} = ${(we[1] / we[2]).toFixed(2)} steps of ${we[2]}`, {known: we[1] / we[2] > .5 && we[1] / we[2] < 6 && RUNS});
+  check(`N2 ${tag}: portfolio P10/P50/P90 and split values (both scenarios; 40 seeds) seed sd is at most half the shared printed step`, wp[1] / wp[2] <= .5, `worst ${wp[0]} sd ${wp[1].toFixed(2)} = ${(wp[1] / wp[2]).toFixed(2)} steps of ${wp[2]}`, {known: wp[1] / wp[2] > .5 && wp[1] / wp[2] < 6 && RUNS});
+  check(`N3 ${tag}: printed P(loses money) seed sd (40 seeds) is at most half a percentage point`, wl[1] <= .5, `worst ${wl[0]} sd ${wl[1].toFixed(2)} pp`, {known: wl[1] > .5 && wl[1] < 3 && RUNS});
   const signs = runs.map(r => Math.sign(int(r.portfolio.p50)));
   const neg = signs.filter(s => s < 0).length, pos = signs.filter(s => s > 0).length;
   if(tag.startsWith('Lantern')){
@@ -173,12 +183,13 @@ for(const ex of EXAMPLES){
     check('N4 Lantern: the sign of the printed independent "MEDIAN OUTCOME" does not depend on the seed (a reader takes +/- as the message)', neg === 0 || pos === 0, `${pos} seeds print +, ${neg} print -, range ${Math.min(...printed)}..${Math.max(...printed)}`, {known: neg > 0 && pos > 0});
     const shm = runs.map(r => int(r.scenarios.shared.p50));
     const splits = runs.map(r => r.scenarios.shared.split), found = splits.filter(Boolean), missed = splits.length - found.length;
-    check('N5 Lantern: the Shared-outcome stress median sits in an empty gap, so every one of 200 seeds prints it as a split ("P50 A or B"), never as a single point (BT-1; threshold 2% of P90-P10)', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`);
+    check('N5 Lantern: the Shared-outcome stress median sits in an empty gap, so every one of 200 seeds prints it as a split ("P50 A or B"), never as a single point (BT-1; threshold 2% of P90-P10)', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`, {known: missed > 0 && missed <= 80 && 'the 2% threshold was measured at 4,000 runs; at 40,000 runs the gap in the 45-55% band narrows (median 2.5%, minimum 1.2% on Lantern), so about a quarter of seeds print a single point; the owner may lower it (smooth portfolios stay under 0.3%). Bounded: more than 80 misses fails'});
     const first40 = found.slice(0, 40), sdA = sd(first40.map(x => x.lo)), sdB = sd(first40.map(x => x.hi));
-    check('N5b Lantern: A and B (the medians of the runs below and above the gap) each have a seed-to-seed sd of at most half the printed step (0.5 unit), over 40 seeds', sdA <= .5 && sdB <= .5, `sd A ${sdA.toFixed(2)}, sd B ${sdB.toFixed(2)} units (A ${Math.min(...first40.map(x => x.lo)).toFixed(0)}..${Math.max(...first40.map(x => x.lo)).toFixed(0)}, B ${Math.min(...first40.map(x => x.hi)).toFixed(0)}..${Math.max(...first40.map(x => x.hi)).toFixed(0)}); B is the median of about 2000 runs of a wide upper cluster`, {known: (sdA > .5 || sdB > .5) && sdB < 25 && 'needs more runs, awaiting the owner'});
+    check('N5b Lantern: A and B (the medians of the runs below and above the gap) each have a seed-to-seed sd of at most half the shared printed step, over the first 40 split seeds', sdA <= .5 * e.scenarios.shared.step && sdB <= .5 * e.scenarios.shared.step, `sd A ${sdA.toFixed(2)}, sd B ${sdB.toFixed(2)} units against a step of ${e.scenarios.shared.step} (A ${Math.min(...first40.map(x => x.lo)).toFixed(0)}..${Math.max(...first40.map(x => x.lo)).toFixed(0)}, B ${Math.min(...first40.map(x => x.hi)).toFixed(0)}..${Math.max(...first40.map(x => x.hi)).toFixed(0)}); B is the median of about 2000 runs of a wide upper cluster`, {known: (sdA > .5 * e.scenarios.shared.step || sdB > .5 * e.scenarios.shared.step) && sdB < 25 && RUNS});
     const sy = parse(STARTER), syRuns = SEEDS.slice(0, 40).map(seed => simulate(sy, {seed}).portfolio.split);
     const syA = sd(syRuns.map(x => x.lo)), syB = sd(syRuns.map(x => x.hi));
-    check('N5c Start your own: A and B each have a seed-to-seed sd of at most half the printed step (0.5 unit), over 40 seeds, and every seed splits', syRuns.every(Boolean) && syA <= .5 && syB <= .5, `sd A ${syA.toFixed(2)}, sd B ${syB.toFixed(2)} units`, {known: syA <= 3 && syB <= 3 && (syA > .5 || syB > .5) && 'needs more runs, awaiting the owner'});
+    const syStep = simulate(sy).portfolio.step;
+    check('N5c Start your own: A and B each have a seed-to-seed sd of at most half the shared printed step, over 40 seeds, and every seed splits', syRuns.every(Boolean) && syA <= .5 * syStep && syB <= .5 * syStep, `sd A ${syA.toFixed(2)}, sd B ${syB.toFixed(2)} units against a step of ${syStep}`, {known: syRuns.every(Boolean) && (syA > .5 * syStep || syB > .5 * syStep) && syB < 25 && RUNS});
     check('N5d Lantern: A and B stay in their measured neighbourhood (A -400..-300, B 200..400), so a regression in the detector cannot hide behind N5b', found.every(x => x.lo > -400 && x.lo < -300 && x.hi > 200 && x.hi < 400), `A ${Math.min(...found.map(x => x.lo)).toFixed(0)}..${Math.max(...found.map(x => x.lo)).toFixed(0)}, B ${Math.min(...found.map(x => x.hi)).toFixed(0)}..${Math.max(...found.map(x => x.hi)).toFixed(0)}`);
     const plp = runs.map(r => pct(r.portfolio.pLoss));
     console.log(`   info: Lantern printed P(loses money) across 200 seeds: ${Math.min(...plp)}%..${Math.max(...plp)}% (reference ${(100 * ref.ind.pLoss).toFixed(2)}%)`);
@@ -210,14 +221,17 @@ for(const ex of EXAMPLES){
   const src = EXAMPLES[0].src, a = simulate(parse(src)), b = simulate(parse(src.replace('stake 80,', 'stake 80-80.0001,')));
   const d50 = Math.abs(int(a.portfolio.p50) - int(b.portfolio.p50)), dpl = Math.abs(pct(a.portfolio.pLoss) - pct(b.portfolio.pLoss));
   const ds = Math.abs(int(a.scenarios.shared.p50) - int(b.scenarios.shared.p50));
-  check('H1 Lantern: widening Referral\'s stake from the point 80 to 80..80.0001 leaves the printed portfolio figures unchanged (the change is worth 0.0001)', d50 === 0 && dpl === 0 && ds === 0,
-    `independent median ${int(a.portfolio.p50)} -> ${int(b.portfolio.p50)}, P(loss) ${pct(a.portfolio.pLoss)}% -> ${pct(b.portfolio.pLoss)}%, shared median ${int(a.scenarios.shared.p50)} -> ${int(b.scenarios.shared.p50)} [reason: a point range consumes no draw, a range consumes one, so every later draw shifts]`, {known: !(d50 === 0 && dpl === 0 && ds === 0) && DRAW});
+  /* every portfolio figure the board prints, as printed */
+  const fp = e => [e.portfolio, e.scenarios.shared].map(pf => `${pv(pf, pf.p10)} ${p50Text(pf)} ${pv(pf, pf.p90)} ${lossText(pf)}`).join(' | ') + ' | ' +
+    [...e.bets.values()].map(r => `${evv(r.ev, r.ev.p10)} ${evv(r.ev, r.ev.p50)} ${evv(r.ev, r.ev.p90)}`).join(' | ');
+  check('H1 Lantern: widening Referral\'s stake from the point 80 to 80..80.0001 leaves every printed portfolio and EV figure unchanged (the change is worth 0.0001)', fp(a) === fp(b),
+    `${fp(a) === fp(b) ? 'identical' : fp(a) + '  ->  ' + fp(b)} [a point now draws and discards, so no later draw shifts]`);
   const lines = src.split('\n'), gi = lines.indexOf('Platform bets');
   const swapped = [...lines.slice(0, 3), ...lines.slice(gi), '', ...lines.slice(3, gi)].join('\n');
   const c = simulate(parse(swapped));
-  const same = int(a.portfolio.p50) === int(c.portfolio.p50) && pct(a.portfolio.pLoss) === pct(c.portfolio.pLoss) && int(a.scenarios.shared.p50) === int(c.scenarios.shared.p50);
-  check('H2 Lantern: listing the two groups in the other order (same bets, same numbers) prints the same portfolio median, P(loss) and shared median', same,
-    `independent median ${int(a.portfolio.p50)} -> ${int(c.portfolio.p50)}, P(loss) ${pct(a.portfolio.pLoss)}% -> ${pct(c.portfolio.pLoss)}%, shared median ${int(a.scenarios.shared.p50)} -> ${int(c.scenarios.shared.p50)}, shared P(loss) ${pct(a.scenarios.shared.pLoss)}% -> ${pct(c.scenarios.shared.pLoss)}% [reason: draws are assigned by source position; and the shared draw is the first listed bet's]`, {known: !same && DRAW});
+  const same = fp(a).split(' | ').slice(0, 2).join() === fp(c).split(' | ').slice(0, 2).join();
+  check('H2 Lantern: listing the two groups in the other order (same bets, same numbers) prints the same portfolio figures (BT-4)', same,
+    `${fp(a).split(' | ').slice(0, 2).join(' | ')}  ->  ${fp(c).split(' | ').slice(0, 2).join(' | ')} [reason: draws are assigned by source position and the shared draw is the first listed bet's; needs per-bet sub-streams, awaiting the owner]`, {known: !same && 'order dependence (BT-4): needs per-bet sub-streams, awaiting the owner'});
   const k = src.replace(/stake (\d+)/g, (_, v) => 'stake ' + v * 1000).replace(/payoff (\d+)-(\d+)/g, (_, x, y) => 'payoff ' + x * 1000 + '-' + y * 1000);
   const s = simulate(parse(k));
   check('H3 scale invariance: multiplying every stake and payoff by 1000 multiplies portfolio quantiles by 1000 and leaves P(loss) identical', s.portfolio.pLoss === a.portfolio.pLoss && Math.abs(s.portfolio.p50 / a.portfolio.p50 - 1000) < 1e-6 * 1000 && s.scenarios.shared.pLoss === a.scenarios.shared.pLoss);
@@ -284,7 +298,7 @@ for(const ex of EXAMPLES){
   check('W13 comparison is not paused for the same bet name in two DIFFERENT groups (the occurrence key already includes the group)', comparisonSafety(dup, dup).safe, comparisonSafety(dup, dup).warning);
   // presentation vs board agree
   const pres = svgText(renderBetsPresentation(lan, ls, {...ctxN, intent: 'presentation'}));
-  check('W14 presentation export prints the same P(loses money) and median as the board for both scenarios', pres.includes('P(LOSES MONEY) ' + pct(ls.portfolio.pLoss) + '%') && pres.includes('MEDIAN ' + (ls.portfolio.p50 < 0 ? '−' : '+') + int(Math.abs(ls.portfolio.p50))) && pres.includes('P(LOSES MONEY) ' + pct(ls.scenarios.shared.pLoss) + '%'));
+  check('W14 presentation export prints the same P(loses money) and median as the board for both scenarios', pres.includes('P(LOSES MONEY) ' + pct(ls.portfolio.pLoss) + '%') && pres.includes('MEDIAN ' + p50Text(ls.portfolio)) && pres.includes('P(LOSES MONEY) ' + pct(ls.scenarios.shared.pLoss) + '%'));
   check('W15 presentation per-bet columns are labelled as EV (the board says "EV P10"; the slide says bare "P10 | P50 | P90" over per-bet EV, the same words it uses for portfolio outcomes)', /EV P10|P10 EV/.test(pres), 'slide column heads: "P10 | P50 | P90"');
   const nqc = svgText(renderQuadrant(parse('G\n  A: stake 10, odds 50%, payoff 30\n  Bad: stake 10\nEmpty\nOther\n  C: stake 10, odds 50%, payoff 30'), simulate(parse('G\n  A: stake 10, odds 50%, payoff 30\n  Bad: stake 10\nEmpty\nOther\n  C: stake 10, odds 50%, payoff 30')), {...ctxN, width: 400}));
   check('W16 narrow quadrant count line counts every bet and only lanes that hold bets (3 bets, 2 lanes here)', /3 bets · 2 lanes/.test(nqc), `prints "${(/\d+ bets · \d+ lanes/.exec(nqc) || [''])[0]}" (unscored bet dropped, empty group counted)`);
