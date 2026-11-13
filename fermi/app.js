@@ -1552,7 +1552,7 @@ $('cfcase').addEventListener('change', () => { cf.sizingCase = $('cfcase').value
 function cfSchedule(){
   syncExampleButtons(cashflowExampleButtons);
   clearTimeout(cfTimer);
-  cfTimer = setTimeout(() => { cfTimer = null; cfPaint(); }, 150);
+  cfTimer = setTimeout(() => { cfTimer = null; cfPaint(); }, 120);
 }
 function ensureFreshCashflow(){
   if(!cfTimer) return;

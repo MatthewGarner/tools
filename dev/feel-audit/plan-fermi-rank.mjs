@@ -55,6 +55,7 @@ export const FR_KNOWN = [
   ['f.type.long.keyrender', 'FF-04 left: the long additive formula\'s simulation (about 185 ms) follows the debounce'],
   ['f.type.long.longtask', 'FF-04 left: the same simulation, one 160-185 ms task'],
   ['f.mode.cf.longtask', 'FF-28 left: the 40,000-run cashflow simulation runs in the mode switch'],
+  ['f.cf.longtask', 'FF-18 left: the 40,000-run simulation after a period edit is one 50-55 ms task (borderline; the time is the engine\'s)'],
   ['f.cf.grain.longtask', 'FF-18 left: simulation cost (40,000 runs)'],
   ['f.cf.remove.longtask', 'FF-18 left: simulation cost (40,000 runs)'],
   ['f.cf.example.paint', 'FF-18 left: the Geared build example simulates 40,000 runs in the click'],

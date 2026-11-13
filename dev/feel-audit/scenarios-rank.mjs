@@ -164,6 +164,8 @@ export async function slider(env, kind){
   const th2 = await thumb(page, sel, nth);
   const o0 = await order(page);
   await dragSampler(page, `${phone ? '#wstrip .wsrow' : '#headrow th'}:nth-of-type(${phone ? nth + 1 : nth + 2}) .wslider`);
+  const blocksOf = () => page.evaluate(() => Object.fromEntries(['#verdict', '#subverdict', '#flipline', '#wstrip', '#rrows', '.khead', '#metrics', '#resultcard'].map(q => [q, Math.round(document.querySelector(q).getBoundingClientRect().height)])));
+  const blocks0 = await blocksOf();
   const t0 = await now(page);
   const to = {x: th2.x + th2.w * 0.55, y: th2.y + 2};
   if(phone && env.engine !== 'webkit') await touchSwipe(page, th2, to, {steps: 20});   /* WebKit has no CDP touch: mouse on the phone layout there */
@@ -174,6 +176,7 @@ export async function slider(env, kind){
     await page.mouse.up();
   }
   const tUp = await now(page);
+  const blocks1 = await blocksOf();
   await waitQuiet(page, {quiet: 400});
   const t2 = await now(page);
   const ds = await dragStop(page);
@@ -189,7 +192,7 @@ export async function slider(env, kind){
   const anims = await page.evaluate(([a, b]) => window.__feel.anims.filter(x => x[1] >= a && x[1] <= b && x[0] === 'transitionrun').map(x => x[2] + '@' + x[3].split('.')[0] + ' ' + x[4]), [t0, t2]);
   const uniqAnims = [...new Set(anims)];
   const rr = await renders(page);
-  note('r.slider.drag', w, 'drag a weight slider', {valueBefore: th2.value, valueAfter: val, max: th2.max, orders: [o0, await order(page)], reordersDuringDrag: reorders, dragFrames: dw, release: rw, sliderMovedDuring, sliderMovedAfter, scrollDuring, selection: sel2, anims: uniqAnims, rendersAfterRelease: rr.filter(t => t > tUp).length, pendingFrames: during.filter(f => f[5]).length + '/' + during.length, heightDuring: [...new Set(during.map(f => f[4]))], heightAfter: [...new Set(after.map(f => f[4]))]});
+  note('r.slider.drag', w, 'drag a weight slider', {valueBefore: th2.value, valueAfter: val, max: th2.max, orders: [o0, await order(page)], reordersDuringDrag: reorders, dragFrames: dw, release: rw, sliderMovedDuring, sliderMovedAfter, blocks: [blocks0, blocks1], scrollDuring, scrollSet: [...new Set(during.map(f => f[2]))].slice(0, 8), selection: sel2, anims: uniqAnims, rendersAfterRelease: rr.filter(t => t > tUp).length, pendingFrames: during.filter(f => f[5]).length + '/' + during.length, heightDuring: [...new Set(during.map(f => f[4]))], heightAfter: [...new Set(after.map(f => f[4]))]});
   check('r.slider.value', w, 'slider follows the drag', {before: th2.value, after: val}, val !== th2.value, 'value changes');
   check('r.slider.frames', w, 'missed frames (gaps >34ms) / longest task while dragging', {missed: dw.missed, over20ms: dw.dropped, worst: dw.worstFrame, frames: dw.frames, longTaskMax: dw.longTaskMax}, dw.missed <= (M(env) === 'normal' ? 0 : 3) && dw.longTaskMax <= LT(env), M(env) === 'normal' ? '0 missed, no task > 50ms' : '<= 3 missed, no task > 150ms');
   check('r.slider.live', w, 'the list re-orders live during the drag', reorders, reorders >= 1, '>= 1 re-order before release');
