@@ -8,6 +8,7 @@
 import {evaluate} from './evaluate.js';
 import {isValidDate} from './parse.js';
 import {enumeratePlans} from './plans.js';
+import {nameMap, cloneNames} from './names.js';
 
 const ROADMAP_CONFIG_KEYS = [
   'title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette',
@@ -28,7 +29,7 @@ const syntaxDelimiter = value => /[\r\n\t\[\]]|(?:^|\s)\/\/|\s--\s|\s->\s/.test(
 
 function normalizedAnswers(answers){
   if(!record(answers)) return null;
-  const out = {};
+  const out = nameMap();
   for(const [rawKey, direction] of Object.entries(answers)){
     const key = String(rawKey).toLowerCase();
     /* These maps come from Paths' own world enumerator, not free text. Keep
@@ -99,7 +100,7 @@ export function deliveryAssignment(model, answers){
   const normalized = normalizedAnswers(answers);
   if(!normalized || !record(model) || !record(model.decisionByName)) return null;
   const keys = new Set(relevantDecisions(model).map(decision => decision.key));
-  return Object.fromEntries(Object.entries(normalized).filter(([key]) => keys.has(key)));
+  return nameMap(Object.entries(normalized).filter(([key]) => keys.has(key)));
 }
 
 function deliveryEnumeration(model, date, relevant){
@@ -108,7 +109,7 @@ function deliveryEnumeration(model, date, relevant){
      identity: a newly authored answer must immediately change world membership.
      The delivery closure is capped at six questions, so recomputation is tiny. */
   const scoped = {...model, decisions:relevant,
-    decisionByName:Object.fromEntries(relevant.map(decision => [decision.key, decision]))};
+    decisionByName:nameMap(relevant.map(decision => [decision.key, decision]))};
   return enumeratePlans(scoped, date);
 }
 
@@ -131,7 +132,7 @@ export function roadmapProjectionWorlds(model, injectedDate){
     return refusal('enumeration-refused', enumeration.worlds.reason || 'Paths cannot enumerate an exact delivery basis.');
   const assignments = [], seen = new Set();
   for(const plan of enumeration.worlds?.plans || []) for(const assignment of plan.assignments || []){
-    const answers = {...assignment.answers};
+    const answers = cloneNames(assignment.answers);
     const key = assignmentKey(answers);
     if(key == null || seen.has(key)) continue;
     seen.add(key); assignments.push({answers, assignmentKey:key});
@@ -219,7 +220,7 @@ function acceptedExactly(confirmation, inspected){
   if(!record(confirmation) || confirmation.assignmentKey !== inspected.assignmentKey ||
      confirmation.date !== inspected.receipt.date || !Array.isArray(confirmation.assumed)) return false;
   const accepted = confirmation.assumed;
-  const map = {};
+  const map = nameMap();
   for(const entry of accepted){
     if(!record(entry) || typeof entry.key !== 'string' || !/^[a-z0-9-]+$/i.test(entry.key) ||
        !DIRECTIONS.has(entry.direction)) return false;

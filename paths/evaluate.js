@@ -1,4 +1,5 @@
 /* /paths semantic projection. Pure; `today` is always supplied by the caller. */
+import {nameMap, own} from './names.js';
 
 const VALUES = new Set(['true', 'false', 'unknown', 'invalid']);
 
@@ -49,7 +50,7 @@ export function evaluateCondition(condition, source){
     return {value:'invalid', provenance:new Set(), evidence:[], condition};
   const resolver = typeof source === 'function'
     ? source
-    : term => source?.[term.key] ?? source?.[term.name];
+    : term => own(source, term.key) ?? own(source, term.name);
   const clauses = condition.terms.map(term => {
     let clause = normalizeClause(resolver(term), term);
     if(term.negated) clause = evaluateOperation('not', [clause]);
@@ -84,7 +85,7 @@ export function oversizedUrlWarning(){
 }
 
 function hypotheticalOf(assignment, key){
-  const value = assignment?.[key] ?? assignment?.[key.toLowerCase()];
+  const value = own(assignment, key) ?? own(assignment, key.toLowerCase());
   if(value === 'yes' || value === 'no') return value;
   if(value === 'won') return 'yes';
   if(value === 'lost') return 'no';
@@ -140,7 +141,7 @@ function displayEvidenceFor(source, conditionResult){
 
 export function resolveDecisions(model, injectedToday, assignment = {}){
   const today = model.today || injectedToday || null;
-  const projected = {};
+  const projected = nameMap();
   const visiting = new Set();
 
   function resolve(key){

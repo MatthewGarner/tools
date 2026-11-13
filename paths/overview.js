@@ -3,6 +3,7 @@
 
 import {evaluate} from './evaluate.js';
 import {verdict} from './verdict.js';
+import {nameMap, cloneNames} from './names.js';
 
 const REPAIR_WARNING_CODES = new Set([
   'conflicting-answers', 'invalid-answer-value', 'invalid-answer-date',
@@ -23,7 +24,7 @@ const lowerFirst = value => {
 };
 
 function projectedDecisionMap(projected){
-  return projected?.decisionByName || Object.fromEntries((projected?.decisions || [])
+  return projected?.decisionByName || nameMap((projected?.decisions || [])
     .map(decision => [decision.key, decision]));
 }
 
@@ -274,7 +275,7 @@ function withoutSelectedAnswer(model, key){
   if(!source) return model;
   const replacement = {...source, answer:null};
   return {...model, decisions:model.decisions.map(decision => decision.key === key ? replacement : decision),
-    decisionByName:{...model.decisionByName, [key]:replacement}};
+    decisionByName:Object.assign(cloneNames(model.decisionByName), {[key]:replacement})};
 }
 
 function branchItem(item, projection, itemByIdentity){

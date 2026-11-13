@@ -1,6 +1,7 @@
 /* Possible-plan enumeration for /paths. Pure and memoised per parsed model. */
 
 import {evaluate, projectItemStates, resolveDecisions} from './evaluate.js';
+import {nameMap, cloneNames} from './names.js';
 
 export const PLAN_CAP = 6;
 const CACHE = new WeakMap();
@@ -48,8 +49,8 @@ export function equivalenceSignature(items){
     [item.identity, item.itemState, item.period, item.status]));
 }
 
-function assignmentRows(decisions, current, index = 0, assignment = {}, out = []){
-  if(index === decisions.length){ out.push({...assignment}); return out; }
+function assignmentRows(decisions, current, index = 0, assignment = nameMap(), out = []){
+  if(index === decisions.length){ out.push(cloneNames(assignment)); return out; }
   const decision = decisions[index];
   const assumed = current.decisionByName[decision.key]?.assumption;
   const arms = assumed?.inForce ? [assumed.direction, assumed.direction === 'yes' ? 'no' : 'yes'] : ['yes', 'no'];
@@ -145,7 +146,7 @@ function withReach(model, today, current){
     reaches.set(decision.key, reach);
   }
   const decisions = current.decisions.map(decision => ({...decision, reach:reaches.get(decision.key) || 0}));
-  const decisionByName = Object.fromEntries(decisions.map(decision => [decision.key, decision]));
+  const decisionByName = nameMap(decisions.map(decision => [decision.key, decision]));
   return {...current, decisions, decisionByName,
     reachDenominator:current.items.filter(item => item.status !== 'done').length};
 }
@@ -175,9 +176,9 @@ function calculate(model, today){
     if(merged.has(signature)){
       const entry = merged.get(signature);
       entry.covers++;
-      entry.assignments.push({answers:{...answers}, labels, contextLabels});
+      entry.assignments.push({answers:cloneNames(answers), labels, contextLabels});
     } else {
-      merged.set(signature, {signature, covers:1, assignments:[{answers:{...answers}, labels, contextLabels}],
+      merged.set(signature, {signature, covers:1, assignments:[{answers:cloneNames(answers), labels, contextLabels}],
         labels, items:projected.items, decisions:projected.decisions});
     }
   }
