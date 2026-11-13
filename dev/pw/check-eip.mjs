@@ -191,8 +191,16 @@ check('label rename lands in text and diagram', await until(async () => ((await 
     (await page.evaluate(() => document.querySelectorAll('#preview svg [data-edit^="node-"]').length)) === 0);
 
   const marker = line => page.locator('#preview svg g[data-edit^="cardmenu-"][data-line="' + line + '"] rect[data-hit]');
+  /* The figures arrive from the worker and repaint the picture a moment after the first paint, so a marker found in the pending
+     picture can be replaced before the tap (its box then reads null). Wait on the page's own signal, #preview[data-sim=final]
+     (assets/sim-pending.js), and take the box from the final picture. */
   const tapMarker = async line => {
-    const box = await marker(line).boundingBox();
+    let box = null;
+    for(let i = 0; i < 40 && !box; i++){
+      await page.locator('#preview[data-sim="final"]').waitFor();
+      box = await marker(line).boundingBox();
+      if(!box) await page.waitForTimeout(25);
+    }
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   };
   const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
