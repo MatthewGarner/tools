@@ -79,7 +79,7 @@ export const PATHS_SEMANTIC_STRESS = Object.freeze([
     id: 'cyclic',
     meaning: 'Cyclic decision availability refuses instead of guessing an order.',
     text: document(`${decision('price', '\n  when: group')}\n${decision('group', '\n  when: price')}`),
-    answers: {price:'yes', group:'yes'}, refusal: 'invalid-source-model',
+    answers: {price:'yes', group:'yes'}, refusal: 'when-cycle',
   },
   {
     id: 'malformed',
