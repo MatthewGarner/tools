@@ -84,11 +84,11 @@ function doRefresh(){
     paintVerdict($('verdict'), v.line, v.fig);
     $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
     /* metrics: the routes on the board, the merchant belief they all share, and
-       the sample the payoffs are read off — all straight from model/sim. */
+       the grid the payoffs are read off (exact quantiles, not random draws) — all straight from model/sim. */
     paintMetrics($('metrics'), model.title, [
       `${sim.rows.length} route${sim.rows.length === 1 ? '' : 's'}`,
       `merchant ${Math.round(model.merchant.lo)}–${Math.round(model.merchant.hi)} ${model.unit}`,
-      `${sim.n.toLocaleString('en-GB')} draws`,
+      `exact, ${sim.n.toLocaleString('en-GB')}-point grid`,
     ]);
   }
   renderWarnings();
