@@ -111,17 +111,22 @@ function sharesFor(current, worlds, stateByWorld){
     stateByWorld.some(states => states.get(item.identity) === 'in-plan'));
   const denominator = eligible.length;
   if(!denominator) return null;
-  let shared = 0, assumed = 0;
+  /* every eligible item lands in exactly one part, by the state it has now: in every plan; following an
+     assumption; set aside by one; or depending on an answer (including an item whose condition also
+     waits on something else unknown) */
+  let shared = 0, assumed = 0, setAside = 0;
   for(const item of eligible){
     const inEvery = stateByWorld.every(states => states.get(item.identity) === 'in-plan');
     if(inEvery){ shared++; continue; }
-    if([...item.conditionResult.provenance].some(member => member.startsWith('assumed-'))) assumed++;
+    if(item.itemState === 'limbo') assumed++;
+    else if(item.itemState === 'set-aside') setAside++;
   }
-  const dependent = denominator - shared - assumed;
+  const dependent = denominator - shared - assumed - setAside;
   const sharedShare = shared / denominator;
   const assumedShare = assumed / denominator;
-  return {denominator, shared, assumed, dependent, sharedShare, assumedShare,
-    dependentShare:1 - sharedShare - assumedShare};
+  const setAsideShare = setAside / denominator;
+  return {denominator, shared, assumed, setAside, dependent, sharedShare, assumedShare, setAsideShare,
+    dependentShare:1 - sharedShare - assumedShare - setAsideShare};
 }
 
 function withoutAnswer(model, key){

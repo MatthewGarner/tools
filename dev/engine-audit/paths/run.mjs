@@ -38,10 +38,11 @@ const TODAY = '2026-11-13';
 
 // ---------- independent reference semantics (written from DSL.md, paths/CONTEXT.md and the stage-1 semantics spec) ----------
 // Kleene logic with provenance; decision ladder: moot (when false) > written answer > hypothetical > assumption in force
-// (unanswered, active, today > answer-by) > unknown. dormant = when unknown/invalid/cycle. Items: true in-plan, false
-// not-needed, unknown with an assumed-* provenance member limbo, other unknown waiting, invalid waiting; [done] outranks a
-// valid condition. The reference reads the parsed fields but re-derives every value; it detects cycles itself.
-function refWorld(model, today, assignment = {}){
+// (unanswered, active, today > answer-by AND today >= the assumption's own date) > unknown. dormant = when unknown/invalid/cycle.
+// Items: true in-plan, false not-needed, invalid waiting; unknown with an assumed-* provenance member: re-read the condition with every
+// assumption in force taken as the answer; true limbo (working to it), false set-aside, still unknown waiting; other unknown waiting;
+// [done] outranks a valid condition. The reference reads the parsed fields but re-derives every value; it detects cycles itself.
+function refWorld(model, today, assignment = {}, second = false){
   const byKey = new Map(model.decisions.map(d => [d.key, d]));
   const memo = new Map();
   // own cycle detection over the when graph
@@ -72,7 +73,7 @@ function refWorld(model, today, assignment = {}){
     if(avail === 'moot') r = {avail, v: 'F', prov: new Set(['never-arose'])};
     else if(avail === 'active' && d.answer?.direction) r = {avail, v: d.answer.direction === 'yes' ? 'T' : 'F', prov: new Set(['answered'])};
     else if(avail === 'active' && (assignment[key] === 'yes' || assignment[key] === 'no')) r = {avail, v: assignment[key] === 'yes' ? 'T' : 'F', prov: new Set(['answered'])};
-    else if(avail === 'active' && d.assumption && d.answerBy && today && today > d.answerBy) r = {avail, v: 'U', prov: new Set(['assumed-' + d.assumption.direction])};
+    else if(avail === 'active' && d.assumption && d.answerBy && today && today > d.answerBy && (!d.assumption.date || today >= d.assumption.date)) r = {avail, v: 'U', prov: new Set(['assumed-' + d.assumption.direction])};
     else r = {avail, v: 'U', prov: new Set(['unknown'])};
     memo.set(key, r); return r;
   }
@@ -84,6 +85,14 @@ function refWorld(model, today, assignment = {}){
     if(it.status === 'done' && c.v !== 'I') state = 'in-plan';
     return {state, v: c.v, prov: c.prov};
   });
+  if(!second){
+    const forced = {};
+    for(const d of model.decisions){ const x = decisions[d.key]; if(x.avail === 'active' && [...x.prov].some(q => q.startsWith('assumed-'))) forced[d.key] = d.assumption.direction; }
+    if(Object.keys(forced).length){
+      const h = refWorld(model, today, {...assignment, ...forced}, true);
+      items.forEach((x, i) => { if(x.state === 'limbo') x.state = h.items[i].v === 'T' ? 'limbo' : h.items[i].v === 'F' ? 'set-aside' : 'waiting'; });
+    }
+  }
   return {decisions, items};
 }
 const refSig = (model, w) => JSON.stringify(model.items.map((it, i) => [i, w.items[i].state]).filter((_, i) => !model.items[i].condition || model.items[i].condition.valid));
@@ -177,12 +186,12 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   // the assumption's own date is never read; the before-due warning tells the reader to change it
   const early = D('a', '  assume: yes 2026-12-31\n', '2026-10-01') + 'NOW\n  X: x [if a]';
   const pe = project(parse(early), TODAY);
-  check('P5 an assumption dated in the future ("assume: yes 2026-12-31", today ' + TODAY + ', answer-by 2026-10-01) is not yet in force', pe.decisions[0].assumption.inForce === false,
-    'in force: ' + pe.decisions[0].assumption.inForce + '; item X is "' + pe.items[0].itemState + '": the assumption\'s own date is parsed and never read (only answer-by gates it)', {known: pe.decisions[0].assumption.inForce, reason: 'PA-8: as documented, an assumption takes effect after the answer-by date; the owner will be asked'});
+  check('P5 an assumption dated in the future ("assume: yes 2026-12-31", today ' + TODAY + ', answer-by 2026-10-01) is not yet in force: it starts once both dates have passed', pe.decisions[0].assumption.inForce === false && pe.items[0].itemState === 'waiting',
+    'in force: ' + pe.decisions[0].assumption.inForce + '; item X is "' + pe.items[0].itemState + '"');
   const before = project(parse(D('a', '  assume: yes 2026-12-31\n', '2026-12-01') + 'NOW\n  X: x [if a]'), TODAY).warnings.find(w => w.code === 'assumption-before-due');
-  const moved = project(parse(D('a', '  assume: yes 2026-11-01\n', '2026-12-01') + 'NOW\n  X: x [if a]'), TODAY).warnings.find(w => w.code === 'assumption-before-due');
-  const advised = project(parse(D('a', '  assume: yes 2026-12-31\n', '2026-11-01') + 'NOW\n  X: x [if a]'), TODAY);
-  check('P6 the "assumption is not used yet" advice names a change that clears it: moving answer-by to before today (the assumption\'s own date does nothing, PA-8)', /answer-by/.test(before.message) && !/change its date/.test(before.message) && !advised.warnings.some(w => w.code === 'assumption-before-due') && advised.items[0].itemState === 'limbo', '"' + before.message + '"');
+  const fixedBoth = project(parse(D('a', '  assume: yes 2026-11-13\n', '2026-11-12') + 'NOW\n  X: x [if a]'), TODAY);
+  const notStarted = project(parse(D('a', '  assume: yes 2026-12-31\n', '2026-10-01') + 'NOW\n  X: x [if a]'), TODAY).warnings.find(w => w.code === 'assumption-not-started');
+  check('P6 the "assumption is not in force yet" advice names the changes that clear it (answer-by before today, assumption date today or earlier), and making them clears it', /"answer-by:" to a date before today/.test(before.message) && /assumption date to today or earlier/.test(before.message) && /to a date before today/.test(before.message) && !!notStarted && /its own date/.test(notStarted.message) && !fixedBoth.warnings.some(w => /^assumption-/.test(w.code)) && fixedBoth.items[0].itemState === 'limbo', '"' + before.message + '"');
   // late answers and overdue boundary
   const ov = d => project(parse(D('a', '', '2026-11-12') + 'NOW\n  X: x [if a]'), d).decisions[0].overdue;
   check('P7 overdue boundary: due 2026-11-12 is not overdue on 2026-11-12 and is on 2026-11-13', ov('2026-11-12') === false && ov('2026-11-13') === true);
@@ -259,9 +268,10 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
     const eligible = m.items.map((it, i) => i).filter(i => m.items[i].status !== 'done' && worlds.some(w => w.items[i].state === 'in-plan'));
     if(eligible.length){
       const shared = eligible.filter(i => worlds.every(w => w.items[i].state === 'in-plan')).length;
-      const assumed = eligible.filter(i => !worlds.every(w => w.items[i].state === 'in-plan') && [...cur.items[i].prov].some(x => x.startsWith('assumed-'))).length;
-      if(!p.shares || p.shares.denominator !== eligible.length || p.shares.shared !== shared || p.shares.assumed !== assumed || p.shares.shared + p.shares.assumed + p.shares.dependent !== p.shares.denominator)
-        shareBad = shareBad || {src, today, eng: p.shares, ref: {den: eligible.length, shared, assumed}};
+      const notEvery = eligible.filter(i => !worlds.every(w => w.items[i].state === 'in-plan'));
+      const assumed = notEvery.filter(i => cur.items[i].state === 'limbo').length, setAside = notEvery.filter(i => cur.items[i].state === 'set-aside').length;
+      if(!p.shares || p.shares.denominator !== eligible.length || p.shares.shared !== shared || p.shares.assumed !== assumed || p.shares.setAside !== setAside || p.shares.shared + p.shares.assumed + p.shares.setAside + p.shares.dependent !== p.shares.denominator)
+        shareBad = shareBad || {src, today, eng: p.shares, ref: {den: eligible.length, shared, assumed, setAside}};
     } else if(p.shares) shareBad = shareBad || {src, today, eng: p.shares, ref: null};
     // reach: items whose reference state differs between yes and no, with the decision's own answer removed
     for(const d of m.decisions){
@@ -274,7 +284,7 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   }
   check('L1 possible plans are complete and exact: for ' + docs + ' enumerable documents the set of distinct plans equals the brute-force set over every unanswered decision', missBad === null, missBad ? JSON.stringify(missBad).slice(0, 500) : '');
   check('L2 enumerable count, possibleCount = 2^count and the refusal (> ' + PLAN_CAP + ' questions; ' + refusals + ' refusals seen) agree with the brute force', countBad === null, countBad ? JSON.stringify(countBad).slice(0, 500) : '');
-  check('L3 the three-part share figure (in every plan / following an assumed answer / depends on an answer) matches the brute force and exhausts its denominator', shareBad === null, shareBad ? JSON.stringify(shareBad).slice(0, 500) : '');
+  check('L3 the share figure (in every plan / following an assumed answer / set aside by one / depends on an answer) matches the brute force and exhausts its denominator', shareBad === null, shareBad ? JSON.stringify(shareBad).slice(0, 500) : '');
   check('L4 every decision\'s reach (items whose state differs between yes and no) matches the brute force', reachBad === null, reachBad ? JSON.stringify(reachBad).slice(0, 500) : '');
 
   // Tree view says "N possible plans" where N counts assignments, while Plans view says "N assignments, M distinct plans"
@@ -310,7 +320,7 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   // random sweep: verdict truth, inspector treatment vs state, overview kind vs value
   const r = rng(31); let every = 0, everyBad = null, treatBad = 0, treatEx = null, total = 0, proceedBad = null;
   const expectTreat = it => it.condition && (!it.condition.valid || it.conditionResult.value === 'invalid') ? 'Condition needs fixing' : it.status === 'done' && it.conditionResult.value === 'false' ? 'Completed'
-    : it.itemState === 'in-plan' ? 'Included' : it.itemState === 'not-needed' ? 'Not needed' : it.itemState === 'limbo' ? 'Following' : 'Waiting';
+    : it.itemState === 'in-plan' ? 'Included' : it.itemState === 'not-needed' ? 'Not needed' : it.itemState === 'limbo' ? 'Following' : it.itemState === 'set-aside' ? 'Set aside' : 'Waiting';
   for(let t = 0; t < 400; t++){
     const m = parse(randDoc(r)), today = todayFor(r), p = project(m, today), vv = verdict(p);
     if(vv?.line?.startsWith('Every item')){ every++; if(p.items.some(i => i.itemState !== 'in-plan')) everyBad = everyBad || {src: m.items.map(i => i.raw), states: p.items.map(i => i.itemState)}; }
@@ -330,8 +340,9 @@ console.log('== Paths engine audit ==  today pinned to ' + TODAY + ' unless stat
   const ap = project(parse(as), TODAY), ao = overviewProjection(ap), av = verdict(ap).line;
   const fb = ao.items.find(i => i.title === 'Free fallback');
   console.log('   info: assume pricing = yes; "Free fallback [unless pricing]" state ' + ap.items[1].itemState + ', sentence "' + fb.displayState.sentence + '"; verdict "' + av + '"');
-  check('W7 under "assume: yes", an item the assumption excludes ([unless pricing]) is not reported as following the assumption', ap.items[1].itemState !== 'limbo',
-    '"' + fb.displayState.sentence + '"; verdict counts it: "' + av + '"; Plans share "Following an assumed answer" counts it too (spec maps every unknown-with-assumed provenance to limbo)', {known: ap.items[1].itemState === 'limbo', reason: 'PA-10: follows the written specification; the owner will be asked'});
+  check('W7 under "assume: yes", an item the assumption excludes ([unless pricing]) is set aside, not reported as following the assumption, and the verdict and share figure count it apart', ap.items[1].itemState === 'set-aside' && ap.items[0].itemState === 'limbo'
+    && fb.displayState.sentence === 'Set aside on the assumption Pricing = yes' && av === 'The pricing answer is 73 days overdue; 1 item is following an assumed yes; 1 is set aside by it.' && ap.shares.assumed === 1 && ap.shares.setAside === 1,
+    '"' + fb.displayState.sentence + '"; verdict "' + av + '"; shares ' + JSON.stringify([ap.shares.shared, ap.shares.assumed, ap.shares.setAside, ap.shares.dependent]));
 
   // reach counts in the verdict denominator
   const lp = project(parse(LANTERN), '2026-08-01'), lv = verdict(lp);

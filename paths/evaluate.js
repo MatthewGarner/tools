@@ -1,5 +1,5 @@
 /* /paths semantic projection. Pure; `today` is always supplied by the caller. */
-import {nameMap, own} from './names.js';
+import {nameMap, own, cloneNames} from './names.js';
 
 const VALUES = new Set(['true', 'false', 'unknown', 'invalid']);
 
@@ -103,16 +103,15 @@ function falseReason(whenResult, model){
   return {host:host.name, hostKey:host.key, direction};
 }
 
-function displayEvidenceFor(source, conditionResult){
+function displayEvidenceFor(source, conditionResult, decisionByName, assumedEffect = null){
   if(!source.condition) return {kind:'unconditional'};
   if(!source.condition.valid || conditionResult.value === 'invalid') return {kind:'condition-error'};
   if(source.status === 'done' && conditionResult.value === 'false') return {kind:'completed'};
   const evidence = conditionResult.evidence || [];
-  for(const member of evidence){
-    const decision = member.decision;
-    if(decision?.assumption?.inForce){
-      return {kind:'assumption', decision:decision.key, direction:decision.assumption.direction};
-    }
+  if(assumedEffect?.keys.length){
+    const decision = decisionByName[assumedEffect.keys[0]];
+    return {kind:assumedEffect.kind === 'follows' ? 'assumption' : 'set-aside',
+      decision:decision.key, direction:decision.assumption.direction, decisions:[...assumedEffect.keys]};
   }
   for(const member of evidence){
     const decision = member.decision;
@@ -137,6 +136,16 @@ function displayEvidenceFor(source, conditionResult){
   }
   const pending = evidence.find(member => member.decision)?.decision;
   return pending ? {kind:'pending-answer', decision:pending.key} : {kind:'condition-error'};
+}
+
+/* An assumption is in force once BOTH dates have passed: today is later than `answer-by` (the due date
+   is the last day to answer, so overdue starts the day after) AND today is on or after the assumption's
+   own date (a start date, so it applies on that day). An assumption with no date of its own is gated by
+   `answer-by` alone. */
+export function assumptionInForceOn(decision, today){
+  const assumption = decision.assumption;
+  if(!assumption || !decision.answerBy || !today || !(today > decision.answerBy)) return false;
+  return !assumption.date || today >= assumption.date;
 }
 
 export function resolveDecisions(model, injectedToday, assignment = {}){
@@ -186,7 +195,7 @@ export function resolveDecisions(model, injectedToday, assignment = {}){
       effectiveAnswer = hypothetical;
       value = hypothetical === 'yes' ? 'true' : 'false';
       provenance = new Set(['answered']);
-    } else if(availability === 'active' && source.assumption && source.answerBy && today && today > source.answerBy){
+    } else if(availability === 'active' && assumptionInForceOn(source, today)){
       assumptionInForce = true;
       provenance = new Set([`assumed-${source.assumption.direction}`]);
     }
@@ -228,8 +237,20 @@ function chooseParent(item, dependencies){
   return {parent:parent.key, secondary:eligible.filter(d => d.key !== parent.key).sort(bySource).map(d => d.key)};
 }
 
-function stateForSource(source, resolution){
-  const conditionResult = source.condition
+/* The resolution this same document would have if every assumption now in force were the answer.
+   It is a projection of what the evaluator already knows: it exists only to say which way an
+   assumption points for an item whose condition is unknown because of it. */
+function assumedResolutionFor(model, injectedToday, assignment, resolution){
+  const forced = cloneNames(assignment);
+  let any = false;
+  for(const decision of resolution.decisions){
+    if(decision.assumption?.inForce){ forced[decision.key] = decision.assumption.direction; any = true; }
+  }
+  return any ? resolveDecisions(model, injectedToday, forced) : null;
+}
+
+function conditionIn(source, resolution){
+  return source.condition
     ? evaluateCondition(source.condition, term => {
         const decision = resolution.decisionByName[term.key];
         if(!decision) return {value:'invalid', provenance:new Set(), evidence:[]};
@@ -237,12 +258,34 @@ function stateForSource(source, resolution){
           evidence:[{term, decision, rawValue:decision.value, reason:decision.mootReason}]};
       })
     : {value:'true', provenance:new Set(), evidence:[], condition:null, clauses:[]};
+}
+
+function stateForSource(source, resolution, assumedResolution = null){
+  const conditionResult = conditionIn(source, resolution);
+  /* An item whose condition is unknown only because of an assumption: if every assumption in force
+     were the answer, would the condition hold (working to the assumption), fail (set aside by it), or
+     still depend on something else unknown (waiting)? */
+  let assumedEffect = null;
+  if(conditionResult.value === 'unknown' && assumedResolution && source.status !== 'done' &&
+    [...conditionResult.provenance].some(p => p.startsWith('assumed-'))){
+    const hypothetical = conditionIn(source, assumedResolution);
+    if(hypothetical.value === 'true' || hypothetical.value === 'false'){
+      /* name the assumptions that settled it: those the assumed answers decide in the condition, else
+         (when the effect travels through a question's `when:`) those that left the condition unknown */
+      const named = members => [...new Set((members || []).map(member => member.term?.key)
+        .filter(key => resolution.decisionByName[key]?.assumption?.inForce))];
+      const decided = named(hypothetical.evidence);
+      const keys = decided.length ? decided : named(conditionResult.evidence);
+      assumedEffect = {kind:hypothetical.value === 'true' ? 'follows' : 'set-aside', keys};
+    }
+  }
   let itemState = conditionResult.value === 'true' ? 'in-plan'
     : conditionResult.value === 'false' ? 'not-needed'
-    : conditionResult.value === 'unknown' && [...conditionResult.provenance].some(p => p.startsWith('assumed-')) ? 'limbo'
+    : assumedEffect?.kind === 'follows' ? 'limbo'
+    : assumedEffect?.kind === 'set-aside' ? 'set-aside'
     : 'waiting';
   if(source.status === 'done' && conditionResult.value !== 'invalid') itemState = 'in-plan';
-  return {conditionResult, itemState};
+  return {conditionResult, itemState, assumedEffect};
 }
 
 /* Reach needs only item states. Keep it on the same semantic helper as the
@@ -250,11 +293,13 @@ function stateForSource(source, resolution){
    placement for twelve throwaway comparison worlds. */
 export function projectItemStates(model, injectedToday, assignment = {}){
   const resolution = resolveDecisions(model, injectedToday, assignment);
-  return model.items.map(source => stateForSource(source, resolution).itemState);
+  const assumed = assumedResolutionFor(model, injectedToday, assignment, resolution);
+  return model.items.map(source => stateForSource(source, resolution, assumed).itemState);
 }
 
 export function evaluate(model, injectedToday, assignment = {}){
   const resolution = resolveDecisions(model, injectedToday, assignment);
+  const assumedResolution = assumedResolutionFor(model, injectedToday, assignment, resolution);
   const warnings = [...model.warnings];
   const seen = new Set(warnings.map(w => `${w.code}\0${w.line ?? ''}\0${w.subject ?? ''}`));
 
@@ -276,14 +321,25 @@ export function evaluate(model, injectedToday, assignment = {}){
       else if(decision.answer) appendWarning(warnings, seen, 'assumption-answered', assumptionLine, decision.key,
         `line ${assumptionLine}: assumption not used because ${JSON.stringify(decision.name)} already has "Answer: ${decision.answer.direction}" — remove the assumption`);
       else if(!decision.answerBy) appendWarning(warnings, seen, 'assumption-no-due', assumptionLine, decision.key,
-        `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} has no start date — add a valid "answer-by:"; assumption not used`);
-      else if(!resolution.today || resolution.today <= decision.answerBy) appendWarning(warnings, seen, 'assumption-before-due', assumptionLine, decision.key,
-        `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} is not used yet — the answer is due ${formatDue(decision.answerBy)} and an assumption takes effect after that date; remove the assumption, or move "answer-by:" to a date before today`);
+        `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} cannot start without an "answer-by:" date — add one; assumption not used`);
+      else if(!assumptionInForceOn(decision, resolution.today)){
+        /* say what is true (it starts once both dates have passed) and which change would put it to use now */
+        const dueOpen = !resolution.today || resolution.today <= decision.answerBy;
+        const startsLater = !!(decision.assumption.date && (!resolution.today || resolution.today < decision.assumption.date));
+        const code = dueOpen ? 'assumption-before-due' : 'assumption-not-started';
+        const takesEffect = dueOpen
+          ? `it takes effect after the answer is due (${formatDue(decision.answerBy)})${startsLater ? ` and on its own date (${formatDue(decision.assumption.date)})` : ''}`
+          : `it takes effect on its own date (${formatDue(decision.assumption.date)})`;
+        const fixes = [dueOpen ? 'move "answer-by:" to a date before today' : '',
+          startsLater ? 'set the assumption date to today or earlier' : ''].filter(Boolean).join(' and ');
+        appendWarning(warnings, seen, code, assumptionLine, decision.key,
+          `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} is not in force yet — ${takesEffect}; to use it now, ${fixes}`);
+      }
     }
   }
 
   const items = model.items.map(source => {
-    const {conditionResult, itemState:projectedState} = stateForSource(source, resolution);
+    const {conditionResult, itemState:projectedState, assumedEffect} = stateForSource(source, resolution, assumedResolution);
     let itemState = projectedState;
     if(source.status === 'done' && conditionResult.value !== 'invalid'){
       if(conditionResult.value === 'false'){
@@ -296,8 +352,8 @@ export function evaluate(model, injectedToday, assignment = {}){
     const dependencies = source.condition?.valid
       ? source.condition.terms.map(t => resolution.decisionByName[t.key]).filter(Boolean)
       : [];
-    const displayEvidence = displayEvidenceFor(source, conditionResult);
-    const item = {...source, conditionResult, itemState, state:itemState, displayEvidence};
+    const displayEvidence = displayEvidenceFor(source, conditionResult, resolution.decisionByName, assumedEffect);
+    const item = {...source, conditionResult, itemState, state:itemState, displayEvidence, assumedEffect};
     const placement = source.condition?.valid ? chooseParent(item, dependencies) : {parent:null, secondary:[]};
     const secondaryDependencyMode = source.condition?.valid && source.condition.operator === 'and'
       ? 'required' : null;

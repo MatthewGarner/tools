@@ -43,14 +43,19 @@ function treatment(item){
   const following = () => evidence?.kind === 'assumption'
     ? (evidence.direction === 'no' ? 'Following an assumed no' : 'Following an assumed yes')
     : 'Following an assumption';
+  const setAside = () => evidence?.kind === 'set-aside'
+    ? (evidence.direction === 'no' ? 'Set aside on an assumed no' : 'Set aside on an assumed yes')
+    : 'Set aside on an assumption';
   switch(item?.itemState){
     case 'in-plan': return 'Included';
     case 'not-needed': return 'Not needed';
     case 'limbo': return following();
+    case 'set-aside': return setAside();
     case 'waiting': return 'Waiting';
     default: break;
   }
   if(evidence?.kind === 'assumption') return following();
+  if(evidence?.kind === 'set-aside') return setAside();
   if(evidence?.kind === 'pending-answer') return 'Waiting';
   if(evidence?.kind === 'host-exclusion') return 'Not needed';
   return 'Included';

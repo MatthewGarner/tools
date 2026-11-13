@@ -36,10 +36,28 @@ export function outcomeLine(result, state){
   return `Clears £${fmtPrice(result.clearingPrice)}/MWh · ${result.marginalName || 'no marginal plant'} · demand ${fmtGW(state.demand)} GW`;
 }
 
-/* The receipt printed under an export: scenario line, then one line per offered block. */
-export function receiptLines(state, {worldLabel, gas, carbon}){
+/* The import assumption, in plain words, from the live stack's imports block. A figure the reader has
+   hand-edited (adv pins capacity and/or bid) is marked "(edited)" instead of passing for the world's own
+   assumption. '' when there is no imports block. */
+export function importLine(generators, installed, adv){
+  const g = generators.find(x => x.family === 'imports');
+  if(!g) return '';
+  const row = Array.isArray(adv?.[g.name]) ? adv[g.name] : [null, null];
+  const capEdited = row[0] != null, bidEdited = row[1] != null;
+  const inst = installed != null ? ` of ${fmtGW(installed)} GW installed` : '';
+  const cap = capEdited ? `${fmtGW(g.capacity)} GW offered (edited)${installed != null ? `, ${fmtGW(installed)} GW installed` : ''}`
+                        : `${fmtGW(g.capacity)} GW${inst} offered`;
+  const price = bidEdited ? `at £${Math.round(g.cost)}/MWh (edited)` : `at an assumed neighbour price of £${Math.round(g.cost)}/MWh`;
+  return `Imports: ${cap}, ${price}.`;
+}
+
+/* The receipt printed under an export: scenario line, the import assumption (which replaces the generic
+   imports block line), then one line per other offered block. */
+export function receiptLines(state, {worldLabel, gas, carbon, importsInstalled, adv}){
+  const imp = importLine(state.generators, importsInstalled, adv);
   return [`${worldLabel} · demand ${fmtGW(state.demand)} GW · gas ${gas} p/th · carbon £${carbon}/t.`,
-    ...state.generators.map(g => `${g.name}: ${Math.round(g.capacity * 100) / 100} GW offered at £${Math.round(g.cost * 100) / 100}/MWh.`)];
+    ...(imp ? [imp] : []),
+    ...state.generators.filter(g => !(imp && g.family === 'imports')).map(g => `${g.name}: ${Math.round(g.capacity * 100) / 100} GW offered at £${Math.round(g.cost * 100) / 100}/MWh.`)];
 }
 
 /* The plant callout's arithmetic line. `installed` (GW, or null) is given for wind and solar. */

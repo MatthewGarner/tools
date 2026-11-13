@@ -63,6 +63,7 @@ function stateLabel(item){
   if(kind === 'completed') return 'COMPLETED HISTORY';
   if(kind === 'not-pursuing') return 'NOT PURSUING';
   if(kind === 'assumption') return 'WORKING TO ASSUMPTION';
+  if(kind === 'set-aside') return 'SET ASIDE BY ASSUMPTION';
   if(kind === 'proceeding') return 'PROCEEDING';
   if(kind === 'waiting') return 'WAITING';
   if(kind === 'repair') return 'NEEDS REPAIR';

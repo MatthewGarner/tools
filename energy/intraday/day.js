@@ -15,13 +15,19 @@ export const BASE_PROFILE = [
 ];
 
 export const DAY_DEFAULTS = {
-  trough: 22, peak: 44,                    // GW (GB summer-night trough ~21-22GW, winter peak ~44-47GW)
-  solarPeak: 6, sunrise: 5, sunset: 21,    // GW; hours (summer-ish default)
+  trough: 21, peak: 32,                    // GW: a generic GB summer weekday (trough ~20-22 GW, peak ~30-33 GW)
+  solarPeak: 9, sunrise: 5, sunset: 21,    // GW; hours: the same summer day's solar bell
   gas: 100, carbon: 50, wind: 0.32,        // merit-order levers passed through: gas is p/therm
                                             // (NOT £/MWh — see stack.js gasLHV), carbon £/tCO2,
                                             // wind availability as a fraction of installed
   fleetGW: 0, fleetH: 2, rte: 0.85,        // the day-aware storage fleet
 };
+
+/* The name the page gives the day it is showing: the default day is a summer weekday; any other
+   shape is a custom day. Only the shape controls count (a gas or fleet edit leaves the day's shape). */
+export function dayLabel(p){
+  return ['trough', 'peak', 'solarPeak', 'sunrise', 'sunset'].every(k => p[k] === DAY_DEFAULTS[k]) ? 'Summer weekday' : 'Custom day';
+}
 
 export function demandAt(h, p){ return p.trough + BASE_PROFILE[h] * (p.peak - p.trough); }
 

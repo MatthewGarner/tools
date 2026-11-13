@@ -25,7 +25,7 @@ test('corrupt input decodes to null', () => {
 });
 
 test('hostile numerics are clamped or dropped (quadratic-engine guard)', () => {
-  const dec = decodeDayState({v: 1, p: {fleetGW: 5000, gas: -1, trough: 'lol', peak: 1e9}});
+  const dec = decodeDayState({v: 2, p: {fleetGW: 5000, gas: -1, trough: 'lol', peak: 1e9}});
   assert.equal(dec.p.fleetGW, 12, 'fleetGW clamped to slider max');
   assert.equal(dec.p.gas, 40, 'gas clamped to slider min');
   assert.equal(dec.p.trough, DAY_DEFAULTS.trough, 'non-numeric falls back to default');
@@ -35,7 +35,7 @@ test('hostile numerics are clamped or dropped (quadratic-engine guard)', () => {
 /* Engine audit 2026-11-12, F-ID-4: a missing, null, empty or non-numeric value takes the default (Number(null) and
    Number('') are 0, which used to clamp to the slider minimum); a numeric value is clamped to the control's range. */
 test('F-ID-4: null, empty, boolean and array values take the default; numbers and numeric strings clamp', () => {
-  const dec = decodeDayState({v: 1, p: {gas: null, carbon: '', fleetGW: true, fleetH: [3], solarPeak: '8', wind: 7}});
+  const dec = decodeDayState({v: 2, p: {gas: null, carbon: '', fleetGW: true, fleetH: [3], solarPeak: '8', wind: 7}});
   assert.equal(dec.p.gas, DAY_DEFAULTS.gas);
   assert.equal(dec.p.carbon, DAY_DEFAULTS.carbon);
   assert.equal(dec.p.fleetGW, DAY_DEFAULTS.fleetGW);

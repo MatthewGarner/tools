@@ -9,25 +9,28 @@ import {decodeDayState, encodeDayState, setParam, RANGES} from '../../../energy/
 import {buildDayVerdict} from '../../../energy/intraday/render-day.js';
 
 const R = makeRunner('intraday');
+/* The hand-computed cases below were worked on the earlier default day (trough 22, peak 44, solar 6 GW); the
+   default is now a summer weekday (F-ID-5 ruling), so they name that day explicitly. */
+const OLD_DAY = {...D.DAY_DEFAULTS, trough: 22, peak: 44, solarPeak: 6};
 const near = (a, b, t = 1e-9) => Math.abs(a - b) <= t;
 
 /* ---------- 1. shape + stack, hand-computed (defaults: trough 22, peak 44, solar 6 GW 05..21, wind 32%, gas 100p, carbon 50) ---------- */
-R.eq('D1', 'pass', 'demandAt(3) = trough', D.demandAt(3, D.DAY_DEFAULTS), 22);
-R.eq('D1', 'pass', 'demandAt(18) = peak', D.demandAt(18, D.DAY_DEFAULTS), 44);
-R.eq('D1', 'pass', 'solarAt(13) = peak of the half-sine (6 GW)', D.solarAt(13, D.DAY_DEFAULTS), 6, 1e-12);
-R.eq('D1', 'pass', 'solarAt(5) = solarAt(21) = 0', [D.solarAt(5, D.DAY_DEFAULTS), D.solarAt(21, D.DAY_DEFAULTS)], [0, 0]);
+R.eq('D1', 'pass', 'demandAt(3) = trough', D.demandAt(3, OLD_DAY), 22);
+R.eq('D1', 'pass', 'demandAt(18) = peak', D.demandAt(18, OLD_DAY), 44);
+R.eq('D1', 'pass', 'solarAt(13) = peak of the half-sine (6 GW)', D.solarAt(13, OLD_DAY), 6, 1e-12);
+R.eq('D1', 'pass', 'solarAt(5) = solarAt(21) = 0', [D.solarAt(5, OLD_DAY), D.solarAt(21, OLD_DAY)], [0, 0]);
 {
   // h=3: wind 0.32*32=10.24 @0, solar 0, hydro 1.9 @3, nuclear 6 @5, waste 4.5 @20 -> cumulative 22.64 >= 22 : Waste/CHP sets £20
-  const r = dispatch(D.hourStack(D.DAY_DEFAULTS, 3), 22);
+  const r = dispatch(D.hourStack(OLD_DAY, 3), 22);
   R.eq('D2', 'pass', 'h=3 trough demand 22 -> Waste/CHP at £20', [r.marginalName, r.clearingPrice], ['Waste/CHP', 20]);
   // h=18: solar 6*sin(pi*13/16)=2.8284; cumulative: 10.24+2.8284+1.9+6+4.5+4(biomass)+3(imports) = 32.47; CCGT60 6.2 -> 38.67; CCGT54 15.5 -> 54.17 >= 44
-  const r2 = dispatch(D.hourStack(D.DAY_DEFAULTS, 18), 44);
+  const r2 = dispatch(D.hourStack(OLD_DAY, 18), 44);
   R.eq('D2', 'pass', 'h=18 peak demand 44 -> CCGT 54% at srmc(.54,100,50,3)', [r2.marginalName, r2.clearingPrice], ['CCGT 54%', srmc(0.54, 100, 50, 3)], 1e-9);
-  const names = D.hourStack(D.DAY_DEFAULTS, 18).map(g => g.name);
+  const names = D.hourStack(OLD_DAY, 18).map(g => g.name);
   R.check('D2', 'pass', 'storage rows excluded from the hour stack (double-count guard)', !names.includes('BESS') && !names.includes('Pumped storage'));
-  const sol = D.hourStack(D.DAY_DEFAULTS, 18).find(g => g.name === 'Solar').capacity;
-  R.eq('D2', 'pass', 'solar capacity at h=18 = bell value', sol, D.solarAt(18, D.DAY_DEFAULTS), 1e-9);
-  const raw = D.rawDay(D.DAY_DEFAULTS);
+  const sol = D.hourStack(OLD_DAY, 18).find(g => g.name === 'Solar').capacity;
+  R.eq('D2', 'pass', 'solar capacity at h=18 = bell value', sol, D.solarAt(18, OLD_DAY), 1e-9);
+  const raw = D.rawDay(OLD_DAY);
   R.eq('D2', 'pass', 'default raw day: spread = CCGT54 - waste £20; floor hour 3', [raw.troughHour, raw.spread], [3, srmc(0.54, 100, 50, 3) - 20]);
   R.check('D2', 'pass', 'peak hour is the FIRST hour at the CCGT-54 plateau (17, solar still up; demand peak is 18 - a tie, reported earliest)', raw.peakHour === 17 && near(raw.prices[17], raw.prices[18]), `peakHour=${raw.peakHour}`);
 }
@@ -116,7 +119,7 @@ const marginOn = (s, pr) => s.discharge.reduce((a, v, h) => a + v * pr[h], 0) - 
     const gm = marginOn(D.greedySchedule(prices, p), prices), opt = dpOpt(prices, p); tot++;
     if(gm < opt - 1e-6){ sub++; w = Math.min(w, gm / opt); }
   }
-  R.info('Q-GREEDY', 'for Matt (not UI-reachable): greedy pair-matching is not optimal on arbitrary price vectors; the schedule also allows one cycle a day', `suboptimal in ${sub}/${tot} random vectors, worst ratio ${w.toFixed(3)}`);
+  R.info('G2', 'greedy pair-matching is not optimal on arbitrary price vectors (not UI-reachable); the one-cycle-a-day rule is stated beside "perfect foresight" in the verdict and exports', `suboptimal in ${sub}/${tot} random vectors, worst ratio ${w.toFixed(3)}`);
 }
 
 /* ---------- 5. runDay: independent re-clear, per-slice margins, identities ---------- */
@@ -222,9 +225,18 @@ function refPrice(gens, d){            // independent unit-by-unit reference
   const rt = decodeDayState(encodeDayState({...D.DAY_DEFAULTS, fleetGW: 4, gas: 250}, 'bigFleet'));
   R.check('S1', 'pass', 'state encode/decode round-trips and clamps to RANGES', rt.p.fleetGW === 4 && rt.p.gas === 250 && decodeDayState({v: 1, p: {fleetGW: 5000}}).p.fleetGW === RANGES.fleetGW[1]);
 }
-{ // F-ID-5: the stated season of the default day is inconsistent (comment): summer-night trough with winter peak and a summer sun
+{ // F-ID-5 (ruled): the default day is a summer weekday, and old links keep their day
   const p = D.DAY_DEFAULTS;
-  R.info('F-ID-5', 'for Matt: default day mixes a summer trough (22 GW), a winter peak (44 GW) and 16 h of sun', `trough ${p.trough}, peak ${p.peak}, sun ${p.sunrise}-${p.sunset}`);
+  R.check('F-ID-5', 'pass', 'default day is a summer weekday: trough 21, peak 32, solar 9 GW, 05:00-21:00', p.trough === 21 && p.peak === 32 && p.solarPeak === 9 && p.sunrise === 5 && p.sunset === 21, `trough ${p.trough}, peak ${p.peak}, sun ${p.sunrise}-${p.sunset}`);
+  const old = decodeDayState({v: 1, c: null, p: {}}).p;
+  R.check('F-ID-5', 'pass', 'a v1 link (written before the new default) still decodes to the old day', old.trough === 22 && old.peak === 44 && old.solarPeak === 6);
+  R.check('F-ID-5', 'pass', 'new links are v2', encodeDayState({...p}, null).v === 2);
+  const pf = {...p, fleetGW: 4, fleetH: 4}, r = D.runDay(pf), r2 = D.runDay({...pf, fleetGW: 2});
+  R.check('F-ID-5', 'pass', 'the 4 h case on the default day shows a bigger fleet earning less in total (4 GW < 2 GW)', r.achievedMargin < r2.achievedMargin, `${r.achievedMargin.toFixed(1)} vs ${r2.achievedMargin.toFixed(1)}`);
+}
+{ // Q-GREEDY (ruled): the one-cycle rule is stated in the verdict
+  const pf = {...D.DAY_DEFAULTS, fleetGW: 2};
+  R.check('G2', 'pass', 'the verdict says "perfect foresight and one cycle a day"', /perfect foresight and one cycle a day/.test(buildDayVerdict(D.runDay(pf), pf)));
 }
 { // timing: worst reachable slider corner
   const t0 = Date.now(); D.runDay({...D.DAY_DEFAULTS, gas: 300, fleetGW: 12, fleetH: 6}); const ms = Date.now() - t0;

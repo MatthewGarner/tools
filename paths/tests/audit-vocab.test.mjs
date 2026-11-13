@@ -59,7 +59,7 @@ test('PA-9: the "not used yet" advice is about answer-by, and following it clear
   assert.ok(!moved.warnings.some(w => w.code === 'assumption-before-due'));
   assert.equal(moved.items[0].itemState, 'limbo');
   const dated = proj(D('a', '  assume: yes 2026-10-01\n', '2026-12-01') + 'NOW\n  X: x [if a]').warnings.find(w => w.code === 'assumption-before-due');
-  assert.ok(dated, 'moving the assumption\'s own date does not clear it (PA-8: the date is recorded, not read)');
+  assert.ok(dated, 'an assumption dated before the due date still waits for the due date (both dates must pass)');
 });
 
 /* ---------- PA-12: the hand-off names the real reason ---------- */

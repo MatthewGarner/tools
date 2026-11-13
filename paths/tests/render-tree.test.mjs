@@ -99,9 +99,17 @@ test('an in-force assumption reads Following an assumed yes, never Waiting', () 
 
 test('an assumed no is distinguished from an assumed yes', () => {
   const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: no 2026-12-22\n') +
-    'LATER\n  Growth: Club challenges [if groups]');
+    'LATER\n  Growth: Club challenges [unless groups]');
   assert.match(svg, /Following an assumed no/);
   assert.doesNotMatch(svg, /Following an assumed yes/);
+});
+
+test('an item the assumption rules out is Set aside, not Following, and says which way', () => {
+  const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: no 2026-12-22\n') +
+    'LATER\n  Growth: Club challenges [if groups]');
+  assert.match(svg, /Set aside on an assumed no/);
+  assert.match(svg, /data-treatment="set-aside-no"/);
+  assert.doesNotMatch(svg, /Following an assumed/);
 });
 
 test('an answered question marks the other arm Not needed', () => {

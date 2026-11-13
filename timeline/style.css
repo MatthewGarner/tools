@@ -74,3 +74,13 @@ body{padding-top:0;font-family:'DM Sans',system-ui,sans-serif}
 #stylepicker{border:0}.inspector-facts dt{font-size:14px}.inspector-facts:has(>div:only-child){grid-template-columns:1fr}
 
 .export-status{margin:8px 28px 0;font-size:13px}.export-status[hidden]{display:none}.slide-preview .export-status{margin:12px 0 0}
+
+/* Control language shared with Roadmap (F42, 2026-11-13). Each tool keeps its own look; the 44px
+   control height, the --dur-fast ease and the hover/focus/disabled behaviour are the same.
+   Mirrors the closing block of roadmap/style.css. */
+.stage .actions>.btn,.stage .actions>.action-disclosure>summary,.observatory-settings .action-disclosure>summary,.review-hint .btn,.zoomctl,.zoomctl button{min-height:44px}
+.stage .actions>.btn{display:inline-flex;align-items:center}
+select.ctl:hover:not(:disabled){border-color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){
+  .btn,.segmented button,select.ctl{transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
+}

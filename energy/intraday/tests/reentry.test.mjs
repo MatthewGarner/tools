@@ -3,10 +3,13 @@
    equilibrium both ways: every kept slice pays, and no dropped slice could rejoin with all still paying. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DAY_DEFAULTS, runDay, rawDay, greedySchedule, scheduleFromPairs, clearDay, demandAt} from '../day.js';
+import {DAY_DEFAULTS as NEW_DEFAULTS, runDay, rawDay, greedySchedule, scheduleFromPairs, clearDay, demandAt} from '../day.js';
 import {buildDayVerdict} from '../render-day.js';
 import {hourStack} from '../day.js';
 import {dispatch} from '../../merit-order/engine.js';
+/* These checks were written on the earlier default day (trough 22, peak 44, solar 6 GW); they keep that day by name
+   so their figures stay byte-for-byte what they were. The summer-weekday default is tested in default-day.test.mjs. */
+const DAY_DEFAULTS = {...NEW_DEFAULTS, trough: 22, peak: 44, solarPeak: 6};
 
 const GAS185 = {...DAY_DEFAULTS, trough: 29, peak: 35, solarPeak: 3, gas: 185, carbon: 30};
 const netOf = (p, s) => Array.from({length: 24}, (_, h) => demandAt(h, p) + s.charge[h] - s.discharge[h]);
