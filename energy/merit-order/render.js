@@ -36,9 +36,20 @@ export function outcomeLine(result, state){
   return `Clears £${fmtPrice(result.clearingPrice)}/MWh · ${result.marginalName || 'no marginal plant'} · demand ${fmtGW(state.demand)} GW`;
 }
 
-/* The receipt printed under an export: scenario line, then one line per offered block. */
-export function receiptLines(state, {worldLabel, gas, carbon}){
+/* The import assumption, in plain words, from the live stack's imports block (so a hand-edit shows).
+   '' when there is no imports block. */
+export function importLine(generators, installed){
+  const g = generators.find(x => x.family === 'imports');
+  if(!g) return '';
+  const of = installed != null ? ` of ${fmtGW(installed)} GW installed` : '';
+  return `Imports: ${fmtGW(g.capacity)} GW${of} offered, at an assumed neighbour price of £${Math.round(g.cost)}/MWh.`;
+}
+
+/* The receipt printed under an export: scenario line, the import assumption, then one line per offered block. */
+export function receiptLines(state, {worldLabel, gas, carbon, importsInstalled}){
+  const imp = importLine(state.generators, importsInstalled);
   return [`${worldLabel} · demand ${fmtGW(state.demand)} GW · gas ${gas} p/th · carbon £${carbon}/t.`,
+    ...(imp ? [imp] : []),
     ...state.generators.map(g => `${g.name}: ${Math.round(g.capacity * 100) / 100} GW offered at £${Math.round(g.cost * 100) / 100}/MWh.`)];
 }
 
