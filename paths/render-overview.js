@@ -372,7 +372,7 @@ export function renderOverview(overview, ctx = {}){
   const preface = gridPreface(PAD, y, Math.min(720, width - PAD * 2), C, measure);
   y += preface.height;
   const grid = roadmapGrid(overview, PAD, y, C, measure, selected?.key || null, width - PAD * 2);
-  y += grid.height + PAD;
+  y += grid.height + PAD - (grid.height < 60 ? 12 : 0);   // an empty grid leaves no trailing band
   const height = Math.ceil(y);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +

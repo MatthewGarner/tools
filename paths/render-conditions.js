@@ -329,7 +329,7 @@ export function renderConditions(overview, ctx = {}){
   body += line(atlasX + atlasWidth, headers.height + head.height + 14, atlasX + atlasWidth, y, C.border, 1) + '</g>';
   const health = modelHealthBlock(overview.modelHealth, atlasX, y + 20, atlasWidth, C, measure);
   y += 20 + health.height;
-  const height = Math.ceil(y + PAD);
+  const height = Math.ceil(y + PAD - 6);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" data-min-readable-scale="' + MIN_READABLE_SCALE + '" font-family="' + SANS + '" ' + rootRole(ctx) +

@@ -506,7 +506,7 @@ export function renderQuestionLens(overview, ctx = {}){
     body += health.svg;
     y += health.height;
   }
-  const height = Math.ceil(y + PAD - 14);   // the trailing gap is not ink: the bottom margin is the house margin
+  const height = Math.ceil(y + PAD - 6);   // the trailing gap is not ink: the bottom margin is the house margin
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" data-kind="question-lens" data-layout="paired" data-min-readable-scale="' + MIN_READABLE_SCALE + '" font-family="' + SANS +
