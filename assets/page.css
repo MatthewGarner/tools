@@ -90,7 +90,8 @@ footer a:hover{color:var(--brand-text)}
 .verdict-block[hidden] + .vcopy{display: none}
 @media (max-width: 520px), (pointer: coarse){ .vcopy{min-height: 44px; padding: 10px 12px} }
 @media (max-width: 520px), (pointer: coarse){
-  .action-disclosure > summary,.method > summary,details[data-dismiss] > summary{min-height:44px;box-sizing:border-box;padding-block:13px}
+  .action-disclosure > summary{min-height:44px;box-sizing:border-box;padding-block:0}   /* an inline-flex, vertically centred: exactly the 44px every other control is */
+  .method > summary,details[data-dismiss] > summary{min-height:44px;box-sizing:border-box;padding-block:13px}
   .action-menu .btn,.action-menu .ctl{min-height:44px}
 }
 @media (pointer: fine){
