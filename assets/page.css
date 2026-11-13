@@ -85,11 +85,12 @@ footer a:hover{color:var(--brand-text)}
   letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
   background: none; border: 1px solid transparent; border-radius: 0;
   padding: 4px 8px; margin: 2px 0 0; cursor: pointer; min-height: 28px}
-.vcopy:hover, .vcopy:focus-visible{border-color: var(--border); color: var(--ink); outline: none}
+.vcopy:hover, .vcopy:focus-visible{border-color: var(--border); color: var(--ink)}
+.vcopy:focus-visible{outline: 2px solid var(--data); outline-offset: 2px}
 .verdict-block[hidden] + .vcopy{display: none}
 @media (max-width: 520px), (pointer: coarse){ .vcopy{min-height: 44px; padding: 10px 12px} }
 @media (max-width: 520px), (pointer: coarse){
-  .action-disclosure > summary{min-height:44px}
+  .action-disclosure > summary,.method > summary,details[data-dismiss] > summary{min-height:44px;display:flex;align-items:center}
   .action-menu .btn,.action-menu .ctl{min-height:44px}
 }
 @media (pointer: fine){

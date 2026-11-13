@@ -45,7 +45,7 @@
 /* the MC verdict/EV readouts take a certainty-fade while the live midpoint
    layer is being dragged — they're stale until release re-runs the full
    10k-sim evaluate (the honesty crux, C4). */
-.preview svg [data-mc],.preview svg [data-verdict]{transition:opacity .18s ease}
+.preview svg [data-mc],.preview svg [data-verdict]{transition:opacity var(--dur-fast) var(--ease-out)}
 .preview svg [data-mc].pending,.preview svg [data-verdict].pending{opacity:.4}
 @media (prefers-reduced-motion:reduce){
   .preview svg [data-mc],.preview svg [data-verdict]{transition:none}
