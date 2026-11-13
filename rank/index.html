@@ -122,8 +122,10 @@
      does not push visible cards down); a script that never runs reveals them after 3s */
   .tblwrap[data-boot] ~ .toolbar,.tblwrap[data-boot] ~ .pastebox,#resultcard[data-boot]{visibility:hidden;animation:boot-reveal 0s 3s forwards}
   @keyframes boot-reveal{to{visibility:visible}}
-  tr.undorow td{display:flex;align-items:center;justify-content:center;border-top:1px solid var(--border);background:color-mix(in srgb,var(--accent) 5%,var(--card))}
-  @media (max-width:640px){#tbl tr.undorow{display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 5%,var(--card));padding:4px 12px}#tbl tr.undorow td{border-top:none;background:none;min-height:44px}}
+  tr.undorow{height:64px}
+  tr.undorow td{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+  .undowhat{font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media (max-width:640px){#tbl tr.undorow{display:block;height:64px;padding:0 12px;background:color-mix(in srgb,var(--accent) 5%,var(--card))}#tbl tr.undorow td{border-top:none;background:none;min-height:64px;padding:0}}
   @media (prefers-reduced-motion:no-preference){tr.row-in{animation:row-in var(--dur-base) var(--ease-out)}}
   @keyframes row-in{from{opacity:0}to{opacity:1}}
   .export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}

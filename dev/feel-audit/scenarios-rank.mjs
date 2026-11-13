@@ -246,12 +246,22 @@ export async function addRemove(env, kind){
   check('r.add.motion', w, 'the added row\'s entrance', a.animations.filter(x => !/color/.test(x)).length ? a.animations : 'none', a.animations.some(x => /opacity|transform/.test(x)), 'recorded: an entrance (the Roadmap audit left this open, add.motion)');
   const del = page.locator('#rows .del').nth(1);
   await del.scrollIntoViewIfNeeded();   // the tap's own scroll-into-view belongs before the measured window
-  const r = await act(env, page, {id: 'r.remove', w, label: 'remove an initiative', fn: () => press(page, del, phone), focus: /Undo removal|button\.btn/, cls: true, skip: ['longtask']});
+  const snap = () => page.evaluate(() => ({y: scrollY, above: Math.round(document.querySelector('#rows tr').getBoundingClientRect().top + scrollY), below: Math.round(document.getElementById('rrows').getBoundingClientRect().top + scrollY)}));
+  const s0 = await snap();
+  const r = await act(env, page, {id: 'r.remove', w, label: 'remove an initiative', fn: () => press(page, del, phone), focus: /^button\.btn/, cls: true, skip: ['longtask']});
   check('r.remove.longtask', w, 'longest task after remove', r.longTaskMax, r.longTaskMax <= LT(env), '<= ' + LT(env) + 'ms');
   const place = await page.evaluate(() => { const u = document.querySelector('#rows .undorow button'); if(!u) return null; const r = u.getBoundingClientRect(), rows = [...document.querySelectorAll('#rows tr')]; return {atIndex: rows.indexOf(u.closest('tr')), rows: rows.length, top: Math.round(r.top), vh: innerHeight}; });
   check('r.remove.undoinplace', w, 'the Undo removal control appears in the removed row\'s place (second row), on screen', place, !!place && place.atIndex === 1 && place.top >= 0 && place.top < place.vh, 'row 2 of the table, in view');
+  await sleep(450);
+  const s1 = await snap(), rowH = await page.evaluate(() => Math.round(document.querySelector('#rows .undorow').getBoundingClientRect().height)), what = await page.evaluate(() => document.querySelector('#rows .undowhat')?.textContent);
+  check('r.remove.compact', w, 'the Undo row is a compact line naming what was removed, at most 80px tall', {rowH, what}, rowH > 0 && rowH <= 80 && /^Removed \S/.test(what || ''), '<= 80px, "Removed <name>"');
+  check('r.remove.still', w, 'removing leaves the scroll position and everything above unchanged', {scroll: [s0.y, s1.y], above: [s0.above, s1.above]}, s0.y === s1.y && s0.above === s1.above, 'no movement');
   const undo = page.locator('button', {hasText: 'Undo removal'});
+  const u0 = await snap();
   await act(env, page, {id: 'r.undo', w, label: 'Undo removal', fn: () => press(page, undo, phone), focus: /input\.iname/, cls: true, skip: ['longtask']});
+  await sleep(450);
+  const u1 = await snap();
+  check('r.undo.still', w, 'undoing leaves the scroll position and everything above unchanged', {scroll: [u0.y, u1.y], above: [u0.above, u1.above]}, u0.y === u1.y && u0.above === u1.above, 'no movement');
   await ctx.close();
 }
 

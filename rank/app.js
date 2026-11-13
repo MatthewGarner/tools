@@ -160,6 +160,16 @@ function renderHead(){
   tr.appendChild(the);
   tr.appendChild(document.createElement('th'));
 }
+const itemIds = new WeakMap();
+let nextItemId = 0;
+const idOf = it => itemIds.get(it) ?? (itemIds.set(it, ++nextItemId), nextItemId);
+/* a removal or an undo changes the table's length: the rows below glide, the page's scroll position and everything above stay */
+function glide(fn){
+  const y = scrollY, old = captureFlip($('rows'), 'data-k');
+  fn();
+  if(scrollY !== y) scrollTo(scrollX, y);
+  applyFlip($('rows'), 'data-k', old);
+}
 function renderRows(){
   const tb = $('rows');
   tb.textContent = '';
@@ -167,15 +177,17 @@ function renderRows(){
   const undoRow = () => {
     const tr = document.createElement('tr'), td = document.createElement('td');
     tr.className = 'undorow'; td.colSpan = state.criteria.length + 3;
-    tr.style.height = slot.height + 'px';
+    tr.dataset.k = 'undo';
+    const what = document.createElement('span'); what.className = 'undowhat'; what.textContent = 'Removed ' + (slot.item.name.trim() || 'an initiative');
     const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Undo removal';
     b.addEventListener('click', undoLast);
-    td.appendChild(b); tr.appendChild(td);
+    td.append(what, b); tr.appendChild(td);
     return tr;
   };
   state.items.forEach((it, i) => {
     if(slot && slot.index === i) tb.appendChild(undoRow());
     const tr = document.createElement('tr');
+    tr.dataset.k = idOf(it);
     const tdn = document.createElement('td');
     tdn.dataset.label = 'Initiative';
     const nm = document.createElement('input');
@@ -229,8 +241,9 @@ function renderRows(){
     del.className = 'del'; del.textContent = '×';
     del.setAttribute('aria-label', 'Remove ' + (it.name || 'initiative'));
     del.addEventListener('click', () => {
-      removedItems.push({item:it, index:i, capacity:state.k, height:Math.round(tr.getBoundingClientRect().height)});
-      state.items.splice(i, 1); syncCapacity(); renderRows(); schedule(50);
+      removedItems.push({item:it, index:i, capacity:state.k});
+      glide(() => { state.items.splice(i, 1); syncCapacity(); renderRows(); });
+      schedule(50);
       $('rows').querySelector('.undorow button')?.focus({preventScroll:true});   // the Undo stands where the row was
     });
     tdd.appendChild(del);
@@ -246,7 +259,7 @@ function undoLast(){
   const removed=removedItems.pop();if(!removed)return;
   const restoreCapacity=state.k === Math.min(removed.capacity,Math.max(1,state.items.length));
   state.items.splice(Math.min(removed.index,state.items.length),0,removed.item);
-  syncCapacity(restoreCapacity ? removed.capacity : state.k);renderRows();schedule(0);
+  glide(() => { syncCapacity(restoreCapacity ? removed.capacity : state.k);renderRows(); });schedule(0);
   $('rows').querySelectorAll('tr:not(.undorow)')[Math.min(removed.index,state.items.length-1)]?.querySelector('.iname')?.focus({preventScroll:true});
 }
 function clearRemovalHistory(){removedItems.length=0;}
