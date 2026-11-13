@@ -55,7 +55,7 @@ export const PLAN = [
   ['paths-handoff', ['paths'], N, async e => { for(const k of ['desktop', 'phone']) await P.handoff(e, k); }],
   ['paths-editsource', ['paths'], N, async e => { await P.editSource(e); await P.editSourceLine(e); }],
 ];
-export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-stall', 'btp-menu', 'btp-eip', 'btp-theme', 'bets-values', 'tree-slider', 'paths-select'];
+export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-stall', 'btp-menu', 'btp-eip', 'btp-theme', 'bets-values', 'tree-slider', 'paths-select', 'sim-edit', 'sim-stale', 'sim-error'];
 
 /* Defects confirmed by this audit (2026-11-13, Bets/Tree/Paths; findings FB-/FT-/FP- in the evidence folder) that are still open.
    A fix turns its known FAIL into a PASS and removes the tag; 'id@tool' tags that check on that tool only. Each group says why it
