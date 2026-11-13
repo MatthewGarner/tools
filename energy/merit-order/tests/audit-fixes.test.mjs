@@ -117,3 +117,31 @@ test('F-MO-9: the cold-peak imports value is documented for what it is', async (
   assert.equal(CONDITIONS.coldPeak.mutate.imports, 5, 'ruling: keep 5 GW');
   assert.ok(CONDITIONS.coldPeak.mutate.imports > DEFAULT_PARAMS.imports);
 });
+
+/* Second ruling: when demand is unmet no price clears, so there is no rent either. */
+test('F-MO-5b: unmet demand shows no rent — shading, legend, sentences, callout and Markdown cell', () => {
+  const gens = [G('A', 10, 10), G('B', 10, 30, {storage: true}), G('C', 10, 80)];
+  const st = {generators: gens, demand: 35};
+  const r = dispatch(gens, 35);
+  assert.ok(r.unmet > 0 && r.totalRent > 0, 'the engine still computes rent at the last offer');
+  const v = R.buildVerdict(r, st);
+  assert.doesNotMatch(v, /Shaded plants earn/);
+  assert.doesNotMatch(v, /shaded rent/);
+  const ctx = {colors: {bg:'#fff', card:'#fff', border:'#ccc', ink:'#111', muted:'#777', accent:'#c05621', err:'#b00'}, measure: t => t.length * 7, palette: R.MERIT_PALETTE.light};
+  const svg = R.renderStack(st, ctx);
+  assert.doesNotMatch(svg, /class='rent'/, 'no rent overlay');
+  assert.doesNotMatch(svg, /earns above running cost/, 'no rent legend');
+  assert.match(R.calloutMath(gens[0], r.perPlant.A, null, false), /no price clears$/);
+  assert.doesNotMatch(R.calloutMath(gens[0], r.perPlant.A, null, false), /rent|k\/h/);
+  const md = R.toMarkdown(st, r);
+  assert.match(md, /\| A \| 10 \| 10 \| 0 \| no price clears \|/);
+  assert.doesNotMatch(md, /k\/h/);
+});
+
+test('F-MO-5b: a met demand still shows rent exactly as before', () => {
+  const gens = [G('A', 10, 10), G('B', 10, 30)];
+  const r = dispatch(gens, 15), st = {generators: gens, demand: 15};
+  assert.match(R.buildVerdict(r, st), /Shaded plants earn/);
+  assert.match(R.renderStack(st, {colors: {bg:'#fff', card:'#fff', border:'#ccc', ink:'#111', muted:'#777', accent:'#c05621', err:'#b00'}, measure: t => t.length * 7, palette: R.MERIT_PALETTE.light}), /class='rent'/);
+  assert.match(R.calloutMath(gens[0], r.perPlant.A, null, true), /rent £200k\/h/);
+});

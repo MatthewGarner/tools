@@ -197,6 +197,11 @@ function reference(gens, demand){      // slow, obviously-correct: unit-by-unit 
   const v = buildVerdict(r, {generators: gens, demand: 35});
   R.check('F-MO-5', 'pass', 'over-capacity verdict says no price clears, names the last offer and the unmet volume', /^No price clears: 35 GW of demand is more than the 30 GW offered\. The last offer is C at £80\/MWh, and 5 GW goes unmet\./.test(v), v.slice(0, 140));
 }
+{ // F-MO-5b (second ruling): no price clears, so no rent
+  const gens = abc(); const r = dispatch(gens, 35), st = {generators: gens, demand: 35};
+  const md = toMarkdown(st, r), v = buildVerdict(r, st);
+  R.check('F-MO-5b', 'pass', 'unmet demand: no rent sentence, and the Markdown rent cells say "no price clears"', !/Shaded plants earn/.test(v) && /no price clears \|/.test(md) && !/k\/h/.test(md), md.split('\n')[2]);
+}
 { // F-MO-7 (ruled)
   const d = decodeStateV2(encodeStateV2({world: 'gbToday', condition: null, params: {demand: 'abc', wind: -5, gas: 1e9}}));
   R.check('F-MO-7', 'pass', 'a shared URL cannot inject non-numeric / out-of-range params: bad values drop to the default, numbers clamp', !('demand' in d.params) && d.params.wind === 0 && d.params.gas === 300, JSON.stringify(d.params));

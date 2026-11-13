@@ -6,7 +6,7 @@ import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.
    State is {condition, params, adv}: params drive buildStack; adv is per-block
    hand-edits ({name:[cap,cost]}); condition names the active Conditions preset. */
 import {dispatch} from './engine.js';
-import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, outcomeLine, receiptLines as makeReceiptLines, calloutMath, MERIT_PALETTE} from './render.js';
+import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, outcomeLine, receiptLines as makeReceiptLines, calloutMath, isPriced, MERIT_PALETTE} from './render.js';
 import {buildStack, applyAdv, editAdv} from './stack.js';
 import {DEFAULT_PARAMS, CONDITIONS, paramsFor, conditionNote, WORLDS} from './scenarios.js';
 import {encodeStateV2, decodeStateV2} from './state.js';
@@ -233,7 +233,7 @@ async function boot(){
     pop.textContent = '';
     const gen = currentStack().find(g => g.name === name);
     if(!gen) return;
-    const pp = dispatch(currentStack(), state.params.demand).perPlant[name];
+    const res = dispatch(currentStack(), state.params.demand), pp = res.perPlant[name];
 
     const title = document.createElement('div');
     title.className = 'mo-callout-name';
@@ -243,7 +243,7 @@ async function boot(){
     const installed = installedOf(name);
     const math = document.createElement('div');
     math.className = 'mo-callout-math';
-    math.textContent = calloutMath(gen, pp, installed);
+    math.textContent = calloutMath(gen, pp, installed, isPriced(res));
     pop.appendChild(math);
 
     if(gen.storage){

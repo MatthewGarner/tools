@@ -25,6 +25,7 @@ export const fmtRent = v => v > 0 && v < 0.5 ? '<£1k/h' : `£${Math.round(v).to
 export const fmtShort = v => v < 0.1 ? `${Math.max(1, Math.round(v * 1000))} MW` : `${fmtGW(v)} GW`;
 const SHORT_EPS = 5e-4;   // GW: below half a MW the shortfall is float residue, not a gap
 const isShort = result => result.unmet >= SHORT_EPS;
+export const isPriced = result => !isShort(result);   // false when demand is unmet: no price clears, so no rent
 const LOW_WIND = 0.2;      // availability below which "the wind has dropped" is true
 
 /* The aria-live one-liner under the controls. */
@@ -42,13 +43,13 @@ export function receiptLines(state, {worldLabel, gas, carbon}){
 }
 
 /* The plant callout's arithmetic line. `installed` (GW, or null) is given for wind and solar. */
-export function calloutMath(gen, pp, installed){
+export function calloutMath(gen, pp, installed, priced = true){
   const isVre = gen.family === 'wind' || gen.family === 'solar';
   const availClause = (isVre && installed != null)
     ? `${fmtGW(gen.capacity)} GW available now (of ${fmtGW(installed)} GW installed) — `
     : `${fmtGW(gen.capacity)} GW at £${Math.round(gen.cost)}/MWh — `;
   return availClause +
-    `${fmtGW(pp.dispatchedMW)} GW dispatched, ${fmtGW(pp.strandedMW)} GW stranded, rent ${fmtRent(pp.rent)}`;
+    `${fmtGW(pp.dispatchedMW)} GW dispatched, ${fmtGW(pp.strandedMW)} GW stranded, ${priced ? `rent ${fmtRent(pp.rent)}` : 'no price clears'}`;
 }
 
 /* Fuel-family palette — validated with the dataviz validate_palette.js against the
@@ -112,7 +113,8 @@ export function buildVerdict(result, state){
       : `Demand has outrun the cheaper plant, so ${result.marginalName} — a net-zero grid’s firm low-carbon backup — sets the price.`);
   }
   if(cp < 0) parts.push('The market is paying to generate: price runs negative until the must-run block clears.');
-  const storageRent = result.sorted.filter(g => g.storage)
+  const priced = !isShort(result);   // no price clears when demand is unmet, so there is no rent either
+  const storageRent = !priced ? 0 : result.sorted.filter(g => g.storage)
     .reduce((s, g) => s + result.perPlant[g.name].rent, 0);
   if(storageRent > 0){
     parts.push('Storage is dispatched ahead of gas — the shaded rent on it is the arbitrage spread it earns, not a fuel margin.');
@@ -122,7 +124,7 @@ export function buildVerdict(result, state){
   if(mustRunStranded > 0){
     parts.push(`${fmtShort(mustRunStranded)} would generate anyway — curtailed or exported, simplified away here.`);
   }
-  if(result.totalRent > 0){
+  if(priced && result.totalRent > 0){
     parts.push('Shaded plants earn above running cost on every MW they dispatch — that rent, not the price itself, is what the merit order redistributes.');
   }
   return parts.join(' ');
@@ -179,7 +181,7 @@ export function renderStack(state, ctx, opts = {}){
       if(pp.strandedMW > 0){
         rows.push(`<rect x='${r2(xB)}' y='${r2(yTop)}' width='${r2(xC - xB)}' height='${r2(h)}' fill='${fill}' opacity='0.3'/>`);
       }
-      if(pp.dispatchedMW > 0 && g.cost < cp){
+      if(!isShort(result) && pp.dispatchedMW > 0 && g.cost < cp){
         const ryA = sy(cp), ryB = sy(g.cost);
         rows.push(`<rect class='rent' x='${r2(xA)}' y='${r2(Math.min(ryA, ryB))}' width='${r2(xB - xA)}' ` +
           `height='${r2(Math.abs(ryB - ryA))}' fill='${tint(C.accent)}'/>`);
@@ -214,7 +216,7 @@ export function renderStack(state, ctx, opts = {}){
   }
 
   const tickY = y1 + 44;
-  const showLegend = result.totalRent > 0;
+  const showLegend = !isShort(result) && result.totalRent > 0;
   const legendY = tickY + 26;
   const verdictTopBase = (showLegend ? legendY : tickY) + 34;
   const showVerdict = !!opts.forExport;
@@ -346,7 +348,7 @@ export function toMarkdown(state, result){
   for(const g of result.sorted){
     if(g.capacity <= 0) continue;
     const pp = result.perPlant[g.name];
-    lines.push(`| ${g.name} | ${fmtPrice(g.cost)} | ${fmtGW(pp.dispatchedMW)} | ${fmtGW(pp.strandedMW)} | ${fmtRent(pp.rent)} |`);
+    lines.push(`| ${g.name} | ${fmtPrice(g.cost)} | ${fmtGW(pp.dispatchedMW)} | ${fmtGW(pp.strandedMW)} | ${isShort(result) ? 'no price clears' : fmtRent(pp.rent)} |`);
   }
   return `**Merit order** — ${verdictText}\n\n` + lines.join('\n') +
     (isShort(result)
