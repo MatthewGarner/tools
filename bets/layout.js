@@ -107,7 +107,7 @@ export function boardPlan(model, sim, {measure, nameWidth = 230, killWidth = 245
   const mode = records.length > BOARD_LEDGER_THRESHOLD ? 'ledger' : 'board';
   const rows = records.map(record => {
     const nameLines = measuredLines(record.b.name, '600 13px sans-serif', nameWidth, m);
-    const killText = record.b.kill && ('↳ fold if ' + record.b.kill.text +
+    const killText = record.b.kill && ('fold if ' + record.b.kill.text +
       (record.b.kill.by ? ' — by ' + record.b.kill.by : ''));
     const killLines = killText ? measuredLines(killText, '10.5px sans-serif', killWidth, m) : [];
     const nameTop = mode === 'ledger' ? 24 : 22;

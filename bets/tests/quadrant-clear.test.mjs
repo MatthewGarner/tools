@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parse} from '../parse.js';
 import {simulate} from '../engine.js';
-import {renderQuadrant, layoutBubbles, fanOut, lineSegments, labelPlan, prep, boxesOverlap} from '../render-quadrant.js';
+import {renderQuadrant, layoutBubbles, fanOut, lineSegments, labelPlan, prep, boxesOverlap, spreadChips} from '../render-quadrant.js';
 
 const COLORS = {ink: '#141b21', muted: '#5b6670', accent: '#c05621', accentInk: '#8e4a1e',
   bg: '#f7f8f6', card: '#ffffff', border: '#e2e5e1', err: '#b3403a', track: '#e7e9e5',
@@ -63,4 +63,19 @@ test('a crowded plane numbers every bet and names them in a key below the plot, 
   assert.match(svg, /data-quadrant-key=""/);
   const plot = Math.max(...[...svg.matchAll(/data-allocation-guide="" x1="([\d.]+)"/g)].map(m => +m[1]));
   assert.ok(plot > 800, 'the plot keeps the full width (the 90% guide is at ' + plot + ')');
+});
+
+/* XB-10: number chips of nearby bubbles never overprint one another, and stay near their own bubble and inside the plot */
+test('spreadChips: overlapping chips are pushed apart, within reach of their own bubble and inside the plot', () => {
+  const chips = Array.from({length: 9}, (_, i) => ({cx: 200 + (i % 3) * 6, cy: 100 + Math.floor(i / 3) * 4}));
+  spreadChips(chips, {bounds: {x0: 0, x1: 400, y0: 0, y1: 300}});
+  for(let i = 0; i < chips.length; i++){
+    for(let j = i + 1; j < chips.length; j++){
+      const a = chips[i], b = chips[j];
+      assert.ok(Math.abs(a.chipX - b.chipX) >= 28 || Math.abs(a.chipY - b.chipY) >= 15, `chips ${i} and ${j} overlap`);
+    }
+    assert.ok(Math.hypot(chips[i].chipX - chips[i].cx, chips[i].chipY - chips[i].cy) <= 46.01);
+  }
+  const alone = spreadChips([{cx: 50, cy: 50}], {bounds: {x0: 0, x1: 400, y0: 0, y1: 300}})[0];
+  assert.equal(alone.chipX, 50); assert.equal(alone.chipY, 50);
 });

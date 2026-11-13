@@ -98,9 +98,9 @@ export function concentrationLine(conc){
   if(!conc) return null;
   const all = conc.all && conc.all.length ? conc.all : [conc];
   const pc = s => Math.round(s.share * 100) + '%';
-  if(all.length === 1) return '⚑ ' + all[0].name + ' is ' + pc(all[0]) + ' of total stake — one bet carries the book.';
+  if(all.length === 1) return 'Concentration: ' + all[0].name + ' is ' + pc(all[0]) + ' of total stake — one bet carries the book.';
   const named = all.map(s => s.name + ' (' + pc(s)).map(t => t + ')');
-  return '⚑ ' + named.slice(0, -1).join(', ') + ' and ' + named[named.length - 1] +
+  return 'Concentration: ' + named.slice(0, -1).join(', ') + ' and ' + named[named.length - 1] +
     ' each carry 40% or more of total stake.';
 }
 

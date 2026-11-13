@@ -151,7 +151,10 @@ function card(item, model, results, ctx, C, layout, v, tops){
     out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'</text>'); ty+=14;
     out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10" fill="'+C.muted+'">'+e(v.pair(st.p10,st.p90))+'</text>'); ty+=14;
     const side=evSide(st);
-    if(side) out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10" font-weight="650" fill="'+C.err+'">'+(side>0?'▲ above its own range':'▼ below its own range')+'</text>');
+    if(side){
+      const tri=side>0?(x+15)+','+(ty-1)+' '+(x+23)+','+(ty-1)+' '+(x+19)+','+(ty-8):(x+15)+','+(ty-8)+' '+(x+23)+','+(ty-8)+' '+(x+19)+','+(ty-1);
+      out.push('<polygon points="'+tri+'" fill="'+C.err+'"/><text x="'+(x+28)+'" y="'+ty+'" font-size="10" font-weight="650" fill="'+C.err+'">'+(side>0?'above its own range':'below its own range')+'</text>');
+    }
   }
   if(ctx.edit) out.push(menu(node,x+item.w-18,y+item.h-18,C,model.root));
   out.push('</g>'); return out.join('');
@@ -182,8 +185,12 @@ function register(layout,model,results,ctx,C,v,x,y){
   layout.rows.forEach(row=>{ const ry=y+row.y, mirror=layout.branch.items.some(i=>i.node===row.node), editable=ctx.edit&&!mirror&&!row.node.implicit; out.push('<g data-register-row="'+row.node.srcLine+'"'+(mirror?' data-mirror=""':'')+'><line x1="'+x+'" y1="'+(ry+row.h)+'" x2="'+(x+W)+'" y2="'+(ry+row.h)+'" stroke="'+C.border+'"/><text x="'+x+'" y="'+(ry+18)+'" font-size="9" font-weight="700" fill="'+C.accent+'">'+row.id+'</text>'); let py=ry+18; row.pathLines.forEach((line,i)=>{out.push('<text x="'+(x+36)+'" y="'+py+'" font-size="11.5" fill="'+C.ink+'">'+field('label',row.node,row.node.label,line,'Edit label: '+row.node.label,editable&&i===row.pathLines.length-1)+'</text>');py+=15;}); const mid=ry+row.h/2+4; if(row.node.p!=null) out.push('<text x="'+pX+'" y="'+mid+'" font-size="10.5" fill="'+C.ink+'">'+field('prob',row.node,row.node.pRaw||(row.node.p==='rest'?'rest':''),v.prob(row.node.p),'Edit probability: '+row.node.label,editable)+'</text>'); if(row.node.value) out.push('<text x="'+valX+'" y="'+mid+'" font-size="10.5" fill="'+C.ink+'">'+field('value',row.node,row.node.valueRaw||'',v.range(row.node.value),'Edit payoff: '+row.node.label,editable)+'</text>'); const st=results.stats.get(row.node); if(st) out.push('<text x="'+evX+'" y="'+mid+'" font-size="10.5" font-weight="650" fill="'+C.ink+'">'+e(v.money(st.mean))+'</text>'); out.push('<text x="'+statusX+'" y="'+mid+'" text-anchor="end" font-size="9.5" font-weight="650" fill="'+(layout.policy.has(row.node)?C.accent:C.muted)+'">'+status(row.node,model.root,layout.policy,results)+'</text>'); if(editable) out.push(menu(row.node,x+W-140,mid-4,C,model.root)); out.push('</g>'); }); out.push('</g>'); return out.join('');
 }
 
+/* The root's marker is centred on the card's left edge, so it reaches 7.75px left of the cards. The right margin is made equal to
+   the ink that sticks out on the left: both sides of the picture are the same distance from the paper's edge. */
+function leftInkMargin(model){ return T.pad-(model.root&&model.root.kind!=='leaf'?7.75:0.75); }
+
 function wide(model,results,ctx,C,layout,verdictParts){
-  const v=values(model), W=Math.ceil(Math.max(480,layout.width+T.pad*2)), h=head(model,results,ctx,C,W,verdictParts), ox=T.pad,oy=h.h+(layout.mode==='continuation'?48:0), bottom=oy+layout.height, seam=seamLine(model,results),f=flips(results,v,C,T.pad,bottom+34,W-T.pad*2,ctx.measure,seam,!ctx.edit), inkBottom=f.h?bottom+34+f.h-15:bottom,H=Math.ceil(inkBottom+T.bottom);   // the last ink, then the house margin: no band of empty paper
+  const v=values(model), W=Math.ceil(Math.max(480,layout.width+T.pad+leftInkMargin(model)+0.5)), h=head(model,results,ctx,C,W,verdictParts), ox=T.pad,oy=h.h+(layout.mode==='continuation'?48:0), bottom=oy+layout.height, seam=seamLine(model,results),f=flips(results,v,C,T.pad,bottom+34,W-T.pad*2,ctx.measure,seam,!ctx.edit), inkBottom=f.h?bottom+34+f.h-15:bottom,H=Math.ceil(inkBottom+T.bottom);   // the last ink, then the house margin: no band of empty paper
   const out=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family=\''+SANS+'\'>'+(model.title?'<title>'+e(model.title)+'</title>':'')+'<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>',h.svg],tops=topLines(model.root);
   layout.branch.edges.forEach(k=>{const x1=ox+k.from.x+k.from.w,y1=oy+k.from.y+k.from.h/2,x2=ox+k.to.x,y2=oy+k.to.y+k.to.h/2,b=Math.min(42,(x2-x1)*.42),active=layout.policy.has(k.from.node)&&layout.policy.has(k.to.node);out.push('<path data-tree-edge="" d="M '+n2(x1)+' '+n2(y1)+' C '+n2(x1+b)+' '+n2(y1)+', '+n2(x2-b)+' '+n2(y2)+', '+n2(x2)+' '+n2(y2)+'" fill="none" stroke="'+(active?C.accent:C.border)+'" stroke-width="'+(active?2.5:1.25)+'"/>');});
   layout.branch.items.forEach(i=>out.push(card({...i,x:ox+i.x,y:oy+i.y},model,results,ctx,C,layout,v,tops)));

@@ -45,7 +45,8 @@ test('XT-4: left margin equals right margin, and the bottom margin is the house 
   const svg = render(m, evaluate(m), ctx());
   const [W, H] = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
   const rects = [...svg.matchAll(/<g data-tree-node="\d+"[^>]*><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(r => r.slice(1).map(Number));
-  const left = Math.min(...rects.map(r => r[0])), right = W - Math.max(...rects.map(r => r[0] + r[2]));
+  /* the root's marker is centred on the card's left edge (7px out, plus its stroke): that is the leftmost ink */
+  const left = Math.min(...rects.map(r => r[0])) - 7.75, right = W - Math.max(...rects.map(r => r[0] + r[2])) - 0.5;
   assert.ok(Math.abs(left - right) <= 1, `left ${left}, right ${right}`);
 });
 

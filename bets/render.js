@@ -166,7 +166,7 @@ function renderWide(model, sim, ctx){
   for(const [s, x, a] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['EV P50', C.p50, 'end'], ['EV P90', C.p90, 'end']])
     body.push(txt(x, colHeadY, s, 9, c.muted, {weight: 700, tracking: '0.08em', anchor: a}));
-  body.push(txt((C.bar0 + C.bar1) / 2, colHeadY, 'P10 ▸ P90', 9, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  body.push(txt((C.bar0 + C.bar1) / 2, colHeadY, 'P10 to P90', 9, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
   body.push(txt((C.audit0 + C.audit1) / 2, colHeadY, 'AUDIT NOTE', 9, c.muted,
     {weight: 700, tracking: '0.08em', anchor: 'middle'}));
   body.push('<line x1="' + C.left + '" y1="' + (colHeadY + 9) + '" x2="' + C.right + '" y2="' + (colHeadY + 9) + '" stroke="' + c.ink + '" stroke-width="1.5" stroke-opacity="0.8"/>');
@@ -545,7 +545,7 @@ function renderNarrow(model, sim, ctx){
       y += 16;
       }
       if(b.kill){
-        const killLines = measuredLines('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure);
+        const killLines = measuredLines('fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure);
         const kinner = killLines.map((line, i) => txt(pad + 12, y + 8 + i * 14, line, 10.5, c.muted)).join('');
         if(edit && !coarse) card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: killLines.length * 14 + 8, bg: c.bg},
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));

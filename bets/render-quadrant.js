@@ -72,7 +72,7 @@ export function prep(model, sim){
     pf: sim.portfolio, conditions: conditionReadings(sim)};
 }
 
-const microFor = b => stakeOf(b) + ' @ ' + oddsOf(b) + ' → pays ' + payoffOf(b);
+const microFor = b => stakeOf(b) + ' @ ' + oddsOf(b) + ' · pays ' + payoffOf(b);
 
 /* Measured labels try compass anchors from snug to escape rings. They never
    disappear: the least-overlap in-bounds candidate is the final fallback. */
@@ -285,8 +285,8 @@ export function labelPlan(items, geo, measure, extraAvoid = []){
 }
 
 /* the two zone captions at the top of the plot */
-const CAP_HIGH = 'HIGH ODDS OF SUCCESS ≥ 90%';
-const CAP_LOW = 'LOW ODDS OF SUCCESS ≤ 10%';
+const CAP_HIGH = 'HIGH ODDS OF SUCCESS: 90% OR MORE';
+const CAP_LOW = 'LOW ODDS OF SUCCESS: 10% OR LESS';
 function captionBoxes(geo, measure){
   const font = '700 ' + geo.tickSize + 'px ' + SANS;
   const hw = measure(CAP_HIGH, font) + 8, lw = measure(CAP_LOW, font) + 8;
@@ -295,7 +295,39 @@ function captionBoxes(geo, measure){
 }
 
 const CHIP = {w: 28, h: 15};
-const chipBox = it => ({x: it.cx - CHIP.w / 2, y: it.cy - CHIP.h / 2, w: CHIP.w, h: CHIP.h});
+const chipBox = it => ({x: (it.chipX ?? it.cx) - CHIP.w / 2, y: (it.chipY ?? it.cy) - CHIP.h / 2, w: CHIP.w, h: CHIP.h});
+
+/* Number chips of bubbles that sit close together would print over one another. Each starts on its bubble and is pushed
+   apart from any chip it overlaps, a little at a time, never further than `maxMove` from its own bubble and never out of the
+   plot; a chip that moved is joined to its bubble by a short line. Deterministic: the same bets give the same places. */
+export function spreadChips(chips, {bounds, w = CHIP.w, h = CHIP.h, gap = 2, maxMove = 46, rounds = 120} = {}){
+  const spots = chips.map(c => ({x: c.cx, y: c.cy}));
+  for(let round = 0; round < rounds; round++){
+    let moved = false;
+    for(let i = 0; i < spots.length; i++) for(let j = i + 1; j < spots.length; j++){
+      const dx = spots[j].x - spots[i].x, dy = spots[j].y - spots[i].y;
+      const ox = w + gap - Math.abs(dx), oy = h + gap - Math.abs(dy);
+      if(ox <= 0 || oy <= 0) continue;
+      moved = true;
+      const horizontal = Math.abs(dx) / w >= Math.abs(dy) / h;   // along the axis the pair is already more separated on
+      const sign = (horizontal ? dx : dy) !== 0 ? Math.sign(horizontal ? dx : dy) : ((i + j) % 2 ? 1 : -1);
+      const push = (horizontal ? ox : oy) / 2 + 0.25;
+      if(horizontal){ spots[i].x -= sign * push; spots[j].x += sign * push; }
+      else { spots[i].y -= sign * push; spots[j].y += sign * push; }
+    }
+    chips.forEach((c, i) => {
+      const s = spots[i], d = Math.hypot(s.x - c.cx, s.y - c.cy);
+      if(d > maxMove){ s.x = c.cx + (s.x - c.cx) / d * maxMove; s.y = c.cy + (s.y - c.cy) / d * maxMove; }
+      if(bounds){
+        s.x = Math.min(bounds.x1 - w / 2, Math.max(bounds.x0 + w / 2, s.x));
+        s.y = Math.min(bounds.y1 - h / 2, Math.max(bounds.y0 + h / 2, s.y));
+      }
+    });
+    if(!moved) break;
+  }
+  chips.forEach((c, i) => { c.chipX = spots[i].x; c.chipY = spots[i].y; });
+  return chips;
+}
 const line = (x1, y1, x2, y2, attrs) => '<line' + (attrs.first ? ' data-allocation-guide=""' : attrs.part ? ' data-allocation-guide-part=""' : '') + ' x1="' + r2(x1) + '" y1="' + r2(y1) + '" x2="' + r2(x2) + '" y2="' + r2(y2) + '"' + attrs.rest + '/>';
 /* the segments of one line, as markup (the first piece of a guide carries the marker the tests and tools look for) */
 function pieces(x1, y1, x2, y2, blockers, rest, marker){
@@ -319,6 +351,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   const zeroY = sy(0);
   const plan = labelPlan(items, {...geo, zeroY}, measure);
   const chips = plan.filter(p => p.unplaced);
+  spreadChips(chips, {bounds: {x0: plotX0, x1: plotX1, y0: plotY0, y1: plotY1}});
   const labelled = plan.filter(p => !p.unplaced);
   /* what a line must not run through: every label, both zone captions, every chip */
   const labelBoxes = labelled.map(p => ({x: p.box.x, y: p.box.y, w: p.box.w, h: p.box.h}));
@@ -393,23 +426,31 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   }
   // numbers for the rest
   for(const it of chips){
-    parts.push('<rect x="' + r2(it.cx - CHIP.w / 2) + '" y="' + r2(it.cy - CHIP.h / 2) + '" width="' + CHIP.w + '" height="' + CHIP.h +
+    const bx = it.chipX ?? it.cx, by = it.chipY ?? it.cy;
+    if(Math.hypot(bx - it.cx, by - it.cy) > 3)   // a chip that moved off its bubble is joined to it
+      parts.push('<line x1="' + r2(it.cx) + '" y1="' + r2(it.cy) + '" x2="' + r2(bx) + '" y2="' + r2(by) +
+        '" stroke="' + it.hue + '" stroke-width="1" stroke-opacity="0.7"/>');
+    parts.push('<rect x="' + r2(bx - CHIP.w / 2) + '" y="' + r2(by - CHIP.h / 2) + '" width="' + CHIP.w + '" height="' + CHIP.h +
       '" fill="' + c.card + '" stroke="' + it.hue + '" stroke-width="1"/>');
-    parts.push(txt(it.cx, it.cy + 3, it.id, 7.5, c.ink, {weight: 700, mono: true, anchor: 'middle'}));
+    parts.push(txt(bx, by + 3, it.id, 7.5, c.ink, {weight: 700, mono: true, anchor: 'middle'}));
   }
 
-  // legend: lane swatches + mark-language notes, flow-wrapped
+  // legend: lane swatches + mark-language notes, flow-wrapped; each mark is drawn as the shape it names (a glyph would fall
+  // outside the embedded face)
   const legendFont = '700 ' + legendSize + 'px ' + SANS;
-  const legendItems = model.groups.map((g, gi) => ({text: '● ' + g.name.toUpperCase(), color: laneHue(gi, dark)}));
-  legendItems.push({text: '⊘ dashed ring = no kill criterion', color: c.err});
-  legendItems.push({text: '○ bubble area ∝ stake', color: c.muted});
-  if(items.some(it => it.fanned)) legendItems.push({text: '◌ identical figures fan out around their point', color: c.muted});
+  const legendItems = model.groups.map((g, gi) => ({text: g.name.toUpperCase(), color: laneHue(gi, dark), shape: 'dot'}));
+  legendItems.push({text: 'dashed ring = no kill criterion', color: c.err, shape: 'dashed'});
+  legendItems.push({text: 'bubble area grows with stake', color: c.muted, shape: 'ring'});
+  if(items.some(it => it.fanned)) legendItems.push({text: 'identical figures fan out around their point', color: c.muted, shape: 'ring'});
   let lx = plotX0, ly = plotY1 + 4 + tickSize + 2 + axisTitleSize + 22;
-  const rowH = legendSize + 8;
+  const rowH = legendSize + 8, SW = 14;
   for(const it of legendItems){
-    const w = measure(it.text, legendFont) + 20;
+    const w = measure(it.text, legendFont) + SW + 20;
     if(lx + w - 20 > plotX1 && lx > plotX0){ lx = plotX0; ly += rowH; }
-    parts.push(txt(lx, ly, it.text, legendSize, it.color, {weight: 700, tracking: '0.02em'}));
+    const cy = ly - legendSize * 0.35, r = it.shape === 'dot' ? 3.5 : 4.5;
+    parts.push('<circle data-legend="" cx="' + r2(lx + 5) + '" cy="' + r2(cy) + '" r="' + r + '" fill="' + (it.shape === 'dot' ? it.color : 'none') +
+      '" stroke="' + it.color + '" stroke-width="1.25"' + (it.shape === 'dashed' ? ' stroke-dasharray="2 2"' : '') + '/>');
+    parts.push(txt(lx + SW, ly, it.text, legendSize, it.color, {weight: 700, tracking: '0.02em'}));
     lx += w;
   }
   let bottomY = ly + 6;
@@ -483,7 +524,7 @@ function renderWide(model, sim, ctx){
     }
     panelTop += 5;
   }
-  let geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right - 4, plotY1: panelTop + 22 + 400,
+  let geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right, plotY1: panelTop + 22 + 400,
     dark, rMin: 10, rMax: 30, nameSize: 12.5, microSize: nameOnly ? null : 10, tickSize: 9.5, axisTitleSize: 10.5,
     legendSize: 9.5, unit: model.unit, padX: 16, padTop: 16};
   geo = {...geo, keyX0: 30, keyX1: right, keyCols: 2};

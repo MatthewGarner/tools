@@ -295,7 +295,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   for(const [label, x, anchor] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['EV P50', C.p50, 'end'], ['EV P90', C.p90, 'end']])
     parts.push(txt(x, headY, label, 10, c.muted, {weight: 700, tracking: '0.08em', anchor}));
-  parts.push(txt((C.range0 + C.range1) / 2, headY, 'P10 ▸ P90', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  parts.push(txt((C.range0 + C.range1) / 2, headY, 'P10 to P90', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
   parts.push(txt(C.right, headY, 'AUDIT NOTE', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'end'}));
   parts.push('<line x1="96" y1="' + (headY + 14) + '" x2="1824" y2="' + (headY + 14) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
 
@@ -314,7 +314,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     parts.push('<g data-row="bet" data-id="' + record.id + '">');
     parts.push(txt(C.id, y + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
     names.forEach((line, i) => parts.push(txt(C.name, y + 20 + i * 19, line, 17, c.ink, {weight: 600})));
-    kills.forEach((line, i) => parts.push(txt(C.name, y + 23 + names.length * 19 + i * 13, '↳ ' + line, 10, c.muted)));
+    kills.forEach((line, i) => parts.push(txt(C.name, y + 23 + names.length * 19 + i * 13, line, 10, c.muted)));
     for(const [x, value] of [[C.stake, stakeOf(b)], [C.odds, oddsOf(b)], [C.payoff, payoffOf(b)]])
       parts.push(txt(x, y + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
     for(const [x, value] of [[C.p10, e.p10], [C.p50, e.p50], [C.p90, e.p90]])

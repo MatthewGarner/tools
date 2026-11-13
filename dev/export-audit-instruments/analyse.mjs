@@ -116,7 +116,17 @@ async function checkSvg(page, add, ctx, file, {liveSvg, theme, man, tool, doc, d
     else if(['orphans', 'hairlines', 'theme:root-background'].includes(c.check)) add(ctx, 'svg:' + c.check, null, c.values, c.note);
     else add(ctx, 'svg:' + c.check, c.pass, c.values, c.note);
   }
-  for(const c of checkSelfContained(svg, geo)) add(ctx, 'svg:' + c.check, c.check === 'self-contained:user-links' ? null : c.pass, c.values, c.note);
+  for(const c of checkSelfContained(svg, geo)){
+    if(c.check === 'self-contained:glyph-coverage' && !c.pass){
+      /* a character the author typed (an emoji, Hebrew) may fall back to a system face: the contract accepts that. A character
+         the tool itself draws (an arrow, a flag, a triangle) may not: it is drawn outside the embedded face. */
+      const typed = new Set([...(doc.source || JSON.stringify(doc.state || {}))]);
+      const chrome = [...(c.values.examples || '')].filter(ch => !typed.has(ch));
+      if(!chrome.length){ add(ctx, 'svg:' + c.check, true, {...c.values, acceptedAuthored: c.values.charsOutsideEmbeddedFonts}, c.note + ' (only characters the author typed)'); continue; }
+      add(ctx, 'svg:' + c.check, false, {...c.values, chromeChars: chrome.join('')}, c.note); continue;
+    }
+    add(ctx, 'svg:' + c.check, c.check === 'self-contained:user-links' ? null : c.pass, c.values, c.note);
+  }
   for(const c of checkPicture(geo)) if(c.check === 'picture:margins') add(ctx, 'svg:margins', c.pass, c.values, c.note);
   const chrome = svg.match(CHROME);
   add(ctx, 'svg:no-editing-chrome', !chrome, {match: chrome ? chrome[0] : null}, 'no edit hooks, add controls, ⋯ menus, focus or hover state in an export');
@@ -129,14 +139,19 @@ async function checkSvg(page, add, ctx, file, {liveSvg, theme, man, tool, doc, d
   if(liveSvg && !id.includes('receipt') && !id.startsWith('agenda') && !id.startsWith('closeout')){
     const exportWords = new Set(words(svgTexts(svg).join(' ')));
     const liveWords = words(svgTexts(liveSvg).filter(t => t !== '⋯' && t !== '+').join(' '));
-    const missing = [...new Set(liveWords.filter(w => !exportWords.has(w)))];
+    /* a token wider than the line is wrapped in the export: compare it without the wrapping whitespace too */
+    const squashed = svgTexts(svg).join('').replace(/\s+/g, '');
+    const missing = [...new Set(liveWords.filter(w => !exportWords.has(w) && !squashed.includes(w.replace(/\s+/g, ''))))];
     add(ctx, 'svg:mirrors-live-words', missing.length === 0, {missing: missing.slice(0, 30), count: missing.length}, 'every word drawn in the live view is in the export (wrapping may differ)');
   }
   /* authored strings present */
   const auth = (tool === 'bets' && ctx.view !== 'board') ? [] : authored(tool, doc);
   if(auth.length){
     const all = normText(svgTexts(svg).join(' '));
-    const lost = auth.filter(a => !all.includes(normText(a)) && !words(a).every(w => all.includes(w)));
+    /* a token wider than the line is wrapped, so its pieces sit on separate lines: compare without the wrapping whitespace */
+    const squash = x => normText(x).replace(/\s+/g, '');
+    const allSquashed = squash(all);
+    const lost = auth.filter(a => !all.includes(normText(a)) && !allSquashed.includes(squash(a)) && !words(a).every(w => all.includes(w)));
     add(ctx, 'svg:authored-present', tool === 'fermi' ? (lost.length ? null : true) : lost.length === 0, {lost: lost.slice(0, 10)}, 'every authored name and kill criterion reaches the export, in full');
   }
 }
@@ -160,7 +175,10 @@ async function checkPng(page, add, ctx, file, {dir, id, theme, man, ex}){
     const svg = readFileSync(svgFile, 'utf8');
     const w = +(svg.match(/<svg[^>]*\swidth="([\d.]+)"/) || [])[1], h = +(svg.match(/<svg[^>]*\sheight="([\d.]+)"/) || [])[1];
     const sx = w ? st.w / w : null;
-    add(ctx, 'png:scale-2x', sx !== null && Math.abs(sx - 2) < .02, {svg: [w, h], png: [st.w, st.h], scale: sx && r2(sx)}, 'P3: PNG is the SVG at 2x unless 2x passes the canvas limit');
+    /* a PNG below 2x is fine only when the page's status line says so, with the scale it used (P3, E7) */
+    const stated = +((ex?.status || '').match(/at ([\d.]+)x/) || [])[1];
+    const reducedAndSaid = sx !== null && Number.isFinite(stated) && Math.abs(stated - sx) < .02;
+    add(ctx, 'png:scale-2x', sx !== null && (Math.abs(sx - 2) < .02 || reducedAndSaid), {svg: [w, h], png: [st.w, st.h], scale: sx && r2(sx), status: ex?.status ?? null}, 'P3: PNG is the SVG at 2x; below 2x the status line says so');
     if(sx){
       const ref = await page.evaluate(rasteriseSvgInPage, [svg, sx]).catch(e => ({error: e.message}));
       if(ref.b64){
@@ -174,7 +192,8 @@ async function checkPng(page, add, ctx, file, {dir, id, theme, man, ex}){
 function checkMd(add, ctx, md, {tool, doc, man, liveSvg}){
   const probs = checkMarkdownTables(md);
   add(ctx, 'md:tables-valid', probs.length === 0, {problems: probs.slice(0, 8)}, 'every table row has the header\'s cell count (an unescaped pipe in a cell adds a column)');
-  const raw = /<(?!https?:)[a-z\/][^>]*>/i.exec(md);
+  /* a backslash-escaped < is text in Markdown, not a tag */
+  const raw = /<(?!https?:)[a-z\/][^>]*>/i.exec(md.replace(/\\[\\|*_`\[\]<>#]/g, ''));
   add(ctx, 'md:no-raw-html', !raw, {match: raw?.[0]}, 'authored < > reach Markdown escaped, not as live HTML');
   const unesc = md.replace(/\\([|*_`\[\]<>\\#])/g, '$1');
   const auth = authored(tool, doc);

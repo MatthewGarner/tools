@@ -521,7 +521,10 @@ export function checkGeometry(geo, svgString){
   out.push({check: 'overlap:text-shape', pass: crossings.length === 0, values: {count: crossings.length, hits: crossings.slice(0, 25)}, note: 'text partly on/over a visible shape that does not wholly contain it (rect/circle/path) or crossed by a vertical/horizontal rule (>2px, not at its edge)'});
   /* truncation */
   const trunc = texts.filter(t => /(…|\.\.\.)\s*$/.test(t.text));
-  const attrValues = [...svgString.matchAll(/="([^"]{4,})"/g)].map(m => normText(m[1]));
+  /* where the whole text of a cut label may live: an attribute, or the SVG <title> of the group it belongs to */
+  const unent = v => v.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  const attrValues = [...svgString.matchAll(/="([^"]{4,})"/g)].map(m => normText(m[1]))
+    .concat([...svgString.matchAll(/<title[^>]*>([^<]{4,})<\/title>/g)].map(m => normText(unent(m[1]))));
   const allText = geo.texts.map(t => normText(t.text));
   const rec = trunc.map(t => {
     const stem = normText(t.text).replace(/(…|\.\.\.)\s*$/, '').trim();
