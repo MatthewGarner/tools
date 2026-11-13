@@ -229,7 +229,7 @@ const settleFigs = figs => { if(figs.length) setTimeout(() => figs.forEach(t => 
 
 export function mountMotion(container){
   let lastSvg = '', revealed = false;
-  function paint(svg, spec = {}, {flipAttr, scale, onSwap, mode: force} = {}){
+  function paint(svg, spec = {}, {flipAttr, flipFrom, scale, onSwap, mode: force} = {}){
     if(svg === lastSvg) return;
     if(!revealed){                                       // arm/re-arm until the reveal plays
       container.innerHTML = svg; lastSvg = svg;
@@ -240,6 +240,7 @@ export function mountMotion(container){
     }
     const m = force || 'flip';                           // revealed: flip on settle, else plain swap
     const flipState = (m === 'flip' && flipAttr) ? captureFlip(container, flipAttr) : null;
+    if(flipState && flipFrom) for(const [k, r] of flipFrom) flipState.set(k, r);   // an item that arrives from elsewhere (a drag chip) glides from there
     const ghost = m === 'fade' ? ghostBefore(container) : null;   // mode 'fade' = a view switch (see ghostBefore)
     container.innerHTML = svg; lastSvg = svg;
     if(onSwap) onSwap();

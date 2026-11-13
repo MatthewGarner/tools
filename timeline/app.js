@@ -431,6 +431,9 @@ function syncSettings(){
     surface.style.setProperty('--observatory-display',model.font==='DM Sans'?"'DM Sans'":"'Instrument Serif'");
   }
   $('preview').dataset.capability=`views.${model.style || 'field'}`;
+  /* Review with nothing to compare says so beside the view tabs and offers the action; the chart itself does not move */
+  $('reviewhint').hidden=!(model.style==='review' && !currentDiff());
+  $('reviewsnap').disabled=!model.items.length;
 }
 $('stylepicker').addEventListener('click',event=>{
   const button=event.target.closest('[data-style]');if(!button)return;
@@ -455,6 +458,7 @@ async function prepareTypography(){
   catch(error){clearTimeout(slow);$('fontstatus').hidden=false;$('fontmessage').textContent='Typography could not load. Retry to render and export with the correct fonts.';setActionsEnabled(false);$('exportdeck').disabled=true;return false;}
 }
 $('retryfonts').addEventListener('click',prepareTypography);
+$('reviewsnap').addEventListener('click',()=>$('snap').click());
 
 /* A milestone's field targets are 1px anchors (they place the inline input). When one takes keyboard focus the visible ring
    goes on the row it edits, so no Tab stop is invisible. */

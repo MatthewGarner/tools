@@ -542,13 +542,14 @@ function doRefresh(){
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
       // A what-if world flip has no flipAttr (nothing moves) — the opacity
       // capture/apply pair around paint() cross-fades what changed state.
-      paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom, mode: fadeNext ? 'fade' : undefined});
+      paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom, mode: fadeNext ? 'fade' : undefined, flipFrom: dropChip ? new Map([[dropChip.key, dropChip.rect]]) : undefined});
       lastSvg = svg;
       flipNext = false;
       previousStageWidth = previewEl.clientWidth;   // this render IS at the current width: the resize observer must not repeat it
     }
     syncInspectionMark();
   }
+  clearDropChip();   // the repaint has the dragged card in its new slot (or nothing moved): the chip's job is done
   fadeNext = false;
   restoreWhatIfFocus(pv);
   /* the header/verdict anatomy rides this same loop — both painters bail out
@@ -1156,11 +1157,26 @@ function positionDropline(cell, srcLine){
   line.style.top = (yEdge - pvRect.top + pv.scrollTop) + 'px';
   line.style.width = ref.width + 'px';
 }
-function endDrag(){
+/* After a drop the dragged card is never drawn back in its old slot: the source stays hidden and the drag chip stays up until the
+   repaint, and the card then glides from where the chip was released. */
+let dropChip = null;
+function clearDropChip(){
+  if(!dropChip) return;
+  dropChip.ghost.remove();
+  if(dropChip.srcEl.isConnected) dropChip.srcEl.style.opacity = '';
+  dropChip = null;
+}
+function endDrag({keepForDrop = false} = {}){
   clearHover();
-  if(drag.ghost) drag.ghost.remove();
+  if(keepForDrop && drag.ghost && drag.srcEl){
+    dropChip = {key: drag.armed.title.toLowerCase().replace(/\s+/g, ' ').trim(), rect: drag.ghost.getBoundingClientRect(), ghost: drag.ghost, srcEl: drag.srcEl};
+    drag.srcEl.style.opacity = '0';
+    setTimeout(clearDropChip, 800);
+  } else {
+    if(drag.ghost) drag.ghost.remove();
+    if(drag.srcEl) drag.srcEl.style.opacity = '';
+  }
   if(drag.edgeChip) drag.edgeChip.remove();
-  if(drag.srcEl) drag.srcEl.style.opacity = '';
   document.body.style.cursor = '';
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
   drag.edge = null; drag.edgeChip = null; drag.pointerId = null;   // a cancelled edge must not leave the mode armed
@@ -1301,7 +1317,7 @@ window.addEventListener('pointerup', e => {
     const cell = cellAt(e.clientX, e.clientY);
     if(cell) target = {h: cell.h, lane: cell.lane, beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
   }
-  endDrag();
+  endDrag({keepForDrop: !!target && !!model});
   postDragClick.arm(wasActive && $('preview').contains(e.target));
   if(!target || !model) return;
   if(inBandView()){
@@ -1313,14 +1329,14 @@ window.addEventListener('pointerup', e => {
     const t = ensureHorizonHeader(editor.getText(), model, target.h);
     const m2 = parse(t);
     const r = moveItem(t, m2, src, target);
-    if(!r) return;
+    if(!r){ clearDropChip(); return; }
     flipNext = true;
     editor.setText(r.text);
     refreshNow();
     return;
   }
   const r = moveItem(editor.getText(), model, src, target);
-  if(!r) return;
+  if(!r){ clearDropChip(); return; }
   flipNext = true;   // the post-drop re-render captures + glides cards into place (shared FLIP)
   editor.setText(r.text);   // one transaction → one undo step
   refreshNow();

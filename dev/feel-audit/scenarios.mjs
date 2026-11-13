@@ -418,10 +418,25 @@ export async function drag(env){
   const cells = await page.evaluate(() => [...document.querySelectorAll('#preview rect[data-cell]')].map(r => { const b = r.getBoundingClientRect(); return {c: r.dataset.cell, x: b.x + b.width / 2, y: b.y + b.height - 6, w: b.width}; }));
   const target = cells.find(c => c.c.startsWith('2|')) || cells.at(-1);
   const before = await sourceText(page);
+  const dragged = await page.evaluate(() => { const g = document.querySelector('#preview g[data-line]'); const r = g.getBoundingClientRect(); return {key: g.dataset.key, x: r.left, y: r.top}; });
   /* arm a watcher just before release: time from pointerup until the artefact's svg is replaced */
   const s = await measure(page, async () => {
     await page.mouse.move(from.x, from.y); await page.mouse.down(); await sleep(30);
     for(let i = 1; i <= 24; i++){ await page.mouse.move(from.x + (target.x - from.x) * i / 24, from.y + (target.y - from.y) * i / 24); await sleep(16); }
+    await page.evaluate(key => {
+      window.__dropFrames = [];
+      addEventListener('pointerup', e => {
+        const t0 = performance.now(), release = {x: e.clientX, y: e.clientY};
+        const tick = () => {
+          const els = [...document.querySelectorAll('#preview g[data-key]')].filter(g => g.dataset.key === key);
+          const vis = els.filter(g => { let o = 1; for(let n = g; n && n.id !== 'preview'; n = n.parentElement) o *= parseFloat(getComputedStyle(n).opacity); return o > 0.05; });
+          const r = vis[0] && vis[0].getBoundingClientRect();
+          window.__dropFrames.push({t: Math.round(performance.now() - t0), x: r ? Math.round(r.left) : null, y: r ? Math.round(r.top) : null, release});
+          if(performance.now() - t0 < 500) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }, {once: true});
+    }, dragged.key);
     await page.evaluate(() => {
       const old = document.querySelector('#preview svg');
       window.__dropGap = new Promise(res => {
@@ -436,6 +451,14 @@ export async function drag(env){
      dimmed card is restored in its OLD slot (the drop looks undone, then jumps) */
   const gap = await page.evaluate(() => window.__dropGap);
   check('drag.dropgap', w, 'pointer release -> moved card shown (old slot restored meanwhile)', gap, gap != null && gap <= 50, '<= 50ms (one or two frames)');
+  const frames = (await page.evaluate(() => window.__dropFrames || [])).filter(f => f.x != null);
+  const near = (f, x, y, d) => Math.abs(f.x - x) <= d && Math.abs(f.y - y) <= d;
+  const last = frames.at(-1);
+  const backInOldSlot = last && near(last, dragged.x, dragged.y, 8);
+  const bad = backInOldSlot ? [] : frames.filter(f => near(f, dragged.x, dragged.y, 8));
+  const first = frames[0];
+  const firstOk = !first || near(first, first.release.x, first.release.y, 40) || near(first, last.x, last.y, 8);
+  check('drag.dropframes', w, 'the dragged card is never drawn in its old slot after release; its first frame is at the release point or already home', {frames: frames.length, inOldSlot: bad.map(f => f.t + 'ms'), first: first && {x: first.x, y: first.y, release: first.release}, final: last && {x: last.x, y: last.y}, old: dragged}, frames.length > 3 && bad.length === 0 && firstOk, 'no frame within 8px of the pre-drag slot; first frame within 40px of the release point or in the new slot');
   const sel = await page.evaluate(() => getSelection().toString());
   const leftovers = await page.evaluate(() => ({ghost: document.querySelectorAll('.dragghost').length, line: document.querySelectorAll('.dropline').length, cursor: document.body.style.cursor}));
   note('drag', w, 'drag a card to another column', {moved: before !== after, dropped: s.dropped, worstFrame: s.worstFrame, longTasks: s.longTasks, longTaskMax: s.longTaskMax, settled: s.settled, anims: s.animations, leftovers});
@@ -814,10 +837,26 @@ export async function reviewEmpty(env, kind){
   const {check} = env.R;
   const w = where('timeline', kind, env.mode);
   const {ctx, page} = await fresh(env, 'timeline', kind);
-  const before = await page.evaluate(() => document.querySelector('#preview svg')?.outerHTML.length);
+  const top = () => page.evaluate(() => Math.round(document.querySelector('#preview [data-inspect]')?.getBoundingClientRect().top + scrollY));
+  const topBefore = await top();
   const s = await measure(page, () => press(page, page.locator('#stylepicker [data-style="review"]'), kind === 'phone'), {quiet: 400});
-  const st = await page.evaluate(() => ({pressed: document.querySelector('#stylepicker [aria-pressed="true"]')?.dataset.style, len: document.querySelector('#preview svg')?.outerHTML.length, text: document.querySelector('#preview svg')?.textContent.slice(0, 160)}));
+  const topAfter = await top();
+  const st = await page.evaluate(() => {
+    const hint = document.getElementById('reviewhint'), btn = hint && hint.querySelector('button');
+    const r = btn && btn.getBoundingClientRect();
+    return {pressed: document.querySelector('#stylepicker [aria-pressed="true"]')?.dataset.style,
+      svgText: document.querySelector('#preview svg')?.textContent.slice(0, 160),
+      hint: hint && !hint.hidden ? hint.textContent.trim() : null, btnH: r ? Math.round(r.height) : null, btnTab: btn ? btn.tabIndex : null};
+  });
   await shot(page, `${env.out}/shots/timeline-review-empty-${kind}.png`);
-  check('review.empty', w, 'Review with no saved comparison', {firstResponse: s.firstResponse, ...st, changed: st.len !== before}, st.pressed === 'review' && /snapshot|compar/i.test(st.text || ''), 'Review selected and says it needs a snapshot');
+  const move = topAfter - topBefore;
+  check('review.empty.chartmove', w, 'chart top edge when Review is chosen with no snapshot (px)', {before: topBefore, after: topAfter, move}, Math.abs(move) <= 2, 'moves at most 2px');
+  check('review.empty', w, 'Review with no saved comparison offers the action in the control row', {firstResponse: s.firstResponse, ...st}, st.pressed === 'review' && !!st.hint && /snapshot/i.test(st.hint) && st.btnTab === 0 && (kind !== 'phone' || st.btnH >= BAR.tap), 'Review selected; the control row says no snapshot and offers one (button reachable, >= 44px on phones)');
+  if(env.mode === 'normal'){
+    const snaps = await page.evaluate(() => document.querySelectorAll('#snapsel option').length);
+    await page.locator('#reviewsnap').focus(); await page.keyboard.press('Enter'); await sleep(300);
+    const after = await page.evaluate(() => ({options: document.querySelectorAll('#snapsel option').length, hintHidden: document.getElementById('reviewhint').hidden}));
+    check('review.empty.action', w, 'the hint button takes a snapshot from the keyboard', {snaps, after}, after.options === snaps + 1 && after.hintHidden !== undefined, 'one more snapshot saved');
+  }
   await ctx.close();
 }
