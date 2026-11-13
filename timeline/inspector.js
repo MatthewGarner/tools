@@ -1,15 +1,15 @@
-import {fmtDay} from './parse.js';
+import {fmtDay, fmtItemDay} from './parse.js';
+import {duration} from './duration.js';
 import {timingFacts} from './timing.js';
 import {decisionLead, leadDuration} from './lrm.js';
 import {actionIcon} from '../assets/action-icons.js';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const duration = days => days % 7 === 0 ? `${days / 7} week${days === 7 ? '' : 's'}` : `${days} day${days === 1 ? '' : 's'}`;
 const date = day => fmtDay(day, {month:false});
-const finishDate = (item, end = 0) => fmtDay(end ? item.p90 : item.p50,{month:(item.rawDates || '').split(/\s*(?:\.\.|–|—)\s*/)[end]?.trim().length === 7});
+const finishDate = (item, end = 0) => fmtItemDay(item, end ? 'p90' : 'p50');
 const fact = (label, value) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`;
 const group = facts => `<div class="inspector-group"><dl class="inspector-facts">${facts}</dl></div>`;
 export function inspectorHTML(item, today, editing = false){
-  const timing = timingFacts(item,today), approximate = /(?:^|\s)\d{4}-\d{2}(?=\s|$)/.test(item.rawDates), fixed = item.status === 'fixed', done = item.status === 'done';
+  const timing = timingFacts(item,today), approximate = !!(item.month?.p50 || item.month?.p90), fixed = item.status === 'fixed', done = item.status === 'done';
   let html = `<div class="inspector-heading"><h2 id="inspecttitle">${esc(item.label)}</h2><button class="btn inspector-close" id="inspectclose" type="button" aria-label="Close milestone details">${actionIcon('close')}</button></div>`;
   if(editing) return html + `<form class="inspector-form" id="inspectform">
     <label>Name<input name="label" required value="${esc(item.label)}"></label>
@@ -23,7 +23,7 @@ export function inspectorHTML(item, today, editing = false){
   if(!fixed && Number.isInteger(timing.started)){
     html += group(fact('Started', date(timing.started)) + (timing.valid && Number.isInteger(timing.elapsedDays) ? fact(done ? 'Actual duration' : 'Elapsed', duration(timing.elapsedDays)) : ''));
   }
-  html += group(fixed ? fact('Fixed event',finishDate(item)) : done ? fact('Actual finish',finishDate(item)) : fact('P50 finish',fmtDay(item.p50,{month:/^\d{4}-\d{2}$/.test(item.rawDates.split(/\s*\.\.\s*/)[0])})) + fact(item.single ? 'Uncertainty' : 'P90 finish',item.single ? 'Not recorded' : fmtDay(item.p90,{month:/^\d{4}-\d{2}$/.test(item.rawDates.split(/\s*\.\.\s*/)[1] || '')})));
+  html += group(fixed ? fact('Fixed event',finishDate(item)) : done ? fact('Actual finish',finishDate(item)) : fact('P50 finish',fmtItemDay(item,'p50')) + fact(item.single ? 'Uncertainty' : 'P90 finish',item.single ? 'Not recorded' : fmtItemDay(item,'p90')));
   if(timing.valid && !done && Number.isInteger(timing.p50DurationDays)) html += group(fact('Total calendar duration',`${approximate?'Approximately ':''}${duration(timing.p50DurationDays)} at P50${item.single?'':` · ${duration(timing.p90DurationDays)} at P90`}`));
   const lead = decisionLead(item,today);
   if(lead) html += group(fact('Decide by',date(lead.day)) + fact('Preparation lead',leadDuration(lead.leadDays)) + fact('Decision window',lead.state === 'closed'?'Closed':lead.state === 'today'?'Due today':'Open'));

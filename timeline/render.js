@@ -1,15 +1,31 @@
 /* Timeline's public render boundary. Field owns the visual composition; this
    module keeps only its semantic helpers and public output routes. */
-import {fmtDay} from './parse.js';
-import {mergeBias, laneVsDeadline} from './mergebias.js';
+import {fmtDay, fmtItemDay, fmtQuoted} from './parse.js';
+import {mergeBias, laneVsDeadline, laneFits} from './mergebias.js';
+import {duration} from './duration.js';
 import {resolveVerdict} from '../assets/verdict-core.js';
 import {decisionLead, leadDuration, leadReceipt, primaryDecisionLead} from './lrm.js';
 import {renderField} from './render-field.js';
 
-const wk = days => {
-  const w = Math.round(Math.abs(days) / 7);
-  return w + (w === 1 ? ' week' : ' weeks');
-};
+/* ONE today for every surface: the document's own `today:` when it has one, else the
+   clock the caller passes. Applied at each public entry point, so no consumer can
+   disagree with the page. */
+const effToday = (model, clock) => model.today ?? clock;
+
+/* a shown figure that must be found VERBATIM and FIRST in its line (assets/verdict-core's
+   markFigure splits on the first occurrence): when the same digits appear earlier ("5%" in a
+   label's "15%"), widen the figure leftwards to the shortest run that is unique there. */
+function uniqueFig(pre, shown, post, fig){
+  const line = pre + shown + post, at = pre.length + Math.max(0, shown.lastIndexOf(fig));
+  let k = 0, cand = fig;
+  while(k < at && (line.indexOf(cand) !== at - k || /^\s/.test(cand))){ k++; cand = line.slice(at - k, at + fig.length); }
+  return cand;
+}
+
+/* a tail of the readout sentence: lanes left out of the joint, lanes past their P90 */
+const notCountedTail = n => n ? ' \u00b7 ' + n + ' single-date lane' + (n > 1 ? 's' : '') + ' not counted' : '';
+const staleTailOf = n => n ? ' \u00b7 ' + n + (n > 1
+  ? ' lanes past their P90 — re-estimate them' : ' lane past its P90 — re-estimate it') : '';
 
 /* plain-text mirror of the SVG's "one quotable line" readout — the HTML text
    app.js shows next to the diagram. Pure; same inputs render() itself uses. */
@@ -18,6 +34,7 @@ const wk = days => {
    leading the verdict can name it without the renderer re-deriving it. */
 function restParts(model, today){
   const items = model.items;
+  const fits = laneFits(model, today);
   const upcoming = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0];
   const ranged = items.filter(i => !i.single);
   const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
@@ -27,24 +44,36 @@ function restParts(model, today){
     const receipt = leadReceipt(primary.it, today);
     parts.push({text: receipt.text, fig: fmtDay(primary.day)});
   }
+  /* every ranged lane has reached its P50 finish and is still open: there is no forecast
+     left to quote, and "Widest whisker" would be the wrong thing to lead with */
+  if(fits.lanes.length && fits.lanes.every(l => l.p50 <= today)){
+    const n = fits.lanes.length, past = fits.stale;
+    parts.push({text: (n === 1 ? 'The ranged lane has reached its P50 finish and is still open' : 'All ' + n + ' ranged lanes have reached their P50 finish and are still open') +
+      ' (' + (past ? (n === 1 ? 'past its P90' : past + ' past their P90') : 'not yet past ' + (n === 1 ? 'its' : 'their') + ' P90') + ') — ' + (n === 1 ? 'it needs' : 'they need') + ' new dates.',
+      fig: 'still open'});
+  }
   /* one ranged lane + a deadline: mergeBias stays silent (there is no MERGE), but
      the question is well posed and the answer is already computed. */
   const lvd = laneVsDeadline(model, today);
-  if(lvd) parts.push({text: lvd.name + ' clears the fixed ' + lvd.deadline.label +
-    ' (' + fmtDay(lvd.deadline.day) + ') ' + approx(pc(lvd.p)) + ' — one lane, a planning estimate.',
-    fig: pc(lvd.p)});
+  if(lvd){
+    const pre = lvd.name + ' clears the fixed ' + lvd.deadline.label + ' (' + fmtQuoted(lvd.deadline.day, lvd.deadline.bareMonth) + ') ';
+    const shown = approx(pc(lvd.p)), post = ' — one lane, a planning estimate.' + notCountedTail(lvd.excludedSingle) + staleTailOf(lvd.stale);
+    parts.push({text: pre + shown + post, fig: uniqueFig(pre, shown, post, pc(lvd.p))});
+  }
   if(upcoming){
     const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
     const g = {month: !sameMonth};
+    // a date that was only ever a bare month is "mid-Nov 2026", never an invented day
+    const q = end => upcoming.month?.[end] ? fmtQuoted(upcoming[end], true) : fmtDay(upcoming[end], g);
     parts.push({text: 'Next up: ' + upcoming.label + ' — ' + (upcoming.status === 'fixed'
-      ? 'fixed ' + fmtDay(upcoming.p50, g)              // no distribution: "P50" would be a lie
-      : 'P50 ' + fmtDay(upcoming.p50, g) +
-        (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g))) + '.',
-      fig: fmtDay(upcoming.p50, g)});
+      ? 'fixed ' + q('p50')                             // no distribution: "P50" would be a lie
+      : 'P50 ' + q('p50') +
+        (upcoming.single ? '' : ', could slip to ' + q('p90'))) + '.',
+      fig: q('p50')});
   }
   if(widest && (widest.p90 - widest.p50) >= 7)
-    parts.push({text: 'Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) +
-      ' between P50 and P90.', fig: wk(widest.p90 - widest.p50)});
+    parts.push({text: 'Widest whisker: ' + widest.label + ' — ' + duration(widest.p90 - widest.p50) +
+      ' between P50 and P90.', fig: duration(widest.p90 - widest.p50)});
   return parts;
 }
 function restBits(model, today){
@@ -63,20 +92,13 @@ const pc = p => {
   return r + '%';
 };
 const approx = s => /^[<>]/.test(s) ? s : '\u2248 ' + s;     // never "≈ <1%"
-/* signed, and never "0 weeks" */
-const span = d => {
-  const a = Math.abs(d), r = Math.round(a);
-  return a < 7 ? r + (r === 1 ? ' day' : ' days') : wk(a);
-};
-
 /* the merge-bias verdict copy — full (plain-text readout, wraps) + short (in-chart). */
 function mergeCopy(mb){
   const pAll = pc(mb.pAll);
-  const tail = mb.excludedSingle ? ' \u00b7 ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
+  const tail = notCountedTail(mb.excludedSingle);
   // a fitted lane already past its P90 poisons pAll toward optimism — name it in the
   // prose forms (in the chart the stale whisker sits visibly left of the TODAY rule).
-  const staleTail = mb.stale ? ' \u00b7 ' + mb.stale + (mb.stale > 1
-    ? ' lanes past their P90 — re-estimate them' : ' lane past its P90 — re-estimate it') : '';
+  const staleTail = staleTailOf(mb.stale);
 
   /* measured against an EXTERNAL fixed date. The internal form's "even the last is
      a coin flip" reasoning is gone here (it held only because byDate was a lane's
@@ -88,44 +110,45 @@ function mergeCopy(mb){
     const near80 = Math.round(mb.pAll * 100) === 80;
     const pStr = near80 && gap > 0 ? 'just under 80%'
       : near80 && gap < 0 ? 'just over 80%' : approx(pAll);
-    const conf = gap > 0 ? '80% joint confidence needs ' + fmtDay(mb.d80) + ', ' + span(gap) + ' past it'
-      : gap < 0 ? '80% joint confidence lands ' + fmtDay(mb.d80) + ', ' + span(gap) + ' inside it'
+    const conf = gap > 0 ? '80% joint confidence needs ' + fmtDay(mb.d80) + ', ' + duration(gap) + ' past it'
+      : gap < 0 ? '80% joint confidence lands ' + fmtDay(mb.d80) + ', ' + duration(gap) + ' inside it'
       : '80% joint confidence lands on the deadline day';
     // disclose the editorial choice: [fixed] certifies the DATE, not that it binds
     const multi = d.count > 1 ? ' \u00b7 measured against the latest of ' + d.count + ' fixed dates' : '';
-    const full = 'Fixed date: ' + d.label + ', ' + fmtDay(d.day) + '. All ' + mb.rangedLanes +
+    const full = 'Fixed date: ' + d.label + ', ' + fmtQuoted(d.day, d.bareMonth) + '. All ' + mb.rangedLanes +
       ' ranged lanes clear it together ' + pStr + ' — ' + conf +
       '. A planning estimate: correlated lanes beat it, fat late tails undercut it.' +
       tail + staleTail + multi;
     /* short is the in-chart form. It used to clip the label at 30 chars because the
        row was ONE non-wrapping <text>; the Swiss 6b verdict block wraps, so the whole
        label survives \u2014 "Ofgem determination on capacit\u2026" at 24px was the worse bug. */
-    const shortConf = gap > 0 ? '80% needs ' + fmtDay(mb.d80) + ' (' + span(gap) + ' past it)'
-      : gap < 0 ? '80% lands ' + fmtDay(mb.d80) + ' (' + span(gap) + ' inside it)'
+    const shortConf = gap > 0 ? '80% needs ' + fmtDay(mb.d80) + ' (' + duration(gap) + ' past it)'
+      : gap < 0 ? '80% lands ' + fmtDay(mb.d80) + ' (' + duration(gap) + ' inside it)'
       : '80% lands on the deadline day';
-    const short = 'Fixed: ' + d.label + ' ' + fmtDay(d.day) + ' — ' + mb.rangedLanes +
-      ' ranged lanes clear it ' + pStr + '; ' + shortConf + '.';
-    return {full, short};
+    const pre = 'Fixed: ' + d.label + ' ' + fmtQuoted(d.day, d.bareMonth) + ' — ' + mb.rangedLanes + ' ranged lanes clear it ';
+    const post = '; ' + shortConf + '.';
+    return {full, short: pre + pStr + post, fig: uniqueFig(pre, pStr, post, pAll)};
   }
 
   /* the external commitment died with work still open — nothing else in the
      readout would say so (the ink diamond just sits left of the TODAY rule) */
   const passedTail = mb.passed
-    ? ' \u00b7 fixed ' + mb.passed.label + ' passed ' + span(mb.passed.agoDays) + ' ago' : '';
-  const laterStr = span(mb.d80 - mb.byDate);
-  const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtDay(mb.byDate) +
+    ? ' \u00b7 fixed ' + mb.passed.label + ' passed ' + duration(mb.passed.agoDays) + ' ago' : '';
+  const laterStr = duration(mb.d80 - mb.byDate);
+  const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtQuoted(mb.byDate, mb.byMonth) +
     ' — even the last is a coin flip, so together ' + pAll + '. For 80% joint confidence, promise ' +
     fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail + passedTail;
   // short is the in-chart form: "all N ranged lanes" (the chart may show more, single-date
   // ones aren't in the joint); drop the ≈ when the value is already an inequality.
-  const short = 'Merge risk: all ' + mb.rangedLanes + ' ranged lanes by ' + fmtDay(mb.byDate) + ' ' +
-    approx(pAll) + ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
-  return {full, short};
+  const pre = 'Merge risk: all ' + mb.rangedLanes + ' ranged lanes by ' + fmtQuoted(mb.byDate, mb.byMonth) + ' ';
+  const shown = approx(pAll), post = ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
+  return {full, short: pre + shown + post, fig: uniqueFig(pre, shown, post, pAll)};
 }
 
 /* plain-text merge/operational readout — no app consumer since the poster
    retired; kept as the tests' pure probe of mergeCopy/restBits copy */
 export function timelineReadout(model, today){
+  today = effToday(model, today);
   const mb = mergeBias(model, today);
   return [mb ? mergeCopy(mb).full : null, restBits(model, today)].filter(Boolean).join('  ');
 }
@@ -136,6 +159,7 @@ export function timelineReadout(model, today){
    when there is a merge to compute; otherwise the first operational bit does.
    Pure — both the wide board and the narrow relayout render from this. */
 export function timelineVerdict(model, today){
+  today = effToday(model, today);
   const mb = mergeBias(model, today);
   const parts = restParts(model, today);
   const rest = parts.map(p => p.text).join('  ');
@@ -167,7 +191,7 @@ export function timelineVerdict(model, today){
     if(mb) clockParts.unshift(mergeCopy(mb).short);
     return auth({line: receipt.text, fig: fmtDay(clock.day), rest: clockParts.join('  ')});
   }
-  if(mb) return auth({line: mergeCopy(mb).short, fig: pc(mb.pAll), rest});
+  if(mb){ const c = mergeCopy(mb); return auth({line: c.short, fig: c.fig, rest}); }
   if(!parts.length) return auth({line: '', fig: '', rest: ''});
   return auth({line: parts[0].text, fig: parts[0].fig, rest: parts.slice(1).map(p => p.text).join('  ')});
 }
@@ -179,7 +203,11 @@ export function render(model, ctx, diff = null, {edit = false, intent = null} = 
   return renderField(model, ctx, diff, {edit, intent, verdict: timelineVerdict(model, today)});
 }
 
+/* a table cell: a "|" would split the row, a newline would end it */
+const cell = v => String(v ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
 export function toMarkdown(model, diff, url, today){
+  today = effToday(model, today);
   const lines = ['**' + (model.title || 'Milestone timeline') + '**', ''];
   /* the resolved verdict travels with the doc — timeline was the one verdict
      tool whose copy-for-doc carried no verdict at all, authored or computed */
@@ -190,16 +218,16 @@ export function toMarkdown(model, diff, url, today){
   lines.push('|---|---|---|---|---|---|---|');
   for(const it of model.items){
     const clock = decisionLead(it, today);
-    lines.push('| ' + it.label + ' | ' + (it.lane || '—') + ' | ' + (it.started != null ? fmtDay(it.started) : '—') + ' | ' + fmtDay(it.p50) + ' | ' +
+    lines.push('| ' + cell(it.label) + ' | ' + cell(it.lane || '—') + ' | ' + (it.started != null ? fmtDay(it.started) : '—') + ' | ' + fmtItemDay(it, 'p50') + ' | ' +
       (it.single ? (it.status === 'done' ? 'done' : it.status === 'fixed' ? 'fixed' : 'no range')
-        : fmtDay(it.p90)) + ' | ' +
+        : fmtItemDay(it, 'p90')) + ' | ' +
       ((it.status || '') + (clock ? ' · decide by ' + fmtDay(clock.day) + ' (' + leadDuration(clock.leadDays) + ' lead)' : '')) + ' | ' +
-      (it.note || '') + ' |');
+      cell(it.note) + ' |');
   }
   if(diff && diff.slips.length){
     lines.push('');
     for(const sl of diff.slips)
-      lines.push('- ' + sl.label + ' ' + (sl.days > 0 ? 'slipped +' : 'pulled in −') + wk(sl.days));
+      lines.push('- ' + cell(sl.label) + ' ' + (sl.days > 0 ? 'slipped +' : 'pulled in −') + duration(sl.days));
   }
   lines.push('');
   const provenance = typeof url === 'string' && url
