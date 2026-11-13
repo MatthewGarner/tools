@@ -114,12 +114,12 @@
 @media (min-width:540px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;max-height:none;min-height:407px;align-items:flex-start}}
 /* desktop edit targets: the press reaches a number or label from 12px away (assets/edit-in-place.js hitSlop); the pointer says so */
 .preview.edit-near{cursor:pointer}
-/* Landing without a shift, whatever the document is: the placeholder cannot know how tall the first render will be (a large saved
-   link is several times the example) and neither can the line of verdict above it, so the artefact's pane and everything after it
-   are not painted until that render has replaced the placeholder (and the syntax reference under the editor, which the loaded document pushes down). Hidden elements are not counted as shifting, and they appear
-   in place once the artefact has taken its height.
-   The release animation is the fallback should the first render never come (it is a plain timer, not a script). */
+/* Landing without a shift, whatever the document is: nothing is painted until the first render has replaced the placeholder. Neither
+   the artefact's height (a large saved link is several times the example), nor the line of verdict above it, nor whether the link
+   keeps the editor open (the rail collapses once the link is decoded, which is after a first paint can already have happened)
+   is known before that, and a hidden element cannot shift. Everything appears in place when the artefact has taken its height.
+   The release animation is the fallback should the first render never come (a plain timer, not a script). */
 @keyframes boot-release{to{visibility:visible}}
-body:has(.stage .preview .placeholder[data-boot]) :is(.stage .preview, .stage .preview ~ *, .rail #cmhost ~ *, .workspace ~ *, main ~ *){
+body:has(.stage .preview .placeholder[data-boot]) :is(.workspace > *, .workspace ~ *, main ~ *){
   visibility:hidden; animation:boot-release 1ms linear 2s forwards;
 }

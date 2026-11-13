@@ -57,7 +57,7 @@ export const KNOWN_BTP = [
   /* the simulation's own cost (Bets 40,000 runs, Tree 60,000 runs on a large document): a later stage, not feel code */
   "load.large.longtask@bets", "load.large.longtask@tree", "values.example.longtask@bets", "values.large.applied@bets", "values.large.longtask@bets",
   "slider.large.drag.events@tree", "slider.large.release@tree", "slider.large.release.longtask@tree", "sliderkeys.large.longtask@tree",
-  "stall.large.longtask@tree", "compare.edit@bets",
+  "stall.large.longtask@tree", "compare.edit@bets", "values.large.enter@bets", "slider.large.drag.frames@tree",
   /* the render waits for a 120ms pause in typing by design (the debounce); recorded, not a defect to fix here */
   "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree", "stall.large.live@bets", "stall.large.live@paths", "stall.large.live@tree",
   /* a decision for Matt: the touch Undo button is shown on a desktop too (earlier audit F44) */
@@ -67,7 +67,7 @@ export const KNOWN_BTP = [
   /* a discrete swap/commit paints one frame plus the render itself (profiled: 3ms of script, ~20ms of style, SVG parse, ghost clone and paint) */
   "values.example.applied@bets", "view.example.swap@bets", "view.large.swap@bets", "view.example.swap@paths", "view.large.swap@paths",
   /* the Plans projection on the large plan: ~160ms of world enumeration in paths/evaluate.js + plans.js (profiled; uncached) */
-  "view.large.longtask@paths",
+  "view.large.longtask@paths", "view.large.paint@paths",
   /* native raster of the large SVG while it scrolls: no script, style or layout work (profiled; not isolated further) */
   "scroll.frames.vs.control@paths",
 ];

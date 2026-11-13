@@ -1568,7 +1568,7 @@ function selectedTreeOpener(key = treeInspectorReturnKey){
 
 function editDecisionSource(decision, {closeReceipt = false, closeInspector = false} = {}){
   if(!decision || !ws) return;
-  /* the editor scrolls its own line into view; the page behind it stays where the reader had it */
+  /* the page behind the editor stays where the reader had it */
   const y = scrollY, hold = () => { if(Math.abs(scrollY - y) > 1) scrollTo(scrollX, y); };
   if(closeReceipt){
     overviewReceiptSheetOpen = false;
@@ -1589,12 +1589,16 @@ function editDecisionSource(decision, {closeReceipt = false, closeInspector = fa
   requestAnimationFrame(() => {
     const lineNumber = Math.min(editor.view.state.doc.lines, Math.max(1, Number(decision.srcLine) + 1));
     const line = editor.view.state.doc.line(lineNumber);
-    editor.view.dispatch({selection:{anchor:line.from}, scrollIntoView:true});
+    /* no scrollIntoView: the editor sits in the page's flow, so CodeMirror would scroll the page. The caret is on the decision's
+       line; the page stays where the reader had it (a line far down a long source is reached by scrolling, as for any editor). */
+    editor.view.dispatch({selection:{anchor:line.from}});
     hold();
     /* Opening the rail changes its width over a short CSS transition. Defer the
        focus until the reveal is usable: otherwise WebKit can keep focus on the
        vanished review control even though the source line was selected. */
-    setTimeout(() => { editor.view.contentDOM.focus({preventScroll:true}); hold(); }, 180);
+    setTimeout(() => {
+editor.view.contentDOM.focus({preventScroll:true}); hold();
+    }, 180);
   });
   hold();
 }
