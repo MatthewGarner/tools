@@ -97,14 +97,19 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       return list[snap.index] || list[snap.index - 1] || editsOf('additem')[0] || null;
     }
     const same = editsOf(snap.kind);
+    let found = null;
     if(snap.key){
       const byKey = same.filter(e => keyOf(e) === snap.key);
-      if(byKey.length === 1) return byKey[0];
+      if(byKey.length === 1) found = byKey[0];
     }
-    const atLine = same.filter(e => e.dataset.line === snap.line);
-    if(atLine.length === 1) return atLine[0];
+    if(!found){
+      const atLine = same.filter(e => e.dataset.line === snap.line);
+      if(atLine.length === 1) found = atLine[0];
+    }
+    /* a figure that is not a Tab stop cannot take focus: the row's own menu button identifies the same item */
+    if(found && found.hasAttribute('tabindex')) return found;
     const card = editsOf('cardmenu').filter(e => e.dataset.line === snap.line);
-    return card.length === 1 ? card[0] : null;
+    return card.length === 1 ? card[0] : found;
   }
   function restoreFocus(snap, removed){
     if(!snap) return;

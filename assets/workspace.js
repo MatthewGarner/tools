@@ -11,7 +11,7 @@ export function setActionsEnabled(on){
 
 /* Model history must be reachable from the artefact on every input device.
    Keep the existing class/API for callers; source fields retain native/CM undo. */
-export function mountTouchUndo(actionsEl, editor){
+export function mountTouchUndo(actionsEl, editor, {onUndo} = {}){
   if(!actionsEl) return null;
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'btn touch-undo'; b.textContent = '↶ Undo';
@@ -21,6 +21,7 @@ export function mountTouchUndo(actionsEl, editor){
   function undo(){
     const changed = editor.undo();
     status.textContent = changed ? 'Last model edit undone.' : 'No model edit to undo.';
+    if(changed && onUndo) onUndo();   // an undo is a discrete edit: the tool paints it at once
     return changed;
   }
   b.addEventListener('click', undo);
