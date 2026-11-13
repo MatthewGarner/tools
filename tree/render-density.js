@@ -214,7 +214,7 @@ function presentation(model,results,ctx,C,layout,verdictParts){
   const comparison=decisionComparisonProjection(model,results),all=comparison.options;
   const sectionY=h.h+18,flip=comparison.closestFlip,seam=comparison.modelDisagreement;
   const start=h.h+((flip||seam)?88:68),footerY=1014,gap=12;
-  const desiredCols=all.length<=1?1:all.length<=10?2:3;
+  const desiredCols=all.length<=2?1:all.length<=10?2:3;   // one or two options: full-width cards, so the plate is used
   const comparisonWidth=(W-144-(desiredCols-1)*24)/desiredCols;
   const hasTwoLineTitle=all.some(option=>wrapText(option.label,'650 18px '+SANS,
     comparisonWidth-(option.recommended?170:62),ctx.measure).length>1);
@@ -228,7 +228,15 @@ function presentation(model,results,ctx,C,layout,verdictParts){
   }
   const cols=Math.min(desiredCols,Math.max(1,shown.length)),rows=Math.max(1,Math.ceil(shown.length/cols));
   const colGap=24,colW=(W-144-(cols-1)*colGap)/cols;
-  const rowH=Math.max(minCardH,Math.min(148,Math.floor((footerY-start-(rows-1)*gap)/rows)));
+  /* the cards use the plate: a few options are drawn larger (type and spacing scale together by K) instead of leaving the lower half empty.
+     K is bounded by the room for the widest metric label in a column and by the height each row can take. */
+  const availRow=Math.floor((footerY-start-(rows-1)*gap)/rows);
+  let K=Math.min(2,(colW*.31-16)/165);
+  const contentH=k=>148*k;
+  while(K>1.001&&contentH(K)>availRow) K=Math.max(1,K-.05);
+  K=Math.max(1,Math.round(K*100)/100);
+  const rowH=K>1?Math.min(availRow,Math.round(contentH(K))):Math.max(minCardH,Math.min(148,availRow));
+  const blockH=rows*rowH+(rows-1)*gap,top=start+(K>1?Math.max(0,Math.floor((footerY-start-blockH)*.4)):0);
   const out=['<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family=\''+SANS+'\'><rect width="1920" height="1080" fill="'+C.bg+'"/>',h.svg,
     '<text x="72" y="'+sectionY+'" font-size="14" font-weight="650" letter-spacing="2" fill="'+C.muted+'">DECISION COMPARISON</text>'];
   if(all.length<2){
@@ -267,30 +275,31 @@ function presentation(model,results,ctx,C,layout,verdictParts){
   }
   let titlesAbbreviated=false;
   shown.forEach((option,i)=>{
-    const col=i%cols,row=Math.floor(i/cols),x=72+col*(colW+colGap),y=start+row*(rowH+gap);
-    const titleFit=clippedLines(option.label,'650 18px '+SANS,colW-(option.recommended?170:62),ctx.measure,2);
+    const col=i%cols,row=Math.floor(i/cols),x=72+col*(colW+colGap),y=top+row*(rowH+gap);
+    const titleFit=clippedLines(option.label,'650 '+(18*K)+'px '+SANS,colW-(option.recommended?170*K:62*K),ctx.measure,2);
     const title=titleFit.lines; titlesAbbreviated ||= titleFit.clipped;
     const st=option.stats,mean=st?v.money(st.mean):'—',interval=st?v.pair(st.p10,st.p90):'—';
     const win=option.recommended?'REFERENCE':option.winRateVsRecommendation===null?'—':sharePct(option.winRateVsRecommendation,option.winRateCertain);
     const chance=option.chanceInputs.length
       ? option.chanceInputs[0].label+' · '+option.chanceInputs[0].authored+(option.chanceInputs.length>1?' · +'+(option.chanceInputs.length-1)+' more':'')
       : 'None';
-    const chanceLines=wrapText(chance,'12px '+SANS,colW-32,ctx.measure);
+    const chanceLines=wrapText(chance,(12*K)+'px '+SANS,colW-32*K,ctx.measure);
     const chanceLine=(chanceLines[0]||'')+(chanceLines.length>1?'…':'');
+    const f=n=>n2(n*K);
     out.push('<g data-comparison-option="'+option.node.srcLine+'"><rect x="'+x+'" y="'+y+'" width="'+colW+'" height="'+rowH+'" fill="'+C.card+'" stroke="'+(option.recommended?C.accent:C.border)+'" stroke-width="'+(option.recommended?2:1)+'"/>',
       '<line x1="'+x+'" y1="'+y+'" x2="'+x+'" y2="'+(y+rowH)+'" stroke="'+(option.recommended?C.accent:C.muted)+'" stroke-width="4"/>',
-      '<text x="'+(x+16)+'" y="'+(y+20)+'" font-size="10" font-weight="650" letter-spacing="1.2" fill="'+C.muted+'">OPTION '+String(model.root.children.indexOf(option.node)+1).padStart(2,'0')+'</text>');
-    if(option.recommended) out.push('<text x="'+(x+colW-16)+'" y="'+(y+20)+'" text-anchor="end" font-size="10" font-weight="700" letter-spacing="1.1" fill="'+C.accent+'">RECOMMENDED</text>');
-    title.forEach((line,j)=>out.push('<text x="'+(x+16)+'" y="'+(y+43+j*20)+'" font-size="18" font-weight="650" fill="'+C.ink+'">'+e(line)+'</text>'));
-    const metricsY=y+(title.length>1?78:61),m1=x+16,m2=x+colW*.34,m3=x+colW*.69;
-    out.push('<text x="'+m1+'" y="'+metricsY+'" font-size="9" font-weight="650" letter-spacing="1" fill="'+C.muted+'">MEAN EV</text>',
-      '<text x="'+m2+'" y="'+metricsY+'" font-size="9" font-weight="650" letter-spacing="1" fill="'+C.muted+'">P10–P90</text>',
-      '<text x="'+m3+'" y="'+metricsY+'" font-size="9" font-weight="650" letter-spacing=".7" fill="'+C.muted+'">WIN RATE VS RECOMMENDATION</text>',
-      '<text x="'+m1+'" y="'+(metricsY+17)+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+e(mean)+'</text>',
-      '<text x="'+m2+'" y="'+(metricsY+17)+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+e(interval)+'</text>',
-      '<text x="'+m3+'" y="'+(metricsY+17)+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+e(win)+'</text>',
-      '<text x="'+(x+16)+'" y="'+(y+rowH-29)+'" font-size="9" font-weight="650" letter-spacing="1" fill="'+C.muted+'">CHANCE INPUTS</text>',
-      '<text x="'+(x+16)+'" y="'+(y+rowH-12)+'" font-size="12" fill="'+C.muted+'">'+e(chanceLine)+'</text></g>');
+      '<text x="'+(x+16*K)+'" y="'+(y+20*K)+'" font-size="'+f(10)+'" font-weight="650" letter-spacing="'+f(1.2)+'" fill="'+C.muted+'">OPTION '+String(model.root.children.indexOf(option.node)+1).padStart(2,'0')+'</text>');
+    if(option.recommended) out.push('<text x="'+(x+colW-16*K)+'" y="'+(y+20*K)+'" text-anchor="end" font-size="'+f(10)+'" font-weight="700" letter-spacing="'+f(1.1)+'" fill="'+C.accent+'">RECOMMENDED</text>');
+    title.forEach((line,j)=>out.push('<text x="'+(x+16*K)+'" y="'+n2(y+(43+j*20)*K)+'" font-size="'+f(18)+'" font-weight="650" fill="'+C.ink+'">'+e(line)+'</text>'));
+    const metricsY=y+(title.length>1?78:61)*K,m1=x+16*K,m2=x+colW*.34,m3=x+colW*.69;
+    out.push('<text x="'+m1+'" y="'+metricsY+'" font-size="'+f(9)+'" font-weight="650" letter-spacing="'+f(1)+'" fill="'+C.muted+'">MEAN EV</text>',
+      '<text x="'+m2+'" y="'+metricsY+'" font-size="'+f(9)+'" font-weight="650" letter-spacing="'+f(1)+'" fill="'+C.muted+'">P10–P90</text>',
+      '<text x="'+m3+'" y="'+metricsY+'" font-size="'+f(9)+'" font-weight="650" letter-spacing="'+f(.7)+'" fill="'+C.muted+'">WIN RATE VS RECOMMENDATION</text>',
+      '<text x="'+m1+'" y="'+(metricsY+17*K)+'" font-size="'+f(14)+'" font-weight="650" fill="'+C.ink+'">'+e(mean)+'</text>',
+      '<text x="'+m2+'" y="'+(metricsY+17*K)+'" font-size="'+f(14)+'" font-weight="650" fill="'+C.ink+'">'+e(interval)+'</text>',
+      '<text x="'+m3+'" y="'+(metricsY+17*K)+'" font-size="'+f(14)+'" font-weight="650" fill="'+C.ink+'">'+e(win)+'</text>',
+      '<text x="'+(x+16*K)+'" y="'+(y+rowH-29*K)+'" font-size="'+f(9)+'" font-weight="650" letter-spacing="'+f(1)+'" fill="'+C.muted+'">CHANCE INPUTS</text>',
+      '<text x="'+(x+16*K)+'" y="'+(y+rowH-12*K)+'" font-size="'+f(12)+'" fill="'+C.muted+'">'+e(chanceLine)+'</text></g>');
   });
   const complete=shown.length===all.length,provenancePartial=shown.some(option=>option.chanceInputs.length>1);
   const foot=(complete?'COMPLETE':'PARTIAL')+' ROOT COMPARISON · '+shown.length+' OF '+all.length+' OPTIONS'+(complete?'':' (+'+(all.length-shown.length)+' more)')+

@@ -348,7 +348,7 @@ test('long authored verdict stays bounded and declares its slide truncation', ()
 });
 
 test('long option titles are visibly abbreviated and cards preserve metric/provenance separation', () => {
-  const long='An exceptionally long option title whose important distinguishing suffix is ALPHA '.repeat(5);
+  const long='An exceptionally long option title whose important distinguishing suffix is ALPHA '.repeat(12);
   const m=parse('Root\n  '+long+': 10\n  Brief: 5'),slide=render(m,evaluate(m),ctx({intent:'presentation'}));
   assert.ok(slide.includes('…'));
   assert.ok(slide.includes('OPTION TITLES ABBREVIATED'));

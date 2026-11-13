@@ -228,8 +228,9 @@ export async function editSource(env){
 
 export const large = () => pathsLarge();
 
-/* The decision margin never sits on the artefact: with a question selected on desktop, no part of the drawing is under the margin
-   (a rail beside it, or the margin above it), and the drawing is not wider than its pane. */
+/* The decision margin never sits on the artefact: with a question selected on desktop, no part of the drawing is under the margin,
+   and the drawing is not wider than its pane. The Brief is laid out for the width beside the rail, so at laptop widths (1280, 1600)
+   the Brief's margin is a rail with nothing under it, never moved above the drawing. */
 export async function margin(env){
   const {check, note} = env.R;
   for(const width of [1280, 1600]){
@@ -254,6 +255,8 @@ export async function margin(env){
     note('margin.detail', w, 'drawing vs margin per view', res);
     const ok = res.filter(r => !r.none);
     check('margin.clear', w, 'nothing in the drawing is under the decision margin', ok.map(r => r.view + ':' + r.layout + (r.overlap ? ' OVERLAP' : '')).join(' '), ok.every(r => !r.overlap), 'no overlap in any view');
+    const brief = res.find(r => r.view === 'brief');
+    check('margin.rail', w, 'the Brief keeps the margin as a rail beside the drawing', brief ? brief.layout + ' receipt:' + brief.receipt + ' svgW:' + brief.svgW : 'no brief', !!brief && brief.layout === 'rail' && brief.receipt && !brief.overlap && brief.overflow <= 1, 'rail, open, the drawing inside its pane');
     check('margin.fits', w, 'the drawing fits the pane that remains', ok.map(r => r.view + ':' + r.overflow).join(' '), ok.every(r => r.overflow <= 1), 'not wider than its pane');
     await ctx.close();
   }

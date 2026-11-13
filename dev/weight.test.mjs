@@ -547,7 +547,7 @@ const PAGES = {
      and stable Tree return handling. These stay eager with the existing
      CodeMirror/evaluator graph so author handoff works offline without a
      second, lossy review model. Actual 981.1k; ~8.9k headroom. */
-  'paths/index.html': 1_082_400 /* +1.6k 2026-11-13 export fixes: print, face loading and the Copy slide row on the shared export modules (actual over by 42) */ /* +1.9k 2026-11-13 export fixes: print, face loading and the Copy slide row on the shared export modules (actual over by 309) */ /* +75.3k 2026-11-13 export fixes: print, face loading and the Copy slide row on the shared export modules (actual over by 73736) */,
+  'paths/index.html': 1_084_200 /* +1.8k 2026-11-13 the fitted Brief (briefFit, columns scaled to the width beside the margin) */ /* +1.6k 2026-11-13 export fixes: print, face loading and the Copy slide row on the shared export modules (actual over by 42) */ /* +1.9k 2026-11-13 export fixes: print, face loading and the Copy slide row on the shared export modules (actual over by 309) */ /* +75.3k 2026-11-13 export fixes: print, face loading and the Copy slide row on the shared export modules (actual over by 73736) */,
   /* New Instrument 17 (2026-08-13): Proxy Hunt is a standalone parser →
      projection → SVG surface. The full graph includes CodeMirror, renderer,
      URL state, full/scoped exports and the common workspace modules; no runtime

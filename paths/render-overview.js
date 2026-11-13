@@ -6,14 +6,33 @@ import {line, rect} from '../assets/svg-shapes.js';
 import {SANS, SERIF, useFace} from './face.js';
 import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
-const PAD = 36;
+const PAGE_PAD = 36;
+const PAD = PAGE_PAD;
 const NARROW_PAD = 14;
 const PERIOD_W = 260;
-const LANE_W = 150;
+const LANE_COLUMN = 150;
 /* A period column is authored at 260px and remains meaningfully readable down
    to roughly 240px. The shared Fit control respects this renderer declaration
    and pans instead of silently reducing the roadmap beyond that point. */
 const MIN_READABLE_SCALE = 0.925;
+
+/* The live Brief beside the decision margin is laid out for the width that is left (ctx.fit), at 1:1, rather than drawn at the wide
+   size and covered. The columns narrow: gutter 36 -> 24, lane 150 -> 120, period 260 -> down to FIT_MIN_PERIOD (a title still wraps
+   to two or three lines at 12px). Type sizes are the wide drawing's, unchanged. Exports never pass `fit`: they keep the wide drawing. */
+const FIT_PAD = 24;
+const FIT_LANE_W = 120;
+export const FIT_MIN_PERIOD = 200;
+
+export function briefMinWidth(periodCount){
+  return FIT_PAD * 2 + FIT_LANE_W + Math.max(1, periodCount | 0) * FIT_MIN_PERIOD;
+}
+
+export function briefFit(available, periodCount){
+  const n = Math.max(1, periodCount | 0);
+  const width = Math.max(Math.floor(Number(available) || 0), briefMinWidth(n));
+  const periodW = Math.floor((width - FIT_PAD * 2 - FIT_LANE_W) / n);
+  return {pad:FIT_PAD, laneW:FIT_LANE_W, periodW, width, minWidth:briefMinWidth(n)};
+}
 
 const r2 = value => (Math.round(Number(value) * 100) / 100).toString();
 
@@ -70,8 +89,8 @@ function rootRole(ctx){
     : 'role="img" aria-labelledby="paths-overview-name paths-overview-description"';
 }
 
-function header(overview, width, C, measure, narrow = false){
-  const pad = narrow ? NARROW_PAD : PAD;
+function header(overview, width, C, measure, narrow = false, padW = null){
+  const pad = padW ?? (narrow ? NARROW_PAD : PAD);
   const size = narrow ? 22 : 25;
   const font = `700 ${size}px ${SERIF}`;
   const titles = wrapped(titleOf(overview), width - pad * 2 - (narrow ? 0 : 160), measure, font);
@@ -222,10 +241,11 @@ function receipt(decision, impact, x, y, width, C, measure){
 }
 
 function decisionStage(overview, selected, x, y, width, C, measure, ctx){
-  const gap = 18;
-  const showReceipt = ctx?.showReceipt !== false;
-  const attentionW = Math.min(410, showReceipt ? 410 : Math.max(410, width * .58));
-  const groupsW = showReceipt ? 270 : Math.max(270, width - attentionW - gap);
+  const gap = ctx?.fit ? 16 : 18;
+  const showReceipt = ctx?.showReceipt !== false && !ctx?.fit;   // the fitted live Brief has the margin beside it
+  /* fitted: the two columns share what is left (about 56 / 44), each wraps its own text */
+  const attentionW = ctx?.fit ? Math.round((width - gap) * .56) : Math.min(410, showReceipt ? 410 : Math.max(410, width * .58));
+  const groupsW = ctx?.fit ? width - gap - attentionW : showReceipt ? 270 : Math.max(270, width - attentionW - gap);
   const receiptW = selected && showReceipt ? Math.max(300, width - attentionW - groupsW - gap * 2) : 0;
   let attentionY = y + 28, attentionSvg = '<g data-kind="overview-attention">' +
     txt(x, y + 11, 'DECISIONS NEEDING ATTENTION', 9, C.muted, {weight:700, tracking:0.9});
@@ -274,9 +294,10 @@ function cellMap(overview){
 }
 
 /* `available` is the content width: the period columns stretch to fill it, so the grid is as wide as the header above it */
-function roadmapGrid(overview, x, y, C, measure, selectedKey, available = 0){
+function roadmapGrid(overview, x, y, C, measure, selectedKey, available = 0, geo = {}){
   const periods = overview.periods || [], lanes = overview.lanes || [];
-  const PW = periods.length ? Math.max(PERIOD_W, Math.floor((available - LANE_W) / periods.length)) : PERIOD_W;
+  const LANE_W = geo.laneW || LANE_COLUMN, minPeriod = geo.minPeriod || PERIOD_W;
+  const PW = periods.length ? Math.max(minPeriod, Math.floor((available - LANE_W) / periods.length)) : minPeriod;
   const width = LANE_W + periods.length * PW;
   if(!periods.length || !lanes.length){
     return {svg:'<g data-kind="roadmap-grid-empty">' +
@@ -359,9 +380,11 @@ export function renderOverview(overview, ctx = {}){
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value).length * 7;
   const C = palette(ctx.colors || {});
   const selected = selectedDecision(overview, ctx);
-  const gridNatural = LANE_W + (overview.periods?.length || 0) * PERIOD_W;
-  const width = Math.max(1100, Math.ceil(Number(ctx.width) || 1160), PAD * 2 + gridNatural);
-  const head = header(overview, width, C, measure);
+  const fitted = ctx.fit ? briefFit(ctx.width, overview.periods?.length || 0) : null;
+  const PAD = fitted ? fitted.pad : PAGE_PAD;
+  const gridNatural = LANE_COLUMN + (overview.periods?.length || 0) * PERIOD_W;
+  const width = fitted ? fitted.width : Math.max(1100, Math.ceil(Number(ctx.width) || 1160), PAD * 2 + gridNatural);
+  const head = header(overview, width, C, measure, false, fitted ? PAD : null);
   let y = head.height;
   const readout = verdictBlock(overview, PAD, y, Math.min(900, width - PAD * 2), C, measure);
   y += readout.height;
@@ -371,7 +394,8 @@ export function renderOverview(overview, ctx = {}){
   y += health.height;
   const preface = gridPreface(PAD, y, Math.min(720, width - PAD * 2), C, measure);
   y += preface.height;
-  const grid = roadmapGrid(overview, PAD, y, C, measure, selected?.key || null, width - PAD * 2);
+  const grid = roadmapGrid(overview, PAD, y, C, measure, selected?.key || null, width - PAD * 2,
+    fitted ? {laneW:fitted.laneW, minPeriod:fitted.periodW} : {});
   y += grid.height + PAD - (grid.height < 60 ? 12 : 0);   // an empty grid leaves no trailing band
   const height = Math.ceil(y);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +

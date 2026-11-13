@@ -478,7 +478,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
       bottomY += 20;
     }
     const key = makeKey(keyed, geo, measure, geo.keyX0, geo.keyX1, bottomY + 16);
-    parts.push(...drawKey(key, c));
+    parts.push(...drawKey(key, c, keyed.length === items.length));
     bottomY = key.y0 + key.height;
   }
   return {parts, bottomY};
@@ -502,10 +502,10 @@ function makeKey(chips, geo, measure, x0, x1, y0){
   return {x0, x1, y0, cols, colW, colGap, cells, height: 38 + tallest + 10};
 }
 
-function drawKey(K, c){
+function drawKey(K, c, all = false){
   const out = ['<rect data-quadrant-key="" x="' + r2(K.x0) + '" y="' + r2(K.y0) + '" width="' + r2(K.x1 - K.x0) + '" height="' + r2(K.height) +
     '" fill="' + c.card + '" stroke="' + c.border + '"/>'];
-  out.push(txt(K.x0 + 14, K.y0 + 24, 'KEY · BETS WITH A NUMBER', 10, c.accentInk, {weight: 700, tracking: '0.09em'}));
+  out.push(txt(K.x0 + 14, K.y0 + 24, (all ? 'KEY' : 'KEY · BETS WITH A NUMBER'), 10, c.accentInk, {weight: 700, tracking: '0.09em'}));
   for(const {row, col, y} of K.cells){
     const cx0 = K.x0 + 12 + col * (K.colW + K.colGap), ky = K.y0 + 38 + y;
     out.push('<line x1="' + r2(cx0) + '" y1="' + r2(ky) + '" x2="' + r2(cx0 + K.colW - 12) + '" y2="' + r2(ky) + '" stroke="' + c.border + '"/>');
