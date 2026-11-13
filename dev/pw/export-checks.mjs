@@ -528,7 +528,7 @@ export function checkGeometry(geo, svgString){
   const allText = geo.texts.map(t => normText(t.text));
   const rec = trunc.map(t => {
     const stem = normText(t.text).replace(/(…|\.\.\.)\s*$/, '').trim();
-    const found = allText.some(x => x !== normText(t.text) && x.startsWith(stem) && x.length > stem.length) || attrValues.some(v => v.startsWith(stem) && v.length > stem.length) || normText(geo.title || '').startsWith(stem) && normText(geo.title || '').length > stem.length;
+    const found = allText.some(x => x !== normText(t.text) && x.startsWith(stem) && x.length > stem.length) || attrValues.some(v => v.includes(stem) && v.length > stem.length) || normText(geo.title || '').startsWith(stem) && normText(geo.title || '').length > stem.length;
     return {text: t.text.slice(0, 60), recoverableInExport: found};
   });
   out.push({check: 'truncation', pass: null, values: {ellipsisTexts: trunc.length, recoverable: rec.filter(r => r.recoverableInExport).length, unrecoverable: rec.filter(r => !r.recoverableInExport).length, hits: rec.slice(0, 20)}, note: 'texts ending in an ellipsis; informational, fails only when the full text is nowhere in the export (see unrecoverable)', unrecoverableFail: rec.some(r => !r.recoverableInExport)});

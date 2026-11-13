@@ -307,7 +307,11 @@ provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({na
 /* Everything that leaves the page is drawn in the house face and carries it embedded; until the face has loaded there is nothing
    to export (the live picture does not wait: it uses the page's own font). */
 function nativeSvgString(){
-  return (hasBets(model) && sim && chapterFontsReady()) ? embedChapterFonts(activeRender('native')) : null;
+  if(!(hasBets(model) && sim && chapterFontsReady())) return null;
+  /* the first measure of a character the face lacks (an emoji, Hebrew) can answer from a fallback face that is not yet resolved:
+     draw once to settle it, so the same plan always gives the same bytes */
+  activeRender('native');
+  return embedChapterFonts(activeRender('native'));
 }
 function slideSvgString(){
   if(!hasBets(model) || !sim || !chapterFontsReady()) return null;

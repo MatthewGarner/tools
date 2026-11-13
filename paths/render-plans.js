@@ -4,6 +4,7 @@ import {esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
 import {SANS, SERIF, useFace} from './face.js';
+import {legibleMuted} from '../assets/artefact-parts.js';
 import {verdict} from './verdict.js';
 
 const PAD = 36;
@@ -25,15 +26,16 @@ function palette(colors){
   const surface = pick(bg, 'card', 'surface', 'panel', 'paper', 'bg');
   const border = pick(muted, 'line', 'border', 'rule', 'muted', 'ink');
   const accent = pick(ink, 'accent', 'brand', 'ink');
-  return {ink, muted, bg, surface, border, accent,
+  const L = color => legibleMuted(color, ink, bg, accent);   // coloured type must read on the tinted panels it sits on
+  return {ink, muted:L(muted), bg, surface, border, accent,
     brandText:pick(accent, 'brandText', 'accentInk', 'accent', 'brand', 'ink'),
-    included:pick(accent, 'yes', 'positive', 'success', 'accent', 'brand', 'ink'),
-    waiting:pick(accent, 'conditional', 'warning', 'accent', 'brand', 'ink'),
-    assumed:pick(accent, 'doing', 'status.doing', 'accent', 'brand', 'ink'),
-    done:pick(accent, 'status.done', 'done', 'success', 'accent', 'brand', 'ink'),
-    doing:pick(accent, 'status.doing', 'doing', 'accent', 'brand', 'ink'),
-    risk:pick(accent, 'status.risk', 'risk', 'warning', 'accent', 'brand', 'ink'),
-    blocked:pick(accent, 'status.blocked', 'blocked', 'danger', 'accent', 'brand', 'ink')};
+    included:L(pick(accent, 'yes', 'positive', 'success', 'accent', 'brand', 'ink')),
+    waiting:L(pick(accent, 'conditional', 'warning', 'accent', 'brand', 'ink')),
+    assumed:L(pick(accent, 'doing', 'status.doing', 'accent', 'brand', 'ink')),
+    done:L(pick(accent, 'status.done', 'done', 'success', 'accent', 'brand', 'ink')),
+    doing:L(pick(accent, 'status.doing', 'doing', 'accent', 'brand', 'ink')),
+    risk:L(pick(accent, 'status.risk', 'risk', 'warning', 'accent', 'brand', 'ink')),
+    blocked:L(pick(accent, 'status.blocked', 'blocked', 'danger', 'accent', 'brand', 'ink'))};
 }
 
 function safeMeasure(measure, value, font){
@@ -356,8 +358,8 @@ export function renderPlans(projection, ctx){
   const readout = data.readout ? svgVerdict({x:PAD, y, width:width - PAD * 2,
     line:readoutLine, fig:data.readout.fig, ink:C.ink, muted:C.muted,
     brandText:C.brandText, font:SANS, measure, size:22}) : {svg:'', height:0};
-  if(readout.svg){ content += '<g data-kind="artifact-verdict">' + readout.svg + '</g>'; y += readout.height + 24; }
-  const height = Math.ceil(y);
+  if(readout.svg){ content += '<g data-kind="artifact-verdict">' + readout.svg + '</g>'; y += readout.height + 4; }
+  const height = Math.ceil(y + (readout.svg ? 0 : -16));   // a house margin below the last ink, as above it
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" font-family="' + SANS + '" role="img" aria-labelledby="paths-plans-name paths-plans-description">' +

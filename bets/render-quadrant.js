@@ -157,14 +157,14 @@ export function placeLabels(items, {bounds, measure, nameSize, microSize, gap = 
     .sort((a, b) => (b.it.stake - a.it.stake) || (Math.abs(b.it.absEv) - Math.abs(a.it.absEv)) || (a.idx - b.idx));
 
   const placedBoxes = avoid.slice();
-  const bubbles = items.map(it => ({cx: it.cx, cy: it.cy, r: it.radius}));
+  const bubbles = items.map(it => ({cx: it.cx, cy: it.cy, r: it.radius + 5}));   // the no-kill ring reaches 4px out
   const out = new Array(items.length);
 
   for(const {it, idx} of order){
     const nameLines = it.nameLines || [it.name];
     const nameW = Math.max(...nameLines.map(line => measure(line, nameFont)));
     const microW = it.micro ? measure(it.micro, microFont) : 0;
-    const w = Math.max(nameW, microW) + 4;
+    const w = Math.max(nameW, microW) + 8;
     const nameBlockH = nameLines.length * (nameSize + 3);
     const lineH = it.micro ? (nameBlockH + microSize + 3) : (nameBlockH + 1);
     // scaled by line HEIGHT, not box width — a long name/microcopy string must
@@ -202,7 +202,7 @@ export function placeLabels(items, {bounds, measure, nameSize, microSize, gap = 
    real item set from an actual model without re-deriving the scale math. */
 export function layoutBubbles(P, sim, geo){
   const {plotX0, plotY0, plotX1, plotY1, dark, rMin, rMax, microSize} = geo;
-  const innerX0 = plotX0 + rMax, innerX1 = plotX1 - rMax;
+  const innerX0 = plotX0 + rMax + 5, innerX1 = plotX1 - rMax - 5;   // the no-kill ring (4px out) and strokes stay inside the plot
   const innerY0 = plotY0 + rMax, innerY1 = plotY1 - rMax;
   const sx = v => innerX0 + v / 100 * (innerX1 - innerX0);
   const sy = v => innerY1 - (v - P.elo) / ((P.ehi - P.elo) || 1) * (innerY1 - innerY0);
@@ -272,7 +272,7 @@ export function labelPlan(items, geo, measure, extraAvoid = []){
     whiskers.push({x: it.hx0, y: it.ty - 1.5, w: Math.max(3, it.hx1 - it.hx0), h: 3});
     whiskers.push({x: it.tx - 1.5, y: it.vy1, w: 3, h: Math.max(3, it.vy0 - it.vy1)});
   }
-  const bounds = {x0: Math.max(2, geo.plotX0 - (geo.padX || 0)), x1: geo.plotX1 + (geo.padX || 0),
+  const bounds = {x0: Math.max(2, geo.plotX0 - (geo.padX || 0)), x1: geo.plotX1,
     y0: Math.max(2, geo.plotY0 - (geo.padTop || 0)), y1: geo.plotY1};
   /* The zero rule is the plane's hinge. A label may lead toward it, but the type itself never sits on it. */
   const zeroY = geo.zeroY;
@@ -300,7 +300,7 @@ const chipBox = it => ({x: (it.chipX ?? it.cx) - CHIP.w / 2, y: (it.chipY ?? it.
 /* Number chips of bubbles that sit close together would print over one another. Each starts on its bubble and is pushed
    apart from any chip it overlaps, a little at a time, never further than `maxMove` from its own bubble and never out of the
    plot; a chip that moved is joined to its bubble by a short line. Deterministic: the same bets give the same places. */
-export function spreadChips(chips, {bounds, w = CHIP.w, h = CHIP.h, gap = 2, maxMove = 46, rounds = 120} = {}){
+export function spreadChips(chips, {bounds, w = CHIP.w, h = CHIP.h, gap = 2, maxMove = 90, rounds = 200} = {}){
   const spots = chips.map(c => ({x: c.cx, y: c.cy}));
   for(let round = 0; round < rounds; round++){
     let moved = false;
@@ -341,7 +341,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   const {plotX0, plotY0, plotX1, plotY1, dark, rMax, nameSize, microSize, tickSize,
     axisTitleSize, legendSize, unit} = geo;
   const {elo, ehi} = P;
-  const innerX0 = plotX0 + rMax, innerX1 = plotX1 - rMax;
+  const innerX0 = plotX0 + rMax + 5, innerX1 = plotX1 - rMax - 5;
   const innerY0 = plotY0 + rMax, innerY1 = plotY1 - rMax;
   const sx = v => innerX0 + v / 100 * (innerX1 - innerX0);
   const sy = v => innerY1 - (v - elo) / ((ehi - elo) || 1) * (innerY1 - innerY0);
@@ -424,12 +424,15 @@ function plotAndLegend(model, sim, c, measure, P, geo){
     if(p.micro) parts.push(txt(tx, p.box.y + p.nameLines.length * (nameSize + 3) + microSize,
       p.micro, microSize, c.muted, {anchor: p.anchor, halo: c.bg}));
   }
-  // numbers for the rest
+  // numbers for the rest: every leader first, then every chip, so no line is ever drawn over a number
   for(const it of chips){
     const bx = it.chipX ?? it.cx, by = it.chipY ?? it.cy;
     if(Math.hypot(bx - it.cx, by - it.cy) > 3)   // a chip that moved off its bubble is joined to it
       parts.push('<line x1="' + r2(it.cx) + '" y1="' + r2(it.cy) + '" x2="' + r2(bx) + '" y2="' + r2(by) +
         '" stroke="' + it.hue + '" stroke-width="1" stroke-opacity="0.7"/>');
+  }
+  for(const it of chips){
+    const bx = it.chipX ?? it.cx, by = it.chipY ?? it.cy;
     parts.push('<rect x="' + r2(bx - CHIP.w / 2) + '" y="' + r2(by - CHIP.h / 2) + '" width="' + CHIP.w + '" height="' + CHIP.h +
       '" fill="' + c.card + '" stroke="' + it.hue + '" stroke-width="1"/>');
     parts.push(txt(bx, by + 3, it.id, 7.5, c.ink, {weight: 700, mono: true, anchor: 'middle'}));

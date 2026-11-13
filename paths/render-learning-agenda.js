@@ -450,7 +450,7 @@ export function renderLearningAgendaReceipt(agenda, ctx = {}){
   const basisLines = wrapped(RESULT_BASIS, inner, measure, `600 9px ${SANS}`);
   const headerHeight = 34 + heading.height + 12 + introLines.length * 14 + 8 + basisLines.length * 13 + 18;
   const body = dossierBody(entry, pad, pad + headerHeight, inner, C, measure, false, true);
-  const total = pad + headerHeight + body.height + pad;
+  const total = pad + headerHeight + body.height + pad - 36;   // the dossier's own trailing inset is not ink
   const title = `${entry.question || nameOf(entry)} — selected decision receipt`;
   const description = `Scoped selected-decision receipt. Current state: ${entry.currentState?.sentence || 'State unavailable'}. ` +
     `Learning move: ${entry.learningMove || 'not authored'}. Evidence sufficient when: ${entry.evidenceStandard || 'not authored'}. ${RESULT_BASIS}`;

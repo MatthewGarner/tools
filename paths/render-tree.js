@@ -34,10 +34,10 @@ function palette(colors){
     brandText:pick(accent, 'brandText', 'accentInk', 'accent', 'brand', 'ink'),
     yes:pick(accent, 'yes', 'positive', 'success', 'accent', 'brand', 'ink'),
     no:pick(accent, 'no', 'negative', 'danger', 'accent', 'brand', 'ink'),
-    conditional:pick(accent, 'conditional', 'warning', 'accent', 'brand', 'ink'),
+    conditional:legibleMuted(pick(accent, 'conditional', 'warning', 'accent', 'brand', 'ink'), ink, bg, accent),
     done:pick(accent, 'status.done', 'done', 'success', 'accent', 'brand', 'ink'),
     doing:pick(accent, 'status.doing', 'doing', 'accent', 'brand', 'ink'),
-    risk:pick(accent, 'status.risk', 'risk', 'warning', 'accent', 'brand', 'ink'),
+    risk:legibleMuted(pick(accent, 'status.risk', 'risk', 'warning', 'accent', 'brand', 'ink'), ink, bg, accent),
     blocked:pick(accent, 'status.blocked', 'blocked', 'danger', 'accent', 'brand', 'ink'),
   };
 }
@@ -146,7 +146,7 @@ function wideRegions(layout, C){
       ? layout.terminal.x + layout.terminal.w
       : Math.max(...pathEntries.map(entry => entry.x + entry.w));
     out.push('<g data-kind="tree-region" data-region="question-paths">' +
-      rect(x, 0, Math.max(1, end - x + 10), layout.totalHeight, wash(C.conditional, '08')) +
+      rect(x, 0, Math.max(1, Math.min(end + 10, layout.contentWidth - FRAME_PAD) - x), layout.totalHeight, wash(C.conditional, '08')) +
       txt(x + 8, 17, 'QUESTION PATHS · CHANGES WITH ANSWERS', 8, C.muted,
         {weight:700, tracking:1}) + '</g>');
   }
@@ -342,7 +342,7 @@ function renderItem(box, decisions, C, measure){
     : treatment.kind === 'invalid' ? '2 2' : treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? '2 3' : null;
   const opacity = treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? '0.68' : '1';
   let svg = '<g data-kind="item" data-treatment="' + (treatment.kind === 'assumed' || treatment.kind === 'set-aside' ? treatment.kind + '-' + treatment.direction : treatment.kind) +
-    '" opacity="' + opacity + '"><title>' + esc(String(item.title ?? '') + (item.note ? ' — ' + item.note : '')) + '</title>';
+    '" opacity="' + opacity + '"><title>' + esc(String(item.title ?? '')) + '</title>';
   svg += rect(box.x, box.y, box.w, box.h, fill, {stroke, sw:treatment.kind === 'normal' ? 1 : 1.5, dash});
 
   const card = box.card || {inner:box.w - 24, rows:{title:{y:8, h:16, lines:1}, state:{y:30, h:12}}};
@@ -375,9 +375,11 @@ function renderItem(box, decisions, C, measure){
 
   if(rows.note){
     const noteLines = wrapped(item.note, card.inner, rows.note.lines || 2, measure, NOTE_FONT);
+    svg += '<g><title>' + esc(String(item.note)) + '</title>';   // the whole note stays in the SVG when it is cut
     noteLines.forEach((text, index) => {
       svg += txt(left, box.y + rows.note.y + 10 + index * 14, text, 10, C.muted);
     });
+    svg += '</g>';
   }
 
   const primary = item.parentDecision;
@@ -506,8 +508,8 @@ function renderCollapsedArmLabel(box, C){
   const side = box.crumb?.direction === 'yes' ? 'no' : 'yes';
   if(!(box.arms?.[side]?.length || box.stump?.side === side)) return '';
   const y = side === 'yes' ? box.y - 9 : box.y + box.h + 15;
-  return txt(box.centerX, y, side === 'yes' ? 'If so' : 'If not', 8, C.muted,
-    {weight:700, tracking:0.5, anchor:'middle'});
+  return txt(box.centerX + 8, y, side === 'yes' ? 'If so' : 'If not', 8, C.muted,
+    {weight:700, tracking:0.5, anchor:'start'});
 }
 
 /* The pieces of a branch connector: from the decision to the nearest card on its side, then across each gap between cards.
@@ -543,7 +545,7 @@ export function renderTree(projection, layout, ctx){
   const readout = svgVerdict({x:FRAME_PAD, y:readoutY, width:width - FRAME_PAD * 2,
     line:readoutLine, fig:data.readout.fig, ink:C.ink, muted:C.muted,
     brandText:C.brandText, font:SANS, measure, size:22});
-  const height = Math.max(1, Math.ceil(readoutY + readout.height + (readout.height ? 24 : 0)));
+  const height = Math.max(1, Math.ceil(readoutY + readout.height + (readout.height ? 4 : 0)));
   const decisions = decisionMap(projection);
   let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
@@ -573,7 +575,16 @@ export function renderTree(projection, layout, ctx){
       txt(FRAME_PAD + 12, top + 18, 'Unplaced', 10, C.muted, {weight:700, tracking:1}) + '</g>';
   }
 
-  svg += line(layout.spineRun.x1, layout.spineRun.y, layout.spineRun.x2, layout.spineRun.y, C.ink, 2);
+  /* the axis runs between the cards and decisions on it, not under their text */
+  const onAxis = [...(layout.spine || []), ...(layout.continuations || []), ...(layout.breadcrumbs || []),
+    ...(layout.questions || []).flatMap(entry => [entry.diamond, ...(entry.continuation || [])])].filter(Boolean)
+    .map(box => [box.x, box.x + box.w]).sort((a, b) => a[0] - b[0]);
+  let from = layout.spineRun.x1;
+  for(const [a, b] of onAxis){
+    if(a > from) svg += line(from, layout.spineRun.y, a, layout.spineRun.y, C.ink, 2);
+    from = Math.max(from, b);
+  }
+  if(layout.spineRun.x2 > from) svg += line(from, layout.spineRun.y, layout.spineRun.x2, layout.spineRun.y, C.ink, 2);
   for(const entry of [...(layout.questions || []), ...(layout.breadcrumbs || [])]){
     for(const connector of Object.values(entry.connectors || {})){
       if(connector) for(const [y1, y2] of connectorSegments(entry, connector))
