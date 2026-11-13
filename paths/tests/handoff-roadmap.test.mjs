@@ -340,7 +340,7 @@ test('invalid or unresolved delivery conditions refuse instead of dropping work'
   assert.equal(inspectRoadmapProjection(malformed, '2026-08-12', {x:'yes'}).code, 'unresolved-item');
 
   const unknown = doc('title: Unknown', {now:'  Core: Work [if missing]', next:'', later:''});
-  assert.equal(inspectRoadmapProjection(unknown, '2026-08-12', {}).code, 'invalid-source-model');
+  assert.equal(inspectRoadmapProjection(unknown, '2026-08-12', {}).code, 'invalid-item-condition');
 });
 
 test('an ignored malformed extra condition on selected-out work does not block the exact world', () => {

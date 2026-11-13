@@ -121,7 +121,11 @@ active unanswered question needs both to be ready in the Learning Agenda. `when:
 decision open only under another condition.
 `answer: yes|no [date] [target: value] [actual: value] [-- receipt]` records reality.
 `assume: yes|no YYYY-MM-DD` records a working assumption, which takes effect only after the
-due date and never becomes a known answer.
+due date (`answer-by:`) and never becomes a known answer.
+
+**Counting plans:** a *possible plan* is a distinct set of work. The raw number of yes/no
+answer sets is called *combinations of answers*; several combinations can lead to the same
+plan, and the Plans and Tree views count the distinct plans.
 
 **Learning Close-out:** an answered or read decision may contain a nested `close-out:`
 receipt. It is selected detail inside the existing Paths views, not another plan view.
@@ -500,17 +504,20 @@ probabilities, run through a 10,000-sample EV / distribution.
 
 **Node syntax** (2-space indentation = one level deeper):
 - Every line is `Label [(p=…)] [: value]`.
-- `(p=…)` is a probability — a number, a range, or `rest` (which soaks up the remaining
-  probability among its siblings).
-- `: value` is money — `900k`, `-150k`, `1.2m`, a range `A to B`, with `£$€,` and `k/m/b`
-  understood.
+- `(p=…)` is a probability — a number (`0.4`), a percentage (`40%`), a range (`0.3-0.45`,
+  `30%-45%`), or `rest` (which soaks up the remaining probability among its siblings).
+- `: value` is money — `900k`, `-150k`, `1.2m`, a range `A to B` (or `A-B`, `A–B`), with
+  `£$€,` and `k/m/b` understood; the minus sign the tool prints (`−`) reads back too. The
+  colon needs a space after it, and a colon between two digits (`Meet at 10:30`) stays in
+  the label.
 - **Node kinds are inferred**: children carrying `p=` make their parent a *chance* node;
   children without `p=` make it a *decision*; a node with no children is a *leaf* and
   **must carry a value** (a valueless leaf warns and is treated as 0).
 
 **What it warns about:** bad currency / palette / accent; an unreadable probability or one
 outside 0–1; an indent that isn't a multiple of 2; a leaf with no value; a p-less child among
-probabilistic siblings.
+probabilistic siblings; a positive range wider than 1,000× (its average is driven by rare
+extremes and may print above its own top).
 
 ```dsl tool=tree
 title: Bid or no bid

@@ -143,7 +143,10 @@ export function roadmapProjectionWorlds(model, injectedDate){
 function validConditionShape(condition){
   if(condition == null) return true;
   if(!record(condition) || typeof condition.valid !== 'boolean' || !Array.isArray(condition.terms)) return false;
-  if(!condition.valid) return condition.terms.length === 0;
+  /* a condition the parser marked invalid (a malformed one has no terms; a misspelt name keeps its
+     terms) is well-formed data: the refusals below name WHY it cannot be used, not "corrupt model" */
+  if(!condition.valid) return condition.terms.every(term => record(term) && typeof term.key === 'string' &&
+    typeof term.negated === 'boolean');
   if(!['single', 'and', 'or'].includes(condition.operator) || !condition.terms.length) return false;
   if(condition.operator === 'single' && condition.terms.length !== 1) return false;
   return condition.terms.every(term => record(term) && typeof term.key === 'string' &&
@@ -158,7 +161,8 @@ function hasWhenCycle(decisions){
     if(finished.has(decision.key)) return false;
     if(visiting.has(decision.key)) return true;
     visiting.add(decision.key);
-    for(const term of decision.when?.terms || []) if(visit(decisions[term.key])) return true;
+    /* a name no decision carries is a misspelling, refused separately with its own reason */
+    for(const term of decision.when?.terms || []) if(decisions[term.key] !== undefined && visit(decisions[term.key])) return true;
     visiting.delete(decision.key); finished.add(decision.key);
     return false;
   };
@@ -186,8 +190,12 @@ function safeStructure(model, source){
   if(decisionKeys.size !== model.decisions.length || Object.keys(model.decisionByName).length !== decisionKeys.size ||
      !model.decisions.every(decision => record(decision) && typeof decision.key === 'string' &&
        model.decisionByName[decision.key] === decision && validConditionShape(decision.when)) ||
-     Object.keys(model.decisionByName).some(key => !decisionKeys.has(key)) || hasWhenCycle(model.decisionByName))
+     Object.keys(model.decisionByName).some(key => !decisionKeys.has(key)))
     return refusal('invalid-source-model', 'Paths decisions are not a complete parsed model.');
+  if(hasWhenCycle(model.decisionByName))
+    return refusal('when-cycle', 'Two or more questions wait on each other (a "when:" cycle), so none of them can open; break the cycle in the plan first.');
+  if(model.decisions.some(decision => decision.when?.terms.some(term => !model.decisionByName[term.key])))
+    return refusal('invalid-decision-condition', 'A "when:" condition names a decision that does not exist; correct the name in the plan.');
 
   let lastPeriod = -1;
   for(const item of model.items){

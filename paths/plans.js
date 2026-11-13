@@ -41,7 +41,7 @@ function countWord(n){
 }
 
 export function refusalReason(count){
-  return `${countWord(count)} open questions would make ${2 ** count} possible plans. Answer one, or use the Tree view.`;
+  return `${countWord(count)} open questions would make ${2 ** count} combinations of answers. Answer one, or use the Tree view.`;
 }
 
 export function equivalenceSignature(items){

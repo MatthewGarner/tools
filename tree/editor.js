@@ -11,7 +11,7 @@ const lang = StreamLanguage.define({
       }
     }
     if(stream.match(/^\(p=[^)]+\)/)) return 'atom';
-    if(stream.match(/^:\s*[£$€]?-?[\d.]+[kKmMbB]?(\s+to\s+[£$€]?-?[\d.]+[kKmMbB]?|\s*-\s*[£$€]?[\d.]+[kKmMbB]?)?\s*$/)) return 'number';
+    if(stream.match(/^:\s*[£$€]?-?[\d.]+[kKmMbB]?(\s+to\s+[£$€]?-?[\d.]+[kKmMbB]?|\s*[-–]\s*[£$€]?[\d.]+[kKmMbB]?)?\s*$/)) return 'number';
     stream.next();
     return null;
   },

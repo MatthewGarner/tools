@@ -138,7 +138,7 @@ test('seven open questions project fully despite possible-plan refusal', () => {
 
 test('the terminal states the remaining possible-plan count from projected worlds', () => {
   const tree = treeFor(`${decision('a')}\n${decision('b')}`, '2026-12-01');
-  assert.deepEqual(tree.terminal, {kind:'count', possibleCount:4});
+  assert.deepEqual(tree.terminal, {kind:'count', possibleCount:4, planCount:1});
 });
 
 test('the terminal exposes the enumeration limit without dropping Tree questions', () => {
@@ -148,7 +148,7 @@ test('the terminal exposes the enumeration limit without dropping Tree questions
     kind:'limit',
     openQuestionCount:7,
     possibleCount:128,
-    reason:'Seven open questions would make 128 possible plans. Answer one, or use the Tree view.',
+    reason:'Seven open questions would make 128 combinations of answers. Answer one, or use the Tree view.',
   });
   assert.equal(tree.questions.length, 7);
 });

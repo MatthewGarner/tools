@@ -278,7 +278,7 @@ export function evaluate(model, injectedToday, assignment = {}){
       else if(!decision.answerBy) appendWarning(warnings, seen, 'assumption-no-due', assumptionLine, decision.key,
         `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} has no start date — add a valid "answer-by:"; assumption not used`);
       else if(!resolution.today || resolution.today <= decision.answerBy) appendWarning(warnings, seen, 'assumption-before-due', assumptionLine, decision.key,
-        `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} is not used yet — the answer is due ${formatDue(decision.answerBy)}; remove the assumption or change its date`);
+        `line ${assumptionLine}: the assumption for ${JSON.stringify(decision.name)} is not used yet — the answer is due ${formatDue(decision.answerBy)} and an assumption takes effect after that date; remove the assumption, or move "answer-by:" to a date before today`);
     }
   }
 
