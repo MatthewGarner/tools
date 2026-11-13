@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/assets/handoff.css">
 <link rel="stylesheet" href="../assets/mobile.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/assets/print-artefact.css" media="print">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#24212c">
@@ -198,8 +199,8 @@
       <details class="action-disclosure">
         <summary class="btn">Export</summary>
         <div class="action-menu">
-          <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
-          <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
+          <button class="btn" id="dlpng" data-capability="presentationExports.png">Download PNG</button>
+          <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Download SVG</button>
           <button class="btn scoped-receipt-export" id="agenda-receipt-svg" data-capability="presentationExports.agenda-receipt" hidden>
             Selected decision receipt · SVG
           </button>
@@ -216,6 +217,7 @@
       </details>
       <span class="method" id="view-method">The phone view groups work by period; every export remains the full plan artefact.</span>
     </div>
+    <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
   </section>
 </div>
 </main>

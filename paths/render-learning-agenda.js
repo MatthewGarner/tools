@@ -3,9 +3,9 @@
 
 import {btnAttrs, esc, txt, wash} from '../assets/svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, useFace} from './face.js';
 import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
 const MIN_READABLE_SCALE = 0.9;
 const RESULT_BASIS = 'Result changes are computed from current Paths conditions at the evaluated date; not a delivery commitment.';
 
@@ -16,7 +16,9 @@ function nameOf(decision){
 
 function questionFragment(decision, limit = 92){
   const value = String(decision?.question || nameOf(decision)).replace(/\s+/g, ' ').trim();
-  return value.length > limit ? value.slice(0, limit - 1).trimEnd() + '…' : value;
+  if(value.length <= limit) return value;
+  const cut = value.slice(0, limit - 1), space = cut.lastIndexOf(' ');
+  return (space > limit * 0.5 ? cut.slice(0, space) : cut).trimEnd().replace(/[,.;:]+$/, '') + '…';
 }
 
 function verdictOf(agenda){
@@ -87,7 +89,11 @@ function dossierBlock(value, width, measure, narrow, strong = false){
 
 function dossierField(label, value, width, measure, narrow, {strong = false, tone = 'normal'} = {}){
   const body = dossierBlock(value, width, measure, narrow, strong);
-  return {label, body, tone, height:(narrow ? 27 : 22) + body.height + (narrow ? 12 : 9)};
+  /* a long label ("DIRECT · <work title>") wraps inside its own column instead of running past it */
+  const labelSize = narrow ? 10 : 8;
+  const labelLines = wrapped(label, Math.max(24, width * 0.9), measure, `800 ${labelSize}px ${SANS}`);
+  return {label, labelLines:labelLines.length ? labelLines : [label], labelSize, body, tone,
+    height:(narrow ? 27 : 22) + (Math.max(1, labelLines.length) - 1) * (labelSize + 3) + body.height + (narrow ? 12 : 9)};
 }
 
 function missingContract(entry, field){
@@ -162,9 +168,9 @@ function dossierDrawFields(fields, x, y, C, narrow){
   let svg = '', cursor = y;
   for(const field of fields){
     const labelColor = field.tone === 'repair' ? C.urgent : field.tone === 'accent' ? C.accentInk : C.muted;
-    svg += txt(x, cursor + (narrow ? 10 : 8), field.label, narrow ? 10 : 8, labelColor,
-      {weight:800, tracking:0.7});
-    cursor += narrow ? 27 : 22;
+    field.labelLines.forEach((value, index) => { svg += txt(x, cursor + (narrow ? 10 : 8) + index * (field.labelSize + 3), value, field.labelSize, labelColor,
+      {weight:800, tracking:0.7}); });
+    cursor += (narrow ? 27 : 22) + (field.labelLines.length - 1) * (field.labelSize + 3);
     for(const value of field.body.lines){
       svg += txt(x, cursor, value, field.body.size, C.ink, {weight:field.body.weight});
       cursor += field.body.lineHeight;
@@ -249,7 +255,7 @@ function parallelRoster(agenda, x, y, width, C, measure, narrow, selectedKey, in
     if(col === 0 && row > 0) rowY += rowHeights[row - 1] + gap;
     const cx = x + col * (cardWidth + gap), h = rowHeights[row], selected = card.entry.key === selectedKey;
     svg += `<g data-kind="agenda-roster-entry" data-decision-key="${esc(card.entry.key)}" data-selected="${selected}"` +
-      `${interactive ? dossierAttrs(card.entry, selected) : ''}>` + rect(cx, rowY, cardWidth, h,
+      `${interactive ? dossierAttrs(card.entry, selected) : ''}><title>${esc(card.entry.question || nameOf(card.entry))}</title>` + rect(cx, rowY, cardWidth, h,
         selected ? wash(C.accent, '0D') : C.surface, {stroke:selected ? C.accent : C.border, sw:selected ? 2 : 1});
     if(selected) svg += rect(cx, rowY, 4, h, C.accent);
     let ty = rowY + 18;
@@ -348,11 +354,12 @@ function dossierSection(section, x, y, width, C, measure, narrow, selectedKey, i
       entry.key === selectedKey, interactive);
     svg += drawn.svg; cursor += drawn.height + 12;
   }
-  return {height:cursor - y, svg:svg + '</g>'};
+  return {height:cursor - y, trail:12, svg:svg + '</g>'};
 }
 
 function dossierHeader(agenda, x, y, width, C, measure, narrow){
-  const title = dossierBlock(agenda.title || 'Paths', width - (!narrow && agenda.date ? 180 : 0), measure, narrow, true);
+  const titleSize = narrow ? 24 : 29;
+  const title = {lines:wrapped(agenda.title || 'Paths', width - (!narrow && agenda.date ? 180 : 0), measure, `700 ${titleSize}px ${SANS}`)};
   const verdict = verdictOf(agenda), verdictLines = verdict ? dossierBlock(verdict, width, measure, false, true) : null;
   let svg = `<g data-kind="agenda-header">` + txt(x, y + 9, 'LEARNING AGENDA', 9, C.accentInk, {weight:800, tracking:1.2});
   let ty = y + 40;
@@ -396,9 +403,9 @@ function renderDossierAgenda(agenda, ctx, narrow){
   const rosterHeadHeight = narrow ? 66 : 53;
   const total = pad + header.height + rosterHeadHeight + roster.height + 22 + (selected ? focusHeight + 26 : 0) +
     sectionHeights.reduce((sum, h) => sum + h + 20, 0) + pad;
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${total}" viewBox="0 0 ${width} ${total}" ` +
-    `${rootRole(ctx)} data-kind="learning-agenda${narrow ? '-narrow' : ''}" data-layout="${narrow ? 'dossier-stack' : 'dossier-board'}" ` +
-    `data-min-readable-scale="${MIN_READABLE_SCALE}">` + dossierHead(agenda, selected) + rect(0, 0, width, total, C.bg) + header.svg;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="__H__" viewBox="0 0 ${width} __H__" ` +
+    `font-family="${SANS}" ${rootRole(ctx)} data-kind="learning-agenda${narrow ? '-narrow' : ''}" data-layout="${narrow ? 'dossier-stack' : 'dossier-board'}" ` +
+    `data-min-readable-scale="${MIN_READABLE_SCALE}">` + dossierHead(agenda, selected) + `<rect x="0" y="0" width="${width}" height="__H__" fill="${C.bg}"/>` + header.svg;
   let y = pad + header.height;
   svg += txt(pad, y + 10, 'PARALLEL LEARNING MOVES', 9, C.accentInk, {weight:800, tracking:1});
   svg += txt(width - pad, y + 10, String(parallelEntries(agenda).length), 11, C.muted, {weight:700, anchor:'end'});
@@ -416,34 +423,39 @@ function renderDossierAgenda(agenda, ctx, narrow){
     const focus = dossierFocus(selected, pad, y, contentWidth, C, measure, false);
     svg += focus.svg; y += focus.height + 26;
   }
+  let inkEnd = y;
   for(const section of sections){
     const drawn = dossierSection(section, pad, y, contentWidth, C, measure, narrow, selectedKey,
       !!ctx?.interactive, selectedInRoster);
-    svg += drawn.svg; y += drawn.height + 20;
+    svg += drawn.svg; inkEnd = y + drawn.height - (drawn.trail || 0); y += drawn.height + 20;
   }
-  return svg + '</svg>';
+  /* the picture ends a house margin below its last ink, the same distance as its top margin: no band of empty paper */
+  void total;
+  return (svg + '</svg>').replaceAll('__H__', String(Math.ceil(inkEnd + pad)));
 }
 
-export function renderLearningAgenda(agenda, ctx = {}){ return renderDossierAgenda(agenda, ctx, false); }
-export function renderLearningAgendaNarrow(agenda, ctx = {}){ return renderDossierAgenda(agenda, ctx, true); }
+export function renderLearningAgenda(agenda, ctx = {}){ useFace(ctx); return renderDossierAgenda(agenda, ctx, false); }
+export function renderLearningAgendaNarrow(agenda, ctx = {}){ useFace(ctx); return renderDossierAgenda(agenda, ctx, true); }
 
 export function renderLearningAgendaReceipt(agenda, ctx = {}){
+  useFace(ctx);
   const C = palette(ctx?.colors || {}), measure = ctx?.measure || (value => String(value).length * 7);
   const entry = selectedDecision(agenda, ctx);
   if(!entry) return '';
   const width = Math.max(620, Number(ctx?.width) || 760), pad = 32, inner = width - pad * 2;
-  const heading = dossierBlock(agenda.title || 'Paths', inner - 180, measure, false, true);
+  const headingLines = wrapped(agenda.title || 'Paths', inner - 150, measure, `700 22px ${SANS}`);
+  const heading = {lines:headingLines.length ? headingLines : ['Paths'], lineHeight:28, height:Math.max(1, headingLines.length) * 28};
   const introLines = wrapped('Scoped receipt for one selected decision. The full Learning Agenda remains the complete artefact.',
     inner, measure, `600 10px ${SANS}`);
   const basisLines = wrapped(RESULT_BASIS, inner, measure, `600 9px ${SANS}`);
   const headerHeight = 34 + heading.height + 12 + introLines.length * 14 + 8 + basisLines.length * 13 + 18;
   const body = dossierBody(entry, pad, pad + headerHeight, inner, C, measure, false, true);
-  const total = pad + headerHeight + body.height + pad;
+  const total = pad + headerHeight + body.height + pad - 36;   // the dossier's own trailing inset is not ink
   const title = `${entry.question || nameOf(entry)} — selected decision receipt`;
   const description = `Scoped selected-decision receipt. Current state: ${entry.currentState?.sentence || 'State unavailable'}. ` +
     `Learning move: ${entry.learningMove || 'not authored'}. Evidence sufficient when: ${entry.evidenceStandard || 'not authored'}. ${RESULT_BASIS}`;
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${total}" viewBox="0 0 ${width} ${total}" ` +
-    `role="img" aria-labelledby="paths-agenda-receipt-name paths-agenda-receipt-description" ` +
+    `font-family="${SANS}" role="img" aria-labelledby="paths-agenda-receipt-name paths-agenda-receipt-description" ` +
     `data-kind="learning-agenda-receipt" data-scope="selected-decision">` +
     `<title id="paths-agenda-receipt-name">${esc(title)}</title>` +
     `<desc id="paths-agenda-receipt-description">${esc(description)}</desc>` + rect(0, 0, width, total, C.bg);

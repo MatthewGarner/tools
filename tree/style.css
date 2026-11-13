@@ -123,3 +123,5 @@
 body:has(.stage .preview .placeholder[data-boot]) :is(.workspace > *, .workspace ~ *, main ~ *){
   visibility:hidden; animation:boot-release 1ms linear 2s forwards;
 }
+/* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
+.export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}

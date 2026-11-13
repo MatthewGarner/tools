@@ -12,6 +12,8 @@ import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
 import {rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
@@ -634,18 +636,27 @@ function metricCounts(){
 }
 
 /* ---------- exports ---------- */
+/* Everything that leaves the page is drawn in the house face and carries it embedded; until the face has loaded there is nothing
+   to export (the live picture does not wait: it uses the page's own font). */
 function svgString(intent){
-  if(!model || !model.root || !results) return null;
-  return render(model, results, {colors: themeColors(), measure, intent, dark: isDark()});
+  if(!model || !model.root || !results || !chapterFontsReady()) return null;
+  return embedChapterFonts(render(model, results, {colors: themeColors(), measure, intent, dark: isDark()}));
 }
 function slug(){
   return slugify(model.title, 'decision-tree');
 }
+/* Copy PNG and Download PNG are the picture of the tree on the page; "Copy slide" is the 16:9 comparison of the options */
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copyslide: $('copyslide')},
   getSvg: () => svgString('native'),
-  getCopy: () => svgString('presentation'),
+  getSlide: () => svgString('presentation'),
   slug,
+});
+/* Print is the tree alone, light, whatever theme the page is in, shrunk onto one sheet (a tree is one picture, not rows) */
+wirePrintArtefact({getSvg: () => lightTheme(() => svgString('native')), fitOne: true});
+loadChapterFonts().then(() => { setActionsEnabled(!!lastSvg); }, () => {
+  const line = $('exportstatus');
+  if(line){ line.textContent = 'The typeface could not load, so exports are unavailable. Reload the page to try again.'; line.hidden = false; }
 });
 
 /* ---------- theme change ---------- */

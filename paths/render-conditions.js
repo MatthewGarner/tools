@@ -4,10 +4,9 @@
 
 import {btnAttrs, esc, txt, wash} from '../assets/svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, SERIF, useFace} from './face.js';
 import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
 const PAD = 36;
 const NARROW_PAD = 14;
 const WORK_W = 360;
@@ -284,6 +283,7 @@ function modelHealthBlock(warnings, x, y, width, C, measure){
 }
 
 export function renderConditions(overview, ctx = {}){
+  useFace(ctx);
   if(Number(ctx.width) > 0 && Number(ctx.width) < 520) return renderConditionsNarrow(overview, ctx);
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value).length * 7;
   const C = palette(ctx.colors || {});
@@ -329,7 +329,7 @@ export function renderConditions(overview, ctx = {}){
   body += line(atlasX + atlasWidth, headers.height + head.height + 14, atlasX + atlasWidth, y, C.border, 1) + '</g>';
   const health = modelHealthBlock(overview.modelHealth, atlasX, y + 20, atlasWidth, C, measure);
   y += 20 + health.height;
-  const height = Math.ceil(y + PAD);
+  const height = Math.ceil(y + PAD - 6);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" data-min-readable-scale="' + MIN_READABLE_SCALE + '" font-family="' + SANS + '" ' + rootRole(ctx) +

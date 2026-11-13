@@ -111,7 +111,12 @@ export async function clickDownload(page, selector, dest, timeout = 12000){
   const t0 = Date.now(); let flash = null;
   while(Date.now() - t0 < timeout){
     const won = await Promise.race([dlp.then(d => ({d}), () => ({gone: true})), sleep(100).then(() => null)]);
-    if(won?.d){ await won.d.saveAs(dest); return {ok: true, suggested: won.d.suggestedFilename(), file: dest, flash, hiddenControl: state.hidden}; }
+    if(won?.d){
+      await won.d.saveAs(dest);
+      /* what the page's status line says once the file is taken (a reduced scale is stated there, and stays) */
+      const status = await page.evaluate(() => { const el = document.getElementById('exportstatus'); return el && !el.hidden ? el.textContent : null; }).catch(() => null);
+      return {ok: true, suggested: won.d.suggestedFilename(), file: dest, flash, status, hiddenControl: state.hidden};
+    }
     if(won?.gone) break;
     if(!flash){ const now = await loc.textContent().catch(() => label); if(now !== label) flash = now; }
     if(flash && Date.now() - t0 > 1500) return {ok: false, refusal: flash, label, error: 'button showed a message instead of downloading', hiddenControl: state.hidden};

@@ -65,7 +65,17 @@ export function plan(vw, vh, boxes, band, headings = []){
   return {mode: 'slices', scale: 1, headerH, slices: starts.map((s, i) => [s, i < cuts.length ? sliceEnd(boxes, s, cuts[i]) : vh])};
 }
 
-export function printPages(svgText, doc = document){
+/* Run `fn` with the page in its light theme, then put the theme back: the printed artefact is always light, and a renderer
+   that reads its colours from the page (themeColors/isDark) needs the light ones for that one synchronous call. */
+export function lightTheme(fn){
+  const root = document.documentElement, had = root.hasAttribute('data-theme'), prev = root.getAttribute('data-theme');
+  root.setAttribute('data-theme', 'light');
+  try{ return fn(); }
+  finally{ if(had) root.setAttribute('data-theme', prev); else root.removeAttribute('data-theme'); }
+}
+
+/* `fitOne` (a value or a function of the moment): a diagram (a tree, a plan) is one picture, not rows: it is shrunk onto one sheet, however tall, never cut. */
+export function printPages(svgText, doc = document, {fitOne = false} = {}){
   const holder = doc.createElement('div');
   holder.style.cssText = 'position:absolute;left:-99999px;top:0;width:1000px';
   // print CSS hides other body children and a hidden SVG measures zero: keep this holder displayed
@@ -86,7 +96,8 @@ export function printPages(svgText, doc = document){
     const next = boxes.filter(r => r.top >= h.bboxTop + h.height - 1).sort((x, y) => x.top - y.top)[0];
     if(next) boxes.push({top: h.top, bottom: next.bottom});
   }
-  const layout = plan(vw, vh, boxes, hasBand ? band : null, headings);
+  const layout = fitOne ? {mode: 'one', scale: Math.min(1, vw * PAGE_RATIO / vh), slices: [[0, vh]]}
+    : plan(vw, vh, boxes, hasBand ? band : null, headings);
   const body = root.innerHTML, ns = 'http://www.w3.org/2000/svg';
   const pages = layout.slices.map(([y0, y1], i) => {
     const page = root.cloneNode(true);
@@ -130,7 +141,7 @@ export function printPages(svgText, doc = document){
   return pages;
 }
 
-export function wirePrintArtefact({getSvg}){
+export function wirePrintArtefact({getSvg, fitOne = false}){
   let holder = null;
   addEventListener('beforeprint', () => {
     holder?.remove(); holder = null;   // a second beforeprint (some browsers send two) must not print the artefact twice
@@ -139,7 +150,7 @@ export function wirePrintArtefact({getSvg}){
     holder = document.createElement('div');
     holder.id = 'print-artefact';
     // the page's own CSS already carries the faces; a data: font inside the page would be refused by its CSP
-    for(const page of printPages(stripEmbeddedFonts(svg))){
+    for(const page of printPages(stripEmbeddedFonts(svg), document, {fitOne: typeof fitOne === 'function' ? fitOne() : fitOne})){
       const sheet = document.createElement('div');
       sheet.className = 'print-page';
       sheet.appendChild(page);

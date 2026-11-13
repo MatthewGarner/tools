@@ -99,6 +99,10 @@ async function captureShare(ctx, base, T, tool, doc, view, dir, page){
   await p2.goto(url, {waitUntil: 'load'});
   await T.ready(p2);
   await T.select(p2, view);
+  /* the first page was painted (and screenshotted) before its export; so is this one. Text the face lacks (emoji, Hebrew) measures
+     differently before and after the browser has painted it once, so the comparison is made between two painted pages. */
+  await p2.locator(typeof T.live === 'function' ? T.live(view) : T.live).first().screenshot({path: join(dir, 'share-live.png')}).catch(() => {});
+  await p2.screenshot({path: join(dir, 'share-page.png'), fullPage: true}).catch(() => {});
   const ex = T.exports(view, doc).find(e => e.kind === 'svg' && !e.receipt) || T.exports(view, doc).find(e => e.kind === 'md');
   await openMenus(p2);
   if(ex.kind === 'svg') out.reexport = await clickDownload(p2, ex.sel, join(dir, 'share-' + ex.id + '.svg'));

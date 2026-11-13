@@ -3,26 +3,19 @@
 import {PALETTES, scheme, fmt} from '../assets/series.js';
 import {esc, btnAttrs, wrapText} from '../assets/svg.js';
 import {svgVerdict, svgMetrics} from '../assets/verdict-svg.js';
-import {layoutTree, TREE_GEOM} from './layout.js';
+import {layoutTree, TREE_GEOM, clipLines} from './layout.js';
+import {SANS, SERIF, useFace} from './face.js';
 import {decisionComparisonProjection, pairCertain} from './comparison.js';
 import {evalDet} from './engine.js';
 import {flipCopy, seamCopy, sharePct, sharedStep} from './format.js';
 
-const SANS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
-const SERIF = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';
 export const NARROW = 520;
 const T = {pad:32, bottom:24};
 const e = s => esc(String(s));
 const n2 = n => Math.round(n * 100) / 100;
 
 function clippedLines(text, font, width, measure, maxLines){
-  const full=wrapText(text,font,width,measure),lines=full.slice(0,maxLines),clipped=full.length>maxLines;
-  if(clipped&&lines.length){
-    let last=lines[lines.length-1];
-    while(last.length>1&&measure(last+'…',font)>width) last=last.slice(0,-1);
-    lines[lines.length-1]=last.replace(/[\s,.;:]+$/,'')+'…';
-  }
-  return {lines,clipped};
+  return clipLines(wrapText(text, font, width, measure), maxLines, font, width, measure);
 }
 
 function intent(ctx){
@@ -89,18 +82,20 @@ function marker(node, x, y, C, active){
 
 function head(model, results, ctx, C, W, verdictParts, presentation = false){
   const pad = presentation ? 72 : T.pad, titleSize = presentation ? 38 : 22;
-  const lines = model.title ? wrapText(model.title, '700 ' + titleSize + 'px ' + SERIF, W - pad * 2 - 150, ctx.measure) : [];
+  const titleFont = '700 ' + titleSize + 'px ' + SERIF, titleW = W - pad * 2 - 150;
+  /* a long title wraps and pushes down what is below it; only past four lines is it cut, at a word, with its full text in the SVG title */
+  const lines = model.title ? clipLines(wrapText(model.title, titleFont, titleW, ctx.measure), 4, titleFont, titleW, ctx.measure).lines : [];
   const out = [];
   let y = pad;
-  lines.slice(0, 2).forEach(line => { out.push('<text x="' + pad + '" y="' + y + '" font-family=\'' + SERIF + '\' font-size="' + titleSize + '" font-weight="700" fill="' + C.ink + '">' + e(line) + '</text>'); y += titleSize * 1.18; });
+  lines.forEach(line => { out.push('<text x="' + pad + '" y="' + y + '" font-family=\'' + SERIF + '\' font-size="' + titleSize + '" font-weight="700" fill="' + C.ink + '">' + e(line) + '</text>'); y += titleSize * 1.18; });
   if(!lines.length) y = presentation ? 54 : 20;
   out.push('<text x="' + (W - pad) + '" y="' + pad + '" text-anchor="end" font-size="' + (presentation ? 18 : 11) + '" fill="' + C.muted + '">' + (ctx.today || new Date().toISOString().slice(0, 10)) + '</text>');
   const metricsY = y + (presentation ? 12 : 1);
-  out.push(svgMetrics({x:pad, y:metricsY, model:'', counts:counts(model.root), ink:C.ink, muted:C.muted, font:SANS, scale:presentation ? 1.7 : 1}));
+  out.push(svgMetrics({x:pad, y:metricsY, model:'', counts:counts(model.root), ink:C.ink, muted:C.muted, font:String(SANS), scale:presentation ? 1.7 : 1}));
   const vy = metricsY + (presentation ? 54 : 18), vp = verdictParts(model, results);
   if(!vp.line) return {svg:out.join(''), h:vy + 10};
   const block = svgVerdict({x:pad, y:vy, width:W-pad*2, line:vp.line, fig:vp.fig, ink:C.ink, muted:C.muted,
-    brandText:C.brandText || C.ink, font:SANS, measure:ctx.measure, size:presentation ? 28 : 24,
+    brandText:C.brandText || C.ink, font:String(SANS), measure:ctx.measure, size:presentation ? 28 : 24,
     scale:presentation ? 1.3 : 1, edit:ctx.edit ? {raw:model.verdict ?? ''} : undefined});
   const authored = model.verdict != null && String(model.verdict).trim() !== '';
   const rec = results.policy.get(model.root), st = results.stats.get(model.root), v = values(model);
@@ -131,9 +126,17 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
   return {svg:out.join(''), h:vy + block.height + (ev ? evHeight : 18)};
 }
 
+/* +1 when the expected value lies above the top of its own P10-P90 range (a wide authored range), -1 below the bottom, else 0 */
+function evSide(st){
+  const eps=1e-9*Math.max(1,Math.abs(st.mean),Math.abs(st.p90),Math.abs(st.p10));
+  return st.mean>st.p90+eps?1:st.mean<st.p10-eps?-1:0;
+}
+const evRowsFor=results=>node=>{ const st=results.stats.get(node); return st?2+(evSide(st)?1:0):1; };
+
 function card(item, model, results, ctx, C, layout, v, tops){
   const node=item.node, x=item.x, y=item.y, active=layout.policy.has(node), hot=ctx.hot || new Set();
   const out=['<g data-tree-node="'+node.srcLine+'" data-policy-state="'+(active?'recommended':'alternative')+'"'+(ctx.edit&&tops.has(node)?' data-opt="'+tops.get(node)+'"':'')+'>'];
+  if(item.clipped) out.push('<title>'+e(node.label)+'</title>');
   out.push('<rect x="'+x+'" y="'+y+'" width="'+item.w+'" height="'+item.h+'" fill="'+C.card+'" stroke="'+(active?C.accent:C.border)+'"/>');
   out.push('<line x1="'+x+'" y1="'+y+'" x2="'+x+'" y2="'+(y+item.h)+'" stroke="'+(active?C.accent:C.muted)+'" stroke-width="3"/>');
   out.push(marker(node,x,y+22,C,active));
@@ -142,7 +145,17 @@ function card(item, model, results, ctx, C, layout, v, tops){
   ty+=3;
   if(node.p!=null){ const text=v.prob(node.p), h=ctx.edit&&hot.has('prob:'+node.srcLine); out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10.5" fill="'+C.muted+'">'+field('prob',node,node.pRaw||(node.p==='rest'?'rest':''),text,'Edit probability: '+node.label,ctx.edit,h)+'</text>'); if(h) out.push('<line x1="'+(x+15)+'" y1="'+(ty+2)+'" x2="'+(x+75)+'" y2="'+(ty+2)+'" stroke="'+C.accent+'" stroke-dasharray="1.5,2"/>'); ty+=14; }
   if(node.value){ const text=v.range(node.value), h=ctx.edit&&hot.has('value:'+node.srcLine); out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10.5" fill="'+C.muted+'">'+field('value',node,node.valueRaw||'',text,'Edit payoff: '+node.label,ctx.edit,h)+'</text>'); if(h) out.push('<line x1="'+(x+15)+'" y1="'+(ty+2)+'" x2="'+(x+105)+'" y2="'+(ty+2)+'" stroke="'+C.accent+'" stroke-dasharray="1.5,2"/>'); ty+=14; }
-  const st=results.stats.get(node); if(st) out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'<tspan fill="'+C.muted+'" font-size="10"> · '+e(v.pair(st.p10,st.p90))+'</tspan></text>');
+  const st=results.stats.get(node);
+  if(st){
+    /* the expected value and its range are two lines: one line is wider than the card */
+    out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'</text>'); ty+=14;
+    out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10" fill="'+C.muted+'">'+e(v.pair(st.p10,st.p90))+'</text>'); ty+=14;
+    const side=evSide(st);
+    if(side){
+      const tri=side>0?(x+15)+','+(ty-1)+' '+(x+23)+','+(ty-1)+' '+(x+19)+','+(ty-8):(x+15)+','+(ty-8)+' '+(x+23)+','+(ty-8)+' '+(x+19)+','+(ty-1);
+      out.push('<polygon points="'+tri+'" fill="'+C.err+'"/><text x="'+(x+28)+'" y="'+ty+'" font-size="10" font-weight="650" fill="'+C.err+'">'+(side>0?'above its own range':'below its own range')+'</text>');
+    }
+  }
   if(ctx.edit) out.push(menu(node,x+item.w-18,y+item.h-18,C,model.root));
   out.push('</g>'); return out.join('');
 }
@@ -157,10 +170,12 @@ function seamLine(model,results){
   return seamCopy(det&&det.label,mc&&mc.label);
 }
 function flips(results,v,C,x,y,w,measure,seam='',showSeam=true){
-  if(!results.flips?.length) return {svg:'',h:0};
+  /* a flip that is not a possible probability (above 1, below 0) is not printed */
+  const rows=(results.flips||[]).map(f=>f.kind==='prob'?flipCopy(f):f.label+' matters: the recommendation changes within its '+v.range({lo:f.lo,hi:f.hi})+' range').filter(Boolean);
+  if(!rows.length) return {svg:'',h:0};
   const out=['<text x="'+x+'" y="'+y+'" font-size="10" font-weight="650" letter-spacing="1.2" fill="'+C.muted+'">'+(seam?'WHAT WOULD FLIP THE MIDPOINT CALL':'WHAT WOULD FLIP THIS')+'</text>']; let cy=y+24;
   if(seam&&showSeam){ wrapText(seam,'11px '+SANS,w,measure).forEach(line=>{out.push('<text x="'+x+'" y="'+cy+'" font-size="11" font-style="italic" fill="'+C.muted+'">'+e(line)+'</text>');cy+=18;}); cy+=4; }
-  results.flips.forEach(f=>{ const msg=f.kind==='prob'?flipCopy(f):f.label+' matters: the recommendation changes within its '+v.range({lo:f.lo,hi:f.hi})+' range'; wrapText('– '+msg,'11px '+SANS,w,measure).forEach(line=>{out.push('<text x="'+(x+8)+'" y="'+cy+'" font-size="11" fill="'+C.muted+'">'+e(line)+'</text>');cy+=18;}); });
+  rows.forEach(msg=>{ wrapText('– '+msg,'11px '+SANS,w,measure).forEach(line=>{out.push('<text x="'+(x+8)+'" y="'+cy+'" font-size="11" fill="'+C.muted+'">'+e(line)+'</text>');cy+=18;}); });
   return {svg:out.join(''),h:cy-y};
 }
 
@@ -170,9 +185,13 @@ function register(layout,model,results,ctx,C,v,x,y){
   layout.rows.forEach(row=>{ const ry=y+row.y, mirror=layout.branch.items.some(i=>i.node===row.node), editable=ctx.edit&&!mirror&&!row.node.implicit; out.push('<g data-register-row="'+row.node.srcLine+'"'+(mirror?' data-mirror=""':'')+'><line x1="'+x+'" y1="'+(ry+row.h)+'" x2="'+(x+W)+'" y2="'+(ry+row.h)+'" stroke="'+C.border+'"/><text x="'+x+'" y="'+(ry+18)+'" font-size="9" font-weight="700" fill="'+C.accent+'">'+row.id+'</text>'); let py=ry+18; row.pathLines.forEach((line,i)=>{out.push('<text x="'+(x+36)+'" y="'+py+'" font-size="11.5" fill="'+C.ink+'">'+field('label',row.node,row.node.label,line,'Edit label: '+row.node.label,editable&&i===row.pathLines.length-1)+'</text>');py+=15;}); const mid=ry+row.h/2+4; if(row.node.p!=null) out.push('<text x="'+pX+'" y="'+mid+'" font-size="10.5" fill="'+C.ink+'">'+field('prob',row.node,row.node.pRaw||(row.node.p==='rest'?'rest':''),v.prob(row.node.p),'Edit probability: '+row.node.label,editable)+'</text>'); if(row.node.value) out.push('<text x="'+valX+'" y="'+mid+'" font-size="10.5" fill="'+C.ink+'">'+field('value',row.node,row.node.valueRaw||'',v.range(row.node.value),'Edit payoff: '+row.node.label,editable)+'</text>'); const st=results.stats.get(row.node); if(st) out.push('<text x="'+evX+'" y="'+mid+'" font-size="10.5" font-weight="650" fill="'+C.ink+'">'+e(v.money(st.mean))+'</text>'); out.push('<text x="'+statusX+'" y="'+mid+'" text-anchor="end" font-size="9.5" font-weight="650" fill="'+(layout.policy.has(row.node)?C.accent:C.muted)+'">'+status(row.node,model.root,layout.policy,results)+'</text>'); if(editable) out.push(menu(row.node,x+W-140,mid-4,C,model.root)); out.push('</g>'); }); out.push('</g>'); return out.join('');
 }
 
+/* The root's marker is centred on the card's left edge, so it reaches 7.75px left of the cards. The right margin is made equal to
+   the ink that sticks out on the left: both sides of the picture are the same distance from the paper's edge. */
+function leftInkMargin(model){ return T.pad-(model.root&&model.root.kind!=='leaf'?7.75:0.75); }
+
 function wide(model,results,ctx,C,layout,verdictParts){
-  const v=values(model), W=Math.ceil(Math.max(760,layout.width+T.pad*2)), h=head(model,results,ctx,C,W,verdictParts), ox=T.pad,oy=h.h+(layout.mode==='continuation'?48:0), bottom=oy+layout.height, seam=seamLine(model,results),f=flips(results,v,C,T.pad,bottom+34,W-T.pad*2,ctx.measure,seam,!ctx.edit), H=Math.ceil(bottom+(f.h?54+f.h:20)+T.bottom);
-  const out=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family=\''+SANS+'\'><rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>',h.svg],tops=topLines(model.root);
+  const v=values(model), W=Math.ceil(Math.max(480,layout.width+T.pad+leftInkMargin(model)+0.5)), h=head(model,results,ctx,C,W,verdictParts), ox=T.pad,oy=h.h+(layout.mode==='continuation'?48:0), bottom=oy+layout.height, seam=seamLine(model,results),f=flips(results,v,C,T.pad,bottom+34,W-T.pad*2,ctx.measure,seam,!ctx.edit), inkBottom=f.h?bottom+34+f.h-15:bottom,H=Math.ceil(inkBottom+T.bottom);   // the last ink, then the house margin: no band of empty paper
+  const out=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family=\''+SANS+'\'>'+(model.title?'<title>'+e(model.title)+'</title>':'')+'<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>',h.svg],tops=topLines(model.root);
   layout.branch.edges.forEach(k=>{const x1=ox+k.from.x+k.from.w,y1=oy+k.from.y+k.from.h/2,x2=ox+k.to.x,y2=oy+k.to.y+k.to.h/2,b=Math.min(42,(x2-x1)*.42),active=layout.policy.has(k.from.node)&&layout.policy.has(k.to.node);out.push('<path data-tree-edge="" d="M '+n2(x1)+' '+n2(y1)+' C '+n2(x1+b)+' '+n2(y1)+', '+n2(x2-b)+' '+n2(y2)+', '+n2(x2)+' '+n2(y2)+'" fill="none" stroke="'+(active?C.accent:C.border)+'" stroke-width="'+(active?2.5:1.25)+'"/>');});
   layout.branch.items.forEach(i=>out.push(card({...i,x:ox+i.x,y:oy+i.y},model,results,ctx,C,layout,v,tops)));
   if(layout.mode==='continuation') out.push(register(layout,model,results,ctx,C,v,T.pad,oy+layout.branch.height+TREE_GEOM.registerGap));
@@ -274,7 +293,7 @@ function presentation(model,results,ctx,C,layout,verdictParts){
       '<text x="'+(x+16)+'" y="'+(y+rowH-12)+'" font-size="12" fill="'+C.muted+'">'+e(chanceLine)+'</text></g>');
   });
   const complete=shown.length===all.length,provenancePartial=shown.some(option=>option.chanceInputs.length>1);
-  const foot=(complete?'COMPLETE':'PARTIAL')+' ROOT COMPARISON · '+shown.length+' OF '+all.length+' OPTIONS'+
+  const foot=(complete?'COMPLETE':'PARTIAL')+' ROOT COMPARISON · '+shown.length+' OF '+all.length+' OPTIONS'+(complete?'':' (+'+(all.length-shown.length)+' more)')+
     (provenancePartial?' · CHANCE INPUTS ABBREVIATED':'')+(titlesAbbreviated?' · OPTION TITLES ABBREVIATED':'')+
     (sensitivityAbbreviated?' · SENSITIVITY LABELS ABBREVIATED':'')+
     (verdictAbbreviated?' · VERDICT ABBREVIATED FOR SLIDE · Native SVG keeps the full authored verdict':'')+
@@ -285,8 +304,9 @@ function presentation(model,results,ctx,C,layout,verdictParts){
 
 export function renderDensity(model,results,ctx,verdictParts){
   const i=intent(ctx);
+  useFace(i);
   if(i==='native'||i==='presentation') ctx={...ctx,edit:false,hot:new Set()};
-  const C=colors(model,ctx),layout=layoutTree(model,results,{measure:ctx.measure,intent:i,width:ctx.width||(i==='live-narrow'?480:undefined)});
+  const C=colors(model,ctx),layout=layoutTree(model,results,{measure:ctx.measure,intent:i,width:ctx.width||(i==='live-narrow'?480:undefined),evRows:evRowsFor(results)});
   if(i==='presentation')return presentation(model,results,ctx,C,layout,verdictParts);
   if(i==='live-narrow')return narrow(model,results,ctx,C,layout,verdictParts);
   return wide(model,results,ctx,C,layout,verdictParts);

@@ -580,3 +580,5 @@ body.overview-sheet-open::before{
 @media (pointer:coarse),(max-width:520px){.selected-bar .btn{min-height:44px}}
 .receipt-back{margin-left:auto; min-height:32px; font-size:12px}
 .overview-live[data-receipt-layout="rail"] .receipt-back{display:none}
+/* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
+.export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}

@@ -104,7 +104,7 @@ test('BT-7 inputs print as written and the edit field is prefilled with the auth
   assert.match(wide, /data-edit="payoff" data-line="4" data-raw="19\.4"/);
   const narrow = renderBoard(m, s, {...CTX, intent: 'live', edit: true, width: 390});
   assert.match(narrow, /data-edit="stake" data-line="4" data-raw="0\.5–2\.5"/);
-  assert.match(text(renderQuadrant(m, s, CTX)), /0\.5–2\.5 @ 40–60% → pays 19\.4/);
+  assert.match(text(renderQuadrant(m, s, CTX)), /0\.5–2\.5 @ 40–60% · pays 19\.4/);
   assert.match(text(renderBetsPresentation(m, s, {...CTX, intent: 'presentation'})), /0\.5–2\.5/);
   assert.match(markdown(m, s, ''), /0\.5–2\.5/);
   const ops = rewriteStake(src, 4, '0.5–2.5', '0.5-4');

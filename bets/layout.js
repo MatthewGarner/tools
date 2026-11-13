@@ -41,18 +41,43 @@ const recOf = (sim, b) => sim?.bets?.get(b.srcLine) ||
   {ev: {p10: 0, p50: 0, p90: 0}, audits: []};
 const stakeUpper = b => b.stake ? b.stake[1] : 0;
 
+const SEGMENTER = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, {granularity: 'grapheme'}) : null;
+const graphemes = text => SEGMENTER ? [...SEGMENTER.segment(text)].map(part => part.segment) : Array.from(text);
+
+/* Wrapped lines. A word wider than the line is broken after one of its own boundaries (_ - / .) where it has one, and only
+   inside a word, between whole characters, where it has none. */
 export function measuredLines(text, font, maxWidth, measure){
-  const lines = [];
-  for(const wordLine of wrapText(String(text || ''), font, maxWidth, measure)){
-    if(measure(wordLine, font) <= maxWidth){ lines.push(wordLine); continue; }
-    let current = '';
-    for(const ch of wordLine){
-      const next = current + ch;
-      if(current && measure(next, font) > maxWidth){ lines.push(current); current = ch; }
-      else current = next;
-    }
-    if(current) lines.push(current);
+  const source = String(text || '');
+  const words = source.split(/\s+/).filter(Boolean);
+  if(!words.some(word => measure(word, font) > maxWidth)){
+    const lines = wrapText(source, font, maxWidth, measure);
+    return lines.length ? lines : [''];
   }
+  const tokens = [];
+  for(const word of words){
+    if(measure(word, font) <= maxWidth){ tokens.push({text: word, space: true}); continue; }
+    let rest = graphemes(word), first = true;
+    while(rest.length){
+      let fit = 0;
+      while(fit < rest.length && measure(rest.slice(0, fit + 1).join(''), font) <= maxWidth) fit++;
+      let cut = rest.length;
+      if(fit < rest.length){
+        cut = Math.max(1, fit);
+        for(let j = cut; j >= Math.max(2, Math.ceil(cut / 2)); j--) if(/[_\-/.]$/.test(rest[j - 1])){ cut = j; break; }
+      }
+      tokens.push({text: rest.slice(0, cut).join(''), space: first});
+      first = false;
+      rest = rest.slice(cut);
+    }
+  }
+  const lines = [];
+  let cur = '';
+  for(const token of tokens){
+    const trial = cur ? cur + (token.space ? ' ' : '') + token.text : token.text;
+    if(!cur || measure(trial, font) <= maxWidth) cur = trial;
+    else { lines.push(cur); cur = token.text; }
+  }
+  if(cur) lines.push(cur);
   return lines.length ? lines : [''];
 }
 
@@ -82,7 +107,7 @@ export function boardPlan(model, sim, {measure, nameWidth = 230, killWidth = 245
   const mode = records.length > BOARD_LEDGER_THRESHOLD ? 'ledger' : 'board';
   const rows = records.map(record => {
     const nameLines = measuredLines(record.b.name, '600 13px sans-serif', nameWidth, m);
-    const killText = record.b.kill && ('↳ fold if ' + record.b.kill.text +
+    const killText = record.b.kill && ('fold if ' + record.b.kill.text +
       (record.b.kill.by ? ' — by ' + record.b.kill.by : ''));
     const killLines = killText ? measuredLines(killText, '10.5px sans-serif', killWidth, m) : [];
     const nameTop = mode === 'ledger' ? 24 : 22;

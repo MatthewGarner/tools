@@ -3,13 +3,14 @@
 import {btnAttrs, esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, SERIF, useFace} from './face.js';
+import {legibleMuted} from '../assets/artefact-parts.js';
 import {verdict} from './verdict.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
-const TITLE_FONT = '600 13px ' + SANS;
-const SMALL_FONT = '600 10px ' + SANS;
-const NOTE_FONT = '10px ' + SANS;
+/* fonts are read at call time (a face is chosen per render), so they are objects that stringify on use */
+const TITLE_FONT = {toString: () => '600 13px ' + SANS};
+const SMALL_FONT = {toString: () => '600 10px ' + SANS};
+const NOTE_FONT = {toString: () => '10px ' + SANS};
 const FRAME_PAD = 36;
 
 const r2 = value => (Math.round(Number(value) * 100) / 100).toString();
@@ -29,14 +30,14 @@ function palette(colors){
   const border = pick(muted, 'line', 'border', 'rule', 'muted', 'ink');
   const accent = pick(ink, 'accent', 'brand', 'ink');
   return {
-    ink, muted, bg, surface, border, accent,
+    ink, muted: legibleMuted(muted, ink, bg, accent), bg, surface, border, accent,
     brandText:pick(accent, 'brandText', 'accentInk', 'accent', 'brand', 'ink'),
     yes:pick(accent, 'yes', 'positive', 'success', 'accent', 'brand', 'ink'),
     no:pick(accent, 'no', 'negative', 'danger', 'accent', 'brand', 'ink'),
-    conditional:pick(accent, 'conditional', 'warning', 'accent', 'brand', 'ink'),
+    conditional:legibleMuted(pick(accent, 'conditional', 'warning', 'accent', 'brand', 'ink'), ink, bg, accent),
     done:pick(accent, 'status.done', 'done', 'success', 'accent', 'brand', 'ink'),
     doing:pick(accent, 'status.doing', 'doing', 'accent', 'brand', 'ink'),
-    risk:pick(accent, 'status.risk', 'risk', 'warning', 'accent', 'brand', 'ink'),
+    risk:legibleMuted(pick(accent, 'status.risk', 'risk', 'warning', 'accent', 'brand', 'ink'), ink, bg, accent),
     blocked:pick(accent, 'status.blocked', 'blocked', 'danger', 'accent', 'brand', 'ink'),
   };
 }
@@ -131,7 +132,7 @@ function wideRegions(layout, C){
   const out = [];
   if(layout.spine?.length){
     const x = Math.max(0, layout.spine[0].x - 10);
-    const end = layout.spine.at(-1).x + layout.spine.at(-1).w + 10;
+    const end = Math.min(layout.spine.at(-1).x + layout.spine.at(-1).w + 10, layout.contentWidth - FRAME_PAD);
     out.push('<g data-kind="tree-region" data-region="shared-work">' +
       rect(x, 0, end - x, layout.totalHeight, wash(C.accent, '08')) +
       txt(x + 8, 17, 'SHARED WORK · IN EVERY PLAN', 8, C.muted, {weight:700, tracking:1}) + '</g>');
@@ -145,7 +146,7 @@ function wideRegions(layout, C){
       ? layout.terminal.x + layout.terminal.w
       : Math.max(...pathEntries.map(entry => entry.x + entry.w));
     out.push('<g data-kind="tree-region" data-region="question-paths">' +
-      rect(x, 0, Math.max(1, end - x + 10), layout.totalHeight, wash(C.conditional, '08')) +
+      rect(x, 0, Math.max(1, Math.min(end + 10, layout.contentWidth - FRAME_PAD) - x), layout.totalHeight, wash(C.conditional, '08')) +
       txt(x + 8, 17, 'QUESTION PATHS · CHANGES WITH ANSWERS', 8, C.muted,
         {weight:700, tracking:1}) + '</g>');
   }
@@ -160,9 +161,11 @@ function safeMeasure(measure, value, font){
 function clipped(value, maxWidth, measure, font = SMALL_FONT){
   const source = String(value ?? '');
   if(safeMeasure(measure, source, font) <= maxWidth) return source;
-  let out = source;
+  const words = source.split(' ');
+  while(words.length > 1 && safeMeasure(measure, words.join(' ') + '…', font) > maxWidth) words.pop();
+  let out = words.join(' ');
   while(out && safeMeasure(measure, out + '…', font) > maxWidth) out = out.slice(0, -1);
-  return out ? out + '…' : '';
+  return out ? out.replace(/[\s,.;:]+$/, '') + '…' : '';
 }
 
 function wrapped(value, maxWidth, maxLines, measure, font = TITLE_FONT){
@@ -348,9 +351,9 @@ function renderItem(box, decisions, C, measure){
   const status = itemStatus(item);
   if(rows.meta){
     if(rows.meta.lane){
-      svg += txt(left + rows.meta.lane.x, box.y + rows.meta.y + 10,
+      svg += '<g><title>' + esc(String(item.lane)) + '</title>' + txt(left + rows.meta.lane.x, box.y + rows.meta.y + 10,
         clipped(item.lane, rows.meta.lane.w, measure, SMALL_FONT), 9, C.muted,
-        {weight:600, tracking:0.35});
+        {weight:600, tracking:0.35}) + '</g>';
     }
     if(status && rows.meta.status){
       const colour = C[status.key];
@@ -372,9 +375,11 @@ function renderItem(box, decisions, C, measure){
 
   if(rows.note){
     const noteLines = wrapped(item.note, card.inner, rows.note.lines || 2, measure, NOTE_FONT);
+    svg += '<g><title>' + esc(String(item.note)) + '</title>';   // the whole note stays in the SVG when it is cut
     noteLines.forEach((text, index) => {
       svg += txt(left, box.y + rows.note.y + 10 + index * 14, text, 10, C.muted);
     });
+    svg += '</g>';
   }
 
   const primary = item.parentDecision;
@@ -414,17 +419,28 @@ function renderQuestion(entry, C, measure, ctx){
     questionState(question), ctx) + '><title>' + esc(decisionName(question.decision)) +
     '</title><polygon points="' + points + '" fill="' + C.surface +
     '" stroke="' + C.ink + '" stroke-width="2"/>';
-  const nameLines = wrapped(decisionName(question.decision), diamond.w - 38, 2, measure);
-  const start = diamond.cy - (nameLines.length > 1 ? 20 : 12);
-  nameLines.forEach((text, index) => {
-    svg += txt(diamond.cx, start + index * 15, text, 11, C.ink, {weight:700, anchor:'middle'});
-  });
-  svg += txt(diamond.cx, diamond.cy + 23, questionState(question), 9, C.muted,
-    {weight:600, anchor:'middle'});
-  if(question.decision?.answerBy){
-    svg += txt(diamond.cx, diamond.cy + 37, 'Due · ' + shortDate(question.decision.answerBy), 8,
-      C.muted, {anchor:'middle'});
-  }
+  /* A diamond is only as wide as its height allows: a line at distance d from the centre has w * (1 - d / (h / 2)) to live in.
+     Lines are set top to bottom as one block centred on the diamond, each wrapped or clipped to the room at its own height. */
+  const room = (baseline, size) => {
+    const d = Math.max(Math.abs(baseline - size * 0.8), Math.abs(baseline + size * 0.25));
+    return Math.max(24, diamond.w * (1 - d / (diamond.h / 2)) - 10);
+  };
+  const due = question.decision?.answerBy ? 'Due · ' + shortDate(question.decision.answerBy) : '';
+  const state = questionState(question);
+  const nameFull = decisionName(question.decision);
+  const widest = size => room(0, size);
+  const nameLines = wrapped(nameFull, widest(11) - 6, 2, measure, {toString: () => '700 11px ' + SANS});
+  const block = nameLines.length * 14 + 14 + (due ? 12 : 0);
+  let ty = diamond.cy - block / 2;
+  const put = (text, size, weight, fill, lead) => {
+    const base = ty + size;
+    const fitted = clipped(text, room(base - diamond.cy, size), measure, {toString: () => weight + ' ' + size + 'px ' + SANS});
+    svg += txt(diamond.cx, base, fitted, size, fill, {weight, anchor:'middle'});
+    ty += lead;
+  };
+  for(const text of nameLines) put(text, 11, 700, C.ink, 14);
+  put(state, 9, 600, C.muted, 14);
+  if(due) put(due, 8, 400, C.muted, 12);
   return svg + '</g>';
 }
 
@@ -467,8 +483,8 @@ function renderStump(box, C, measure){
     txt(box.x + box.w / 2, box.y + 16, fits ? phrase : '+' + count, 11, C.muted,
       {weight:700, anchor:'middle'});
   for(const [index, item] of (box.items || []).entries()){
-    svg += txt(box.x + 8, box.y + 32 + index * 16,
-      clipped(item.title, box.w - 16, measure, SMALL_FONT), 9, C.muted, {weight:600});
+    svg += '<g><title>' + esc(String(item.title ?? '')) + '</title>' + txt(box.x + 8, box.y + 32 + index * 16,
+      clipped(item.title, box.w - 16, measure, SMALL_FONT), 9, C.muted, {weight:600}) + '</g>';
   }
   return svg + '</g>';
 }
@@ -492,11 +508,30 @@ function renderCollapsedArmLabel(box, C){
   const side = box.crumb?.direction === 'yes' ? 'no' : 'yes';
   if(!(box.arms?.[side]?.length || box.stump?.side === side)) return '';
   const y = side === 'yes' ? box.y - 9 : box.y + box.h + 15;
-  return txt(box.centerX, y, side === 'yes' ? 'If so' : 'If not', 8, C.muted,
-    {weight:700, tracking:0.5, anchor:'middle'});
+  return txt(box.centerX + 8, y, side === 'yes' ? 'If so' : 'If not', 8, C.muted,
+    {weight:700, tracking:0.5, anchor:'start'});
+}
+
+/* The pieces of a branch connector: from the decision to the nearest card on its side, then across each gap between cards.
+   A card is opaque ink on paper; a rule never runs through one. */
+export function connectorSegments(entry, connector){
+  const node = entry.diamond || entry;
+  const boxes = [...(entry.arms?.[connector.side] || []),
+    ...(entry.stump && entry.stump.side === connector.side ? [entry.stump] : [])]
+    .map(box => ({top:box.y, bottom:box.y + box.h}));
+  const out = [];
+  if(connector.side === 'yes'){
+    let from = node.y;
+    for(const box of boxes.sort((a, b) => b.bottom - a.bottom)){ if(from > box.bottom) out.push([box.bottom, from]); from = box.top; }
+  } else {
+    let from = node.y + node.h;
+    for(const box of boxes.sort((a, b) => a.top - b.top)){ if(box.top > from) out.push([from, box.top]); from = box.bottom; }
+  }
+  return out;
 }
 
 export function renderTree(projection, layout, ctx){
+  useFace(ctx);
   const C = palette(ctx.colors || {});
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value ?? '').length * 7;
   const width = Math.max(1, Math.ceil(layout.contentWidth || layout.width || 1));
@@ -510,7 +545,7 @@ export function renderTree(projection, layout, ctx){
   const readout = svgVerdict({x:FRAME_PAD, y:readoutY, width:width - FRAME_PAD * 2,
     line:readoutLine, fig:data.readout.fig, ink:C.ink, muted:C.muted,
     brandText:C.brandText, font:SANS, measure, size:22});
-  const height = Math.max(1, Math.ceil(readoutY + readout.height + (readout.height ? 24 : 0)));
+  const height = Math.max(1, Math.ceil(readoutY + readout.height + (readout.height ? 4 : 0)));
   const decisions = decisionMap(projection);
   let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
@@ -534,16 +569,26 @@ export function renderTree(projection, layout, ctx){
 
   if(layout.unplaced?.length){
     const top = Math.max(0, (layout.unplacedY || layout.unplaced[0].y) - 28);
-    svg += '<g data-kind="unplaced">' + rect(0, top, width, Math.max(0, bodyHeight - top), wash(C.muted, '0A')) +
-      line(0, top, width, top, C.border, 1) +
-      txt(36, top + 18, 'Unplaced', 10, C.muted, {weight:700, tracking:1}) + '</g>';
+    /* inset to the frame's margin: a panel that bleeds to the canvas edge leaves no margin there */
+    svg += '<g data-kind="unplaced">' + rect(FRAME_PAD, top, Math.max(0, width - FRAME_PAD * 2), Math.max(0, bodyHeight - top), wash(C.muted, '0A')) +
+      line(FRAME_PAD, top, width - FRAME_PAD, top, C.border, 1) +
+      txt(FRAME_PAD + 12, top + 18, 'Unplaced', 10, C.muted, {weight:700, tracking:1}) + '</g>';
   }
 
-  svg += line(layout.spineRun.x1, layout.spineRun.y, layout.spineRun.x2, layout.spineRun.y, C.ink, 2);
+  /* the axis runs between the cards and decisions on it, not under their text */
+  const onAxis = [...(layout.spine || []), ...(layout.continuations || []), ...(layout.breadcrumbs || []),
+    ...(layout.questions || []).flatMap(entry => [entry.diamond, ...(entry.continuation || [])])].filter(Boolean)
+    .map(box => [box.x, box.x + box.w]).sort((a, b) => a[0] - b[0]);
+  let from = layout.spineRun.x1;
+  for(const [a, b] of onAxis){
+    if(a > from) svg += line(from, layout.spineRun.y, a, layout.spineRun.y, C.ink, 2);
+    from = Math.max(from, b);
+  }
+  if(layout.spineRun.x2 > from) svg += line(from, layout.spineRun.y, layout.spineRun.x2, layout.spineRun.y, C.ink, 2);
   for(const entry of [...(layout.questions || []), ...(layout.breadcrumbs || [])]){
     for(const connector of Object.values(entry.connectors || {})){
-      if(connector) svg += line(connector.x, connector.y1, connector.x,
-        connector.y2, C.border, 1.5);
+      if(connector) for(const [y1, y2] of connectorSegments(entry, connector))
+        svg += line(connector.x, y1, connector.x, y2, C.border, 1.5);
     }
   }
 
@@ -586,6 +631,7 @@ export function renderTree(projection, layout, ctx){
    indented beneath it. Exports stay pinned to the wide artefact (house rule),
    so this never becomes a second artefact of its own. */
 export function renderOutline(projection, ctx){
+  useFace(ctx);
   const {measure, colors} = ctx;
   const C = palette(colors);
   const W = Math.max(280, Math.min(520, ctx.width || 360));

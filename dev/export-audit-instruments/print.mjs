@@ -34,6 +34,8 @@ try{
         const dir = ensure(join(OUT, 'print', tool, doc.name, theme));
         const pdf = join(dir, 'print.pdf');
         await page.emulateMedia({media: 'print'});
+        /* page.pdf() does not send beforeprint, which is where a page builds its print sheets (as export-fidelity does for Roadmap) */
+        await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
         await page.pdf({path: pdf, format: 'A4', printBackground: true});
         await ctx.close();
         for(const f of readdirSync(dir)) if(/^page-\d+\.png$/.test(f)) execFileSync('rm', [join(dir, f)]);
@@ -42,7 +44,8 @@ try{
         const text = execFileSync('pdftotext', ['-layout', pdf, '-']).toString();
         writeFileSync(join(dir, 'print.txt'), text);
         const c = {tool, doc: doc.name, theme, view};
-        const chrome = text.match(CHROME_WORDS) || text.match(/\bShare\b/);   // the Share control is capitalised; prose says "share of simulations"
+        /* the Share button is chrome; "share" inside the artefact's own words ("revenue share", "share of simulations") is content */
+        const chrome = text.match(CHROME_WORDS) || text.match(/\bShare\b(?=\s{2,}|\s*$)/m);
         add(c, 'print:artefact-alone', !chrome, {pages: pages.length, chromeWord: chrome?.[0]});
         add(c, 'print:pages', pages.length <= 2, {pages: pages.length});
         /* the artefact is on paper whole: every word of the downloaded SVG for this view is in the PDF's text */
@@ -50,7 +53,9 @@ try{
         if(existsSync(svgFile)){
           const ws = s => new Set(normText(s).split(' ').map(w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')).filter(w => w.length > 2));
           const svgWords = ws(svgTexts(readFileSync(svgFile, 'utf8')).join(' ')), printed = ws(text);
-          const missing = [...svgWords].filter(w => !printed.has(w));
+          /* letter-spaced headings come out of the PDF as "W H AT WO U L D": a word counts as printed if it is there without the spacing */
+          const squashed = text.replace(/\s+/g, '').toLowerCase();
+          const missing = [...svgWords].filter(w => !printed.has(w) && !squashed.includes(w.toLowerCase()));
           add(c, 'print:artefact-complete', missing.length <= svgWords.size * .02, {missing: missing.slice(0, 20), count: missing.length, of: svgWords.size});
         }
         /* how dark is page 1? a dark artefact printed on paper wastes ink and loses contrast */
