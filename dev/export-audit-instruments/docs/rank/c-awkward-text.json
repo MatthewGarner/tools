@@ -1,0 +1,84 @@
+{
+ "about": "names with pipes, & < > quotes emoji RTL combining marks, backslashes and a long unbroken word; criterion names with pipes",
+ "state": {
+  "c": [
+   [
+    "Value | impact",
+    3
+   ],
+   [
+    "Time <criticality>",
+    2
+   ],
+   [
+    "Risk & \"reduction\"",
+    1
+   ]
+  ],
+  "e": [
+   "Effort | cost",
+   1
+  ],
+  "i": [
+   [
+    "Fish & chips | pipe",
+    8,
+    8,
+    6,
+    4
+   ],
+   [
+    "<b>bold</b> & <script>",
+    7,
+    6,
+    5,
+    4
+   ],
+   [
+    "Emoji 🚀🔥👩🏽‍💻",
+    9,
+    3,
+    5,
+    5
+   ],
+   [
+    "שלום עולם RTL",
+    5,
+    9,
+    4,
+    5
+   ],
+   [
+    "Zalgo z̷̢a̶l̸g̵o é é",
+    4,
+    3,
+    6,
+    7
+   ],
+   [
+    "Back\\slash \\| escaped",
+    6,
+    6,
+    6,
+    6
+   ],
+   [
+    "Star *bold* _under_ `code` [link](x)",
+    5,
+    5,
+    5,
+    5
+   ],
+   [
+    "Supercalifragilisticexpialidocious_unbroken_identifier_with_no_spaces_anywhere_at_all",
+    3,
+    3,
+    3,
+    3
+   ]
+  ],
+  "k": 3,
+  "w": 50,
+  "s": 1
+ }
+}

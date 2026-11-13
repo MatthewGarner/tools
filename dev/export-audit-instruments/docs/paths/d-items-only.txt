@@ -1,0 +1,6 @@
+// a plan with items and no decisions
+title: Items only
+NOW
+  Core: One thing [doing]
+NEXT
+  Core: Another thing

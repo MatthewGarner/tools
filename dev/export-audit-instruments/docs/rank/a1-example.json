@@ -1,0 +1,77 @@
+{
+ "about": "built-in example: Ops & infra backlog",
+ "state": {
+  "c": [
+   [
+    "Value",
+    3
+   ],
+   [
+    "Time criticality",
+    2
+   ],
+   [
+    "Risk reduction",
+    1
+   ]
+  ],
+  "e": [
+   "Effort",
+   1
+  ],
+  "i": [
+   [
+    "Incident response automation",
+    8,
+    7,
+    6,
+    6
+   ],
+   [
+    "Observability dashboard overhaul",
+    7,
+    5,
+    5,
+    5
+   ],
+   [
+    "Legacy job scheduler migration",
+    6,
+    4,
+    8,
+    8
+   ],
+   [
+    "Cloud cost reporting",
+    4,
+    6,
+    3,
+    3
+   ],
+   [
+    "Disaster recovery drill tooling",
+    5,
+    3,
+    9,
+    8
+   ],
+   [
+    "Access control audit",
+    6,
+    8,
+    6,
+    4
+   ],
+   [
+    "Internal API gateway rewrite",
+    7,
+    6,
+    5,
+    5
+   ]
+  ],
+  "k": 3,
+  "w": 50,
+  "s": 1
+ }
+}

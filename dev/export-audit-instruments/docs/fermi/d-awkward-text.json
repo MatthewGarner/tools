@@ -1,0 +1,20 @@
+{
+ "about": "question and unit with & < > quotes pipes emoji RTL combining marks; long unbroken word in question",
+ "state": {
+  "f": "fish_and_chips * zoe_count",
+  "q": "R&D <alpha> \"beta\" | ‘quotes’ 🚀 עברית z̷̢a̶l̸g̵o café Zoë — Supercalifragilisticexpialidocious_unbroken_identifier_with_no_spaces_anywhere_at_all",
+  "u": "€ & <units> | 🚀",
+  "v": {
+   "fish_and_chips": [
+    "10",
+    "20",
+    "auto"
+   ],
+   "zoe_count": [
+    "3",
+    "9",
+    "auto"
+   ]
+  }
+ }
+}

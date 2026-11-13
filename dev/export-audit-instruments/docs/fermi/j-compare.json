@@ -1,0 +1,45 @@
+{
+ "about": "compare variants A and B",
+ "state": {
+  "a": {
+   "f": "a * b",
+   "q": "Variant comparison",
+   "u": "k",
+   "v": {
+    "a": [
+     "10",
+     "20",
+     "auto"
+    ],
+    "b": [
+     "2",
+     "5",
+     "auto"
+    ]
+   }
+  },
+  "b": {
+   "f": "a * b * c",
+   "q": "Variant comparison",
+   "u": "k",
+   "v": {
+    "a": [
+     "10",
+     "20",
+     "auto"
+    ],
+    "b": [
+     "2",
+     "5",
+     "auto"
+    ],
+    "c": [
+     "0.8",
+     "1.5",
+     "auto"
+    ]
+   }
+  },
+  "on": "A"
+ }
+}

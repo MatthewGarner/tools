@@ -1,0 +1,28 @@
+{
+ "about": "cashflow: the default New feature investment",
+ "state": {
+  "m": "cf",
+  "g": "year",
+  "h": 5,
+  "rl": "8",
+  "rh": "12",
+  "p": [
+   [
+    "-250k",
+    "-180k"
+   ],
+   [
+    "-40k",
+    "20k"
+   ],
+   [
+    "30k",
+    "90k"
+   ],
+   [
+    "60k",
+    "140k"
+   ]
+  ]
+ }
+}

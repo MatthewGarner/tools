@@ -1,0 +1,7 @@
+// verdict off: the export must carry none
+title: No verdict here
+verdict: off
+currency: £
+Decide
+  A : 10k
+  B : 20k
