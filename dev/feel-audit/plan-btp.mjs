@@ -54,16 +54,16 @@ export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-sta
    its known FAIL into a PASS and removes the tag. 'id@tool' tags that check on that tool only. */
 export const KNOWN_BTP = [
   "compare.edit@bets",
-  "load.large.cls@tree",
+  
   "load.large.longtask@bets", "load.large.longtask@tree", "scroll.frames.vs.control@paths", 
   "slider.large.drag.events@tree",
-  "slider.large.escape.focus@tree", "slider.large.release.longtask@tree",
-  "slider.large.release@tree", "slider.large.undo.button@tree", "sliderkeys.large.longtask@tree", "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree",
+  "slider.large.release.longtask@tree",
+  "slider.large.release@tree", "sliderkeys.large.longtask@tree", "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree",
   "stall.large.live@bets",
   "stall.large.live@paths", "stall.large.live@tree", "stall.large.longtask@tree",
   "undo.desktop@bets", "undo.desktop@paths", "undo.desktop@tree",
   "values.example.applied@bets", "values.example.inputmode@bets",
-  "values.example.longtask@bets", "values.large.applied@bets", "values.large.inputmode@bets", "values.large.longtask@bets", "view.example.swap@bets", "view.example.swap@paths", "view.large.longtask@paths", "view.large.settle@paths", "view.large.swap@bets", "view.large.swap@paths",
-  "view.transition@paths",
+  "values.example.longtask@bets", "values.large.applied@bets", "values.large.inputmode@bets", "values.large.longtask@bets", "view.example.swap@bets", "view.example.swap@paths", "view.large.longtask@paths", "view.large.swap@bets", "view.large.swap@paths",
+  
 ];
 for(const k of KNOWN_BTP) KNOWN.add(k);

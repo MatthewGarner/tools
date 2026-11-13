@@ -242,8 +242,12 @@ export function mountMotion(container){
     const flipState = (m === 'flip' && flipAttr) ? captureFlip(container, flipAttr) : null;
     if(flipState && flipFrom) for(const [k, r] of flipFrom) flipState.set(k, r);   // an item that arrives from elsewhere (a drag chip) glides from there
     const ghost = m === 'fade' ? ghostBefore(container) : null;   // mode 'fade' = a view switch (see ghostBefore)
+    /* Between the new markup and onSwap (which sets its width) the artefact is briefly the wrong size, and a layout read in
+       that gap (WebKit reads one) clamps the page's scroll to the shorter document. The reader's position is theirs: put it back. */
+    const y0 = scrollY, x0 = scrollX;
     container.innerHTML = svg; lastSvg = svg;
     if(onSwap) onSwap();
+    if(scrollY !== y0 || scrollX !== x0) scrollTo(x0, y0);
     if(flipState) applyFlip(container, flipAttr, flipState, {scale: (scale ? scale() : 1)});
     ghostAfter(ghost);
     return container;
