@@ -299,3 +299,13 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 }
 
 .export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
+
+/* Control language shared with Timeline (F42, 2026-11-13). Each tool keeps its own look; the
+   44px control height and tap floor, the --dur-fast ease and the hover/focus/disabled behaviour
+   are the same. Mirrors the closing block of timeline/style.css. */
+.board-step:disabled{opacity:.45;cursor:default}
+select.ctl:hover:not(:disabled){border-color:var(--ink)}
+@media (max-width:520px),(pointer:coarse){.board-step{min-width:44px}}
+@media (prefers-reduced-motion:no-preference){
+  .btn,.segmented button,select.ctl,.railtab{transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
+}
