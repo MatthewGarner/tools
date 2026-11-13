@@ -111,7 +111,7 @@ test('PA-3: across random documents the inspector listing equals the evaluator\'
   let listings = 0, bad = null;
   const expected = it => it.condition && (!it.condition.valid || it.conditionResult.value === 'invalid') ? 'Condition needs fixing'
     : it.status === 'done' && it.conditionResult.value === 'false' ? 'Completed'
-    : it.itemState === 'in-plan' ? 'Included' : it.itemState === 'not-needed' ? 'Not needed' : it.itemState === 'limbo' ? 'Following' : 'Waiting';
+    : it.itemState === 'in-plan' ? 'Included' : it.itemState === 'not-needed' ? 'Not needed' : it.itemState === 'limbo' ? 'Following' : it.itemState === 'set-aside' ? 'Set aside' : 'Waiting';
   for(let t = 0; t < 400; t++){
     const p = proj(randDoc(r), todayFor(r)), tp = treeProjection(p);
     for(const q of tp.questions){

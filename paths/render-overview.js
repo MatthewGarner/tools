@@ -254,7 +254,7 @@ function itemCard(item, x, y, width, C, measure, selectedKey){
   const noteLines = item.note ? wrapped(item.note, inner, measure, '400 9px ' + SANS) : [];
   const status = statusLabel(item);
   const related = !!selectedKey && !!item.condition?.terms?.some(term => term.key === selectedKey);
-  const notPursuing = item.displayState?.kind === 'not-pursuing';
+  const notPursuing = item.displayState?.kind === 'not-pursuing' || item.displayState?.kind === 'set-aside';
   const height = 28 + titleLines.length * 15 + stateLines.length * 13 + noteLines.length * 13 + (status ? 14 : 0);
   const stroke = related ? C.accent : C.border;
   let svg = '<g data-kind="roadmap-item" data-identity="' + item.identity + '" data-state="' +

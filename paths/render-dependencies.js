@@ -187,8 +187,8 @@ function conditionCopy(item, modelHealth = []){
   const phrase = terms.map(term => `${nameOf(term)} = ${String(term.direction || (term.negated ? 'no' : 'yes')).toUpperCase()}`);
   const historic = item.displayState?.kind === 'completed'
     ? 'Historical condition — already completed'
-    : item.displayState?.kind === 'not-pursuing'
-      ? 'This outcome is no longer being pursued' : null;
+    : item.displayState?.kind === 'not-pursuing' ? 'This outcome is no longer being pursued'
+    : item.displayState?.kind === 'set-aside' ? 'This outcome is set aside while an assumption holds' : null;
   if(terms.length === 1) return {kind:'simple', label:`IF ${phrase[0]}`,
     expression:historic || 'This outcome unlocks the work'};
   if(condition.operator === 'or') return {kind:'or', label:`IF EITHER ${phrase.join(' OR ')}`,
@@ -224,7 +224,7 @@ function renderCard(item, x, y, width, C, measure, selectedKey, narrow = false, 
   const relation = relationTo(item, selectedKey);
   const opacity = relation === 'unrelated' ? .28 : relation === 'independent' ? .6 : 1;
   const stroke = relation === 'selected' ? C.accent : layout.condition.kind === 'repair' ? C.urgent : C.border;
-  const dash = item.displayState?.kind === 'not-pursuing' ? '4 3' : null;
+  const dash = item.displayState?.kind === 'not-pursuing' || item.displayState?.kind === 'set-aside' ? '4 3' : null;
   let svg = '<g data-kind="dependency-item" data-identity="' + item.identity + '" data-condition="' +
     layout.condition.kind + '" data-emphasis="' + relation + '" opacity="' + opacity + '"><title>' +
     esc(`${item.title || 'Untitled item'} — ${layout.condition.label}`) + '</title>' +

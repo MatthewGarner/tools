@@ -2,7 +2,7 @@
    Relationships come only from authored condition terms and the `when:` graph. */
 
 import {evaluate} from './evaluate.js';
-import {verdict} from './verdict.js';
+import {verdict, dueLabel} from './verdict.js';
 import {nameMap, cloneNames} from './names.js';
 
 const REPAIR_WARNING_CODES = new Set([
@@ -68,11 +68,16 @@ function evidenceTerms(item, decisionByName){
   return out;
 }
 
+/* the assumptions the item's state rests on: the ones that settled its condition under the
+   assumed answer (the evaluator records them), else every assumption its condition names */
 function assumptionTerms(item, decisionByName){
+  const named = item.assumedEffect?.keys;
+  const seen = new Set();
   return (item.condition?.terms || []).flatMap(term => {
     const decision = decisionByName[term.key];
-    return decision?.assumption?.inForce
-      ? [{key:term.key, name:decision.name, direction:decision.assumption.direction}] : [];
+    if(seen.has(term.key) || !decision?.assumption?.inForce || (named?.length && !named.includes(term.key))) return [];
+    seen.add(term.key);
+    return [{key:term.key, name:decision.name, direction:decision.assumption.direction}];
   });
 }
 
@@ -91,6 +96,10 @@ export function itemDisplayState(item, projected){
   if(item.itemState === 'limbo'){
     const assumptions = assumptionTerms(item, decisionByName);
     return {kind:'assumption', sentence:`Working to the assumption ${joinTerms(assumptions, 'and')}`};
+  }
+  if(item.itemState === 'set-aside'){
+    const assumptions = assumptionTerms(item, decisionByName);
+    return {kind:'set-aside', sentence:`Set aside on the assumption ${joinTerms(assumptions, 'and')}`};
   }
   if(item.conditionResult?.value === 'true'){
     const evidence = evidenceTerms(item, decisionByName);
@@ -165,8 +174,10 @@ export function decisionCurrentState(projected, decision, repairs = decisionRepa
     sentence:`Answered ${decision.effectiveAnswer}${decision.late ? ' — recorded late' : ''}`};
   if(decision.assumption?.inForce) return {kind:'assumption',
     sentence:`Working to the assumption ${sentenceName(decision.name)} = ${decision.assumption.direction}`};
+  /* an assumption that has not started yet is not in force: say when it will */
   if(decision.overdue) return {kind:'overdue',
-    sentence:`Unanswered — overdue since ${decision.answerBy}`};
+    sentence:`Unanswered — overdue since ${decision.answerBy}${decision.assumption?.date
+      ? `; assumed ${decision.assumption.direction} from ${dueLabel(decision.assumption.date)}` : ''}`};
   return {kind:'open', sentence:decision.answerBy
     ? `Unanswered — due ${decision.answerBy}` : 'Unanswered'};
 }
@@ -353,6 +364,7 @@ function branchWorkSentence(outcome){
   if(outcome.itemState === 'in-plan') return 'Would be in the plan';
   if(outcome.itemState === 'not-needed') return 'Would not be pursued';
   if(outcome.itemState === 'limbo') return 'Would be working to an assumption';
+  if(outcome.itemState === 'set-aside') return 'Would be set aside by an assumption';
   if(outcome.itemState === 'waiting') return 'Would still be waiting';
   return 'Logic would still need repair';
 }

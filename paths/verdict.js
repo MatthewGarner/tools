@@ -20,7 +20,7 @@ function civilDay(date){
   return era * 146097 + dayOfEra;
 }
 
-function dueLabel(date){
+export function dueLabel(date){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return date || '';
   const [, month, day] = date.split('-').map(Number);
   const months = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -45,10 +45,21 @@ function provenanceOf(item){
   return item?.conditionResult?.provenance || item?.provenance || [];
 }
 
+/* Does the item name this decision's assumption in its display evidence? An item set aside by it is
+   not "following" it: the two are counted apart. */
+function namesAssumption(display, decision){
+  return display.decisions ? display.decisions.includes(decision?.key)
+    : display.decision === decision?.key && display.direction === assumedDirection(decision);
+}
+
+function setAsideByAssumption(item, decision){
+  const display = item?.displayEvidence;
+  return display?.kind === 'set-aside' && namesAssumption(display, decision);
+}
+
 function followsAssumption(item, decision){
   const display = item?.displayEvidence;
-  if(display) return display.kind === 'assumption' && display.decision === decision?.key &&
-    display.direction === assumedDirection(decision);
+  if(display) return display.kind === 'assumption' && namesAssumption(display, decision);
 
   const marker = `assumed-${assumedDirection(decision)}`;
   if(![...provenanceOf(item)].includes(marker)) return false;
@@ -87,9 +98,15 @@ export function verdict(projection){
     const fig = `${days} ${days === 1 ? 'day' : 'days'} overdue`;
     const direction = assumedDirection(overdue);
     const following = direction ? items.filter(item => followsAssumption(item, overdue)).length : 0;
-    const clause = following
-      ? `; ${following} ${following === 1 ? 'item is' : 'items are'} following an assumed ${direction}`
-      : '';
+    const setAside = direction ? items.filter(item => setAsideByAssumption(item, overdue)).length : 0;
+    const plural = (n, one, many) => n === 1 ? one : many;
+    let clause = '';
+    if(following && setAside) clause = `; ${following} ${plural(following, 'item is', 'items are')} following an assumed ${direction}; ` +
+      `${setAside} ${plural(setAside, 'is', 'are')} set aside by it`;
+    else if(following) clause = `; ${following} ${plural(following, 'item is', 'items are')} following an assumed ${direction}`;
+    else if(setAside) clause = `; ${setAside} ${plural(setAside, 'item is', 'items are')} set aside by an assumed ${direction}`;
+    else if(overdue.assumption && !overdue.assumption.inForce && overdue.assumption.date)
+      clause = `; assumed ${overdue.assumption.direction} from ${dueLabel(overdue.assumption.date)}`;
     return {line:`The ${decisionName(overdue)} answer is ${fig}${clause}.`, fig};
   }
 

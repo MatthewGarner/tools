@@ -79,6 +79,7 @@ function artifactData(tree, ctx){
     ['included', projectedItems.filter(item => item.itemState === 'in-plan').length],
     ['waiting', projectedItems.filter(item => item.itemState === 'waiting').length],
     ['following assumptions', projectedItems.filter(item => item.itemState === 'limbo').length],
+    ['set aside by assumptions', projectedItems.filter(item => item.itemState === 'set-aside').length],
     ['not needed', projectedItems.filter(item => item.itemState === 'not-needed').length],
   ].filter(([, count]) => count).map(([label, count]) => count + ' ' + label).join(', ');
   const terminal = tree.terminal ? tree.terminal.kind === 'limit'
@@ -277,6 +278,7 @@ function itemTreatment(item, decisions){
     case 'condition-error': return {kind:'invalid'};
     case 'completed': return {kind:'completed'};
     case 'assumption': return {kind:'assumed', direction:evidence.direction === 'no' ? 'no' : 'yes'};
+    case 'set-aside': return {kind:'set-aside', direction:evidence.direction === 'no' ? 'no' : 'yes'};
     case 'pending-answer': return {kind:'conditional', decision:named(evidence.decision)};
     case 'host-exclusion': return {kind:'ghost'};
     case 'unconditional':
@@ -296,6 +298,8 @@ function treatmentLabel(treatment){
     ? 'Waiting for ' + treatment.decision : 'Not open yet';
   if(treatment.kind === 'assumed') return treatment.direction === 'no'
     ? 'Following an assumed no' : 'Following an assumed yes';
+  if(treatment.kind === 'set-aside') return treatment.direction === 'no'
+    ? 'Set aside on an assumed no' : 'Set aside on an assumed yes';
   return 'Included';
 }
 
@@ -325,16 +329,16 @@ function renderItem(box, decisions, C, measure){
   const stateText = treatmentLabel(treatment);
   const fill = treatment.kind === 'conditional' ? wash(C.conditional, '14')
     : treatment.kind === 'invalid' ? wash(C.conditional, '14')
-    : treatment.kind === 'ghost' ? wash(C.muted, '0D')
+    : treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? wash(C.muted, '0D')
     : treatment.kind === 'assumed' ? 'url(#tree-assumed-' + treatment.direction + ')'
     : C.surface;
   const stroke = treatment.kind === 'conditional' ? C.conditional
     : treatment.kind === 'invalid' ? C.conditional
-    : treatment.kind === 'ghost' ? C.muted : C.border;
+    : treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? C.muted : C.border;
   const dash = treatment.kind === 'conditional' ? '5 3'
-    : treatment.kind === 'invalid' ? '2 2' : treatment.kind === 'ghost' ? '2 3' : null;
-  const opacity = treatment.kind === 'ghost' ? '0.68' : '1';
-  let svg = '<g data-kind="item" data-treatment="' + (treatment.kind === 'assumed' ? 'assumed-' + treatment.direction : treatment.kind) +
+    : treatment.kind === 'invalid' ? '2 2' : treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? '2 3' : null;
+  const opacity = treatment.kind === 'ghost' || treatment.kind === 'set-aside' ? '0.68' : '1';
+  let svg = '<g data-kind="item" data-treatment="' + (treatment.kind === 'assumed' || treatment.kind === 'set-aside' ? treatment.kind + '-' + treatment.direction : treatment.kind) +
     '" opacity="' + opacity + '"><title>' + esc(String(item.title ?? '')) + '</title>';
   svg += rect(box.x, box.y, box.w, box.h, fill, {stroke, sw:treatment.kind === 'normal' ? 1 : 1.5, dash});
 

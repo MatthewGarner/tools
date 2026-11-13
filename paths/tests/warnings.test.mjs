@@ -123,9 +123,9 @@ test('every build warning has its owning phase, exact source line and dedupe key
 
 test('every project warning has its owning phase, exact source line and dedupe key', () => {
   let model = evaluate(parse(`${complete('groups', '\n  assume: yes 2026-12-01')}\nNOW\n  Core: A [if groups]`), '2026-12-15');
-  one(model, 'assumption-before-due', 6, 'project', 'line 6: the assumption for "groups" is not used yet — the answer is due 15 December and an assumption takes effect after that date; remove the assumption, or move "answer-by:" to a date before today');
+  one(model, 'assumption-before-due', 6, 'project', 'line 6: the assumption for "groups" is not in force yet — it takes effect after the answer is due (15 December); to use it now, move "answer-by:" to a date before today');
   model = evaluate(parse('decision groups:\n  question: q\n  signal: s\n  owner: o\n  assume: yes 2026-12-01\nNOW\n  Core: A [if groups]'), '2026-12-20');
-  one(model, 'assumption-no-due', 5, 'project', 'line 5: the assumption for "groups" has no start date — add a valid "answer-by:"; assumption not used');
+  one(model, 'assumption-no-due', 5, 'project', 'line 5: the assumption for "groups" cannot start without an "answer-by:" date — add one; assumption not used');
 
   model = evaluate(parse(`${complete('groups')}\n${complete('pricing', '\n  when: groups\n  assume: yes 2026-12-20')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
   one(model, 'assumption-dormant', 12, 'project', 'line 12: assumption not used because "pricing" is not open yet — remove it, or wait until the question opens');

@@ -383,7 +383,7 @@ export function inspectRoadmapProjection(model, injectedDate, answers){
     return refusal('basis-too-large', `Roadmap's visible projection basis supports at most ${MAX_BASIS_ENTRIES} active decisions.`);
 
   for(const item of projected.items){
-    if(item.condition && (item.itemState === 'waiting' || item.itemState === 'limbo' ||
+    if(item.condition && (item.itemState === 'waiting' || item.itemState === 'limbo' || item.itemState === 'set-aside' ||
        item.conditionResult?.value === 'invalid'))
       return refusal('unresolved-item', `Delivery item ${JSON.stringify(item.title)} is not resolved in this exact world.`);
     if((item.status === 'doing' || item.status === 'blocked') && item.itemState !== 'in-plan')
