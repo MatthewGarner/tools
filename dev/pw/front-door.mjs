@@ -159,6 +159,12 @@ try {
   {
     const c = await phone(PHONE), page = await c.newPage(), errors = trackErrors(page);
     await page.goto(T + '/'); await settle(page); await ready(page);
+    {
+      await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(150);
+      const foot = await page.evaluate(() => ({footer: Math.round(document.querySelector('.mg-footer').getBoundingClientRect().bottom), bar: Math.round(Math.min(...[...document.querySelectorAll('.door-nav, .door-classes')].map(e => e.getBoundingClientRect().top)))}));
+      ok('phone: scrolled to the end, the site footer clears the fixed bar (it is reachable, not under it)', foot.footer <= foot.bar, JSON.stringify(foot));
+      await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(150);
+    }
     const scrollLeft = () => page.locator('.door-class:not([hidden]) .door-list').evaluate(l => l.scrollLeft);
     await swipe(page, 300, 350, -260);
     ok('carousel: a swipe snaps to Gauge and the counter follows (2 / 15)', await until(async () => JSON.stringify(await where(page)) === JSON.stringify({cls: 'Instruments', name: 'Gauge', count: '2 / 15'})), JSON.stringify(await where(page)));
