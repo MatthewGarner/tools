@@ -8,4 +8,5 @@ const v1=sourceDefinition({id:'roadmap',title:'Roadmap',description:'An editable
 });
 // Version 3: a slide fits when its ink does, in every view (Board, Grid and Register as Focus), so slide sets take the room the gap after the last card used to hold.
 // Versions 1 and 2 stay frozen as published.
-export const definition={...v1,version:3};
+// Version 4: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:4};

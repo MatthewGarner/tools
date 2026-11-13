@@ -8,4 +8,5 @@ const v1=sourceDefinition({id:'timeline',title:'Timeline',description:'An editab
 });
 // Version 3: the lane model (minimum rule, conditional on not finished by today), one today, one date and duration printer. Versions 1 and 2 stay frozen as published.
 // Version 4: a live review with no snapshot keeps the chart still (the hint moves to the page's control row); exports keep the line.
-export const definition={...v1,version:4};
+// Version 5: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:5};

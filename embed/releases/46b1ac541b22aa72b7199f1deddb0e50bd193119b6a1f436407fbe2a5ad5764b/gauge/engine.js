@@ -1,0 +1,309 @@
+/* Divergence stats, headlines, verdict, markdown summary. Pure. */
+import {quantile} from '../assets/series.js';
+import {resolveVerdict} from '../assets/verdict-core.js';
+
+export const RATIO_DIVERGENT = 3;   // pooled spread ÷ median individual width
+export const SPLIT_GAP = 25;        // percentage points
+export const AGREE_SPREAD = 20;     // percentage points
+
+const pct = v => Math.round(v) + '%';
+const mean = xs => xs.reduce((s, v) => s + v, 0) / xs.length;
+const mdLiteral = value => String(value ?? '').replace(/([\\`*_[\]<>])/g, '\\$1');
+
+export function rangeStats(answers){
+  const n = answers.length;
+  if(n === 0) return {kind: 'empty', n, headline: 'No responses yet.', discuss: false};
+  const rows = answers.map(a => ({...a, mid: (a.low + a.high) / 2}))
+    .sort((a, b) => a.mid - b.mid || a.low - b.low);
+  const lows = rows.map(r => r.low), highs = rows.map(r => r.high);
+  const pooled = {lo: Math.min(...lows), hi: Math.max(...highs)};
+  const ovLo = Math.max(...lows), ovHi = Math.min(...highs);
+  const overlap = ovLo <= ovHi ? {lo: ovLo, hi: ovHi} : null;
+  if(n === 1) return {kind: 'single', n, rows, pooled, overlap,
+    headline: 'Only one response — nothing to compare yet.', discuss: false};
+  const widths = rows.map(r => r.high - r.low).sort((a, b) => a - b);
+  const medianWidth = quantile(widths, 0.5);
+  const ratio = medianWidth > 0 ? (pooled.hi - pooled.lo) / medianWidth : Infinity;
+  let kind, headline;
+  if(overlap){ kind = 'agreement'; headline = "Everyone's intervals overlap — genuine agreement."; }
+  else if(ratio >= RATIO_DIVERGENT){ kind = 'divergent'; headline = "The room's disagreement is wider than any individual's uncertainty."; }
+  else { kind = 'moderate'; headline = 'Close but not aligned — the intervals miss each other at the edges.'; }
+  return {kind, n, rows, pooled, overlap, medianWidth, ratio, headline, discuss: kind !== 'agreement'};
+}
+
+export function probStats(answers){
+  const n = answers.length;
+  if(n === 0) return {kind: 'empty', n, headline: 'No responses yet.', discuss: false};
+  const rows = [...answers].sort((a, b) => a.value - b.value);
+  const values = rows.map(r => r.value);
+  const median = quantile(values, 0.5);
+  if(n === 1) return {kind: 'single', n, rows, median,
+    headline: 'Only one response — nothing to compare yet.', discuss: false};
+  const spread = values[n - 1] - values[0];
+  let gap = 0, gapAt = 0;
+  for(let i = 1; i < n; i++){
+    if(values[i] - values[i - 1] > gap){ gap = values[i] - values[i - 1]; gapAt = i; }
+  }
+  let kind, headline, camps = null;
+  if(n >= 4 && gap >= SPLIT_GAP && gap >= spread / 2){
+    kind = 'split';
+    const lo = values.slice(0, gapAt), hi = values.slice(gapAt);
+    camps = {lo: {n: lo.length, center: mean(lo)}, hi: {n: hi.length, center: mean(hi)}};
+    const share = lo.length === hi.length ? ['half', 'half']
+      : lo.length > hi.length ? ['most', 'a few'] : ['a few', 'most'];
+    headline = 'Split room: ' + share[0] + ' near ' + pct(camps.lo.center) +
+      ', ' + share[1] + ' near ' + pct(camps.hi.center) + '.';
+  } else if(spread <= AGREE_SPREAD){
+    kind = 'agreement';
+    headline = 'The room agrees — everyone within ' + pct(spread) + ' of each other, median ' + pct(median) + '.';
+  } else {
+    kind = 'spread';
+    headline = 'Estimates run from ' + pct(values[0]) + ' to ' + pct(values[n - 1]) + ' — median ' + pct(median) + '.';
+  }
+  return {kind, n, rows, median, spread, gap, camps, headline, discuss: kind !== 'agreement'};
+}
+
+/* Confidence auction: everyone splits 100 chips across the options. Read two ways —
+   STATED = first-choice show of hands (each person's top pile is one vote; an exact
+   top-pile tie abstains); CONVICTION = where the chips actually pile up. When they
+   disagree, "the room says A but bets on B". */
+function idxMax(xs){ let b = 0; xs.forEach((v, i) => { if(v > xs[b]) b = i; }); return b; }
+export function chipsStats(answers, options){
+  const n = answers.length;
+  if(n === 0) return {kind: 'empty', n, headline: 'No responses yet.', discuss: false};
+  const rows = answers.map(r => {
+    const sum = r.alloc.reduce((s, v) => s + v, 0);
+    const alloc = sum > 0 && sum !== 100 ? r.alloc.map(v => v * 100 / sum) : r.alloc;
+    return {...r, alloc};
+  });
+  const perOption = options.map((option, j) => ({option, total: 0, votes: 0, allocs: rows.map(r => r.alloc[j])}));
+  let abstentions = 0;
+  for(const r of rows){
+    r.alloc.forEach((v, j) => { perOption[j].total += v; });
+    const top = Math.max(...r.alloc);
+    const tops = r.alloc.filter(v => v === top).length;
+    if(tops > 1) abstentions++;
+    else perOption[r.alloc.indexOf(top)].votes++;
+  }
+  const grand = perOption.reduce((s, o) => s + o.total, 0) || 1;
+  perOption.forEach(o => { o.share = o.total / grand * 100; });
+  if(n === 1) return {kind: 'single', n, rows, perOption, abstentions,
+    headline: 'Only one response — nothing to compare yet.', discuss: false};
+  const stated = idxMax(perOption.map(o => o.votes));
+  const conviction = idxMax(perOption.map(o => o.total));
+  const tops = rows.map(r => Math.max(...r.alloc)).sort((x, y) => x - y);
+  const hedging = quantile(tops, 0.5) < 50;
+  const pct = v => Math.round(v) + '%';
+  let kind, headline;
+  /* headlines stay a concise quotable line — the panel below carries the numbers
+     (votes, share, per-person dots), so repeating them here just overflows. */
+  if(stated !== conviction){
+    kind = 'divergent';
+    headline = 'The room says ' + options[stated] + ' but bets on ' + options[conviction] + '.';
+  } else if(perOption[conviction].share < 40){
+    kind = 'weak';
+    headline = options[conviction] + ' wins both readings, but only ' +
+      pct(perOption[conviction].share) + ' of the chips — conviction is spread.';
+  } else {
+    kind = 'settled';
+    headline = options[conviction] + ' wins both ways — ' + perOption[stated].votes + ' of ' + n +
+      ' first choices and ' + pct(perOption[conviction].share) + ' of the chips.';
+  }
+  if(hedging) headline += ' The room is hedging — nobody bet big.';
+  return {kind, n, rows, perOption, stated, conviction, abstentions, hedging,
+    headline, discuss: kind !== 'settled'};
+}
+
+export function sessionStats(model, responses){
+  return model.questions.map((q, i) => {
+    const answers = [];
+    for(const r of responses){
+      const v = r.values[i];
+      if(v == null) continue;
+      if(q.type === 'range' && Array.isArray(v)) answers.push({low: v[0], high: v[1], name: r.name});
+      else if(q.type === 'prob' && typeof v === 'number') answers.push({value: v, name: r.name});
+      else if(q.type === 'chips' && Array.isArray(v) && v.length === q.options.length) answers.push({alloc: v, name: r.name});
+    }
+    const s = q.type === 'range' ? rangeStats(answers)
+      : q.type === 'chips' ? chipsStats(answers, q.options)
+      : probStats(answers);
+    return {...s, question: q};
+  });
+}
+
+/* The session verdict as {line, fig}: `fig` is the ONE load-bearing run the Swiss
+   6b block inks in brand red, and always appears verbatim in `line`. Two branches
+   have no number to quote, so the claim itself is the figure. `verdict()` stays
+   the plain string — markdown, the exported SVG and every existing caller read it. */
+export function verdictOf(stats){
+  const scored = stats.map((s, i) => ({s, i})).filter(x => x.s.kind !== 'empty' && x.s.kind !== 'single');
+  if(scored.length < 2) return {line: '', fig: ''};
+  const discuss = scored.filter(x => x.s.discuss);
+  if(!discuss.length) return {line: 'Broad agreement across all ' + scored.length + ' items.',
+    fig: 'all ' + scored.length + ' items'};
+  if(discuss.length === scored.length) return {
+    line: 'No consensus anywhere — every item is worth discussion.', fig: 'No consensus'};
+  const refs = discuss.map(x => '#' + (x.i + 1));
+  const list = refs.length === 1 ? refs[0] : refs.slice(0, -1).join(', ') + ' and ' + refs[refs.length - 1];
+  const fig = (scored.length - discuss.length) + ' of ' + scored.length;
+  return {line: 'Broad agreement on ' + fig + ' items; discuss ' + list + '.', fig};
+}
+export function verdict(stats){ return verdictOf(stats).line; }
+
+/* Facilitator response-counter copy. Pure so it can be unit-tested; the console
+   just prints the string. In round 2 the denominator is the whole final room
+   (finalCount = union of both rounds), never the round-1 count — a newcomer who
+   skipped round 1 must never read as "2 of 1". */
+export function countLabel(round, data){
+  if(round === 2){
+    const revised = data.count2 || 0;
+    if(revised === 0) return 'Round 2 open — waiting for revised estimates…';
+    const total = data.finalCount != null ? data.finalCount : Math.max(data.count || 0, revised);
+    const carried = Math.max(0, total - revised);
+    const head = revised + ' of ' + total + ' revised so far';
+    return carried === 0 ? head + ' — everyone has revised'
+      : head + ' — the other ' + carried + (carried === 1 ? ' carries' : ' carry') + ' round 1 forward';
+  }
+  const n = data.count || 0;
+  if(n === 0) return 'Waiting for responses…';
+  return n + (n === 1 ? ' person has' : ' people have') + ' responded';
+}
+
+/* ---- Delphi round 2 (pure) ---- */
+
+/* Classic Delphi carry-forward: a participant's final answer is their round-2
+   value where given, else their round-1 value. Identity = server-issued `who`. */
+export function mergeFinal(r1, r2){
+  const map = new Map();
+  for(const e of r1) map.set(e.who, {who: e.who, ...(e.name ? {name: e.name} : {}), values: [...e.values]});
+  for(const e of r2){
+    const prev = map.get(e.who);
+    if(!prev){
+      map.set(e.who, {who: e.who, ...(e.name ? {name: e.name} : {}), values: [...e.values]});
+      continue;
+    }
+    e.values.forEach((v, i) => { if(v != null) prev.values[i] = v; });
+    if(e.name) prev.name = e.name;
+  }
+  return [...map.values()];
+}
+
+const NARROWED = 25, WIDENED = -10;   // convergence % thresholds for the headline
+
+export function delphiStats(model, r1, r2){
+  const fin = mergeFinal(r1, r2);
+  return model.questions.map((q, i) => {
+    const pick = entries => entries.map(e => e.values[i]).filter(v => v != null);
+    if(q.type === 'chips') return {question: q, n: pick(fin).length, n2: pick(r2).length,
+      excluded: true, convergencePct: 0, headline: "Chips don't pool — compare the two reveals."};
+    const a1 = pick(r1), af = pick(fin);
+    const n = af.length;
+    let spread1 = 0, spread2 = 0, pooled = null, pooledRange = null, pooledMid = null;
+    if(q.type === 'prob'){
+      const spreadOf = vs => vs.length > 1 ? Math.max(...vs) - Math.min(...vs) : 0;
+      spread1 = spreadOf(a1);
+      spread2 = spreadOf(af);
+      if(n) pooled = quantile([...af].sort((a, b) => a - b), 0.5);
+    } else {
+      const spreadOf = vs => vs.length ? Math.max(...vs.map(v => v[1])) - Math.min(...vs.map(v => v[0])) : 0;
+      spread1 = spreadOf(a1);
+      spread2 = spreadOf(af);
+      if(n){
+        const med = xs => quantile([...xs].sort((a, b) => a - b), 0.5);
+        pooledRange = [med(af.map(v => v[0])), med(af.map(v => v[1]))];
+        pooledMid = med(af.map(v => (v[0] + v[1]) / 2));
+      }
+    }
+    const convergencePct = spread1 > 0 ? (1 - spread2 / spread1) * 100 : 0;
+    const u = q.unit ? ' ' + q.unit : '';
+    const pooledText = q.type === 'prob'
+      ? (pooled === null ? '' : 'pooled median ' + Math.round(pooled) + '%')
+      : (pooledRange === null ? '' : 'pooled range ' + fmtN(pooledRange[0]) + '–' + fmtN(pooledRange[1]) + u);
+    let headline;
+    if(n === 0) headline = 'No responses in either round.';
+    else if(n === 1) headline = 'Only one response — nothing to compare.';
+    else if(spread1 === 0 && spread2 > 0)
+      headline = 'The spread widened after discussion — ' + pooledText + ', but new doubt surfaced.';
+    else if(spread1 === 0)
+      headline = 'The room agreed in round 1 and held — ' + pooledText + '.';
+    else if(convergencePct >= NARROWED)
+      headline = 'Second round narrowed the spread ' + Math.round(convergencePct) + '% — ' + pooledText + '.';
+    else if(convergencePct <= WIDENED)
+      headline = 'The spread widened after discussion — ' + pooledText + ', but new doubt surfaced.';
+    else
+      headline = 'The second round barely moved — genuine disagreement. ' +
+        (pooledText ? pooledText[0].toUpperCase() + pooledText.slice(1) + '.' : '');
+    return {question: q, n, n2: pick(r2).length, spread1, spread2, convergencePct,
+      pooled, pooledRange, pooledMid, pooledText, headline};
+  });
+}
+
+const fmtN = v => Number.isFinite(Math.round(v * 10) / 10) ? Math.round(v * 10) / 10 : v;
+
+export function delphiVerdictOf(dstats){
+  const active = dstats.filter(d => d.n > 0 && d.spread1 > 0 && !d.excluded);
+  if(!active.length) return {line: '', fig: ''};
+  const meanConv = active.reduce((a, d) => a + d.convergencePct, 0) / active.length;
+  if(meanConv >= NARROWED){
+    const fig = Math.round(meanConv) + '%';
+    return {line: 'Round 2 converged — spreads narrowed ' + fig + ' on average.', fig};
+  }
+  if(meanConv <= WIDENED) return {
+    line: 'Round 2 widened the spreads — the discussion surfaced real doubt.', fig: 'widened'};
+  return {line: 'Round 2 barely moved the room — the remaining disagreement is genuine.',
+    fig: 'barely moved'};
+}
+export function delphiVerdict(dstats){ return delphiVerdictOf(dstats).line; }
+
+export function markdownSummary(model, stats, delphi){
+  const out = ['# ' + mdLiteral(model.title || 'Gauge session'), ''];
+  /* `verdict:` reaches the markdown too — this one summary feeds THREE separate
+     copy-as-markdown buttons (composer, participant, facilitator Delphi), so a
+     bypass here leaks the tool's line into every doc the room pastes it into. */
+  const v = resolveVerdict(model.verdict, {line: verdict(stats), fig: ''}).line;
+  if(v) out.push('**' + v + '**', '');
+  stats.forEach((s, i) => {
+    const q = s.question;
+    out.push('## ' + (i + 1) + '. ' + mdLiteral(q.text), '', mdLiteral(s.headline), '');
+    if(s.kind === 'empty' || s.kind === 'single'){ out.push('- ' + s.n + ' response(s)', ''); return; }
+    if(q.type === 'prob'){
+      out.push('- ' + s.n + ' responses · median ' + pct(s.median) +
+        ' · spread ' + pct(s.rows[0].value) + '–' + pct(s.rows[s.n - 1].value));
+      if(s.camps) out.push('- camps: ' + s.camps.lo.n + ' near ' + pct(s.camps.lo.center) +
+        ', ' + s.camps.hi.n + ' near ' + pct(s.camps.hi.center));
+    } else if(q.type === 'chips'){
+      for(const o of s.perOption)
+        out.push('- ' + mdLiteral(o.option) + ': ' + Math.round(o.share) + '% of chips · ' +
+          o.votes + ' first choice' + (o.votes === 1 ? '' : 's'));
+      if(s.abstentions) out.push('- ' + s.abstentions + ' split their top pile evenly');
+    } else {
+      const u = q.unit ? ' ' + mdLiteral(q.unit) : '';
+      out.push('- ' + s.n + ' responses · pooled ' + s.pooled.lo + '–' + s.pooled.hi + u +
+        ' · median interval width ' + s.medianWidth + u);
+      out.push(s.overlap ? '- common ground: ' + s.overlap.lo + '–' + s.overlap.hi + u
+        : '- no value everyone believes');
+    }
+    out.push('');
+  });
+  if(delphi){
+    out.push('## Round 2 (Delphi)', '');
+    /* the tool's Delphi line only when the author hasn't spoken: an authored
+       verdict: already leads this doc (doubling it re-attributes the author's
+       words), and off means off everywhere — the same resolveVerdict contract
+       as the session line above */
+    const dv = model.verdict == null ? delphiVerdict(delphi) : '';
+    if(dv) out.push('**' + dv + '**', '');
+    delphi.forEach((d, i) => {
+      out.push('- **' + (i + 1) + '. ' + mdLiteral(d.question.text) + '** — ' + mdLiteral(d.headline) +
+        (d.n2 < d.n ? ' (' + (d.n - d.n2) + ' of ' + d.n + ' carried forward from round 1)' : ''));
+    });
+    out.push('');
+  }
+  return out.join('\n').trim() + '\n';
+}
+
+export function sampleMarkdownSummary(model, stats){
+  const lines = markdownSummary(model, stats).trimEnd().split('\n');
+  lines.splice(1, 0, '', '_Synthetic sample for question-schema inspection · 8 deterministic example respondents · not participant data._');
+  return lines.join('\n') + '\n';
+}

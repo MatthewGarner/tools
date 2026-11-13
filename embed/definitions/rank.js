@@ -14,4 +14,5 @@ const v1 = base('rank','Rank','See which priorities survive uncertainty in score
 
 v1.views['ranking'].defaultControls=['value', 'wobble'];
 // Version 2: exact ties share places, the set-based "settled" verdict, 16,000 runs. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:3};

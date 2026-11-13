@@ -9,4 +9,5 @@ const v1=sourceDefinition({id:'bets',title:'Bets',description:'An editable, auth
   views:{model:{title:'Model',description:'The complete authored model in its native reading view.',controls:['source','view'],render(s,ctx){const m=parse(s.t),c=context(ctx);const r=simulate(m);return {svg:(s.v==='board'?renderBoard:renderQuadrant)(m,r,c),summary:sourceSummary('Bets',m,'Portfolio stakes, success odds and conditional payoffs. Simulated outcomes follow these assumptions and the fixed native seed.')} ;}}}
 });
 // Version 2: 40,000 runs on an unconditional draw order, figures printed to what the runs support, a split median where the runs cannot pin it, authored inputs shown as written. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:3};

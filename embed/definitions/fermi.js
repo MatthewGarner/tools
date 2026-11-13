@@ -18,4 +18,5 @@ const v1=base('fermi','Fermi','Explore the assumptions that drive a rough estima
 v1.views['drivers'].defaultControls=['people-low', 'people-high'];
 // Version 2: one number reader, ties marked together in the driver tree, spread and shares printed to what they can bear.
 // Version 3: exact percentiles where the formula is a product of log-normal ranges, and driver shares as shares of variance. Earlier versions stay frozen as published.
-export const definition={...v1,version:3};
+// Version 4: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:4};

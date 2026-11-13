@@ -11,6 +11,6 @@ export const definition = base('flow','Flow','Explore demand, capacity and waiti
   }}});
 
 // The native queue view has a different state contract from frozen waiting-time v1.
-definition.version=2;
+definition.version=3;   // 3: the 2026-11-14 feel and export round (shared code)
 
 definition.views['queue'].defaultControls=['demand'];
