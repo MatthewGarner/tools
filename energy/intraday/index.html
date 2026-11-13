@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A day through the stack</title>
-<meta name="description" content="Watch 24 hours of demand sweep the GB merit order and the intraday price shape draw itself — then add a storage fleet and watch it flatten the very shape it feeds on.">
+<meta name="description" content="Watch 24 hours of demand sweep the GB merit order and the intraday price shape draw itself — then add a storage fleet and watch each extra gigawatt keep less of the spread it feeds on.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌗</text></svg>">
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/page.css">
@@ -123,7 +123,7 @@
   <section class="about">
     <h2>Why the price moves all day</h2>
     <div class="prose">
-    <p>One stack, twenty-four demands. Play the day and the intraday price shape draws itself off the merit order — then add a storage fleet and watch it flatten the very shape it feeds on.</p>
+    <p>One stack, twenty-four demands. Play the day and the intraday price shape draws itself off the merit order — then add a storage fleet and watch each extra gigawatt keep less of the spread it feeds on.</p>
     <p>The intraday price shape isn't data — it's the <a href="../merit-order/">merit order</a> read out by the day. Demand sweeps from the overnight trough to the evening peak, solar swells and dies, and each hour lands on a different rung of the same staircase: the price is flat where the stack is flat and spiky where it's steep. The gas staircase is why the evening peak costs what it does; the solar bell is why a sunny afternoon barely clears above nuclear.</p>
     <p>The storage fleet plans like a trader with perfect foresight of the raw shape: greedy pair-matching of the cheapest charging hours against the dearest discharge hours, within its power and duration limits. But its own dispatch feeds back — charging lifts the trough, discharging shaves the peak — so the shape it actually earns on is flatter than the one it planned on. That gap is drawn (ghost shape behind, flattened shape in front) and quoted: storage flattens the very shape it feeds on, and its margin per MW falls as the fleet grows. Every trade has to pay on its own at the prices the whole fleet makes, and nobody holds back to protect the others — so a bigger fleet can earn less in total than a smaller one. On the opening day with a 2 h fleet the total only levels off past about 5 GW; set the duration to 4 h and a 4 GW fleet earns less in total than a 2 GW one.</p>
     <p>One representative day — a generic summer weekday when the page opens (overnight trough 21 GW, evening peak 32 GW, sun from 05:00 to 21:00), not a real date — cleared pay-as-clear hour by hour, inheriting the merit-order toy's named simplifications (flat bids, no unit commitment, no network). The fleet has perfect foresight of its own day and is held to one cycle a day (total discharge no more than its power times its hours) — real fleets forecast, and miss, and can cycle more than once; the gap between greedy and truly optimal dispatch is small at toy scale and belongs to a sibling toy. The solar bell is a shape, not weather. No live data, ever.</p>
