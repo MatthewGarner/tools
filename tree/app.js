@@ -7,7 +7,7 @@ import {evaluate, evalDet, findByLine, probabilityActionState, refMid, sliderExt
 import {pricedCopy, seamCopy} from './format.js';
 import {render, treeVerdictParts} from './render.js';
 import {createEditor} from './editor.js';
-import {insertAndSelect} from '../assets/editor-common.js';
+import {insertAndSelect, applyLineOps} from '../assets/editor-common.js';
 import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
@@ -20,7 +20,7 @@ import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
-import {validators, applies, subtreeRange, childLineFor, applyExplore, hasIncomingProb} from './edit-targets.js';
+import {validators, applies, subtreeRange, childLineFor, applyExplore, exploreProbOps, hasIncomingProb} from './edit-targets.js';
 import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
@@ -230,7 +230,7 @@ function paintSlider(ext, value){
   exploreRange.min = ext.lo; exploreRange.max = ext.hi;
   exploreRange.step = isProb ? 0.001 : Math.max((ext.hi - ext.lo) / 500, 0.01);
   exploreRange.value = value;
-  const noun = isProb ? 'success odds' : 'payoff';
+  const noun = isProb ? 'odds' : 'payoff';
   exploreLabel.textContent = focus.label + ' — ' + noun;
   exploreRange.setAttribute('aria-label', focus.label + ' ' + noun);
   exploreRange.setAttribute('aria-valuetext', formatValueText(focus.kind, value));
@@ -352,7 +352,7 @@ function exploreRowsFor(el){
      recommendation for the slider to price against, so don't offer it there. The plain typed-entry
      row above is unaffected — it's just precise numeric entry, independent of routing. */
   if(model.root && model.root.kind === 'decision' && model.root.children.length >= 2){
-    if(probabilityActions.explorable) rows.push({label: 'Explore success odds…', commit: {kind: 'explore', line: node.srcLine, value: 'prob'}});
+    if(probabilityActions.explorable) rows.push({label: 'Explore odds…', commit: {kind: 'explore', line: node.srcLine, value: 'prob'}});
     if(hasValue) rows.push({label: 'Explore payoff…', commit: {kind: 'explore', line: node.srcLine, value: 'value'}});
   }
   return rows;
@@ -365,11 +365,16 @@ function commitFocus(x){
   if(!focus) return;
   const node = findByLine(model, focus.line);
   if(!node){ dismissFocus(); return; }
-  const line = editor.getLine(focus.line);
-  const newLine = applyExplore(line, node, x, focus.kind === 'prob');
+  /* a probability with no rest sibling carries its siblings with it (TR-4): they are rewritten in
+     the same change set so the text says what the slider said — one undoable edit */
+  const ops = focus.kind === 'prob'
+    ? exploreProbOps(model, node, x, n => editor.getLine(n))
+    : [{line: focus.line, text: applyExplore(editor.getLine(focus.line), node, x, false)}];
+  const changed = ops.filter(op => op.text !== editor.getLine(op.line));
   committingFocus = true;
-  if(newLine !== line){
-    editor.replaceLine(focus.line, newLine);
+  if(changed.length){
+    if(changed.length === 1) editor.replaceLine(changed[0].line, changed[0].text);
+    else applyLineOps(editor, changed);
     clearTimeout(changeTimer);   // M-2: cancel the echo scheduleRefresh() (onChange) just queued —
                                   // the direct doRefresh() below already lands the settled MC now
   }

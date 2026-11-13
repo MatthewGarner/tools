@@ -75,7 +75,7 @@ test('unreadable authored probability is not a sensitivity ref while missing fal
   const missingNode = findByLine(m, missing.line);
 
   assert.deepEqual(probabilityActionState(invalidNode), {editable: true, explorable: false},
-    'invalid authored odds remain editable but are never offered as Explore success odds');
+    'invalid authored odds remain editable but are never offered as Explore odds');
   assert.deepEqual(probabilityActionState(missingNode), {editable: true, explorable: true});
   assert.equal(refMid(m, invalid), null, 'authored unreadable syntax fails closed');
   assert.equal(refMid(m, missing), 0, 'a genuinely missing sibling keeps the safe zero fallback');

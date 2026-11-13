@@ -123,7 +123,7 @@ test('every build warning has its owning phase, exact source line and dedupe key
 
 test('every project warning has its owning phase, exact source line and dedupe key', () => {
   let model = evaluate(parse(`${complete('groups', '\n  assume: yes 2026-12-01')}\nNOW\n  Core: A [if groups]`), '2026-12-15');
-  one(model, 'assumption-before-due', 6, 'project', 'line 6: the assumption for "groups" is not used yet — the answer is due 15 December; remove the assumption or change its date');
+  one(model, 'assumption-before-due', 6, 'project', 'line 6: the assumption for "groups" is not used yet — the answer is due 15 December and an assumption takes effect after that date; remove the assumption, or move "answer-by:" to a date before today');
   model = evaluate(parse('decision groups:\n  question: q\n  signal: s\n  owner: o\n  assume: yes 2026-12-01\nNOW\n  Core: A [if groups]'), '2026-12-20');
   one(model, 'assumption-no-due', 5, 'project', 'line 5: the assumption for "groups" has no start date — add a valid "answer-by:"; assumption not used');
 
@@ -143,7 +143,7 @@ test('every project warning has its owning phase, exact source line and dedupe k
 
   const blocks = Array.from({length:7}, (_, i) => complete(`q${i}`));
   model = enumeratePlans(parse(`${blocks.join('\n')}\nNOW\n  Core: A [if q0]`), '2026-12-22');
-  one(model, 'possible-plan-refusal', null, 'project', 'Seven open questions would make 128 possible plans. Answer one, or use the Tree view.');
+  one(model, 'possible-plan-refusal', null, 'project', 'Seven open questions would make 128 combinations of answers. Answer one, or use the Tree view.');
   const url = oversizedUrlWarning();
   assert.deepEqual(url, {phase:'project', code:'oversized-url-state', line:null, subject:'url-state',
     message:'This plan is too large to store in the URL — shorten notes or remove unused items before sharing it.'});

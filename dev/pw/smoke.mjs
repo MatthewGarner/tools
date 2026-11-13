@@ -5,7 +5,7 @@ import {openExamples, openFileMenu} from './_harness.mjs';
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS} from '../tool-dirs.mjs';
-import {trackErrors, tally, emptyPaint, pickExample, openRoadmapSource} from './_harness.mjs';
+import {trackErrors, tally, emptyPaint, pickExample, openRoadmapSource, until} from './_harness.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
 import {scopeFor} from './_scope.mjs';
 const scope = scopeFor('smoke.mjs');
@@ -1689,6 +1689,67 @@ if(scope.wants("rank")){
   check('/rank/ start: the starter grid replaces the example',
     rows.includes('Your first initiative') && !rows.includes('Resume position'));
   check('/rank/ start: no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* rank, a saved link with an unreadable row (RK-14): no row changes place. The first row has no
+   effort, so it used to drop out of the results and shift every other result row's
+   data-item-idx onto its neighbour: renaming row 2 relabelled row 3's result. Positive
+   control first (the untouched rows name the right initiatives), then the rename. */
+if(scope.wants("rank")){
+  const {page, errors} = await freshPage('/rank/');
+  const hash = await page.evaluate(async () => (await import('/assets/series.js')).encodeHash({
+    c: [['Value', 3], ['Time criticality', 2], ['Risk reduction', 1]], e: ['Effort', 1],
+    i: [['Damaged', 5, 5, 5], ['North', 9, 9, 9, 2], ['South', 3, 3, 3, 8], ['West', 6, 2, 6, 3]], k: 2, w: 50, s: 1}));
+  await page.goto(BASE + '/rank/#' + hash, {waitUntil: 'networkidle'});
+  await page.reload({waitUntil: 'networkidle'});
+  await page.waitForFunction(() => document.querySelectorAll('#rrows .rrow').length >= 3);
+  const resultName = idx => page.locator('#rrows .rrow[data-item-idx="' + idx + '"] .nmtext').innerText();
+  check('rank link: every table row keeps its place (Damaged, North, South, West)',
+    (await page.locator('#rows .iname').evaluateAll(els => els.map(e => e.value))).join() === 'Damaged,North,South,West');
+  check('rank link: each result row\'s data-item-idx points at its own initiative',
+    (await resultName(1)) === 'North' && (await resultName(2)) === 'South' && (await resultName(3)) === 'West');
+  await page.locator('#rows .iname').nth(1).fill('North renamed');
+  check('rank link: renaming table row 2 changes exactly its own result row',
+    await until(async () => (await resultName(1)) === 'North renamed') && (await resultName(2)) === 'South' && (await resultName(3)) === 'West');
+  check('rank link: no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* rank, dragging a weight stays smooth at 4x CPU throttling (RK-2: the full resim now runs 16,000 times,
+   on release, so it must not stall the frame the drag ends on). A 30-step drag of the first weight slider
+   on the Lantern example; a requestAnimationFrame recorder counts the gaps between frames over the whole
+   drag and the release; the worst gap must stay under 50 ms. Positive control first: the drag really moved
+   the weight and the results re-ran (the P(top-k) readouts are repainted, not stuck pending). */
+if(scope.wants("rank")){
+  const {page, errors} = await freshPage('/rank/');
+  await page.waitForFunction(() => document.querySelectorAll('#rrows .rrow').length >= 3);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', {rate: 4});
+  const slider = page.locator('thead .wslider').first();
+  await slider.scrollIntoViewIfNeeded();
+  const box = await slider.boundingBox();
+  const before = await slider.inputValue();
+  await page.evaluate(() => {
+    window.__gaps = []; let last = performance.now();
+    const tick = t => { window.__gaps.push(t - last); last = t; window.__raf = requestAnimationFrame(tick); };
+    window.__raf = requestAnimationFrame(tick);
+  });
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2);
+  await page.mouse.down();
+  for(let i = 1; i <= 30; i++) await page.mouse.move(box.x + box.width * (0.3 + 0.4 * i / 30), box.y + box.height / 2);
+  await page.mouse.up();
+  await page.waitForFunction(() => !document.querySelector('#results').classList.contains('pending'), null, {timeout: 5000});
+  await page.waitForTimeout(300);
+  const gaps = await page.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__gaps.slice(1); });
+  await cdp.send('Emulation.setCPUThrottlingRate', {rate: 1});
+  const worst = Math.max(...gaps);
+  console.log('rank drag: ' + gaps.length + ' frames, worst gap ' + worst.toFixed(1) + ' ms at 4x CPU throttling');
+  check('rank drag: the 30-step drag moved the weight (positive control)', (await slider.inputValue()) !== before);
+  check('rank drag: the results repainted after release (no stuck pending fade)', !(await page.locator('#results').evaluate(el => el.classList.contains('pending'))));
+  check('rank drag: the recorder saw frames across the drag (' + gaps.length + ')', gaps.length >= 20);
+  check('rank drag: no frame gap over 50 ms at 4x CPU throttling (worst ' + worst.toFixed(1) + ' ms)', worst <= 50);
+  check('rank drag: no console errors', errors.length === 0);
   await page.close();
 }
 

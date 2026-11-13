@@ -41,6 +41,17 @@ function palette(colors){
   };
 }
 
+/* One vocabulary (PA-6/PA-7): "plans" are distinct plans, as the Plans view counts them; the raw
+   number of yes/no assignments is "combinations of answers". */
+function planCountLabel(source){
+  const count = Number(source.planCount ?? source.possibleCount);
+  return Number.isFinite(count) ? count + ' possible ' + (count === 1 ? 'plan' : 'plans') : 'Possible plans are not counted';
+}
+function combinationsLabel(source){
+  const count = Number(source.possibleCount);
+  return Number.isFinite(count) ? count + ' combinations of answers' : 'Combinations of answers exceed the limit';
+}
+
 function artifactData(tree, ctx){
   const model = ctx.projection || {};
   const questions = Array.isArray(model.decisions) ? model.decisions.length : (tree.questions || []).length;
@@ -50,7 +61,9 @@ function artifactData(tree, ctx){
       .reduce((sum, question) => sum + (question.arms?.yes?.length || 0) +
         (question.arms?.no?.length || 0) + (question.continuation?.length || 0) +
         (question.stump?.items?.length || 0), 0);
-  const possible = model.worlds?.refused ? null : model.worlds?.possibleCount;
+  /* distinct plans, as every other surface counts them (PA-6) */
+  const possible = model.worlds?.refused ? null
+    : Array.isArray(model.worlds?.plans) ? model.worlds.plans.length : model.worlds?.possibleCount;
   const counts = [
     questions + ' ' + (questions === 1 ? 'question' : 'questions'),
     items + ' ' + (items === 1 ? 'item' : 'items'),
@@ -69,10 +82,8 @@ function artifactData(tree, ctx){
     ['not needed', projectedItems.filter(item => item.itemState === 'not-needed').length],
   ].filter(([, count]) => count).map(([label, count]) => count + ' ' + label).join(', ');
   const terminal = tree.terminal ? tree.terminal.kind === 'limit'
-    ? 'Tree boundary: enumeration limit reached; ' +
-      (Number.isFinite(Number(tree.terminal.possibleCount))
-        ? tree.terminal.possibleCount + ' possible plans' : 'possible-plan count exceeds the limit')
-    : 'Tree boundary: ' + tree.terminal.possibleCount + ' possible plans remain' : '';
+    ? 'Tree boundary: enumeration limit reached; ' + combinationsLabel(tree.terminal)
+    : 'Tree boundary: ' + planCountLabel(tree.terminal) + ' remain' : '';
   return {model, title:String(model.title || 'Untitled paths'), date, counts,
     decisionSummary, workSummary:states, terminal, readout:readout || {line:'', fig:''}};
 }
@@ -421,10 +432,8 @@ function renderArmLabels(entry, C){
 function renderTerminal(box, C){
   if(!box) return '';
   const source = box.source || {};
-  const count = Number(source.possibleCount);
-  const countLabel = Number.isFinite(count)
-    ? count + ' possible ' + (count === 1 ? 'plan' : 'plans')
-    : 'Possible-plan count exceeds the limit';
+  const count = Number(source.planCount ?? source.possibleCount);
+  const countLabel = source.kind === 'limit' ? combinationsLabel(source) : planCountLabel(source);
   const headline = source.kind === 'limit' ? 'Enumeration limit reached'
     : countLabel + (count === 1 ? ' remains' : ' remain');
   const detail = source.kind === 'limit' ? countLabel : 'After the open decisions';
@@ -647,10 +656,8 @@ export function renderOutline(projection, ctx){
     for(const item of projection.unplaced) pushItem(item, 1);
   }
   if(projection.terminal){
-    const count = Number(projection.terminal.possibleCount);
-    const plans = Number.isFinite(count)
-      ? count + ' possible ' + (count === 1 ? 'plan' : 'plans')
-      : 'Possible-plan count exceeds the limit';
+    const plans = projection.terminal.kind === 'limit' ? combinationsLabel(projection.terminal)
+      : planCountLabel(projection.terminal);
     const text = projection.terminal.kind === 'limit' ? 'Enumeration limit reached' : plans + ' remain';
     const note = projection.terminal.kind === 'limit' ? plans : 'After the open decisions';
     push('terminal', text, note, 0, ['Tree does not enumerate every combined plan']);

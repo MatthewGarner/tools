@@ -28,6 +28,8 @@ import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {STARTER} from './starter.js';
+import {NSIM_TEXT} from './format.js';
+for(const el of document.querySelectorAll('[data-runs]')) el.textContent = NSIM_TEXT;   // the count on the page is the engine's constant
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));

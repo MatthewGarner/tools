@@ -93,7 +93,10 @@ export function verdict(projection){
     return {line:`The ${decisionName(overdue)} answer is ${fig}${clause}.`, fig};
   }
 
-  const untestable = decisions.filter(decision => !decision.signal || !decision.owner);
+  /* only a question that is still open and active can be "unanswerable as written": an answered
+     one, or one that never arose or is not open yet, no longer waits on its signal or owner (PA-11) */
+  const untestable = decisions.filter(decision => (!decision.signal || !decision.owner) &&
+    decision.availability === 'active' && !decision.effectiveAnswer);
   if(untestable.length){
     const fig = `${untestable.length} ${untestable.length === 1 ? 'question' : 'questions'}`;
     const has = untestable.length === 1 ? 'has' : 'have';
@@ -122,8 +125,20 @@ export function verdict(projection){
     return {line:`${fig} — this is a plan, not a fork.`, fig};
   }
 
-  const fig = 'Every item';
-  return {line:`${fig} is included in every remaining plan.`, fig};
+  /* "Every item is included" only when that is true (PA-5): otherwise count the items that are in
+     every plan and the ones that are not needed, and own up to any still unsettled */
+  const included = items.filter(item => !item.itemState || item.itemState === 'in-plan').length;
+  const notNeeded = items.filter(item => item.itemState === 'not-needed').length;
+  const unsettled = items.length - included - notNeeded;
+  if(!notNeeded && !unsettled){
+    const fig = 'Every item';
+    return {line:`${fig} is included in every remaining plan.`, fig};
+  }
+  const fig = `${proseNumber(included, true)} of ${proseNumber(items.length)}`;
+  const parts = [`${fig} items ${included === 1 ? 'is' : 'are'} included in every plan`];
+  if(notNeeded) parts.push(`${proseNumber(notNeeded)} ${notNeeded === 1 ? 'is' : 'are'} not needed`);
+  if(unsettled) parts.push(`${proseNumber(unsettled)} ${unsettled === 1 ? 'is' : 'are'} not settled yet`);
+  return {line: parts.join('; ') + '.', fig};
 }
 
 export default verdict;

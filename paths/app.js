@@ -4,6 +4,7 @@ import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved paths, exports, boot. */
 import {parse, CONFIG_KEYS} from './parse.js';
 import {project} from './project.js';
+import {cloneNames} from './names.js';
 import {oversizedUrlWarning} from './evaluate.js';
 import {treeProjection} from './tree.js';
 import {treeLayout} from './layout-tree.js';
@@ -992,7 +993,7 @@ function renderInspector(){
         const entry = node('li', '');
         entry.appendChild(node('span', 'inspector-work-title', item.title));
         entry.appendChild(node('span', 'inspector-work-meta',
-          [item.status ? item.status.toUpperCase() : '', item.treatment].filter(Boolean).join(' · ')));
+          [item.status ? item.status.toUpperCase() : '', item.treatment, item.reason].filter(Boolean).join(' · ')));
         list.appendChild(entry);
       }
       arm.appendChild(list);
@@ -1205,7 +1206,7 @@ $('roadmap-projection').addEventListener('change', event => {
     const choice = projectionChoices().choices.find(choice => choice.key === radio.value && choice.inspected.ok);
     if(!choice) return;
     selectedProjectionKey = choice.key;
-    selectedProjectionAnswers = {...choice.answers};
+    selectedProjectionAnswers = cloneNames(choice.answers);
     selectedProjectionFingerprint = choice.inspected.fingerprint;
     acceptedProjectionAssumptions = new Set(); projectionPanelMessage = '';
     renderProjectionPanel();

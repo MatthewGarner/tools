@@ -4,7 +4,9 @@ import {PALETTES, scheme, fmt} from '../assets/series.js';
 import {esc, btnAttrs, wrapText} from '../assets/svg.js';
 import {svgVerdict, svgMetrics} from '../assets/verdict-svg.js';
 import {layoutTree, TREE_GEOM} from './layout.js';
-import {decisionComparisonProjection} from './comparison.js';
+import {decisionComparisonProjection, pairCertain} from './comparison.js';
+import {evalDet} from './engine.js';
+import {flipCopy, seamCopy, sharePct, sharedStep} from './format.js';
 
 const SANS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 const SERIF = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';
@@ -37,6 +39,7 @@ function values(model){
   const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
   return {
     money,
+    pair: (a, b) => sharedStep(a, b).map(money).join(' … '),
     range: v => !v ? '' : v.lo === v.hi ? money(v.lo) : money(v.lo) + ' … ' + money(v.hi),
     prob: p => p == null ? '' : p === 'rest' ? 'rest' : p.lo === p.hi ? 'p=' + Number(p.lo.toPrecision(3)) : 'p=' + Number(p.lo.toPrecision(3)) + '–' + Number(p.hi.toPrecision(3)),
   };
@@ -53,7 +56,7 @@ function topLines(root){
   return out;
 }
 function status(node, root, policy, results){
-  if(node === root) return 'DECISION';
+  if(node === root) return root.kind === 'chance' ? 'CHANCE' : 'DECISION';
   if(node.p !== null && node.p !== undefined){
     const effective = results.effectiveProbability?.get(node);
     const authoredZero = node.p !== 'rest' && node.p.lo === 0 && node.p.hi === 0;
@@ -103,7 +106,8 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
   const rec = results.policy.get(model.root), st = results.stats.get(model.root), v = values(model);
   let ev = '', evHeight=0;
   if(!authored && rec && st && model.root.kind === 'decision'){
-    let msg = 'P10 ' + v.money(st.p10) + ' · P90 ' + v.money(st.p90);
+    const [lo10, hi90] = sharedStep(st.p10, st.p90);
+    let msg = 'P10 ' + v.money(lo10) + ' · P90 ' + v.money(hi90);
     const recMean = results.stats.get(rec)?.mean;
     const rival = model.root.children.filter(x => x !== rec && results.stats.has(x)).reduce((best, option) => {
       if(!best) return option;
@@ -116,7 +120,7 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
     if(h){
       const recIsA = h.aNode ? h.aNode === rec : h.a === rec.label;
       const share = recIsA ? h.aShare : 1-h.aShare;
-      msg += ' · higher expected value than ' + rival.label + ' in ' + Math.round(share*100) + '% of simulations';
+      msg += ' · higher expected value than ' + rival.label + ' in ' + sharePct(share, pairCertain(results, rec, rival)) + ' of simulations';
     }
     const size=presentation ? 18 : 11.5, lineHeight=presentation ? 24 : 16;
     const lines=wrapText(msg+' · This compares model assumptions, not the probability of a successful outcome.',size+'px '+SANS,W-pad*2,ctx.measure || ((text)=>text.length*size*.55));
@@ -138,15 +142,25 @@ function card(item, model, results, ctx, C, layout, v, tops){
   ty+=3;
   if(node.p!=null){ const text=v.prob(node.p), h=ctx.edit&&hot.has('prob:'+node.srcLine); out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10.5" fill="'+C.muted+'">'+field('prob',node,node.pRaw||(node.p==='rest'?'rest':''),text,'Edit probability: '+node.label,ctx.edit,h)+'</text>'); if(h) out.push('<line x1="'+(x+15)+'" y1="'+(ty+2)+'" x2="'+(x+75)+'" y2="'+(ty+2)+'" stroke="'+C.accent+'" stroke-dasharray="1.5,2"/>'); ty+=14; }
   if(node.value){ const text=v.range(node.value), h=ctx.edit&&hot.has('value:'+node.srcLine); out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10.5" fill="'+C.muted+'">'+field('value',node,node.valueRaw||'',text,'Edit payoff: '+node.label,ctx.edit,h)+'</text>'); if(h) out.push('<line x1="'+(x+15)+'" y1="'+(ty+2)+'" x2="'+(x+105)+'" y2="'+(ty+2)+'" stroke="'+C.accent+'" stroke-dasharray="1.5,2"/>'); ty+=14; }
-  const st=results.stats.get(node); if(st) out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'<tspan fill="'+C.muted+'" font-size="10"> · '+e(v.money(st.p10)+' … '+v.money(st.p90))+'</tspan></text>');
+  const st=results.stats.get(node); if(st) out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'<tspan fill="'+C.muted+'" font-size="10"> · '+e(v.pair(st.p10,st.p90))+'</tspan></text>');
   if(ctx.edit) out.push(menu(node,x+item.w-18,y+item.h-18,C,model.root));
   out.push('</g>'); return out.join('');
 }
 
-function flips(results,v,C,x,y,w,measure){
+/* The flip list is computed on the midpoint story (evalDet). When that story and the simulated
+   policy name different options, the list is labelled as the midpoint call and — wherever the page's
+   own #seam line is not already beside it (ctx.edit) — carries the sentence that says so, so every
+   export says what the page says (TR-5). */
+function seamLine(model,results){
+  if(!model.root||model.root.kind!=='decision') return '';
+  const det=evalDet(model).rec,mc=results.policy.get(model.root);
+  return seamCopy(det&&det.label,mc&&mc.label);
+}
+function flips(results,v,C,x,y,w,measure,seam='',showSeam=true){
   if(!results.flips?.length) return {svg:'',h:0};
-  const out=['<text x="'+x+'" y="'+y+'" font-size="10" font-weight="650" letter-spacing="1.2" fill="'+C.muted+'">WHAT WOULD FLIP THIS</text>']; let cy=y+24;
-  results.flips.forEach(f=>{ const msg=f.kind==='prob'?'flips if p('+f.label+') '+f.direction+' '+f.threshold.toFixed(2):f.label+' matters: the recommendation changes within its '+v.range({lo:f.lo,hi:f.hi})+' range'; wrapText('– '+msg,'11px '+SANS,w,measure).forEach(line=>{out.push('<text x="'+(x+8)+'" y="'+cy+'" font-size="11" fill="'+C.muted+'">'+e(line)+'</text>');cy+=18;}); });
+  const out=['<text x="'+x+'" y="'+y+'" font-size="10" font-weight="650" letter-spacing="1.2" fill="'+C.muted+'">'+(seam?'WHAT WOULD FLIP THE MIDPOINT CALL':'WHAT WOULD FLIP THIS')+'</text>']; let cy=y+24;
+  if(seam&&showSeam){ wrapText(seam,'11px '+SANS,w,measure).forEach(line=>{out.push('<text x="'+x+'" y="'+cy+'" font-size="11" font-style="italic" fill="'+C.muted+'">'+e(line)+'</text>');cy+=18;}); cy+=4; }
+  results.flips.forEach(f=>{ const msg=f.kind==='prob'?flipCopy(f):f.label+' matters: the recommendation changes within its '+v.range({lo:f.lo,hi:f.hi})+' range'; wrapText('– '+msg,'11px '+SANS,w,measure).forEach(line=>{out.push('<text x="'+(x+8)+'" y="'+cy+'" font-size="11" fill="'+C.muted+'">'+e(line)+'</text>');cy+=18;}); });
   return {svg:out.join(''),h:cy-y};
 }
 
@@ -157,7 +171,7 @@ function register(layout,model,results,ctx,C,v,x,y){
 }
 
 function wide(model,results,ctx,C,layout,verdictParts){
-  const v=values(model), W=Math.ceil(Math.max(760,layout.width+T.pad*2)), h=head(model,results,ctx,C,W,verdictParts), ox=T.pad,oy=h.h+(layout.mode==='continuation'?48:0), bottom=oy+layout.height, f=flips(results,v,C,T.pad,bottom+34,W-T.pad*2,ctx.measure), H=Math.ceil(bottom+(f.h?54+f.h:20)+T.bottom);
+  const v=values(model), W=Math.ceil(Math.max(760,layout.width+T.pad*2)), h=head(model,results,ctx,C,W,verdictParts), ox=T.pad,oy=h.h+(layout.mode==='continuation'?48:0), bottom=oy+layout.height, seam=seamLine(model,results),f=flips(results,v,C,T.pad,bottom+34,W-T.pad*2,ctx.measure,seam,!ctx.edit), H=Math.ceil(bottom+(f.h?54+f.h:20)+T.bottom);
   const out=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family=\''+SANS+'\'><rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>',h.svg],tops=topLines(model.root);
   layout.branch.edges.forEach(k=>{const x1=ox+k.from.x+k.from.w,y1=oy+k.from.y+k.from.h/2,x2=ox+k.to.x,y2=oy+k.to.y+k.to.h/2,b=Math.min(42,(x2-x1)*.42),active=layout.policy.has(k.from.node)&&layout.policy.has(k.to.node);out.push('<path data-tree-edge="" d="M '+n2(x1)+' '+n2(y1)+' C '+n2(x1+b)+' '+n2(y1)+', '+n2(x2-b)+' '+n2(y2)+', '+n2(x2)+' '+n2(y2)+'" fill="none" stroke="'+(active?C.accent:C.border)+'" stroke-width="'+(active?2.5:1.25)+'"/>');});
   layout.branch.items.forEach(i=>out.push(card({...i,x:ox+i.x,y:oy+i.y},model,results,ctx,C,layout,v,tops)));
@@ -166,7 +180,7 @@ function wide(model,results,ctx,C,layout,verdictParts){
 }
 
 function narrow(model,results,ctx,C,layout,verdictParts){
-  const v=values(model),W=Math.ceil(layout.width),h=head(model,results,ctx,C,W,verdictParts),x0=TREE_GEOM.narrowPad,rec=model.root.kind==='decision'?results.policy.get(model.root):null,lead=rec?48:0,start=h.h+lead+4,f=flips(results,v,C,x0,start+layout.height+32,W-x0*2,ctx.measure),H=Math.ceil(start+layout.height+(f.h?54+f.h:26)+T.bottom),tops=topLines(model.root);
+  const v=values(model),W=Math.ceil(layout.width),h=head(model,results,ctx,C,W,verdictParts),x0=TREE_GEOM.narrowPad,rec=model.root.kind==='decision'?results.policy.get(model.root):null,lead=rec?48:0,start=h.h+lead+4,seam=seamLine(model,results),f=flips(results,v,C,x0,start+layout.height+32,W-x0*2,ctx.measure,seam,!ctx.edit),H=Math.ceil(start+layout.height+(f.h?54+f.h:26)+T.bottom),tops=topLines(model.root);
   const out=['<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family=\''+SANS+'\'><rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>',h.svg]; if(rec) out.push('<rect x="'+x0+'" y="'+h.h+'" width="'+(W-x0*2)+'" height="38" fill="none" stroke="'+C.accent+'"/><text x="'+(x0+12)+'" y="'+(h.h+15)+'" font-size="9" font-weight="650" letter-spacing="1.4" fill="'+C.accent+'">RECOMMENDED PATH</text><text x="'+(x0+12)+'" y="'+(h.h+30)+'" font-size="12" font-weight="650" fill="'+C.ink+'">'+e(rec.label)+'</text>');
   layout.rows.forEach(row=>{const x=x0+row.x,y=start+row.y,node=row.node,inlineEdit=ctx.edit&&!ctx.coarse,pathState=row.onPolicy?status(node,model.root,layout.policy,results):'ALTERNATIVE PATH · '+status(node,model.root,layout.policy,results);out.push('<g data-memo-row="'+node.srcLine+'" data-policy-state="'+(row.onPolicy?'recommended':'alternative')+'"'+(row.indentCapped?' data-indent-capped=""':'')+(ctx.coarse&&ctx.edit?' data-menu-only=""':'')+(ctx.edit&&tops.has(node)?' data-opt="'+tops.get(node)+'"':'')+'><rect x="'+x+'" y="'+y+'" width="'+row.w+'" height="'+row.h+'" fill="'+C.card+'" stroke="'+(row.onPolicy?C.accent:C.border)+'"'+(!row.onPolicy?' stroke-dasharray="4,3"':'')+'/><line x1="'+x+'" y1="'+y+'" x2="'+x+'" y2="'+(y+row.h)+'" stroke="'+(row.onPolicy?C.accent:C.muted)+'" stroke-width="3"/><text x="'+(x+14)+'" y="'+(y+18)+'" font-size="9" font-weight="650" fill="'+C.muted+'">'+e(row.id+' · '+pathState)+'</text>');let ty=y+42;if(row.ancestryLines.length){out.push('<g data-ancestry="'+e(row.ancestry)+'" aria-label="Continues from '+e(row.ancestry)+'">');row.ancestryLines.forEach(line=>{out.push('<text x="'+(x+14)+'" y="'+ty+'" font-size="9.5" font-weight="550" fill="'+C.muted+'">'+e(line)+'</text>');ty+=14;});out.push('</g>');ty+=4;}row.labelLines.forEach((line,i)=>{out.push('<text x="'+(x+14)+'" y="'+ty+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+field('label',node,node.label,line,'Edit label: '+node.label,inlineEdit&&!node.implicit&&i===0)+'</text>');ty+=19;});if(node.p!=null){const hot=inlineEdit&&ctx.hot?.has('prob:'+node.srcLine);out.push('<text x="'+(x+14)+'" y="'+ty+'" font-size="11" fill="'+C.muted+'">'+field('prob',node,node.pRaw||(node.p==='rest'?'rest':''),v.prob(node.p),'Edit probability: '+node.label,inlineEdit,hot)+'</text>');ty+=16;}if(node.value)out.push('<text x="'+(x+14)+'" y="'+ty+'" font-size="11" fill="'+C.muted+'">'+field('value',node,node.valueRaw||'',v.range(node.value),'Edit payoff: '+node.label,inlineEdit,inlineEdit&&ctx.hot?.has('value:'+node.srcLine))+'</text>');const st=results.stats.get(node);if(st)out.push('<text x="'+(x+row.w-14)+'" y="'+(y+row.h-14)+'" text-anchor="end" font-size="11.5" font-weight="650" fill="'+C.ink+'"'+(ctx.edit?' data-mc=""':'')+'>EV '+e(v.money(st.mean))+'</text>');if(ctx.edit)out.push(menu(node,x+row.w-22,y+22,C,model.root));out.push('</g>');});out.push(f.svg,'</svg>');return out.join('');
 }
@@ -237,8 +251,8 @@ function presentation(model,results,ctx,C,layout,verdictParts){
     const col=i%cols,row=Math.floor(i/cols),x=72+col*(colW+colGap),y=start+row*(rowH+gap);
     const titleFit=clippedLines(option.label,'650 18px '+SANS,colW-(option.recommended?170:62),ctx.measure,2);
     const title=titleFit.lines; titlesAbbreviated ||= titleFit.clipped;
-    const st=option.stats,mean=st?v.money(st.mean):'—',interval=st?v.money(st.p10)+' … '+v.money(st.p90):'—';
-    const win=option.recommended?'REFERENCE':option.winRateVsRecommendation===null?'—':Math.round(option.winRateVsRecommendation*100)+'%';
+    const st=option.stats,mean=st?v.money(st.mean):'—',interval=st?v.pair(st.p10,st.p90):'—';
+    const win=option.recommended?'REFERENCE':option.winRateVsRecommendation===null?'—':sharePct(option.winRateVsRecommendation,option.winRateCertain);
     const chance=option.chanceInputs.length
       ? option.chanceInputs[0].label+' · '+option.chanceInputs[0].authored+(option.chanceInputs.length>1?' · +'+(option.chanceInputs.length-1)+' more':'')
       : 'None';

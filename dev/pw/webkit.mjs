@@ -176,8 +176,8 @@ if(scope.wants("tree")){
       const box = await hit.boundingBox();
       if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       await page.waitForTimeout(300);
-      const row = page.locator('.eip-pop button', {hasText: 'Explore success odds…'}).first();
-      ok(await row.count() === 1, 'tree (webkit): the numeric card menu exposes Explore success odds…');
+      const row = page.locator('.eip-pop button', {hasText: 'Explore odds…'}).first();
+      ok(await row.count() === 1, 'tree (webkit): the numeric card menu exposes Explore odds…');
       if(await row.count()) await row.click();
       await page.waitForTimeout(300);
     }
