@@ -12,7 +12,6 @@
    - Sampling stays for what is a spread: the per-node distribution is the distribution of expected
      value under parameter uncertainty (chance nodes weight children by sampled probabilities),
      over WORLDS (40,000 by default) — its P10/P90 and the head-to-head share. */
-import {mulberry32, gaussian} from '../assets/series.js';
 import {isWideRange, wideRangeSentence} from './parse.js';
 
 const Z90 = 1.6448536;
@@ -48,8 +47,8 @@ function leafQuantiles(range){
 }
 
 /* k-th smallest of a (reordered in place): quickselect, O(n), no sort */
-function selectK(a, k){
-  let lo = 0, hi = a.length - 1;
+function selectK(a, k, from = 0){
+  let lo = from, hi = a.length - 1;
   while(lo < hi){
     const m = (lo + hi) >> 1;
     const x = a[lo], y = a[m], z = a[hi];
@@ -67,9 +66,11 @@ function selectK(a, k){
 /* linear-interpolated quantile, identical to series.js quantile() on the sorted array, by selection */
 function quantiles(arr, qs){
   const a = Float64Array.from(arr), n = a.length;
+  let from = 0;   /* qs ascend: everything left of the last selected index is already below the rest */
   return qs.map(q => {
     const idx = q * (n - 1), lo = Math.floor(idx), hi = Math.ceil(idx);
-    const vLo = selectK(a, lo);
+    const vLo = selectK(a, lo, from);
+    from = lo;
     if(hi === lo) return vLo;
     let vHi = Infinity;
     for(let i = lo + 1; i < n; i++) if(a[i] < vHi) vHi = a[i];
@@ -82,8 +83,43 @@ export function evaluate(model, {sims = WORLDS, seed = 0x5EED} = {}){
   const policy = new Map(), stats = new Map();
   if(!model.root) return {policy, stats, headToHead: [], flips: [], warnings, noOutcome, effectiveProbability, worlds: sims};
 
-  const rand = mulberry32(seed);
-  const gauss = gaussian(rand);
+  /* The generator and the Marsaglia polar sampler of assets/series.js (mulberry32 + gaussian), inlined
+     so the hot loops make no closure-to-closure calls. Same arithmetic in the same order: the draws
+     are bit-identical to series.js's for the same seed. */
+  let ra = seed | 0, spare = 0, hasSpare = false, pu = 0, pv = 0, pf = 0;
+  /* one accepted polar pair: pu, pv and the scale pf (draw order: u then v, exactly series.js's) */
+  function pair(){
+    let u, v, s2;
+    do {
+      ra = (ra + 0x6D2B79F5) | 0;
+      let t = Math.imul(ra ^ (ra >>> 15), 1 | ra);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      u = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+      ra = (ra + 0x6D2B79F5) | 0;
+      t = Math.imul(ra ^ (ra >>> 15), 1 | ra);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      v = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+      s2 = u * u + v * v;
+    } while(s2 >= 1 || s2 === 0);
+    pu = u; pv = v; pf = Math.sqrt(-2 * Math.log(s2) / s2);
+  }
+
+  /* fills out[] with exp(mu + sg g) (lognormal) or mu + sg g (normal), g the next standard normals; a
+     spare carried between arrays (an odd world count) behaves exactly as series.js's gaussian() */
+  function fillNormals(out, lognormal, mu, sg){
+    let i = 0;
+    if(hasSpare){ hasSpare = false; out[0] = lognormal ? Math.exp(mu + sg * spare) : mu + sg * spare; i = 1; }
+    if(lognormal){
+      for(; i + 1 < sims; i += 2){ pair(); out[i] = Math.exp(mu + sg * (pu * pf)); out[i + 1] = Math.exp(mu + sg * (pv * pf)); }
+    } else {
+      for(; i + 1 < sims; i += 2){ pair(); out[i] = mu + sg * (pu * pf); out[i + 1] = mu + sg * (pv * pf); }
+    }
+    if(i < sims){
+      pair(); const g = pu * pf;
+      out[i] = lognormal ? Math.exp(mu + sg * g) : mu + sg * g;
+      spare = pv * pf; hasSpare = true;
+    }
+  }
 
   function sampleArr(range){
     const out = new Float64Array(sims);
@@ -91,10 +127,10 @@ export function evaluate(model, {sims = WORLDS, seed = 0x5EED} = {}){
     if(range.lo > 0){
       const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2;
       const sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
-      for(let s = 0; s < sims; s++) out[s] = Math.exp(mu + sg * gauss());
+      fillNormals(out, true, mu, sg);
     } else {
       const mu = (range.lo + range.hi) / 2, sg = (range.hi - range.lo) / (2 * Z90);
-      for(let s = 0; s < sims; s++) out[s] = mu + sg * gauss();
+      fillNormals(out, false, mu, sg);
     }
     return out;
   }
@@ -141,17 +177,42 @@ export function evaluate(model, {sims = WORLDS, seed = 0x5EED} = {}){
       for(let s = 0; s < sims; s++) arr[s] += chosen[s];
     } else {   // chance
       const childArrs = node.children.map(evalArr);
-      const pArrs = node.children.map(c =>
-        c.p === 'rest' ? null : sampleArr(c.p));
-      arr = own;
       const restIdx = node.children.findIndex(c => c.p === 'rest');
       const nKids = node.children.length;
-      const ps = new Float64Array(nKids);
-      const probabilityTotals = new Float64Array(nKids), firstWorld = new Float64Array(nKids);
       /* every probability at this node a point: each world has the same weights, so E[q_i] is exact */
       const allPoints = node.children.every(c => c.p === 'rest' || c.p.lo === c.p.hi);
+      const pArrs = allPoints ? null : node.children.map(c => c.p === 'rest' ? null : sampleArr(c.p));
+      arr = own;
+      const ps = new Float64Array(nKids);
+      const probabilityTotals = new Float64Array(nKids), firstWorld = new Float64Array(nKids);
       let zeroTotal = 0;
-      for(let s = 0; s < sims; s++){
+      if(allPoints){
+        let sum = 0;
+        for(let i = 0; i < nKids; i++){
+          const c = node.children[i].p;
+          const v = c === 'rest' ? 0 : Math.min(1, Math.max(0, c.lo));
+          ps[i] = v; sum += v;
+        }
+        if(restIdx >= 0){
+          if(sum > 1){ for(let i = 0; i < nKids; i++) ps[i] /= sum; sum = 1; }
+          ps[restIdx] = 1 - sum;
+        } else if(sum > 0){
+          for(let i = 0; i < nKids; i++) ps[i] /= sum;
+        } else {
+          zeroTotal = sims;
+        }
+        for(let i = 0; i < nKids; i++) firstWorld[i] = ps[i];
+        if(nKids === 2){
+          const c0 = childArrs[0], c1 = childArrs[1], w0 = ps[0], w1 = ps[1];
+          for(let s = 0; s < sims; s++){ let total = 0; total += w0 * c0[s]; total += w1 * c1[s]; arr[s] += total; }
+        } else {
+          for(let s = 0; s < sims; s++){
+            let total = 0;
+            for(let i = 0; i < nKids; i++) total += ps[i] * childArrs[i][s];
+            arr[s] += total;
+          }
+        }
+      } else for(let s = 0; s < sims; s++){
         let sum = 0;
         for(let i = 0; i < nKids; i++){
           const a = pArrs[i];
