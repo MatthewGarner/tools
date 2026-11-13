@@ -31,10 +31,14 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {STARTER} from './starter.js';
+import {localDay, localISO} from './clock.js';
 
 const $ = id => document.getElementById(id);
-const todayDay = () => Math.floor(Date.now() / 86400000);
-const todayISO = () => new Date().toISOString().slice(0, 10);
+/* the viewer's own calendar day (not the UTC day), and ONE effective today for every consumer:
+   the document's `today:` when it has one, else that clock */
+const todayDay = () => localDay();
+const todayISO = () => localISO();
+const effToday = () => model && model.today != null ? model.today : todayDay();
 
 const EXAMPLES = [
   {name: 'App launch programme', src:
@@ -108,11 +112,11 @@ function doRefresh(){
   deckCache = null;
   syncSettings();
   syncInspector();
-  $('readout').textContent = timelineReadout(model, model.today ?? todayDay());
+  $('readout').textContent = timelineReadout(model, effToday());
   setActionsEnabled(!!lastSvg);
   $('exportdeck').disabled = !model.items.length;
   /* #93: the hop appears only when there is a merge to premortem (never a dead link) */
-  $('topremortem').hidden = !(model && model.items.length && premortemHandoff(model, todayDay()));
+  $('topremortem').hidden = !(model && model.items.length && premortemHandoff(model, effToday()));
   if(shouldPersist()){ try{ saveTrackedWork(localStorage,'timeline-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
@@ -201,13 +205,13 @@ const eip = attachEditInPlace($('preview'), {
     cardmenu: {menu: (el) => milestoneMenu(model, +el.dataset.line)},
     verdict: {menu: () => verdictMenuRows(model && model.verdict)},
     verdictedit: {validate: validVerdictInput,
-      placeholder: () => model ? timelineVerdict(model, todayDay()).line : ''},
+      placeholder: () => model ? timelineVerdict(model, effToday()).line : ''},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
       configRe: /^(title|palette|accent|today|verdict|style|font)\s*:/i,
-      getLine: () => model ? timelineVerdict(model, todayDay()).line : '',
+      getLine: () => model ? timelineVerdict(model, effToday()).line : '',
     })) return;
     if(kind === 'additem'){
       const r = addItemLine(editor.getText(), todayISO(), el.dataset.lane || undefined);
@@ -325,7 +329,7 @@ $('topremortem').addEventListener('click', async () => {
     $('handoffstatus').textContent = 'This plan is too large to send with a safe return link. Shorten it, then try again.';
     return;
   }
-  const doc = premortemHandoff(model, todayDay(), returnTo);
+  const doc = premortemHandoff(model, effToday(), returnTo);
   if(!doc) return;
   $('handoffstatus').textContent = '';
   const link = await premortemLink(doc);   // ignore re-clicks while encoding: same doc, same link
@@ -334,7 +338,7 @@ $('topremortem').addEventListener('click', async () => {
 });
 $('copymd').addEventListener('click', async () => {
   if(!model) return;
-  const md = toMarkdown(model, currentDiff(), location.href, todayDay());
+  const md = toMarkdown(model, currentDiff(), location.href, effToday());
   try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }
 });
@@ -439,7 +443,7 @@ function syncInspector(){
   selectedLine=item.srcLine;
   panel.hidden=false;
   panel.setAttribute('role',innerWidth<=900?'dialog':'complementary');
-  if(!inspectorEditing || !panel.querySelector('#inspectform')) panel.innerHTML=inspectorHTML(item,model.today ?? todayDay(),inspectorEditing);
+  if(!inspectorEditing || !panel.querySelector('#inspectform')) panel.innerHTML=inspectorHTML(item,effToday(),inspectorEditing);
 }
 function inspectRow(row){
   selectedKey=row.dataset.inspect;selectedLine=Number(row.dataset.line);selectionOrigin={key:selectedKey,line:selectedLine};inspectorEditing=false;

@@ -34,10 +34,10 @@ test('lead tags fail closed when malformed, duplicated, or not fixed', () => {
 });
 
 test('a closed clock leads the decision readout without rewriting the forecast', () => {
-  const m=parse('today: 2026-08-01\nGate 2026-07-15 [fixed] [lead: 2w]\nBuild: Work 2026-08 .. 2026-10');
+  const m=parse('today: 2026-08-01\nGate 2026-08-10 [fixed] [lead: 2w]\nBuild: Work 2026-08 .. 2026-10');
   const v=timelineVerdict(m,ctx.today);
   assert.match(v.line,/Decision window closed/);
-  assert.match(v.line,/Decide by 1 Jul 2026/);
+  assert.match(v.line,/Decide by 27 Jul 2026/);
   assert.equal(primaryDecisionLead(m,ctx.today).it.label,'Gate');
 });
 
