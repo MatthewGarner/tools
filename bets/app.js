@@ -22,7 +22,7 @@ import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {createSimMemo, carrySim, runSimulations, isSmall} from './sim-memo.js';
 import {createSimSequencer} from '../assets/sim-sequencer.js';
-import {createSimPending, holdWhilePending, keepFocus} from '../assets/sim-pending.js';
+import {createSimPending, holdWhilePending, keepFocus, afterFieldCloses} from '../assets/sim-pending.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -136,11 +136,16 @@ const seqr = createSimSequencer({
     const models = asked; asked = null;
     if(!models) return;
     models.forEach((m, i) => simMemo.put(m, results[i]));
-    fromResult = true;
-    try{ paintModel(); }finally{ fromResult = false; }
+    drawFinal();
   },
   onError(key, message){ asked = null; modelError(message); },
 });
+/* the figures have arrived: draw them over the pending picture (not under an open edit field: see afterFieldCloses) */
+function drawFinal(){
+  if(afterFieldCloses(drawFinal)) return;
+  fromResult = true;
+  try{ paintModel(); }finally{ fromResult = false; }
+}
 globalThis.__betsWorkerAlive = () => seqr.workerAlive();   // test hook: a model error must not retire the worker
 /* what the page needs a result for: this portfolio, and the selected snapshot's when its comparison would be drawn */
 function neededModels(){

@@ -89,3 +89,13 @@ export function keepFocus(host, swap){
   const hit = byKey.length === 1 ? byKey[0] : same.length === 1 ? same[0] : null;
   if(hit) hit.focus({preventScroll: true});
 }
+
+/* The final figures repaint the artefact, and an edit field that is open over it (the shared edit-in-place input, anchored to a
+   figure) belongs to the picture it was opened on: repainting under it would orphan the field. So the figures are kept, and drawn
+   the moment the field closes, however it closes (a commit, Escape, a click away). Returns false if no field is open. */
+export function afterFieldCloses(fn, {fieldOpen = () => !!document.querySelector('.eip-input'), root = document.body} = {}){
+  if(!fieldOpen()) return false;
+  const watch = new MutationObserver(() => { if(!fieldOpen()){ watch.disconnect(); fn(); } });
+  watch.observe(root, {childList: true});
+  return true;
+}

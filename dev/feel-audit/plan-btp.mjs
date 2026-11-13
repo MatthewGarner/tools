@@ -61,10 +61,12 @@ export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-sta
    A fix turns its known FAIL into a PASS and removes the tag; 'id@tool' tags that check on that tool only. Each group says why it
    is left. A tag names a check, never a condition, so a new failure of any other check is a plain FAIL. */
 export const KNOWN_BTP = [
-  /* the simulation's own cost (Bets 40,000 runs, Tree 60,000 runs on a large document): a later stage, not feel code */
-  "load.large.longtask@bets", "load.large.longtask@tree", "values.example.longtask@bets", "values.large.applied@bets", "values.large.longtask@bets",
-  "slider.large.drag.events@tree", "slider.large.release@tree", "slider.large.release.longtask@tree", "sliderkeys.large.longtask@tree",
-  "stall.large.longtask@tree", "compare.edit@bets", "values.large.enter@bets", "slider.large.drag.frames@tree",
+  /* a large saved link is drawn twice by design: the structure at once with the last known figures pending, then the worker's figures
+     (bets/sim-worker.js, tree/sim-worker.js). The picture does not move (layout shift stays under 0.05); the check counts both draws. */
+  "load.large.replacements@bets", "load.large.replacements@tree",
+  /* the Tree slider drag on a large tree: two frames of 29ms (normal) over the 20ms line, down from two of 229ms. The simulation is gone from the
+     drag and the release; what is left is the first class toggle restyling the whole drawing (evalDet's own midpoint walk is under a frame). Recorded. */
+  "slider.large.drag.frames@tree",
   /* the render waits for a 120ms pause in typing by design (the debounce); recorded, not a defect to fix here */
   "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree", "stall.large.live@bets", "stall.large.live@paths", "stall.large.live@tree",
   /* a decision for Matt: the touch Undo button is shown on a desktop too (earlier audit F44) */
@@ -72,7 +74,7 @@ export const KNOWN_BTP = [
   /* a decision for Matt: a decimal keyboard has no '-' or '%', which odds and ranges need */
   "values.example.inputmode@bets", "values.large.inputmode@bets",
   /* a discrete swap/commit paints one frame plus the render itself (profiled: 3ms of script, ~20ms of style, SVG parse, ghost clone and paint) */
-  "values.example.applied@bets", "view.example.swap@bets", "view.large.swap@bets", "view.example.swap@paths", "view.large.swap@paths",
+  "view.example.swap@bets", "view.large.swap@bets", "view.example.swap@paths", "view.large.swap@paths",
   /* the Plans projection on the large plan: ~160ms of world enumeration in paths/evaluate.js + plans.js (profiled; uncached) */
   "view.large.longtask@paths", "view.large.paint@paths",
   /* native raster of the large SVG while it scrolls: no script, style or layout work (profiled; not isolated further) */

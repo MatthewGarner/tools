@@ -2,7 +2,7 @@
    announcement, and the hold on anything that would leave the page with pending figures. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createSimPending, holdWhilePending} from '../assets/sim-pending.js';
+import {createSimPending, holdWhilePending, afterFieldCloses} from '../assets/sim-pending.js';
 
 function rig(){
   const attrs = new Map();
@@ -91,4 +91,19 @@ test('a press while pending does nothing yet, shows it is working, and acts on t
   assert.equal(btn.dataset.working, undefined);
   assert.equal(btn.attrs.has('aria-busy'), false);
   assert.deepEqual(said.filter(Boolean).length, 1);
+});
+
+test('the final repaint waits for an open edit field to close, however it closes', () => {
+  let open = true, callback = null, watched = 0;
+  globalThis.MutationObserver = class { constructor(fn){ callback = fn; } observe(){ watched++; } disconnect(){ callback = null; } };
+  const drawn = [];
+  assert.equal(afterFieldCloses(() => drawn.push('final'), {fieldOpen: () => open, root: {}}), true, 'a field is open: the repaint is deferred');
+  assert.equal(watched, 1);
+  callback([]);                       // something else changed in the page while the field is still open
+  assert.deepEqual(drawn, []);
+  open = false;
+  callback([]);                       // the field was removed
+  assert.deepEqual(drawn, ['final']);
+  assert.equal(afterFieldCloses(() => drawn.push('never'), {fieldOpen: () => false, root: {}}), false, 'no field: draw now');
+  delete globalThis.MutationObserver;
 });

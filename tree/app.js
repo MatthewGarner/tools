@@ -27,7 +27,7 @@ import {STARTER} from './starter.js';
 import {createEvalMemo, pendingResults, isSmall} from './eval-memo.js';
 import {runEvaluation, decodeResults} from './eval-wire.js';
 import {createSimSequencer} from '../assets/sim-sequencer.js';
-import {createSimPending, holdWhilePending, keepFocus} from '../assets/sim-pending.js';
+import {createSimPending, holdWhilePending, keepFocus, afterFieldCloses} from '../assets/sim-pending.js';
 import {createSliderCommit} from './slider-commit.js';
 
 const evalMemo = createEvalMemo();   // the evaluation is kept, keyed on the tree: a theme change, zoom or re-layout never re-runs it
@@ -100,11 +100,16 @@ const seqr = createSimSequencer({
     const sent = asked; asked = null;
     if(!sent) return;
     evalMemo.put(sent, decodeResults(sent.root, wire));
-    fromResult = true;
-    try{ paintModel(); }finally{ fromResult = false; }
+    drawFinal();
   },
   onError(key, message){ asked = null; modelError(message); },
 });
+/* the figures have arrived: draw them over the pending picture (not under an open edit field: see afterFieldCloses) */
+function drawFinal(){
+  if(afterFieldCloses(drawFinal)) return;
+  fromResult = true;
+  try{ paintModel(); }finally{ fromResult = false; }
+}
 globalThis.__treeWorkerAlive = () => seqr.workerAlive();   // test hook: a model error must not retire the worker
 const announcement = () => (model && results) ? treeVerdictParts(model, results).line : '';
 /* the engine could not evaluate this tree: the structure is the tree's, the figures are the last that worked, and nothing is

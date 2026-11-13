@@ -31,7 +31,6 @@
 .export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
 
 /* a run is going (assets/sim-pending.js): the figures on the page are the last result, dimmed once the wait is long enough to be seen */
-.preview[data-sim] svg{transition:opacity var(--dur-fast) var(--ease-out)}
-.preview[data-sim-dim] svg{opacity:.6}
+.preview[data-sim-dim] svg{opacity:.6;transition:opacity var(--dur-fast) var(--ease-out)}   /* the transition sits on the dimmed state only: a transition on every artefact slowed the first zoom step */
 .actions button[data-working]{opacity:.6;cursor:progress}
-@media (prefers-reduced-motion:reduce){.preview[data-sim] svg{transition:none}}
+@media (prefers-reduced-motion:reduce){.preview[data-sim-dim] svg{transition:none}}
