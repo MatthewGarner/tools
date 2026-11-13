@@ -1,15 +1,29 @@
 /* What Fermi says about its results: pure sentence and format helpers, no DOM, no random
    stream. app.js and the renderers import these so every surface prints a figure the
    same way and the sentences can be tested in node. */
-import {fmt, sig, ratioStr, effDist, parseNum, readNumber} from './engine.js';
+import {fmt, sig, ratioStr, effDist, parseNum, readNumber, shareAbove, probAbove} from './engine.js';
+export {shareAbove};
 
-/* a sampled probability, wherever it appears: tenths in both tails, whole percent between,
-   and never a flat 0% or 100% (20,000 runs cannot show that) */
-export function pctProb(p){
+/* a probability, wherever it appears. Default, for a closed-form figure: tenths in both tails,
+   whole percent between, and never a flat 0% or 100%. precision 'whole' is for a probability
+   counted from the runs (estimate or cash flow), which cannot support tenths: whole percent from
+   1% to 99%, "<1%" and ">99%" outside. */
+export function pctProb(p, precision = 'tenths'){
+  if(precision === 'whole'){
+    if(!(p >= 0.01)) return '<1%';
+    if(p > 0.99) return '>99%';
+    return Math.round(p * 100) + '%';
+  }
   if(!(p >= 0.001)) return '<0.1%';
   if(p > 0.999) return '>99.9%';
   return (p * 100).toFixed(p < 0.095 || p > 0.905 ? 1 : 0) + '%';
 }
+/* P(answer > T) as printed for an estimate summary. Exact: tenths in the tails, and "100%" where
+   it is a certainty (a positive answer is above any threshold of zero or less). Counted: whole
+   percent, so a count of 20,000 of 20,000 is ">99%", never "100%". */
+export const probText = (summary, t) => summary.exact
+  ? (t > 0 ? pctProb(probAbove(summary, t)) : '100%')
+  : pctProb(probAbove(summary, t), 'whole');
 /* IRR, wherever it appears: one decimal place */
 export const pctOne = v => v == null ? '—' : (v < 0 ? '−' : '') + (Math.abs(v) * 100).toFixed(1) + '%';
 
@@ -31,9 +45,24 @@ export function stretchLabel(r){
   return '×' + text + (f < 1 ? ' shrink' : ' stretch');
 }
 
+/* Sampled money prints to one shared step per group of figures (NPV P10/P50/P90; equity NPV
+   likewise): a tenth of the power of ten of the largest magnitude, so 80,100 sets a step of 1,000
+   and the trio reads "−51k", "+15k", "+80k". No figure is printed finer than the noise under it. */
+export function moneyStep(values){
+  const big = Math.max(...values.map(Math.abs));
+  return big > 0 && isFinite(big) ? Math.pow(10, Math.floor(Math.log10(big)) - 1) : 1;
+}
+export function moneyTrio(values, step = moneyStep(values)){
+  return values.map(v => {
+    const r = Math.round(Math.abs(v) / step) * step;         // magnitude first: a tiny negative is a plain 0, never "−0"
+    return r === 0 ? '0' : (v < 0 ? '−' : '+') + fmt(Number(r.toPrecision(12)));
+  });
+}
+
 /* The cash-flow method line: timing convention, the shape each period actually uses, and
-   that periods are drawn independently. `periods` are the entered rows (numeric lo/hi). */
-export function cashflowMethod(spec, horizon, n){
+   that periods are drawn independently. `periods` are the entered rows (numeric lo/hi). The chart
+   comes from the first bandN of the n runs. */
+export function cashflowMethod(spec, horizon, n, bandN = n){
   const groups = {'normal': [], 'log-normal': [], 'fixed': []};
   spec.periods.forEach((p, t) => {
     const lo = Math.min(p.lo, p.hi), hi = Math.max(p.lo, p.hi);
@@ -41,7 +70,8 @@ export function cashflowMethod(spec, horizon, n){
   });
   const shapes = Object.entries(groups).filter(([, ts]) => ts.length).map(([k, ts]) => k + ': ' + ts.join(', '));
   return 'Flows arrive at the end of each period, so t0 is not discounted · shapes (log-normal above zero, normal otherwise): ' +
-    shapes.join('; ') + ' · periods drawn independently · ' + n.toLocaleString('en-GB') + ' seeded runs · deterministic';
+    shapes.join('; ') + ' · periods drawn independently · ' + n.toLocaleString('en-GB') + ' seeded runs' +
+    (bandN < n ? ', chart from the first ' + bandN.toLocaleString('en-GB') : '') + ' · deterministic';
 }
 
 /* ---------- the sensitivity bars: who is the top driver ---------- */
@@ -56,28 +86,31 @@ export function joinNames(names){
   const l = names.map(nm);
   return l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1];
 }
-const NO_ONE = 'No single input dominates — pinning any one variable barely moves the spread. Tighten the top two together.';
+/* ONE dominance rule, for the hint, the tree headline, the Markdown and the pour verdict: an
+   input dominates when its share is above one half and it is not tied at the top. */
+export const DOMINANT = 0.5;
+export function dominantDriver(sens){
+  if(!sens.length) return null;
+  return sens[0].share > DOMINANT && topDrivers(sens).length === 1 ? sens[0].name : null;
+}
+const NO_ONE = 'No single input dominates — the spread comes from several at once. Tighten the top two together.';
 export function leverHint(sens, fullLabel){
-  const top = sens[0], names = topDrivers(sens);
-  if(top.share <= 0.35) return NO_ONE;
-  const lead = 'Each bar: how much of the spread disappears if you learn that number exactly. ';
-  return names.length > 1
-    ? lead + joinNames(names) + ' are level at the top — research them first.'
-    : lead + 'Pin ' + nm(top.name) + ' and the spread drops from ' + fullLabel + ' to ' + top.label + ' — research it first.';
+  const dom = dominantDriver(sens);
+  if(dom === null) return NO_ONE;
+  const lead = 'Each bar: that input’s share of the spread; the figure after the arrow is what is left if you learn it exactly. ';
+  return lead + 'Pin ' + nm(dom) + ' and the spread drops from ' + fullLabel + ' to ' + sens[0].label + ' — research it first.';
 }
 export function treeHeadline(sens, fullLabel){
   if(!sens.length) return 'Give the inputs ranges to see what drives the spread.';
-  const top = sens[0], names = topDrivers(sens);
-  if(top.share <= 0.35) return 'No single input dominates — the spread is shared across the drivers.';
-  return names.length > 1
-    ? 'Research ' + joinNames(names) + ' first — they are level as the biggest drivers.'
-    : 'Research ' + nm(top.name) + ' first — pinning it cuts the spread from ' + fullLabel + ' to ' + top.label + '.';
+  const dom = dominantDriver(sens);
+  if(dom === null) return 'No single input dominates — the spread is shared across the drivers.';
+  return 'Research ' + nm(dom) + ' first — pinning it cuts the spread from ' + fullLabel + ' to ' + sens[0].label + '.';
 }
 export function leverLine(sens, fullLabel){
   const top = sens[0], names = topDrivers(sens);
-  return names.length > 1
-    ? 'Biggest levers: ' + joinNames(names) + ' are level — knowing any one of them exactly shrinks the spread the most.'
-    : 'Biggest lever: ' + nm(top.name) + ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.';
+  if(dominantDriver(sens) === null && names.length > 1)
+    return 'No single input dominates — ' + joinNames(names) + ' are level at the top; knowing any one of them exactly shrinks the spread the most.';
+  return 'Biggest lever: ' + nm(top.name) + ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.';
 }
 
 /* ---------- statements about the answer ---------- */
@@ -85,15 +118,11 @@ export function leverLine(sens, fullLabel){
 export function verdictSentence(p10, p50, p90, unit){
   return '“Probably around ' + p50 + (unit ? ' ' + unit : '') + ' — four runs in five land between ' + p10 + ' and ' + p90 + '.”';
 }
-/* share of runs above T, over ALL runs (sorted ascending) */
-export function shareAbove(sorted, t){
-  let lo = 0, hi = sorted.length;
-  while(lo < hi){ const m = (lo + hi) >> 1; if(sorted[m] <= t) lo = m + 1; else hi = m; }
-  return sorted.length ? (sorted.length - lo) / sorted.length : 0;
-}
-/* "already at even odds" is about P(>T) being within 2 points of 50%, not how near T is to P50 */
-export function evenOdds(sorted, t){
-  return Math.abs(shareAbove(sorted, t) - 0.5) <= 0.02;
+/* "already at even odds" is about P(>T) being within 2 points of 50%, not how near T is to P50.
+   Takes an estimate summary (exact or counted) or, for plain arrays, a sorted sample. */
+export function evenOdds(src, t){
+  const p = Array.isArray(src) || ArrayBuffer.isView(src) ? shareAbove(src, t) : probAbove(src, t);
+  return Math.abs(p - 0.5) <= 0.02;
 }
 
 /* ---------- notes under the results ---------- */
@@ -160,7 +189,7 @@ export function distOverrideNotes(varNames, ranges, dists){
     .map(n => nm(n) + ' is set to log-normal but its range reaches zero, so it runs as normal.');
 }
 /* what the estimate page's method line says: the shape each range really uses */
-export function estimateMethod(varNames, ranges, dists, n){
+export function estimateMethod(varNames, ranges, dists, n, exact = false){
   const counts = new Map();
   for(const v of varNames){
     const [a, b] = ranges[v], lo = Math.min(a, b);
@@ -168,7 +197,8 @@ export function estimateMethod(varNames, ranges, dists, n){
     counts.set(k, (counts.get(k) || 0) + 1);
   }
   const order = ['log-normal', 'normal', 'uniform (full range)', 'fixed'];
-  const runs = ' · ' + n.toLocaleString('en-GB') + ' samples';
+  const runs = exact ? ' · exact percentiles · histogram of ' + n.toLocaleString('en-GB') + ' samples'
+    : ' · ' + n.toLocaleString('en-GB') + ' samples, good to two figures';
   // every range log-normal is the usual case, and the plain sentence is then true as it stands
   if(counts.size === 1 && counts.has('log-normal')) return 'Log-normal fit to each 90% range' + runs;
   return 'Fit to each range: ' + order.filter(k => counts.has(k)).map(k => counts.get(k) + ' ' + k).join(', ') + runs;

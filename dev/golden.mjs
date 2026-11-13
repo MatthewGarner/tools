@@ -275,16 +275,14 @@ if(selected('fermi-driver')){
   const E = await import('../fermi/engine.js');
   const {SEEDS, N} = await import('../fermi/seeds.js');   // the page's own constants: change one and these go red
   const {renderDriverTree} = await import('../fermi/render-driver.js');
-  const {quantile} = await import('../assets/series.js');
   const build = (f, ranges) => {
     const ast = E.parse(E.tokenize(f));
     const varNames = E.collectVars(ast, []);
     const dists = {};
     for(const n of varNames) dists[n] = 'auto';
     const m = {ast, varNames, ranges, dists};
-    const {sorted} = E.simulateModel(m, {seed: SEEDS.A, n: N});
-    const p10 = quantile(sorted, .1), p50 = quantile(sorted, .5), p90 = quantile(sorted, .9);
-    return {...m, p10, p50, p90, ...E.computeSensitivity(m, {seed: SEEDS.A, p10, p90})};
+    const {p10, p50, p90, exact} = E.summariseEstimate(m, {seed: SEEDS.A, n: N});   // the page's own one summary
+    return {...m, p10, p50, p90, ...E.computeSensitivity(m, {seed: SEEDS.A, p10, p90, exact})};
   };
   variants['fermi-driver-meeting'] = renderDriverTree(
     build('attendees * hourly_cost * meeting_hours * weeks_per_year',
