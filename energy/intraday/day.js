@@ -189,17 +189,36 @@ export function runDay(p, catalogue = GB_TODAY){
      a pass adds nothing. The terminal book is then an equilibrium both ways: no kept slice loses,
      and no dropped slice could rejoin with all still paying. */
   const paysAll = (book, fl) => book.every(sl => fl.prices[sl.d] - fl.prices[sl.c] / p.rte >= 0);
+  const tryBook = trial => { const sc = scheduleFromPairs(trial, p.rte), fl = clearDay(p, netOf(sc), catalogue); return paysAll(trial, fl) ? {sc, fl} : null; };
   let dropped = plan.pairs.filter(sl => !keep.includes(sl));
+  /* Second ruling: whole 0.25 GWh slices are an artefact of the plan, so when no whole slice can rejoin,
+     each still-dropped slice is offered back at the largest part of it (in steps of a tenth of the slice)
+     that leaves every trade paying; the remainder stays dropped. More volume mostly lowers margins, so the
+     largest paying part is found by bisection over the steps. It is only "mostly": a charge in the hour
+     another slice discharges (a chain) can lift that slice's margin, so a part added now can make an
+     earlier refusal pass. The two passes therefore repeat until a full round adds nothing; that is what
+     makes the terminal book an equilibrium (each round adds volume out of a finite stock, so it ends). */
   for(let added = true; added && dropped.length > 0;){
     added = false;
-    for(const sl of dropped.slice()){
-      const trial = [...keep, sl];
-      const trialSched = scheduleFromPairs(trial, p.rte);
-      const trialFlat = clearDay(p, netOf(trialSched), catalogue);
-      if(paysAll(trial, trialFlat)){
-        keep.push(sl); sched = trialSched; flat = trialFlat;
-        dropped.splice(dropped.indexOf(sl), 1); added = true;
+    for(const sl of dropped.slice()){                       // whole slices, plan order
+      const hit = tryBook([...keep, sl]);
+      if(hit){ keep.push(sl); sched = hit.sc; flat = hit.fl; dropped.splice(dropped.indexOf(sl), 1); added = true; }
+    }
+    if(added) continue;
+    for(const sl of dropped.slice()){                       // parts of the still-dropped slices, plan order
+      const unit = sl.unit ?? sl.q / 10, n = Math.round(sl.q / unit);
+      const part = k => ({c: sl.c, d: sl.d, q: unit * k, unit});
+      let hit = tryBook([...keep, part(1)]);
+      if(!hit) continue;                                    // not even the smallest part pays
+      let lo = 1, best = hit, hi = n + 1;                   // lo pays, hi is known (or assumed) not to
+      while(hi - lo > 1){
+        const mid = (lo + hi) >> 1, h = tryBook([...keep, part(mid)]);
+        if(h){ lo = mid; best = h; } else hi = mid;
       }
+      keep.push(part(lo)); sched = best.sc; flat = best.fl;
+      const i = dropped.indexOf(sl);
+      if(lo >= n) dropped.splice(i, 1); else dropped[i] = {c: sl.c, d: sl.d, q: unit * (n - lo), unit};
+      added = true;
     }
   }
 

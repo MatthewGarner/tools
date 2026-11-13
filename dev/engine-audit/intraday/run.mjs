@@ -126,6 +126,7 @@ function refPrice(gens, d){            // independent unit-by-unit reference
   return price;
 }
 {
+  let boundaryHours = 0;
   const bad = {reclear: 0, slice: 0, ident: 0, nonneg: 0, planned: 0, dropped: 0, net: 0};
   let n = 0;
   for(let t = 0; t < 120; t++){
@@ -134,7 +135,12 @@ function refPrice(gens, d){            // independent unit-by-unit reference
     for(let h = 0; h < 24; h++){
       const net = D.demandAt(h, p) + r.sched.charge[h] - r.sched.discharge[h];
       if(!near(net, r.flat.hours[h].demand, 1e-9)) bad.net++;
-      if(!near(refPrice(D.hourStack(p, h), net), r.flat.prices[h], 1e-9)) bad.reclear++;
+      { // a net demand within 1e-9 GW of a step boundary is a float coin-toss in dispatch (4e-15 GW above 29.64 reads as the next plant): counted, not failed
+        const st = [...D.hourStack(p, h)].sort((a, b) => a.cost - b.cost); let acc = 0, onEdge = false;
+        for(const g of st){ acc += g.capacity; if(Math.abs(net - acc) < 1e-9) onEdge = true; }
+        if(onEdge) boundaryHours++;
+        else if(!near(refPrice(D.hourStack(p, h), net), r.flat.prices[h], 1e-9)) bad.reclear++;
+      }
       if(!near(refPrice(D.hourStack(p, h), D.demandAt(h, p)), r.raw.prices[h], 1e-9)) bad.reclear++;
     }
     // reconstruct slices from the schedule: margin identity and non-negativity per surviving slice
@@ -151,6 +157,7 @@ function refPrice(gens, d){            // independent unit-by-unit reference
     if(r.sched.charge.some(v => v > p.fleetGW + 1e-9) || r.sched.discharge.some(v => v > p.fleetGW + 1e-9)) bad.slice++;
   }
   R.check('RD1', 'pass', `runDay: net demand = demand + charge - discharge; every hour re-clears to an independent reference price (${n} days)`, bad.net === 0 && bad.reclear === 0, `net viol=${bad.net} reclear viol=${bad.reclear}`);
+  R.info('RD1', 'hours whose net demand sits within 1e-9 GW of a stack step (float-sensitive price)', `${boundaryHours} of ${n * 24}`);
   R.check('RD1', 'pass', 'runDay: achieved/planned margin identities, dischargedGWh, droppedGWh >= 0', bad.ident === 0 && bad.dropped === 0, `ident=${bad.ident} dropped=${bad.dropped}`);
   R.check('RD1', 'pass', 'runDay: achievedMargin >= 0; never exceeds plannedMargin (verdict "keeps X of Y" stays X<=Y)', bad.nonneg === 0 && bad.planned === 0, `nonneg=${bad.nonneg} X>Y=${bad.planned}`);
   R.check('RD1', 'pass', 'runDay: SoC within [0,cap], empty at close, power within fleetGW after back-off', bad.slice === 0, `viol=${bad.slice}`);
@@ -167,21 +174,25 @@ function refPrice(gens, d){            // independent unit-by-unit reference
 { // F-ID-1 (ruled): the terminal book is an equilibrium in both directions (re-entry pass)
   const netOf = (p, sc) => Array.from({length: 24}, (_, h) => D.demandAt(h, p) + sc.charge[h] - sc.discharge[h]);
   const pays = (p, pairs) => { const fl = D.clearDay(p, netOf(p, D.scheduleFromPairs(pairs, p.rte))); return pairs.every(sl => fl.prices[sl.d] - fl.prices[sl.c] / p.rte >= -1e-9); };
-  let badBook = 0, badDrop = 0, badEmpty = 0, nDays = 0, nDropped = 0;
+  let badBook = 0, badDrop = 0, badEmpty = 0, badPlanned = 0, badSoc = 0, nDays = 0, nDropped = 0;
   for(let t = 0; t < 150; t++){
     const p = {...D.DAY_DEFAULTS, trough: pick(18, 40, 1), peak: pick(30, 60, 1), solarPeak: pick(0, 14, 1), gas: pick(40, 300, 5), carbon: pick(0, 150, 5), fleetGW: pick(0.5, 12, 0.5), fleetH: pick(1, 6, 0.5)};
     if(p.peak < p.trough) continue;
     const r = D.runDay(p); nDays++;
     if(!pays(p, r.book)) badBook++;
-    for(const sl of r.dropped){ nDropped++; if(pays(p, [...r.book, sl])) badDrop++; }
-    if(r.dischargedGWh <= 1e-9){ const plan = D.greedySchedule(r.raw.prices, p); if(plan.pairs.some(sl => pays(p, [sl]))) badEmpty++; }
+    for(const sl of r.dropped){ nDropped++; if(pays(p, [...r.book, {...sl, q: sl.unit ?? sl.q / 10}])) badDrop++; }
+    if(r.achievedMargin > r.plannedMargin + 1e-9 && r.dischargedGWh > 0.05) badPlanned++;
+    { const cap = p.fleetGW * p.fleetH; if(r.sched.soc.some(v => v < -1e-9 || v > cap + 1e-9) || Math.abs(r.sched.soc[24]) > 1e-7 || Math.abs(r.sched.charge.reduce((a, b) => a + b, 0) * p.rte - r.sched.discharge.reduce((a, b) => a + b, 0)) > 1e-7) badSoc++; }
+    if(r.dischargedGWh <= 1e-9){ const plan = D.greedySchedule(r.raw.prices, p); if(plan.pairs.some(sl => pays(p, [{...sl, q: sl.q / 10}]))) badEmpty++; }
   }
   R.check('F-ID-1', 'pass', `every kept slice pays at the prices the whole fleet makes (${nDays} days)`, badBook === 0, `viol=${badBook}`);
-  R.check('F-ID-1', 'pass', `no dropped slice can rejoin with every slice still paying (${nDropped} dropped slices tested)`, badDrop === 0, `viol=${badDrop}`);
-  R.check('F-ID-1', 'pass', 'the book is empty only when no single slice pays on its own', badEmpty === 0, `viol=${badEmpty}`);
+  R.check('F-ID-1', 'pass', `the smallest part (a tenth) of no dropped remainder can rejoin with every slice still paying (${nDropped} remainders tested)`, badDrop === 0, `viol=${badDrop}`);
+  R.check('F-ID-1', 'pass', 'the book is empty only when the smallest part of no plan slice pays on its own', badEmpty === 0, `viol=${badEmpty}`);
+  R.check('F-ID-1', 'pass', 'achieved margin never exceeds planned (part-slices included)', badPlanned === 0, `viol=${badPlanned}`);
+  R.check('F-ID-1', 'pass', 'SoC within the tank, empty at close, charge x rte = discharge (part-slices included)', badSoc === 0, `viol=${badSoc}`);
   const g185 = {...D.DAY_DEFAULTS, trough: 29, peak: 35, solarPeak: 3, gas: 185, carbon: 30};
   const one = D.runDay({...g185, fleetGW: 1, fleetH: 1}), half = D.runDay({...g185, fleetGW: 0.5, fleetH: 1});
-  R.info('F-ID-1', 'ruling example 1 GW x 1 h still earns 0 (no whole 0.25 GWh slice pays alone); 0.5 GW x 1 h trades a 0.075 GWh part-slice', `1 GW £${one.achievedMargin.toFixed(2)}k, 0.5 GW £${half.achievedMargin.toFixed(2)}k`);
+  R.check('F-ID-1', 'pass', 'ruling example: 1 GW x 1 h (gas 185) earns more than £0 and at least 0.5 GW x 1 h less one step (£0.9k)', one.achievedMargin > 0 && one.achievedMargin >= half.achievedMargin - 0.9, `1 GW £${one.achievedMargin.toFixed(2)}k, 0.5 GW £${half.achievedMargin.toFixed(2)}k`);
   const v = buildDayVerdict({...one, dischargedGWh: 0, droppedGWh: 1.2}, {...g185, fleetGW: 1, fleetH: 1});
   R.check('F-ID-1b', 'pass', 'an empty book after a non-empty plan says the fleet\'s own trading closes the spread; "thinner" only when the plan is empty', /its own trading closes the spread/.test(v) && !/thinner than the round-trip loss/.test(v), v);
 }
