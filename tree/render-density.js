@@ -6,7 +6,7 @@ import {svgVerdict, svgMetrics} from '../assets/verdict-svg.js';
 import {layoutTree, TREE_GEOM} from './layout.js';
 import {decisionComparisonProjection, pairCertain} from './comparison.js';
 import {evalDet} from './engine.js';
-import {flipCopy, seamCopy, sharePct} from './format.js';
+import {flipCopy, seamCopy, sharePct, sharedStep} from './format.js';
 
 const SANS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 const SERIF = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';
@@ -39,6 +39,7 @@ function values(model){
   const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
   return {
     money,
+    pair: (a, b) => sharedStep(a, b).map(money).join(' … '),
     range: v => !v ? '' : v.lo === v.hi ? money(v.lo) : money(v.lo) + ' … ' + money(v.hi),
     prob: p => p == null ? '' : p === 'rest' ? 'rest' : p.lo === p.hi ? 'p=' + Number(p.lo.toPrecision(3)) : 'p=' + Number(p.lo.toPrecision(3)) + '–' + Number(p.hi.toPrecision(3)),
   };
@@ -105,7 +106,8 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
   const rec = results.policy.get(model.root), st = results.stats.get(model.root), v = values(model);
   let ev = '', evHeight=0;
   if(!authored && rec && st && model.root.kind === 'decision'){
-    let msg = 'P10 ' + v.money(st.p10) + ' · P90 ' + v.money(st.p90);
+    const [lo10, hi90] = sharedStep(st.p10, st.p90);
+    let msg = 'P10 ' + v.money(lo10) + ' · P90 ' + v.money(hi90);
     const recMean = results.stats.get(rec)?.mean;
     const rival = model.root.children.filter(x => x !== rec && results.stats.has(x)).reduce((best, option) => {
       if(!best) return option;
@@ -140,7 +142,7 @@ function card(item, model, results, ctx, C, layout, v, tops){
   ty+=3;
   if(node.p!=null){ const text=v.prob(node.p), h=ctx.edit&&hot.has('prob:'+node.srcLine); out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10.5" fill="'+C.muted+'">'+field('prob',node,node.pRaw||(node.p==='rest'?'rest':''),text,'Edit probability: '+node.label,ctx.edit,h)+'</text>'); if(h) out.push('<line x1="'+(x+15)+'" y1="'+(ty+2)+'" x2="'+(x+75)+'" y2="'+(ty+2)+'" stroke="'+C.accent+'" stroke-dasharray="1.5,2"/>'); ty+=14; }
   if(node.value){ const text=v.range(node.value), h=ctx.edit&&hot.has('value:'+node.srcLine); out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="10.5" fill="'+C.muted+'">'+field('value',node,node.valueRaw||'',text,'Edit payoff: '+node.label,ctx.edit,h)+'</text>'); if(h) out.push('<line x1="'+(x+15)+'" y1="'+(ty+2)+'" x2="'+(x+105)+'" y2="'+(ty+2)+'" stroke="'+C.accent+'" stroke-dasharray="1.5,2"/>'); ty+=14; }
-  const st=results.stats.get(node); if(st) out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'<tspan fill="'+C.muted+'" font-size="10"> · '+e(v.money(st.p10)+' … '+v.money(st.p90))+'</tspan></text>');
+  const st=results.stats.get(node); if(st) out.push('<text x="'+(x+15)+'" y="'+ty+'" font-size="11.5" font-weight="650" fill="'+(active?C.ink:C.muted)+'"'+(ctx.edit?' data-mc=""':'')+'>'+(active?'EXPECTED ':'ALTERNATIVE · EV ')+e(v.money(st.mean))+'<tspan fill="'+C.muted+'" font-size="10"> · '+e(v.pair(st.p10,st.p90))+'</tspan></text>');
   if(ctx.edit) out.push(menu(node,x+item.w-18,y+item.h-18,C,model.root));
   out.push('</g>'); return out.join('');
 }
@@ -249,7 +251,7 @@ function presentation(model,results,ctx,C,layout,verdictParts){
     const col=i%cols,row=Math.floor(i/cols),x=72+col*(colW+colGap),y=start+row*(rowH+gap);
     const titleFit=clippedLines(option.label,'650 18px '+SANS,colW-(option.recommended?170:62),ctx.measure,2);
     const title=titleFit.lines; titlesAbbreviated ||= titleFit.clipped;
-    const st=option.stats,mean=st?v.money(st.mean):'—',interval=st?v.money(st.p10)+' … '+v.money(st.p90):'—';
+    const st=option.stats,mean=st?v.money(st.mean):'—',interval=st?v.pair(st.p10,st.p90):'—';
     const win=option.recommended?'REFERENCE':option.winRateVsRecommendation===null?'—':sharePct(option.winRateVsRecommendation,option.winRateCertain);
     const chance=option.chanceInputs.length
       ? option.chanceInputs[0].label+' · '+option.chanceInputs[0].authored+(option.chanceInputs.length>1?' · +'+(option.chanceInputs.length-1)+' more':'')
