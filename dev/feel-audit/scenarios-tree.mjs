@@ -38,7 +38,7 @@ export async function slider(env, kind, {source, label = 'example'} = {}){
   check(`slider.${label}.engage.visible`, w, 'slider fully on screen when it appears', bar, !bar.hidden && bar.inView, 'in view without scrolling');
   if(env.mode === 'normal'){
     check(`slider.${label}.engage.focus`, w, 'focus on engage', bar.active, /exploreRange/.test(bar.active), 'on the slider');
-    check(`slider.${label}.engage.motion`, w, 'slider entrance', e.animations.length ? e.animations : 'none: appears instantly', e.animations.some(a => /opacity|transform/.test(a)), 'a brief opacity/transform entrance like other surfaces');
+    check(`slider.${label}.engage.motion`, w, 'slider entrance', e.animations.length ? e.animations : 'none: appears instantly', e.animations.some(a => /opacity|transform|menu-in/.test(a)), 'a brief opacity/transform entrance like other surfaces');
     if(phone) check(`slider.${label}.tap`, w, 'slider thumb/track hit height on a phone', bar.rangeH, bar.rangeH >= BAR.tap, '>= 44px');
   }
   /* drag the thumb across the track (scrolled into view first: on a tall tree it can appear off screen) */

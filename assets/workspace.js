@@ -146,6 +146,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     action.addEventListener('click',()=>{
       readingOverride=true;
       setReading(true);
+      tab.focus({preventScroll:true});   // the button just pressed is gone: the reading view's first control takes focus
     });
     el.append(copy,action);
     preview.parentNode.insertBefore(el,preview);

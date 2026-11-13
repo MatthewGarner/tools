@@ -1186,6 +1186,11 @@ function doRefresh(){
       ? 'The phone view becomes an outline; every export remains the wide tree.'
       : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
+  if(pendingFocus){
+    const want = pendingFocus; pendingFocus = null;
+    const ae = document.activeElement;
+    if(!ae || ae === document.body || !ae.isConnected) want()?.focus({preventScroll:true});   // never from a reader who moved on
+  }
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) saveTrackedWork(localStorage,'paths-src', text); }catch(_){ }
   clearTimeout(hashTimer);
@@ -1196,6 +1201,7 @@ const typed = debounced(refresh, 120);
 /* a discrete edit (a commit, a menu pick, a view) paints at once; the debounce is for typing in the source only */
 function refreshNow(){ typed.cancel(); refresh(); }
 let motionOverride;                 // 'fade' for a view switch
+let pendingFocus = null;            // what to focus once the next render lands (by identity): a selected question, a group toggle, a view button
 const paint = mountMotion(preview);
 
 const editor = createEditor({
@@ -1303,6 +1309,7 @@ attachEditInPlace($('focus-lens'), {
   },
 });
 
+const selectedOpener = key => [...preview.querySelectorAll('[data-select-decision]')].find(e => e.dataset.decisionKey === key) || null;
 function chooseDecision(target, focusInspector = false){
   const choice = {key:target.dataset.decisionKey, srcLine:Number(target.dataset.line)};
   if(isRoadmapStyle()){
@@ -1316,6 +1323,7 @@ function chooseDecision(target, focusInspector = false){
     overviewReceiptReturnKey = sheet || overviewSurfaceMetrics().receiptLayout === 'overlay'
       ? resolved.key : null;
     focusOverviewReceiptAfterRender = focusInspector || sheet;
+    pendingFocus = () => selectedOpener(resolved.key);
     lastSvg = '';
     refresh();
     return;
@@ -1325,6 +1333,7 @@ function chooseDecision(target, focusInspector = false){
   selectedDecision = {key:resolved.key, srcLine:resolved.srcLine};
   treeInspectorReturnKey = resolved.key;
   focusInspectorAfterRender = focusInspector;
+  pendingFocus = () => selectedOpener(resolved.key);
   lastSvg = '';
   refresh();
 }
@@ -1335,6 +1344,7 @@ function toggleOverviewGroup(target){
   if(!key) return false;
   if(expandedOverviewGroups.has(key)) expandedOverviewGroups.delete(key);
   else expandedOverviewGroups.add(key);
+  pendingFocus = () => [...preview.querySelectorAll('[data-toggle-decision-group]')].find(e => e.dataset.stateGroup === key);
   lastSvg = '';
   refresh();
   return true;
@@ -1689,8 +1699,9 @@ document.querySelector('.paths-views').addEventListener('click', event => {
   const button = event.target.closest?.('[data-paths-view]');
   if(!button) return;
   event.preventDefault();
-  button.focus({preventScroll:true});   // Safari does not focus a button on click
-  const more = button.closest('details'); if(more) more.open = false;
+  const more = button.closest('details');
+  if(more){ more.open = false; more.querySelector(':scope > summary')?.focus({preventScroll:true}); }   // the picked button leaves with the menu
+  else button.focus({preventScroll:true});   // Safari does not focus a button on click
   /* pressed with the press, not a frame behind the view */
   document.querySelectorAll('[data-paths-view]').forEach(b => {
     const on = b === button;

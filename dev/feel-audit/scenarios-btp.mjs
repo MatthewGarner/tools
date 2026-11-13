@@ -155,6 +155,8 @@ export async function addRemove(env, tool, kind, {addSel, addRow, typed = 'Feel 
   const w = where(tool, kind, env.mode), phone = kind === 'phone';
   const {ctx, page} = await fresh(env, tool, kind);
   let open;
+  /* what existed BEFORE the add: the new item's own name ("New option") is right on the page afterwards, and is the right answer */
+  const preLabels = await page.evaluate(() => [...document.querySelectorAll('#preview [aria-label]')].map(e => e.getAttribute('aria-label') || ''));
   if(addSel){
     const p = await pointOn(page, addSel, {resolve: '[data-edit]'});
     if(!p){ note('add.missing', w, 'no add control on the artefact at this viewport', addSel); await ctx.close(); return; }
@@ -166,7 +168,7 @@ export async function addRemove(env, tool, kind, {addSel, addRow, typed = 'Feel 
   const field = await page.evaluate(() => ({field: !!document.querySelector('.eip-input'), value: document.querySelector('.eip-input')?.value}));
   note('add.open', w, 'open the add field', {paint: paintOf(open), settled: open.settled, swaps: open.svgSwaps, ...field});
   if(!field.field){ check('add.field', w, 'add opens a name field', field, false, 'a focused name field'); await ctx.close(); return; }
-  const existing = await page.evaluate(v => !!v && [...document.querySelectorAll('#preview [aria-label]')].some(e => (e.getAttribute('aria-label') || '').endsWith(': ' + v) || (e.getAttribute('aria-label') || '').endsWith(' ' + v)), field.value);
+  const existing = !!field.value && preLabels.some(l => l.endsWith(': ' + field.value) || l.endsWith(' ' + field.value));
   check('add.field.value', w, 'the field opened by Add names the NEW item', field.value, !existing, 'empty or the new placeholder, never an existing item\'s name');
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.type(typed);
