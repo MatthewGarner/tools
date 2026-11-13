@@ -106,7 +106,7 @@ test('held and moot authored answers explain why they are not active and disable
   const moot = decisionInspectorData(treeProjection(mootProjection).questions.find(q => q.key === 'child'));
   assert.equal(moot.availability.kind, 'moot');
   assert.equal(moot.answerNotice,
-    'Answer kept, but not used because host resolved no; this question did not apply.');
+    'Answer kept, but not used because host was no; this question did not apply.');
   assert.equal(moot.answerActionsEnabled, false);
 });
 

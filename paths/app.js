@@ -993,7 +993,7 @@ function renderInspector(){
         const entry = node('li', '');
         entry.appendChild(node('span', 'inspector-work-title', item.title));
         entry.appendChild(node('span', 'inspector-work-meta',
-          [item.status ? item.status.toUpperCase() : '', item.treatment].filter(Boolean).join(' · ')));
+          [item.status ? item.status.toUpperCase() : '', item.treatment, item.reason].filter(Boolean).join(' · ')));
         list.appendChild(entry);
       }
       arm.appendChild(list);

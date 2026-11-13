@@ -45,7 +45,9 @@ export function conditionView(condition, decisionByName = {}){
 }
 
 function joinTerms(terms, operator){
-  const words = terms.map(term => `${sentenceName(term.name)} = ${term.direction}`);
+  /* a question that never arose has no answer to quote: it is not "= no" (PA-4) */
+  const words = terms.map(term => term.reason ? `${sentenceName(term.name)} never arose`
+    : `${sentenceName(term.name)} = ${term.direction}`);
   if(words.length < 2) return words[0] || 'its condition';
   return words.join(operator === 'or' ? ' or ' : ' and ');
 }

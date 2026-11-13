@@ -28,19 +28,48 @@ function testability(decision){
     : {kind:'testable', label:'Testable', missing:[]};
 }
 
+const sentence = value => {
+  const text = String(value || '');
+  return text ? text[0].toUpperCase() + text.slice(1) : text;
+};
+
+/* The item's state is the evaluator's. The evidence only words the reason: an item can be
+   included because its question never arose (an [unless child] fallback when child's host
+   was answered no), and must not read as "Not needed" for that (PA-3). */
 function treatment(item){
   const evidence = item?.displayEvidence;
   if(evidence?.kind === 'condition-error') return 'Condition needs fixing';
   if(evidence?.kind === 'completed') return 'Completed';
-  if(evidence?.kind === 'assumption') return evidence.direction === 'no'
-    ? 'Following an assumed no' : 'Following an assumed yes';
+  const following = () => evidence?.kind === 'assumption'
+    ? (evidence.direction === 'no' ? 'Following an assumed no' : 'Following an assumed yes')
+    : 'Following an assumption';
+  switch(item?.itemState){
+    case 'in-plan': return 'Included';
+    case 'not-needed': return 'Not needed';
+    case 'limbo': return following();
+    case 'waiting': return 'Waiting';
+    default: break;
+  }
+  if(evidence?.kind === 'assumption') return following();
   if(evidence?.kind === 'pending-answer') return 'Waiting';
-  if(evidence?.kind === 'host-exclusion' || item?.itemState === 'not-needed') return 'Not needed';
+  if(evidence?.kind === 'host-exclusion') return 'Not needed';
   return 'Included';
 }
 
+/* the stated reason when the item's condition was settled by a question that never arose */
+function neverAroseReason(item){
+  const member = (item?.conditionResult?.evidence || []).find(entry => entry.reason && entry.decision);
+  if(!member) return '';
+  const host = member.reason.host || member.reason.hostKey || 'its host';
+  const who = sentence(member.decision.name || member.decision.key);
+  return item.itemState === 'in-plan'
+    ? `${who} never arose (${sentence(host)} = ${member.reason.direction})`
+    : `${who} no longer applies after ${sentence(host)} = ${member.reason.direction}`;
+}
+
 function affected(item){
-  return {title:item.title, status:item.status || '', treatment:treatment(item)};
+  const reason = item?.displayEvidence?.kind === 'host-exclusion' ? neverAroseReason(item) : '';
+  return {title:item.title, status:item.status || '', treatment:treatment(item), ...(reason ? {reason} : {})};
 }
 
 function arms(question){
@@ -58,8 +87,10 @@ function answerNotice(decision, answer){
   if(decision.availability === 'dormant')
     return 'Answer kept, but not used until this question opens.';
   if(decision.availability === 'moot'){
-    const host = decision.when?.source || 'its opening condition';
-    return `Answer kept, but not used because ${host} resolved no; this question did not apply.`;
+    /* the host's actual answer, as the evaluator recorded it, not an assumed "no" */
+    const why = decision.mootReason ? `${decision.mootReason.host} was ${decision.mootReason.direction}`
+      : 'its opening condition was not met';
+    return `Answer kept, but not used because ${why}; this question did not apply.`;
   }
   return '';
 }
