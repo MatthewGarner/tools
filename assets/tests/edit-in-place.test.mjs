@@ -63,7 +63,7 @@ test('open() lets opts.kind/opts.raw override the element dataset, threaded thro
   // which would silently drop the override
   assert.match(src, /input\.value = raw;/, 'input prefill uses the overridable raw');
   assert.match(src, /v\.trim\(\) === raw\.trim\(\)/, 'no-change comparison uses the overridable raw');
-  assert.match(src, /onCommit\(kind, line, raw, v\.trim\(\), el\);/, 'commit\'s oldRaw uses the overridable raw');
+  assert.match(src, /commitAndRestore\(kind, line, raw, v\.trim\(\), el\);/, 'commit\'s oldRaw uses the overridable raw');
 });
 
 test('open() never silently drops an unknown kind — it announces instead', () => {
@@ -73,7 +73,7 @@ test('open() never silently drops an unknown kind — it announces instead', () 
 test('renderPopoverRows handles commit and submenu rows', () => {
   assert.match(src, /function renderPopoverRows\(rows, rect, activeEl\)/);
   assert.match(src, /row\.commit/, 'commit row branch');
-  assert.match(src, /onCommit\(row\.commit\.kind, row\.commit\.line/, 'commit calls onCommit with the row payload');
+  assert.match(src, /commitAndRestore\(row\.commit\.kind, row\.commit\.line/, 'commit calls onCommit (through the focus-restoring wrapper) with the row payload');
   assert.match(src, /row\.submenu/, 'submenu row branch');
   // \bclose\(\); requires the real statement (trailing semicolon) — the
   // nearby comment says "close() disposes the button" with no semicolon,
@@ -111,4 +111,13 @@ test('opening a focus-trapped menu survives its own focus-induced scroll', () =>
     'new popovers receive a short focus-settling window');
   assert.match(src, /performance\.now\(\) >= active\.ignoreScrollUntil\) close\(\)/,
     'real later page scrolling still dismisses an active editor');
+});
+
+test('every commit goes through the focus-restoring wrapper, which hands focus back by identity after the repaint', () => {
+  // the only direct onCommit call is inside the wrapper itself
+  assert.equal((src.match(/(?<![A-Za-z])onCommit\(/g) || []).length, 2, 'one doc mention and the wrapper');
+  assert.match(src, /function commitAndRestore\([^)]*\)\{[\s\S]{0,400}onCommit\(kind, line, raw, value, el\);\s*restoreFocus\(snap, removed\);/);
+  assert.match(src, /an add's caller focuses the NEW item itself/, 'an add is left to its caller');
+  assert.match(src, /list\[snap\.index\] \|\| list\[snap\.index - 1\] \|\| editsOf\('additem'\)\[0\]/, 'after a removal: next, else previous, else the add control');
+  assert.match(src, /the reader has moved on/, 'focus the reader moved elsewhere is never taken back');
 });

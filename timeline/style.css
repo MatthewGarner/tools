@@ -7,11 +7,17 @@ body{padding-top:0;font-family:'DM Sans',system-ui,sans-serif}
 .observatory-settings{display:flex;align-items:center;gap:18px;padding:12px 28px 8px;flex-wrap:wrap}
 .stylepick button{min-height:44px;padding:8px 16px;border:0;background:none;color:var(--muted);font:inherit;cursor:pointer}
 .stylepick button[aria-pressed=true]{color:var(--ink);box-shadow:inset 0 -2px var(--ink)}
+.review-hint{display:flex;align-items:center;gap:10px;flex:1 1 140px;min-width:0;margin:0;color:var(--muted);font-size:14px;line-height:1.3}
+.review-hint .btn{flex:none}
+/* a phone has a free slot beside Appearance: the hint shows only its button there, so the chart does not move */
+@media(max-width:560px){.appearance{margin-left:0;order:1}.review-hint{order:2;flex:0 0 auto}.review-hint span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}}
 .appearance{margin-left:auto}.appearance label{display:flex;gap:12px;justify-content:space-between;align-items:center}
-.appearance .action-menu{min-width:260px}
+.appearance .action-menu{min-width:260px;left:auto;right:0}
 .appearance input[type=color]{min-width:44px;height:44px;border:0;background:none}
 .observatory-body{display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
 .observatory-body:has(.milestone-inspector:not([hidden])){grid-template-columns:minmax(0,1fr) 292px}
+/* a phone lays the artefact out tall (about 1305px for the example): reserve that while the first render is coming, so nothing below it moves */
+@media (max-width:539px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;min-height:1305px;max-height:none;align-items:flex-start}}
 .stage .preview{--reserve-ar:1442/780;background:var(--bg);border:0;padding:0;min-width:0}
 .stage .preview svg{display:block;margin:0}
 .stage .actions{padding:16px 28px;margin:0;gap:10px;align-items:center;border-top:1px solid var(--border)}
@@ -35,19 +41,28 @@ body{padding-top:0;font-family:'DM Sans',system-ui,sans-serif}
 .inspector-error{color:var(--err);line-height:1.4}
 .forecast-analysis{border-top:1px solid var(--border);padding:20px 28px;font-size:13px;color:var(--muted)}
 .forecast-analysis summary{cursor:pointer;color:var(--ink);width:fit-content;min-height:28px}
+@media (pointer:coarse),(max-width:520px){.forecast-analysis summary{min-height:44px;display:flex;align-items:center}}
 .forecast-analysis p{max-width:100ch;line-height:1.65}
 #fontstatus{padding:12px 28px}#fontstatus[hidden]{display:none}
 #cmhost .cm-editor{min-height:440px}.handoffstatus{color:var(--st-risk-ink);font-size:13px;max-width:42ch}.handoffstatus:empty{display:none}
 .about{font-size:14px;line-height:1.7;margin-top:44px}.about summary{cursor:pointer;color:var(--muted)}.about p{max-width:85ch}
-.preview svg [data-inspect]{cursor:pointer}.preview svg [data-inspect]:focus-visible{outline:2px solid var(--accent-ink);outline-offset:-2px}
+.preview svg [data-inspect]{cursor:pointer}
+/* a long press on a tappable mark selects nothing; the readout and other real text stay selectable */
+.preview svg :is([data-inspect],[data-edit],[data-add-control]){user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+@media (pointer:coarse){.preview svg :is([data-inspect],[data-edit]){touch-action:manipulation}}
+@media (hover:hover){.preview svg [data-inspect]:hover{opacity:.8}}
+#stylepicker button:not([aria-pressed="true"]):hover{color:var(--ink)}
+/* the collapsed rail tab would be a second, unlabelled way to open the editor: Edit source is the one */
+.workspace.collapsed .railtab{display:none}.preview svg [data-inspect]:focus-visible,.preview svg [data-inspect][data-kbd-ring]{outline:2px solid var(--accent-ink);outline-offset:-2px}
 .preview svg [data-edit="cardmenu"] [data-empty-control]{opacity:0}
 .preview svg [data-edit="cardmenu"]:hover [data-empty-control],.preview svg [data-empty-control]:focus{opacity:.7}
 .preview svg [data-add-control]{opacity:0}.preview svg [data-add-control]:hover,.preview svg [data-add-control]:focus-within{opacity:.7}
+/* touch has no hover: the add and empty-field controls are drawn at rest */
+@media (hover:none),(pointer:coarse){.preview svg [data-add-control],.preview svg [data-edit="cardmenu"] [data-empty-control]{opacity:.7}}
 .slide-preview{width:min(1200px,94vw);max-height:92dvh;padding:24px;border:1px solid var(--border);background:var(--bg);color:var(--ink)}
 .slide-preview::backdrop{background:#0009}.slide-heading{display:flex;justify-content:space-between;align-items:center;gap:20px}.slide-heading h2{font:400 32px 'Instrument Serif',serif;margin:0 0 16px}.slide-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:20px}.slide-actions #slidedownload{margin-left:auto}#slidecanvas svg{width:100%;height:auto;display:block}
 @media(max-width:900px){.observatory-body:has(.milestone-inspector:not([hidden])){grid-template-columns:minmax(0,1fr)}.milestone-inspector{position:fixed;z-index:50;inset:auto 0 0;margin:0;max-height:80dvh;overflow:auto;background:var(--bg);border:1px solid var(--border);box-shadow:0 -20px 80px #0004;padding:24px}.milestone-inspector::backdrop{background:#0006}.inspector-heading h2{margin-bottom:16px}.inspector-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.inspector-form{max-width:520px;margin:auto}.stage .actions{padding:16px}.observatory-settings{padding:10px 12px}.stylepick button{padding:8px 10px}.appearance{margin-left:0}#cmhost .cm-editor{min-height:280px}}
 @media(max-width:560px){.tool-stage-row .btn{font-size:14px}.workspace{margin-top:0}.observatory-settings{gap:8px}.appearance summary{font-size:13px}.forecast-analysis{padding:18px 16px}}
-@media(prefers-reduced-motion:reduce){.workspace,.stage .preview svg{transition:none}}
 
 /* Shared segmented controls use an inverse fill; Observatory keeps a quiet text tab. */
 #stylepicker button{background:transparent;color:var(--muted);border:0;box-shadow:none;letter-spacing:0;text-transform:none;font:400 15px 'DM Sans',sans-serif}

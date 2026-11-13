@@ -244,15 +244,10 @@ if(scope.wants("timeline")){
   await page.close();
 }
 
-/* ---- roadmap what-if: a world flip cross-fades opacity IN PLACE (spec §3:
-   "NOT FLIP — nothing changes position"). doRefresh's captureLineOpacity/
-   fadeLineOpacity pair sets each surviving card's inline style.opacity back to
-   its OLD value right after the swap, then clears it two rAFs later so the CSS
-   `transition: opacity` on g[data-line] (style.css) tweens old -> new — so a
-   MutationObserver watching for that inline style write is the one true signal
-   a cross-fade actually ran (a fixed sleep would race the two-rAF window).
-   prefers-reduced-motion -> motionStill() bails before ever touching style, so
-   the same probe must stay silent there (hard cut, no transition at all). ---- */
+/* ---- roadmap what-if: a world flip cross-fades like a view switch (shared motion.js 'fade'): the old picture is
+   copied onto <body> as .mo-ghost and fades out over the new one, every time. Nothing is positioned or re-keyed — the
+   cards do not move. A MutationObserver watching for that copy appearing is the signal the cross-fade ran.
+   prefers-reduced-motion -> motionStill() makes no copy at all, so the same probe must stay silent there (hard cut). ---- */
 if(scope.wants("roadmap")){
   const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
     'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
@@ -262,11 +257,9 @@ if(scope.wants("roadmap")){
   await page.addInitScript(() => {
     window.__wifProbe = {crossFadeSeen: false};
     new MutationObserver(muts => {
-      for(const m of muts){
-        const op = m.target && m.target.style && m.target.style.opacity;
-        if(op) window.__wifProbe.crossFadeSeen = true;
-      }
-    }).observe(document, {subtree: true, attributes: true, attributeFilter: ['style']});
+      for(const m of muts) for(const n of m.addedNodes)
+        if(n.classList && n.classList.contains('mo-ghost')) window.__wifProbe.crossFadeSeen = true;
+    }).observe(document, {subtree: true, childList: true});
   });
   await page.reload({waitUntil: 'networkidle'});   // re-navigate so the init script is armed before app.js boots
   await page.waitForTimeout(300);
@@ -276,7 +269,7 @@ if(scope.wants("roadmap")){
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const seen = await page.waitForFunction(() => window.__wifProbe.crossFadeSeen, {timeout: 1000})
     .then(() => true).catch(() => false);
-  check('what-if: cross-fade transition applies on a world flip (inline opacity set then cleared)', seen);
+  check('what-if: the shared view cross-fade runs on a world flip (the old picture is laid over the new one and fades out)', seen);
   check('what-if: chip announces the previewed world', !(await page.locator('#whatifchip').isHidden()));
   check('what-if: no console errors', errors.length === 0);
   await page.close();
@@ -290,11 +283,9 @@ if(scope.wants("roadmap")){
   await page.addInitScript(() => {
     window.__wifProbe = {crossFadeSeen: false};
     new MutationObserver(muts => {
-      for(const m of muts){
-        const op = m.target && m.target.style && m.target.style.opacity;
-        if(op) window.__wifProbe.crossFadeSeen = true;
-      }
-    }).observe(document, {subtree: true, attributes: true, attributeFilter: ['style']});
+      for(const m of muts) for(const n of m.addedNodes)
+        if(n.classList && n.classList.contains('mo-ghost')) window.__wifProbe.crossFadeSeen = true;
+    }).observe(document, {subtree: true, childList: true});
   });
   await page.reload({waitUntil: 'networkidle'});
   await page.waitForTimeout(300);
@@ -303,7 +294,7 @@ if(scope.wants("roadmap")){
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(500);   // well past the two-rAF window a motion-on flip would use
   const seen = await page.evaluate(() => window.__wifProbe.crossFadeSeen);
-  check('what-if reduced-motion: hard cut — no inline opacity transition applied', !seen);
+  check('what-if reduced-motion: hard cut — no cross-fade copy is made', !seen);
   check('what-if reduced-motion: the state still changes (chip announces the previewed world)',
     !(await page.locator('#whatifchip').isHidden()));
   check('what-if reduced-motion: no console errors', errors.length === 0);

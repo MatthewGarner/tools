@@ -71,6 +71,17 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   let readingOverride = false;
   let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
   const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
+  /* The rail's fade-in is for a reader's own toggle: nothing moves while the page lands (until the first artefact paints). */
+  let booted = false;
+  setTimeout(() => { booted = true; }, 1500);
+  function railIn(){
+    if(!booted) return;
+    workspace.classList.add('rail-opening');
+    const rail = workspace.querySelector(':scope > .rail');
+    const done = () => workspace.classList.remove('rail-opening');
+    if(rail) rail.addEventListener('animationend', done, {once: true});
+    setTimeout(done, 400);
+  }
 
   function svgEl(){ return preview.querySelector('svg'); }
   function naturalWidth(svg){
@@ -235,10 +246,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       return;
     }
     const railWidth = 420;
-    /* `reading-pending` animates #preview out to the full reader pane as soon as an SVG exists, so the width read
-       here depends on how many frames have passed. The guard has always judged the width at the first frame of
-       that animation, less one rail; `pendingPane` is that width, taken where frame timing cannot move it. */
-    const pane = pendingPane || paneWidth();
+    /* The guard judges the pane as it stood at the first frame of the reader fold (`pendingPane`, read where frame timing
+       cannot move it). That frame used to be one rail short of the reader width because the fold eased; it is instant now and
+       reads the full width, so take the rail off again and no tool's decision moves. Reduced motion never eased. */
+    const pane = pendingPane ? pendingPane - (matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : railWidth) : paneWidth();
     const expandedPane = Math.max(0, pane - railWidth);
     const cap = fitCap(svg, {pane:expandedPane, forExpanded:true});
     const fitWidth = cap ? Math.min(expandedPane, cap) : expandedPane;
@@ -256,6 +267,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     if(!pendingPane && !readingResolved && workspace.classList.contains('reading-pending') && svgEl()) pendingPane = paneWidth();
     renderEpoch++;
     applyZoom();
+    if(!booted && svgEl()) requestAnimationFrame(() => requestAnimationFrame(() => { booted = true; }));
     if(initialReading === 'when-guarded' && !readingResolved && !readingOverride){
       const epoch = renderEpoch, svg = svgEl();
       if(!svg) return; // Empty/invalid documents retain their visible source rail.
@@ -274,6 +286,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     tab.setAttribute('aria-label', reading ? collapsedAriaLabel : 'Hide source editor');
     tab.setAttribute('aria-expanded', String(!reading));
     applyZoom();
+    if(!reading) railIn();
     if(!reading && !automatic && typeof focusEditor === 'function') requestAnimationFrame(() => focusEditor());
   }
 
@@ -290,6 +303,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     tab.setAttribute('aria-label', c ? collapsedAriaLabel : 'Hide source editor');
     tab.setAttribute('aria-expanded', String(!c));
     applyZoom();                                    // collapsing releases the fold cap (see applyZoom)
+    if(!c) railIn();
     if(onCollapseChange) onCollapseChange(c, {auto});
   }
   function toggleCollapsed(){
@@ -297,7 +311,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       setReading(false);
       return;
     }
-    setCollapsed(!workspace.classList.contains('collapsed'));
+    const opening = workspace.classList.contains('collapsed');
+    setCollapsed(!opening);
+    if(opening && typeof focusEditor === 'function') focusEditor();
+    else tab.focus({preventScroll: true});   // Safari does not focus a button on click
   }
   tab.addEventListener('click', toggleCollapsed);
   tab.setAttribute('aria-controls', 'cmhost');

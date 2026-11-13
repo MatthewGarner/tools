@@ -133,6 +133,8 @@ await page.keyboard.press('Meta+ArrowDown');
 await page.keyboard.press('Enter');
 await page.keyboard.type('Core: Brand new initiative');
 await until(() => roadmapSrc(page).then(s => (s || '').includes('Brand new initiative')));
+/* focusing the editor was a press elsewhere, which closed the History menu: open it again to pick the baseline */
+if(!(await page.locator('#snapsel').isVisible())) await page.getByText('History', {exact: true}).click();
 await page.locator('#snapsel').selectOption({index: 1});
 await until(() => page.locator('#preview svg').innerHTML().then(h => h.includes('>New<')));
 check('compare shows New badge', (await page.locator('#preview svg').innerHTML()).includes('>New<'));

@@ -61,6 +61,8 @@ try{
   assert.equal(await page.locator('#themechoice').inputValue(),theme,'masthead keeps Timeline appearance selector in sync');
   assert.equal(await page.evaluate(()=>localStorage.getItem('timeline-src')),sourceBefore,'page appearance preserves authored Timeline palette and source');
   assert.equal(await page.locator('#preview svg').getAttribute('data-field-accent'),'#315D48');
+  /* pressing the masthead's appearance button was a press outside this menu, which closed it: open it again */
+  if(!(await page.locator('#themechoice').isVisible())) await page.locator('.appearance summary').click();
   await page.locator('#themechoice').selectOption('system');
   assert.equal(await page.evaluate(()=>localStorage.getItem('mg:appearance')),null,'Timeline system option clears the shared preference');
   await page.emulateMedia({colorScheme:theme==='light'?'dark':'light'});

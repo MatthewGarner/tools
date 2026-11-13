@@ -34,3 +34,16 @@ test('rafBatched keeps one frame and forwards the latest arguments', t => {
   [...pending.values()][0]();
   assert.deepEqual(calls, [['latest', 2]]);
 });
+
+test('debounced.cancel drops the pending pass, so a discrete edit does not paint twice', t => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  const calls = [];
+  const run = debounced(() => calls.push('typing pass'), 120);
+  run();
+  run.cancel();
+  t.mock.timers.tick(500);
+  assert.deepEqual(calls, []);
+  run();                                  // and it still works afterwards
+  t.mock.timers.tick(120);
+  assert.deepEqual(calls, ['typing pass']);
+});

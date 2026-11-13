@@ -1016,6 +1016,9 @@ for(const dir of SHELLS){
     await file.locator('summary').click();
     ok(await until(async () => await file.evaluate(el => el.open) && !(await appearance.evaluate(el => el.open))), `${dir}: opening File closes Appearance`);
     /* the toggle itself (not a click or focus move) must close File: open Appearance in code while File is open */
+    /* a press on File closes Appearance at pointerdown, so that close's toggle may still be queued: let it land, or the engine
+       folds it with the reopening below into one event that never fires */
+    await page.waitForTimeout(100);
     await appearance.evaluate(el => { el.open = true; });
     ok(await until(async () => !(await file.evaluate(el => el.open)) && await appearance.evaluate(el => el.open)), `${dir}: opening Appearance closes File`);
     await context.close();

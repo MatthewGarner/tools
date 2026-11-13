@@ -9,8 +9,12 @@ export const SHARE_MAX = 24000;
 // Snapshot the model at click time: location.hash can lag behind a recent edit.
 // Used by the shell's Share; getHash is the same hook
 // Save a copy uses, and the link never comes from location.hash.
+const sharing = new WeakSet();
 export async function shareModel({getState, getHash, maxLength = 6000, status, button, done = 'Model link copied — opens a separate copy.', title = 'Copy model link'}){
-  status.textContent = ''; button.disabled = true;
+  /* never disable the button while it works: a disabled button drops keyboard focus to the page. Ignore a re-press instead. */
+  if(sharing.has(button)) return;
+  sharing.add(button);
+  status.textContent = '';
   try{
     const state = getState ? getState() : null;
     let hash;
@@ -43,7 +47,7 @@ export async function shareModel({getState, getHash, maxLength = 6000, status, b
       dialog.showModal(); input.focus(); input.select();
     }
   }catch{ status.textContent = 'Could not create the link. Try again or export the source.'; }
-  finally{ button.disabled = false; }
+  finally{ sharing.delete(button); }
 }
 
 /* Every page has the stamped header, so a page's link is Share (and Save a copy): hand the shell the state

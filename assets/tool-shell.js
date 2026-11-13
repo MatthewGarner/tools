@@ -8,6 +8,30 @@ import {button, shellRow, offer} from './recent-ui.js';
 import {shareModel} from './model-link.js';
 import {trapPopoverFocus} from './popover-focus.js';
 
+/* Disclosure menus: Escape or a press elsewhere closes the open one (Escape returns focus to its summary); an open menu is
+   shifted sideways to stay on screen. */
+const DISCLOSURE = 'details.action-disclosure';
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+  const open = e.target.closest?.(DISCLOSURE + '[open]') || document.querySelector(DISCLOSURE + '[open]');
+  if(!open) return;
+  e.preventDefault();
+  open.open = false;
+  open.querySelector(':scope > summary')?.focus();
+});
+document.addEventListener('pointerdown', e => {
+  for(const open of document.querySelectorAll(DISCLOSURE + '[open]')) if(!open.contains(e.target)) open.open = false;
+});
+document.addEventListener('toggle', e => {
+  const d = e.target;
+  const menu = d.matches?.(DISCLOSURE + '[open]') && d.querySelector(':scope > .action-menu');
+  if(!menu) return;
+  menu.style.translate = '';
+  const r = menu.getBoundingClientRect(), edge = 8, vw = document.documentElement.clientWidth;
+  const dx = r.left < edge ? edge - r.left : r.right > vw - edge ? vw - edge - r.right : 0;
+  if(dx) menu.style.translate = Math.round(dx) + 'px 0';
+}, true);
+
 export {offer as provide};
 const row = shellRow();
 if(row) init(row);

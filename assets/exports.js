@@ -4,6 +4,21 @@ import {download, pngRasterPlan, svgToCanvas} from './app-common.js';
 
 const buttonText = (btn, fallback) => btn.textContent || fallback;
 const buttonDescriptions = new WeakMap();
+const restingLabels = new WeakMap(), flashTimers = new WeakMap();
+
+/* A confirmation ("Copied…") on a button for a moment. It returns to the label it first had; pressing again restarts the timer. */
+export function flashButton(btn, msg, ms = 2000){
+  if(!flashTimers.has(btn)) restingLabels.set(btn, btn.textContent);
+  const rest = restingLabels.get(btn);
+  clearTimeout(flashTimers.get(btn));
+  btn.textContent = msg;
+  if(btn.setAttribute) btn.setAttribute('aria-label', msg);
+  flashTimers.set(btn, setTimeout(() => {
+    flashTimers.delete(btn);
+    btn.textContent = rest;
+    if(btn.setAttribute) btn.setAttribute('aria-label', buttonDescriptions.get(btn) || rest);
+  }, ms));
+}
 
 const rasterMessage = error => {
   if(error?.code === 'side' || error?.code === 'area') return 'PNG too large even at 1x — download SVG';
@@ -28,14 +43,7 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
   const line = status || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('exportstatus') : null);
   const say = text => { if(line){ line.textContent = text || ''; line.hidden = !text; } };
   const scaleNote = (plan, what) => plan.reduced ? `${what} at ${plan.scale}x, not 2x: the picture is too large for 2x in this browser.` : '';
-  const flash = (btn, msg, revert) => {
-    btn.textContent = msg;
-    if(btn.setAttribute) btn.setAttribute('aria-label', msg);
-    setTimeout(() => {
-      btn.textContent = revert;
-      if(btn.setAttribute) btn.setAttribute('aria-label', buttonDescriptions.get(btn) || revert);
-    }, 2000);
-  };
+  const flash = (btn, msg) => flashButton(btn, msg);
   const copyLabel = labels.copypng || 'Copy PNG';
   if(buttons.copypng && labels.copypng) buttons.copypng.textContent = copyLabel;
   describe(buttons.copypng, descriptions.copypng || (getCopy
@@ -104,9 +112,9 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
   if(buttons.copymd) buttons.copymd.addEventListener('click', () => {
     const md = getMarkdown();
     if(!md || !navigator.clipboard)
-      return flash(buttons.copymd, 'Clipboard unavailable', 'Copy as markdown');
+      return flash(buttons.copymd, 'Clipboard unavailable');
     navigator.clipboard.writeText(md)
-      .then(() => flash(buttons.copymd, 'Copied — paste into your doc', 'Copy as markdown'))
-      .catch(() => flash(buttons.copymd, 'Copy blocked', 'Copy as markdown'));
+      .then(() => flash(buttons.copymd, 'Copied — paste into your doc'))
+      .catch(() => flash(buttons.copymd, 'Copy blocked'));
   });
 }

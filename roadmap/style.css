@@ -6,6 +6,8 @@
    active chip). Wrap so four uppercase segments still fit a phone row. */
 .stylepick{flex-wrap:wrap}
 #cmhost .cm-editor{min-height:440px}
+/* a phone lays the artefact out tall (about 1880px for the example): reserve that while the first render is coming, so nothing below it moves */
+@media (max-width:539px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;min-height:1880px;max-height:none;align-items:flex-start}}
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Roadmap has a single working sheet: source and artefact share one plane, with
@@ -57,6 +59,8 @@ select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);borde
   letter-spacing:.1em;text-transform:uppercase;opacity:1;
 }
 .workspace.collapsed .railtab::before,.workspace.focus-artefact .railtab::before{content:none}
+.workspace.collapsed .railtab:hover,.workspace.focus-artefact .railtab:hover{background:var(--ink);color:var(--bg)}
+@media (pointer:coarse){.preview svg [data-edit]{touch-action:manipulation}}
 .workspace.collapsed .railtab::after,.workspace.focus-artefact .railtab::after{content:none}
 /* The editor remains a grid item when its column closes. Zero its block
    contribution as well as its width: a hidden CodeMirror document must not
@@ -144,8 +148,10 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .preview svg rect[data-whatif]{pointer-events:auto;cursor:pointer}
 }
 .preview svg rect[data-whatif]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* the hover dim and the drop glide share one transition list: .mo-flip's own rule is less specific than this one, so the glide needs naming here */
 @media (prefers-reduced-motion: no-preference){
-  .preview svg g[data-line]{transition:opacity .15s}
+  .preview svg g[data-line]{transition:opacity var(--dur-fast)}
+  .preview svg g[data-line].mo-flip{transition:transform var(--dur-base) var(--ease-out),opacity var(--dur-fast)}
 }
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
@@ -170,9 +176,6 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 }
 .method{color:var(--muted);font-size:12.5px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
-@media (prefers-reduced-motion: no-preference){
-  .chip,.btn{transition:border-color .15s,color .15s}
-}
 
 /* A multi-page deck is a separate artefact, not an alternative live view.
    The native dialog keeps the interaction contract tight: Escape closes it,
@@ -250,6 +253,7 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .chapter-setting select.ctl {font-size:14px}
 .chapter-setting input[type=color] {width:44px;height:44px;padding:3px;border:1px solid var(--border);background:transparent;cursor:pointer}
 .chapter-app .chapter-export {background:var(--ink);color:var(--bg);padding:10px 22px}
+.chapter-app .chapter-export:hover{background:transparent;color:var(--ink)}
 .chapter-app .preview {padding:0;background:transparent;border:0;margin-top:20px}
 /* Diagnosis helps the author; the reading surface carries authored content. */
 .chapter-app .workspace.collapsed .vwrap {display:none}

@@ -104,7 +104,7 @@ export function layoutObservatory(model,ctx={},diff=null,{intent,edit=false,entr
   let y=M+(slide?16:27)+title.lines.length*title.step+(slide?12:24);
   const header=[{...title,x:M,y:M+22}];
   if(diff){const b=block('Compared with '+diff.since,inner,metaBase,type,measure,{kind:'comparison'});header.push({...b,x:M,y});y+=b.lines.length*b.step+18;}
-  if(style==='review'&&!diff){const b=block('Choose a snapshot in History to compare forecasts.',inner,metaBase,type,measure,{kind:'empty-review'});header.push({...b,x:M,y});y+=b.lines.length*b.step+18;}
+  if(style==='review'&&!diff&&!edit){const b=block('Choose a snapshot in History to compare forecasts.',inner,metaBase,type,measure,{kind:'empty-review'});header.push({...b,x:M,y});y+=b.lines.length*b.step+18;}
   if(style==='decisions'&&!model.items.some(it=>decisionLead(it))){const b=block('Add a decision lead to a fixed event to see its decide-by date.',inner,metaBase,type,measure,{kind:'empty-decisions'});header.push({...b,x:M,y});y+=b.lines.length*b.step+18;}
   // Axis furniture: month line, year line, then the Today label on a line of its own, all clear of one another (A3).
   const axisStep=meta+8,rulerY=y+meta,yearY=rulerY+axisStep,todayY=yearY+axisStep,top=todayY+16,rows=[],sections=[];

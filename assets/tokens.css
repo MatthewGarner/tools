@@ -11,6 +11,8 @@
 :root{
   --w-form:720px; --w-focus:820px; --w-instrument:1160px; --w-board:1240px; --w-band:1760px;
 }
+/* Motion: fast = feedback, base = a thing moving, slow = a surface. */
+:root{--dur-fast:120ms;--dur-base:200ms;--dur-slow:320ms;--ease-out:cubic-bezier(.2,.8,.2,1);--ease-inout:cubic-bezier(.4,0,.2,1)}
 
 :root{
   /* Tell the UA the page supports both schemes, so it paints the OS-correct canvas
