@@ -326,7 +326,7 @@
         <button class="btn" id="cfadd">＋ Add period</button>
         <span class="note" id="cftailnote"></span>
       </div>
-      <p class="cftail">Each range is a 90% interval for that period's net cashflow. t0 is the investment (negative) or starting cash (positive); periods beyond the last row repeat its range, resampled each run.</p>
+      <p class="cftail">Each range is a 90% interval for that period's net cashflow. t0 is the investment (negative) or starting cash (positive); periods beyond the last row repeat its range, resampled each run. Flows arrive at the end of each period, so t0 is not discounted and t1 is discounted one period. Periods are drawn independently of each other.</p>
       <div id="cfdebtbox" hidden>
         <label class="cfdebttoggle"><input type="checkbox" id="cfdebton"> Size debt against this cashflow<span class="note"> — levered vs unlevered IRR</span></label>
         <div class="cfmeta" id="cfdebtfields" hidden>
@@ -354,7 +354,7 @@
         <details class="action-disclosure"><summary class="btn">Export</summary><div class="action-menu">
           <button id="cfcopydoc" class="btn" data-capability="presentationExports.cashflow-markdown">Copy as markdown</button><button id="cfpng" class="btn" data-capability="presentationExports.cashflow-png">PNG</button><button id="cfsvg" class="btn" data-capability="presentationExports.cashflow-svg">SVG</button>
         </div></details>
-        <details class="method"><summary>Method</summary><p>Log-normal fit per period range · 10,000 seeded runs · deterministic</p></details>
+        <details class="method"><summary>Method</summary><p id="cfmethod">Flows arrive at the end of each period, so t0 is not discounted · periods drawn independently · 10,000 seeded runs · deterministic</p></details>
       </div>
     </div>
     <p class="placeholder" id="ph">Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you'd be surprised, but not shocked, to see a value outside them.</p>
@@ -402,7 +402,7 @@
         <button id="png" class="btn" data-capability="presentationExports.distribution-png">PNG</button>
         <button id="treepng" class="btn" data-capability="presentationExports.driver-tree-png" hidden>Tree PNG</button>
         <button id="treesvg" class="btn" data-capability="presentationExports.driver-tree-svg" hidden>Tree SVG</button>
-        <span class="method">Log-normal fit to each 90% range · 20,000 samples</span>
+        <span class="method" id="estmethod">20,000 samples</span>
       </div>
       </div>
       <aside class="result-review" id="resultreview" aria-live="polite" aria-atomic="true">

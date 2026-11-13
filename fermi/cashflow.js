@@ -6,10 +6,11 @@
 import {mulberry32, gaussian, quantile} from '../assets/series.js';
 import {samplerFor, Z90, irrOf} from './engine.js';
 import {sizeDebt, leverTrials} from './debt.js';
+import {CF_SEED, CF_N} from './seeds.js';
 
 const mid = p => (p.lo + p.hi) / 2;
 
-export function simulateCashflow({periods, horizon, grain = 'year', rate, debt}, {seed = 0xCA5F, n = 10000} = {}){
+export function simulateCashflow({periods, horizon, grain = 'year', rate, debt}, {seed = CF_SEED, n = CF_N} = {}){
   horizon = Math.min(60, Math.max(horizon || periods.length - 1, periods.length - 1));
   const rand = mulberry32(seed), gauss = gaussian(rand);
 
@@ -70,6 +71,17 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate, debt},
   events = Float64Array.from(events).sort();
   const q = (s, p) => s.length ? quantile(s, p) : null;
   const irr = {p10: q(irrs, .1), p50: q(irrs, .5), p90: q(irrs, .9), undefinedShare: irrUndefined / n};
+  /* Cash-out and payback times are quantiles over ALL runs, a run that never gets there
+     counted beyond the horizon. A quantile that lands among those runs is null ("not within
+     the horizon"). With no never-runs this is the plain quantile, bit for bit. */
+  const qEvent = p => {
+    const idx = p * (n - 1), lo = Math.floor(idx), hi = Math.ceil(idx);
+    if(hi >= events.length) return null;
+    return events[lo] + (events[hi] - events[lo]) * (idx - lo);
+  };
+  /* an outlay is a period that can be negative; without one there is nothing to pay back */
+  let outlay = false;
+  for(let t = 0; t <= horizon; t++) if(periods[Math.min(t, periods.length - 1)].lo < 0) outlay = true;
 
   /* debt block: null (runway / not requested), {ok:false, reason} (no build to
      fund), or the financing readout. Typed arrays (drawByT/dsByT) are stripped
@@ -87,10 +99,10 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate, debt},
   }
 
   return {
-    n, horizon, grain, framing, npvSorted: npvs,
+    n, horizon, grain, framing, outlay, npvSorted: npvs,
     npv: {p10: q(npvs, .1), p50: q(npvs, .5), p90: q(npvs, .9), pPos: posCount / n},
     irr,
-    period: {kind, p10: q(events, .1), p50: q(events, .5), p90: q(events, .9), neverShare: never / n},
+    period: {kind, p10: qEvent(.1), p50: qEvent(.5), p90: qEvent(.9), neverShare: never / n},
     band: cumByT.map(col => {
       const s = Float64Array.from(col).sort();
       return {p10: quantile(s, .1), p50: quantile(s, .5), p90: quantile(s, .9)};

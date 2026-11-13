@@ -2,6 +2,7 @@
    Lifted verbatim from the inline script (same RNG call order, same seeds)
    so identical models keep giving identical numbers. */
 import {mulberry32, gaussian, quantile} from '../assets/series.js';
+import {SENS_N} from './seeds.js';
 
 export const SUFFIX = {k: 1e3, m: 1e6, b: 1e9, t: 1e12};
 export const Z90 = 1.6448536;
@@ -176,7 +177,11 @@ export function effDist(d, lo){
   return d;
 }
 export function distMedian(lo, hi, d){
-  return effDist(d, Math.min(lo, hi)) === 'logn' ? Math.sqrt(lo * hi) : (lo + hi) / 2;
+  if(effDist(d, Math.min(lo, hi)) !== 'logn') return (lo + hi) / 2;
+  const p = lo * hi;
+  /* sqrt(lo*hi) while the product is an ordinary number; in logs when it would overflow or
+     underflow (ranges around 1e160 or 1e-250), so the median never becomes Infinity or 0 */
+  return isFinite(p) && p > 1e-290 ? Math.sqrt(p) : Math.exp((Math.log(lo) + Math.log(hi)) / 2);
 }
 export function samplerFor(lo, hi, dist, rand, gauss){   /* shared with cashflow.js */
   if(lo > hi){ const t = lo; lo = hi; hi = t; }
@@ -225,25 +230,50 @@ export function distQuantile(lo, hi, dist, q){
   return mu + z * hw;
 }
 
-/* IRR of one sampled flow vector by bisection on NPV(r) over (−0.99, 10];
-   null when the endpoints don't bracket a root (flows never change sign).
-   Shared by cashflow.js and debt.js. */
+/* IRR of one sampled flow vector: the rate at which NPV(r) changes sign, looked for from
+   -99.9% to +100,000% (flows at period end, t0 undiscounted). Exactly one sign change gives
+   the IRR; none, or several (two real roots, three...), gives no IRR, which the callers count
+   in their "undefined" share. Shared by cashflow.js and debt.js.
+   Descartes: a flow vector with no sign change has no root at all; with exactly one it has
+   exactly one, so a bracket test over the window is exact (the common case, and the same
+   bisection the old routine used). Only a vector with several sign changes needs a scan. */
+const IRR_LO = -0.999, IRR_HI = 1000, IRR_SCAN = 300;
 export function irrOf(flows, horizon){
+  let changes = 0, prev = 0;
+  for(let t = 0; t <= horizon; t++){
+    const sg = flows[t] > 0 ? 1 : flows[t] < 0 ? -1 : 0;
+    if(sg){ if(prev && sg !== prev) changes++; prev = sg; }
+  }
+  if(changes === 0) return null;
   const f = r => {
     const dd = 1 / (1 + r);
     let acc = 0;
     for(let t = horizon; t >= 0; t--) acc = acc * dd + flows[t];
     return acc;
   };
-  let lo = -0.9899, hi = 10;
-  let flo = f(lo), fhi = f(hi);
-  if(!(isFinite(flo) && isFinite(fhi)) || flo * fhi > 0) return null;
-  for(let i = 0; i < 60; i++){
-    const m = (lo + hi) / 2, fm = f(m);
-    if(fm === 0) return m;
-    if(flo * fm < 0){ hi = m; fhi = fm; } else { lo = m; flo = fm; }
+  const bisect = (lo, hi, flo) => {
+    for(let i = 0; i < 90 && hi - lo > 1e-15 * (1 + Math.abs(lo)); i++){
+      const m = (lo + hi) / 2, fm = f(m);
+      if(fm === 0) return m;
+      if(flo * fm < 0) hi = m; else { lo = m; flo = fm; }
+    }
+    return (lo + hi) / 2;
+  };
+  if(changes === 1){
+    const flo = f(IRR_LO), fhi = f(IRR_HI);
+    if(!(isFinite(flo) && isFinite(fhi)) || flo * fhi > 0) return null;
+    return bisect(IRR_LO, IRR_HI, flo);
   }
-  return (lo + hi) / 2;
+  const xlo = Math.log(1 + IRR_LO), xhi = Math.log(1 + IRR_HI);
+  let rPrev = IRR_LO, fPrev = f(rPrev), found = null, flips = 0;
+  if(!isFinite(fPrev)) return null;
+  for(let i = 1; i <= IRR_SCAN; i++){
+    const r = i === IRR_SCAN ? IRR_HI : Math.exp(xlo + (xhi - xlo) * i / IRR_SCAN) - 1, fr = f(r);
+    if(!isFinite(fr)) return null;
+    if((fPrev < 0) !== (fr < 0)){ if(++flips > 1) return null; found = [rPrev, r, fPrev]; }
+    rPrev = r; fPrev = fr;
+  }
+  return flips === 1 ? bisect(found[0], found[1], found[2]) : null;
 }
 
 /* One Monte Carlo run over a parsed model; reseeded per call so identical
@@ -251,12 +281,12 @@ export function irrOf(flows, horizon){
 export function simulateModel({ast, varNames, ranges, dists}, {seed, n, pinName = null, pinValue = 0}){
   const rand = mulberry32(seed);
   const gauss = gaussian(rand);
-  const samplers = {};
+  const samplers = Object.create(null);          // no prototype: a variable may be called __proto__
   for(const name of varNames){
     samplers[name] = samplerFor(ranges[name][0], ranges[name][1], dists[name], rand, gauss);
   }
   let out = [];
-  const env = {};
+  const env = Object.create(null);
   for(let i = 0; i < n; i++){
     for(const name of varNames) env[name] = (name === pinName) ? pinValue : samplers[name]();
     const v = evalNode(ast, env);
@@ -270,18 +300,18 @@ export function simulateModel({ast, varNames, ranges, dists}, {seed, n, pinName 
 /* Sensitivity as value of information (moved verbatim from the inline lint()):
    pin each variable at its median, remeasure the spread — "what would knowing
    this exactly buy you?" Same call order and seeds as the app has always used. */
-export function computeSensitivity(model, {seed, np = 8000, p10, p90}){
+export function computeSensitivity(model, {seed, np = SENS_N, p10, p90}){
   const {varNames, ranges, dists} = model;
   const posSpread = p10 > 0;
   const fullRatio = posSpread ? p90 / p10 : NaN;
   const fullRange = p90 - p10;
-  const sens = [];
+  const sens = [], unmeasured = [];
   for(const name of varNames){
     const [lo, hi] = ranges[name];
     if(lo === hi) continue;
     const pinned = simulateModel(model,
       {seed, n: np, pinName: name, pinValue: distMedian(lo, hi, dists[name])}).sorted;
-    if(pinned.length < np * 0.3) continue;
+    if(pinned.length < np * 0.3){ unmeasured.push(name); continue; }
     const q10 = quantile(pinned, .10), q90 = quantile(pinned, .90);
     let share, label;
     if(posSpread && q10 > 0 && fullRatio > 1.0001){
@@ -294,7 +324,7 @@ export function computeSensitivity(model, {seed, np = 8000, p10, p90}){
     sens.push({name, share: Math.max(0, Math.min(1, share)), label});
   }
   sens.sort((a, b) => b.share - a.share);
-  return {sens, fullRatio};
+  return {sens, fullRatio, unmeasured};
 }
 
 /* Replay the seeded MC run and decompose each finite draw into telescoping pin-paths
@@ -307,7 +337,7 @@ export function computeSensitivity(model, {seed, np = 8000, p10, p90}){
    is completed internally with any varying var it dropped. `dropped` is raw — the POUR,
    which knows the axis, decides the ≤0-under-log drop. Returns first `g` finite+clean draws. */
 export function traceDraws({ast, varNames, ranges, dists}, {seed, g, order}){
-  const medians = {};
+  const medians = Object.create(null);
   for(const n of varNames){ const [lo, hi] = ranges[n];
     medians[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }   // lo===hi exact (avoids sqrt overflow)
   const base = evalNode(ast, medians);
@@ -315,15 +345,15 @@ export function traceDraws({ast, varNames, ranges, dists}, {seed, g, order}){
   const seen = new Set(order);
   const full = [...order.filter(n => varying.includes(n)), ...varying.filter(n => !seen.has(n))];
   const rand = mulberry32(seed), gauss = gaussian(rand);
-  const samplers = {};
+  const samplers = Object.create(null);
   for(const n of varNames) samplers[n] = samplerFor(ranges[n][0], ranges[n][1], dists[n], rand, gauss);
   const draws = []; let dropped = 0;
   for(let it = 0; it < g * 40 && draws.length < g; it++){          // BOUNDED — a degenerate model can't hang
-    const sampled = {};
+    const sampled = Object.create(null);
     for(const n of varNames) sampled[n] = samplers[n]();           // SAME per-iteration order as simulateModel
     const y = evalNode(ast, sampled);
     if(!isFinite(y)) continue;                                     // match simulateModel's raw filter
-    const steps = []; const cur = {...medians}; let bad = false;
+    const steps = []; const cur = Object.assign(Object.create(null), medians); let bad = false;
     for(const n of full){ cur[n] = sampled[n]; const x = evalNode(ast, cur);
       if(!isFinite(x)) bad = true; steps.push(x); }
     if(bad){ dropped++; continue; }                                // a non-finite intermediate step

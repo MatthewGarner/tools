@@ -3,7 +3,7 @@
    and IRR are the discounted numbers in the verdict. */
 import {esc, tint, txt, wrapText} from '../assets/svg.js';
 import {fmt} from './engine.js';
-import {pctWhole, pctOne} from './words.js';
+import {pctWhole, pctOne, cashflowMethod} from './words.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const W = 860, PAD = 26;
@@ -41,7 +41,7 @@ export function financeVerdict(d){
     '~' + cover + '% of operating-years under ' + dv + '× cover'];
   let sub = bits.join('; ') + '.';
   if(!crosses && cover >= 25) sub += ' The risk sits in cover, not the (independent-year) IRR spread.';
-  if(d.capped) sub += ' Gearing capped at 100% of build.';
+  if(d.capped) sub += ' Debt at completion, interest during construction included, is capped at the peak funding need.';
   if(d.tenorClamped) sub += ' Tenor capped at the operating life.';
   if(d.sizingCase === 'central' && cover >= 25) sub += ' Size off the downside case for a bankable structure.';
   return {head, sub};
@@ -49,26 +49,31 @@ export function financeVerdict(d){
 
 export function verdictLines(r){
   const {npv, irr, period, grain, framing} = r;
+  const when = t => t === null ? 'not within the horizon' : periodWord(grain, t);
   if(framing === 'runway'){
-    const head = period.neverShare >= 0.5
+    const head = period.p50 === null
       ? 'Cash probably lasts the horizon — cash-out in only ' + pctS(1 - period.neverShare) + ' of runs.'
       : 'Cash lasts until ' + periodWord(grain, period.p50) + ' (P50) — 10% chance of cash-out before ' +
         periodWord(grain, period.p10) + '.';
     const bits = [];
     if(period.neverShare < 1)
-      bits.push('cash-out P10 ' + periodWord(grain, period.p10) + ' · P90 ' + periodWord(grain, period.p90));
+      bits.push('cash-out P10 ' + when(period.p10) + ' · P90 ' + when(period.p90));
     if(period.neverShare > 0)
       bits.push('survives the whole horizon in ' + pctS(period.neverShare) + ' of runs');
     return {head, sub: bits.join(' · ')};
   }
-  const head = 'NPV P50 ' + money(npv.p50) + ' — 90% range ' + money(npv.p10) + ' to ' + money(npv.p90) + '.';
+  const head = 'NPV P50 ' + money(npv.p50) + ' — 80% range ' + money(npv.p10) + ' to ' + money(npv.p90) + '.';
   const bits = ['P(NPV > 0) ' + pctS(npv.pPos)];
+  if(r.outlay === false){
+    bits.push('no outlay, so no payback or IRR');
+    return {head, sub: bits.join(' · ')};
+  }
   if(irr.p50 !== null){
     bits.push('IRR P50 ' + pct1(irr.p50) +
       (irr.undefinedShare > 0 ? ' (undefined in ' + pctS(irr.undefinedShare) + ' of runs)' : ''));
   }
   bits.push(period.neverShare >= 1 ? 'never pays back'
-    : 'payback P50 ' + periodWord(r.grain, period.p50) +
+    : 'payback P50 ' + when(period.p50) +
       (period.neverShare > 0 ? ' (never in ' + pctS(period.neverShare) + ')' : ''));
   return {head, sub: bits.join(' · ')};
 }
@@ -104,7 +109,7 @@ export function renderCashflow(r, spec, ctx){
     '" fill="none" stroke="' + c.accent + '" stroke-width="2.5"/>');
   s.push('<line data-zero="" x1="' + PAD + '" y1="' + f1(Y(0)) + '" x2="' + (PAD + chW) + '" y2="' + f1(Y(0)) +
     '" stroke="' + c.ink + '" stroke-width="1" stroke-dasharray="4 3"/>');
-  if(r.period.p50 !== null){
+  if(r.period.p50 !== null && r.outlay !== false){
     const ex = X(r.period.p50);
     s.push('<line data-event="" x1="' + f1(ex) + '" y1="' + top + '" x2="' + f1(ex) + '" y2="' + (top + chH - 30) +
       '" stroke="' + c.err + '" stroke-width="1" stroke-dasharray="3 3"/>');
@@ -209,15 +214,17 @@ export function renderCashflow(r, spec, ctx){
     '<rect width="' + W + '" height="' + HT + '" fill="' + c.card + '"/>' + s.join('') + '</svg>';
 }
 
-export function cashflowMarkdown(r, spec, url){
+export function cashflowMarkdown(r, spec, url, typed = null){
   const v = verdictLines(r);
   const lines = ['**Cashflow — ' + v.head + '**', '', v.sub, '', 'Assumptions (90% ranges per period):'];
+  /* the ranges as the author typed them; money() only when no typed text is to hand */
   spec.periods.forEach((p, t) => {
-    lines.push('- t' + t + ': ' + money(p.lo) + ' to ' + money(p.hi));
+    const tp = typed && typed.periods && typed.periods[t];
+    lines.push('- t' + t + ': ' + (tp ? tp.lo + ' to ' + tp.hi : money(p.lo) + ' to ' + money(p.hi)));
   });
   if(r.horizon > spec.periods.length - 1)
     lines.push('- t' + spec.periods.length + '…t' + r.horizon + ': repeats the last range, resampled');
-  lines.push('- discount rate: ' + spec.rate.lo + '–' + spec.rate.hi + '%/yr · grain: ' + r.grain);
+  lines.push('- discount rate: ' + (typed && typed.rate ? typed.rate.lo + '–' + typed.rate.hi : spec.rate.lo + '–' + spec.rate.hi) + '%/yr · grain: ' + r.grain);
   if(r.debt && r.debt.ok){
     const d = r.debt, fv = financeVerdict(d);
     lines.push('');
@@ -225,7 +232,7 @@ export function cashflowMarkdown(r, spec, url){
     lines.push('');
     lines.push(fv.sub);
     lines.push('');
-    lines.push('- senior debt ' + fmt(d.D) + ' · gearing ' + Math.round(d.gearingPct * 100) + '% · tenor ' + d.tenor + ' ' + r.grain + 's');
+    lines.push('- senior debt ' + fmt(d.D) + ' · gearing ' + Math.round(d.gearingPct * 100) + '% (debt at completion, interest during construction included, as a share of peak funding) · tenor ' + d.tenor + ' ' + r.grain + 's');
     lines.push('- sculpted to ' + dscrF(d.dscrTarget) + '× DSCR off the ' + d.sizingCase + ' case · cost of debt ' + (d.costOfDebt * 100).toFixed(2) + '%');
     lines.push('- Levered IRR P50 ' + pct1(d.levIrr.p50) + ' (P10 ' + pct1(d.levIrr.p10) + ' – P90 ' + pct1(d.levIrr.p90) + ')' +
       (d.levIrr.undefinedShare >= 0.01 ? ' (undefined in ' + Math.round(d.levIrr.undefinedShare * 100) + '% of runs)' : '') +
@@ -237,6 +244,6 @@ export function cashflowMarkdown(r, spec, url){
     lines.push('- debt sizing paused: ' + spec.debtError);
   }
   lines.push('');
-  lines.push('_' + r.n.toLocaleString('en-GB') + ' seeded runs · [live model](' + url + ')_');
+  lines.push('_' + cashflowMethod(spec, r.horizon, r.n) + ' · [live model](' + url + ')_');
   return lines.join('\n');
 }

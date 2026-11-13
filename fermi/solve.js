@@ -9,16 +9,26 @@
    from the shifted lo), so an 'auto' var whose lo crosses 0 can't flip shape mid-bisection. */
 
 import {simulateModel, effDist, sig} from './engine.js';
+import {SENS_N} from './seeds.js';
 import {quantile} from '../assets/series.js';
 
 /* Adopt writes ranges into varState as strings that parseNum can read back: fmt/sig emit a
    U+2212 minus and an `e+` exponent, both of which parseNum (ASCII `-`, `e-?\d+`) rejects as NaN. */
 export const asciiNum = x => sig(x, 3).replace(/−/g, '-').replace(/e\+/g, 'e');
 
-const CAP = 3;   // normalized-stretch cap: ×e^(3·halfwidth) up, or ±3 half-widths for additive
+export const CAP = 3;   // normalized-stretch cap: ×e^(3·halfwidth) up, or ±3 half-widths for additive
+
+/* A range typed high-to-low is the same range: read every range low-to-high before solving.
+   (samplerFor swaps internally, so the draws are identical either way.) */
+function ordered(model){
+  const ranges = Object.create(null);
+  for(const v of model.varNames){ const [a, b] = model.ranges[v]; ranges[v] = a > b ? [b, a] : [a, b]; }
+  return {...model, ranges};
+}
 
 /* One candidate: the cheapest signed normalized stretch s of `varName` that lands P50 on target. */
-export function solveStretch(model, {seed, np = 8000, target, varName, cap = CAP}){
+export function solveStretch(model, {seed, np = SENS_N, target, varName, cap = CAP}){
+  model = ordered(model);
   const [lo, hi] = model.ranges[varName];
   if(lo === hi) return {kind: 'mult', varName, s: 0, dir: 1, hw: 0, factor: 1, delta: 0,
     range: [lo, hi], orig: [lo, hi], normCost: cap, achievedP50: NaN, valid: 0, feasible: false};   // point range excluded
@@ -92,7 +102,8 @@ function atStretch(r, s){
 /* Across all non-point inputs: the cheapest single feasible stretch (+ alternates), or — when no
    single reaches T within the cap — the cheapest PAIR moved together, or the terminal "nothing
    plausible". Never more than a pair (YAGNI). */
-export function confess(model, {seed, np = 8000, target, cap = CAP}){
+export function confess(model, {seed, np = SENS_N, target, cap = CAP}){
+  model = ordered(model);
   const base = quantile(simulateModel(model, {seed, n: np}).sorted, .5);
   const dir = Math.sign(target - base) || 1;
   const cands = model.varNames.filter(v => model.ranges[v][0] !== model.ranges[v][1]);

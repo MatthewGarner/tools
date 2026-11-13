@@ -4,6 +4,7 @@
    colours and text measure from ctx only. */
 import {esc, tint, txt} from '../assets/svg.js';
 import {fmt, ratioStr} from './engine.js';
+import {topDrivers, treeHeadline} from './words.js';
 import {normalizeReceipt, receiptChipLabel, receiptLabel} from './state.js';
 
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
@@ -17,7 +18,8 @@ export function renderDriverTree(model, ctx){
   const c = ctx.colors, measure = ctx.measure;
   const {ast, ranges, sens = [], p10, p50, p90, fullRatio, scenLabel, bases} = model;
   const shares = Object.fromEntries(sens.map(s => [s.name, s.share]));
-  const top = sens.length ? sens[0] : null;
+  const tied = new Set(topDrivers(sens));          // every input within 2 points of the top is marked
+  const labelled = new Set();                      // a variable used twice shows its share once
   const baseFor = name => normalizeReceipt(bases instanceof Map ? bases.get(name) : bases && bases[name]);
 
   /* positions: leaves stacked by in-order row; internal nodes at the mean of
@@ -69,11 +71,7 @@ export function renderDriverTree(model, ctx){
   s.push(txt(PAD, PAD + 4, 'WHAT DRIVES THE ANSWER' + (scenLabel ? ' — SCENARIO ' + scenLabel : ''),
     10, c.muted, {weight: 600, tracking: 1}));
   const fullLabel = isFinite(fullRatio) ? '×' + ratioStr(fullRatio) : fmt(p10) + ' – ' + fmt(p90);
-  const headline = !top ? 'Give the inputs ranges to see what drives the spread.'
-    : top.share > 0.35
-      ? 'Research ' + top.name.replace(/_/g, ' ') + ' first — pinning it cuts the spread from ' +
-        fullLabel + ' to ' + top.label + '.'
-      : 'No single input dominates — the spread is shared across the drivers.';
+  const headline = treeHeadline(sens, fullLabel);
   s.push(txt(PAD, PAD + 24, headline, 13, c.ink));
 
   /* edges (drawn beneath nodes) */
@@ -87,13 +85,14 @@ export function renderDriverTree(model, ctx){
     const mx = (x1 + x2) / 2;
     const sh = shareOf(child.n);
     const isVar = child.leaf && child.n.t === 'var';
-    const isTop = isVar && top && child.n.name === top.name;
+    const isTop = isVar && tied.has(child.n.name);
     s.push('<path' + (isVar ? ' data-edge="' + esc(child.n.name) + '"' : '') +
       ' d="M' + f1(x1) + ',' + f1(y1) + ' C' + f1(mx) + ',' + f1(y1) + ' ' + f1(mx) + ',' + f1(y2) +
       ' ' + f1(x2) + ',' + f1(y2) + '" fill="none" stroke="' +
       (isTop ? c.accent : child.leaf ? c.muted : c.border) + '" stroke-width="' + f1(widthFor(sh)) +
       '"' + (isVar ? '' : ' stroke-opacity="0.9"') + '/>');
-    if(isVar && sh >= 0.005){
+    if(isVar && sh >= 0.005 && !labelled.has(child.n.name)){
+      labelled.add(child.n.name);
       s.push(txt((x1 + x2) / 2, (y1 + y2) / 2 - 6, Math.round(sh * 100) + '%', 10.5,
         isTop ? c.accent : c.muted, {weight: isTop ? 700 : 600, anchor: 'middle'}));
     }
@@ -111,7 +110,7 @@ export function renderDriverTree(model, ctx){
     if(nd.leaf){
       const y0 = nd.y - CAP_H / 2;
       if(nd.n.t === 'var'){
-        const isTop = top && nd.n.name === top.name;
+        const isTop = tied.has(nd.n.name);
         s.push('<rect data-node="var" data-name="' + esc(nd.n.name) + '" x="' + PAD + '" y="' + f1(y0) +
           '" width="' + f1(capW) + '" height="' + CAP_H + '" rx="0" fill="' +
           (isTop ? tint(c.accent) : c.card) + '" stroke="' + (isTop ? c.accent : c.border) + '"/>');
