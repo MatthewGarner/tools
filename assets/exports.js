@@ -4,18 +4,26 @@ import {download, pngRasterPlan, svgToCanvas} from './app-common.js';
 
 const buttonText = (btn, fallback) => btn.textContent || fallback;
 const buttonDescriptions = new WeakMap();
-const restingLabels = new WeakMap(), flashTimers = new WeakMap();
+const restingLabels = new WeakMap(), restingWidths = new WeakMap(), flashTimers = new WeakMap();
 
 /* A confirmation ("Copied…") on a button for a moment. It returns to the label it first had; pressing again restarts the timer. */
 export function flashButton(btn, msg, ms = 2000){
-  if(!flashTimers.has(btn)) restingLabels.set(btn, btn.textContent);
+  if(!flashTimers.has(btn)){
+    restingLabels.set(btn, btn.textContent);
+    /* the button keeps its resting width for the whole confirmation, so the buttons beside it never move */
+    const w = btn.getBoundingClientRect ? btn.getBoundingClientRect().width : 0;
+    restingWidths.set(btn, btn.style ? btn.style.minWidth : '');
+    if(w && btn.style) btn.style.minWidth = Math.ceil(w) + 'px';
+  }
   const rest = restingLabels.get(btn);
   clearTimeout(flashTimers.get(btn));
-  btn.textContent = msg;
+  /* a success shows the short word; the guidance after the dash is for screen readers (and the page's status line) */
+  btn.textContent = /^(Copied|Saved)\b/.test(msg) ? msg.split(' — ')[0] : msg;
   if(btn.setAttribute) btn.setAttribute('aria-label', msg);
   flashTimers.set(btn, setTimeout(() => {
     flashTimers.delete(btn);
     btn.textContent = rest;
+    if(btn.style) btn.style.minWidth = restingWidths.get(btn) || '';
     if(btn.setAttribute) btn.setAttribute('aria-label', buttonDescriptions.get(btn) || rest);
   }, ms));
 }
@@ -103,7 +111,7 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
       }, error => { rasterError = error; reject(error); }));
     try {
       navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-        .then(() => { flash(buttons.copypng, 'Copied — paste into your deck', revert); say(scaleNote(plan, 'PNG copied')); })
+        .then(() => { flash(buttons.copypng, 'Copied — paste into your deck', revert); say(scaleNote(plan, 'PNG copied') || 'PNG copied — paste into your deck.'); })
         .catch(() => fail(rasterError ? rasterMessage(rasterError) : 'Copy blocked — use Download'));
     }catch(_){
       fail('Copy blocked — use Download');
@@ -114,7 +122,7 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
     if(!md || !navigator.clipboard)
       return flash(buttons.copymd, 'Clipboard unavailable');
     navigator.clipboard.writeText(md)
-      .then(() => flash(buttons.copymd, 'Copied — paste into your doc'))
+      .then(() => { flash(buttons.copymd, 'Copied — paste into your doc'); say('Markdown copied — paste into your doc.'); })
       .catch(() => flash(buttons.copymd, 'Copy blocked'));
   });
 }

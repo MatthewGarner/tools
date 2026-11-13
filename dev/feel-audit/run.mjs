@@ -15,6 +15,7 @@ import * as S from './scenarios.mjs';
 import * as D from './disclosures.mjs';
 import {controls} from './controls.mjs';
 import {FR_PLAN, FR_WEBKIT, FR_KNOWN} from './plan-fermi-rank.mjs';
+import {PLAN as PLAN_BTP, WEBKIT as WEBKIT_BTP} from './plan-btp.mjs';   // Bets, Tree, Paths: --tool bets|tree|paths
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : dflt; };
@@ -57,6 +58,7 @@ const PLAN = [
 /* WebKit has no CDP throttling, touch CDP or clipboard permission: the core interactions only */
 const WEBKIT_PLAN = new Set(['load', 'views', 'rail', 'type', 'menu', 'eip', 'theme', ...FR_WEBKIT]);
 FR_KNOWN.forEach(([k]) => KNOWN.add(k));
+PLAN.push(...PLAN_BTP); WEBKIT_BTP.forEach(id => WEBKIT_PLAN.add(id));
 
 const R = registry();
 const server = await startServer();

@@ -16,13 +16,17 @@ export function narrowWidth(el, {threshold = 520, fallback} = {}){
 /* Observes `el`; calls onFlip() only when the narrow/wide bucket changes
    (first observation always fires, since lastBucket starts null). Returns
    the ResizeObserver in case a caller ever needs to disconnect it. */
-export function watchNarrowBucket(el, onFlip, {threshold = 520} = {}){
+/* skipFirst: the caller has already drawn at the current width (it renders in the boot task), so the first observation only
+   records the bucket instead of drawing the same artefact a second time. */
+export function watchNarrowBucket(el, onFlip, {threshold = 520, skipFirst = false} = {}){
   let lastBucket = null;
   const ro = new ResizeObserver(() => {
     const w = el.clientWidth;
     const bucket = (w && w < threshold) ? 'narrow' : 'wide';
     if(bucket === lastBucket) return;
+    const first = lastBucket === null;
     lastBucket = bucket;
+    if(first && skipFirst) return;
     onFlip(bucket);
   });
   ro.observe(el, {box: 'content-box'});

@@ -242,8 +242,12 @@ export function mountMotion(container){
     const flipState = (m === 'flip' && flipAttr) ? captureFlip(container, flipAttr) : null;
     if(flipState && flipFrom) for(const [k, r] of flipFrom) flipState.set(k, r);   // an item that arrives from elsewhere (a drag chip) glides from there
     const ghost = m === 'fade' ? ghostBefore(container) : null;   // mode 'fade' = a view switch (see ghostBefore)
+    /* Between the new markup and onSwap (which sets its width) the artefact is briefly the wrong size, and a layout read in
+       that gap (WebKit reads one) clamps the page's scroll to the shorter document. The reader's position is theirs: put it back. */
+    const y0 = scrollY, x0 = scrollX;
     container.innerHTML = svg; lastSvg = svg;
     if(onSwap) onSwap();
+    if(scrollY !== y0 || scrollX !== x0) scrollTo(x0, y0);
     if(flipState) applyFlip(container, flipAttr, flipState, {scale: (scale ? scale() : 1)});
     ghostAfter(ghost);
     return container;
@@ -251,4 +255,22 @@ export function mountMotion(container){
   paint.reveal = () => { revealed = false; };
   paint.reset = () => { lastSvg = ''; };
   return paint;
+}
+
+/* Scroll the page to `top` over the base duration (200ms, --dur-base), a jump under reduced motion; a later wheel, touch or key cancels it. */
+let scrollRun = 0, scrollWatch = false, lastInput = 0;
+export function scrollPageTo(top){
+  const to = Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight, Math.round(top))), from = scrollY, run = ++scrollRun;
+  if(Math.abs(to - from) < 2) return to;
+  if(reducedMotion.matches){ scrollTo(scrollX, to); return to; }
+  const t0 = performance.now();
+  if(!scrollWatch){ scrollWatch = true; for(const ev of ['wheel', 'touchstart', 'keydown']) addEventListener(ev, e => { lastInput = e.timeStamp; }, {passive:true}); }
+  const tick = now => {
+    if(run !== scrollRun || lastInput > t0) return;
+    const k = Math.min(1, (now - t0) / 200);
+    scrollTo(scrollX, from + (to - from) * (1 - Math.pow(1 - k, 3)));
+    if(k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return to;
 }

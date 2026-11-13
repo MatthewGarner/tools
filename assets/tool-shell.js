@@ -10,7 +10,8 @@ import {trapPopoverFocus} from './popover-focus.js';
 
 /* Disclosure menus: Escape or a press elsewhere closes the open one (Escape returns focus to its summary); an open menu is
    shifted sideways to stay on screen. */
-const DISCLOSURE = 'details.action-disclosure';
+/* every disclosure that opens over or beside the artefact: the action menus, the Method note, and any details marked data-dismiss */
+const DISCLOSURE = 'details:is(.action-disclosure,.method,[data-dismiss])';
 document.addEventListener('keydown', e => {
   if(e.key !== 'Escape' || e.defaultPrevented || document.querySelector('dialog[open]')) return;
   const open = e.target.closest?.(DISCLOSURE + '[open]') || document.querySelector(DISCLOSURE + '[open]');

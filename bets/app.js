@@ -5,7 +5,7 @@ import {mountModelLink} from '../assets/model-link.js';
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
    with edit-in-place + the coarse-pointer card menu. */
 import {parse} from './parse.js';
-import {simulate, markdown} from './engine.js';
+import {markdown} from './engine.js';
 import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
 import {renderBetsPresentation} from './render-presentation.js';
@@ -18,6 +18,7 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
+import {createSimMemo} from './sim-memo.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -70,15 +71,15 @@ let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-f
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 const nBets = m => m.groups.reduce((t, g) => t + g.bets.length, 0);
 const isCoarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-/* Keep snapshot simulation memoised without putting state in renderers. */
-const prevSimCache = new WeakMap();
+/* The simulation is kept, keyed on what it reads (bets/sim-memo.js): a view switch, theme, zoom or snapshot pick never runs it again.
+   The snapshot's own model goes through the same memo, so the current model and the snapshot alternate without re-simulating. */
+const simMemo = createSimMemo();
 function currentCompare(){
   const cur = snaps && snaps.current();
   if(!cur || !hasBets(model)) return null;
   if(!comparisonSafety(cur.model, model).safe) return null;
-  if(!prevSimCache.has(cur.model)) prevSimCache.set(cur.model, simulate(cur.model));
   const diffView = betsDiffView(betsDiff(cur.model, model), cur.label);
-  return {...diffView, prevSim: prevSimCache.get(cur.model), previousUnit: cur.model.unit};
+  return {...diffView, prevSim: simMemo.get(cur.model), previousUnit: cur.model.unit};
 }
 function findBet(m, srcLine){
   if(!m) return null;
@@ -111,7 +112,7 @@ function doRefresh(){
     paintVerdict($('verdict'), '', '');
     paintMetrics($('metrics'), '', []);
   } else {
-    sim = simulate(model);
+    sim = simMemo.get(model);
     const svg = activeRender('live');
     // quadrant dots glide to new positions as you tune a bet (data-key=bet name);
     // board view has no data-key marks so FLIP is a no-op there.
@@ -135,12 +136,15 @@ function doRefresh(){
   if(shouldPersist()) hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
+const typed = debounced(refresh, 120);
+/* a discrete edit (a commit, a menu pick, Undo, a view or a snapshot) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ typed.cancel(); refresh(); }
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange: debounced(refresh, 120),
+  onChange: typed,
 });
-mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: refreshNow});   // phones have no ⌘Z (Rule 2)
 function modelLinkState(){
   const state = {t: editor.getText()};
   if(view !== 'board') state.v = view;
@@ -156,11 +160,12 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => hasBets(model),
-  onChange(){ flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); },
+  onChange(){ flipMode = 'none'; lastSvg = ''; paint.reset(); refreshNow(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  initialReading: 'when-guarded',   // a Board too wide for the stage beside the editor lands in the reading view, decided at the first render
   /* Reader is a temporary presentation state. Returning to source is an editing
      action, so place the caret back in the actual CodeMirror surface. */
   focusEditor: () => editor.view.focus(),
@@ -169,7 +174,7 @@ const ws = initWorkspace({
 
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
-watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); });   // resize → new layout, don't glide
+watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); }, {skipFirst: true});   // resize → new layout, don't glide
 
 /* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
    scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
@@ -186,9 +191,10 @@ $('viewtoggle').addEventListener('click', e => {
   const b = e.target.closest('[data-view]');
   if(!b || b.dataset.view === view) return;
   view = b.dataset.view;
-  syncViewToggle();
-  flipMode = 'none'; lastSvg = ''; paint.reset();   // board<->quadrant: different layout, no glide
-  refresh();
+  b.focus({preventScroll: true});   // Safari does not focus a button on click
+  syncViewToggle();                  // pressed with the press, not a frame behind the view
+  flipMode = 'fade'; lastSvg = ''; paint.reset();   // board<->quadrant: the shared cross-fade
+  refreshNow();
 });
 
 /* Source-line rewrites; coarse rows resolve through their full-row menu. */
@@ -208,6 +214,7 @@ function openOrAddKill(lineNo, origin){
   const indent = (betLine.match(/^ */) || [''])[0].length;
   const killIndent = ' '.repeat(indent + 2);
   editor.insertLinesAfter(idx, [killIndent + 'kill: reason']);
+  refreshNow();   // the fresh kill line has its field at once
   const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
   const coarse = isCoarsePointer();
   const target = coarse ? {kind: 'cardmenu', line: lineNo} : addedKillTarget(lineNo);
@@ -249,6 +256,11 @@ const eip = attachEditInPlace($('preview'), {
     cardmenu: {menu: el => betMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    commitEdit(kind, lineNo, oldRaw, newValue, el);
+    if(kind !== 'cardmenu' || /Remove bet/.test(newValue)) refreshNow();   // a menu row that opens a field changes nothing to repaint
+  },
+});
+function commitEdit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'cardmenu'){
       if(newValue === '✖Edit kill criterion…' || newValue === '✖Add kill criterion…') openOrAddKill(lineNo, el);
       else if(newValue === '✖Remove bet'){
@@ -260,10 +272,11 @@ const eip = attachEditInPlace($('preview'), {
     if(kind === 'addbet' || kind === 'addgroup'){
       const r = kind === 'addbet' ? addBetLine(editor.getText(), lineNo) : addGroupLine(editor.getText());
       if(!r) return;
-      const typed = newValue.replace(/^✖/, '').trim();
+      const named = newValue.replace(/^✖/, '').trim();
       const placeholder = kind === 'addbet' ? 'New bet' : 'New group';
-      const name = typed || placeholder;
-      editor.insertLinesAfter(r.afterLine, [typed ? r.newLine.replace(placeholder, typed) : r.newLine]);
+      const name = named || placeholder;
+      editor.insertLinesAfter(r.afterLine, [named ? r.newLine.replace(placeholder, named) : r.newLine]);
+      refreshNow();   // the new bet is drawn before its field or menu is sought
       /* Coarse Board editing is deliberately menu-first. A newly inserted
          bet therefore returns focus to its one 44px row control; a fine
          pointer still lands on the exact rename field for immediate typing. */
@@ -282,8 +295,7 @@ const eip = attachEditInPlace($('preview'), {
     const ops = rewrite(editor.getText(), kill ? kill.srcLine : lineNo,
       kill ? kill.text + (kill.by ? ' by ' + kill.by : '') : oldRaw, newValue);
     if(ops) applyLineOps(editor, ops);
-  },
-});
+}
 
 /* ---------- example chips ---------- */
 provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
@@ -328,8 +340,10 @@ wireCopyVerdict($('verdict'));
     try{ text = localStorage.getItem('bets-src') || ''; }catch(e){}
   }
   syncViewToggle();
-  if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
+  /* the first artefact is drawn in this task, from the source that is already known: one render, nothing after it moves */
+  if(text){ editor.setText(text); typed.cancel(); doRefresh(); }
+  else if(autoloadExample(() => editor.setText(EXAMPLES[0].src))){ typed.cancel(); doRefresh(); }
+  else refresh();
 })();
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */

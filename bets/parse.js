@@ -58,7 +58,7 @@ export function parse(text){
 
   lines.forEach((raw, i) => {
     const srcLine = i + 1;
-    const noComment = raw.replace(/\s*\/\/.*$/, '');
+    const noComment = raw.replace(/(^|\s+)\/\/.*$/, '');   // a // is a comment only at the start of a line or after whitespace: https://… survives
     if(!noComment.trim()) return;                       // blank or comment-only
     const indent = noComment.match(/^ */)[0].length;
     const body = noComment.trim();

@@ -382,3 +382,11 @@ function comparisonMarkdown(model, comparison){
   return out;
 }
 
+
+/* A kept simulation, shown for a model whose inputs are the same but whose names may differ: the only name in a result is the
+   concentration finding's, so that is rebuilt from the current model (cheap) and everything simulated is reused. */
+export function withNames(sim, model){
+  const live = [];
+  for(const g of model.groups) for(const b of g.bets) if(b.stake && b.odds && b.payoff) live.push(b);
+  return {...sim, concentration: concentrationOf(live)};
+}

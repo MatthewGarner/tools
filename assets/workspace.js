@@ -11,7 +11,7 @@ export function setActionsEnabled(on){
 
 /* Model history must be reachable from the artefact on every input device.
    Keep the existing class/API for callers; source fields retain native/CM undo. */
-export function mountTouchUndo(actionsEl, editor){
+export function mountTouchUndo(actionsEl, editor, {onUndo} = {}){
   if(!actionsEl) return null;
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'btn touch-undo'; b.textContent = '↶ Undo';
@@ -21,6 +21,7 @@ export function mountTouchUndo(actionsEl, editor){
   function undo(){
     const changed = editor.undo();
     status.textContent = changed ? 'Last model edit undone.' : 'No model edit to undo.';
+    if(changed && onUndo) onUndo();   // an undo is a discrete edit: the tool paints it at once
     return changed;
   }
   b.addEventListener('click', undo);
@@ -69,6 +70,8 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   let reading = false;
   let readingResolved = initialReading !== 'when-guarded';
   let readingOverride = false;
+  const dropFold = () => workspace.classList.remove('landing-fold');   // the HTML-declared landing fold: see workspace.css
+  if(workspace.classList.contains('landing-fold')) setTimeout(dropFold, 3000);   // never strand a rail behind it
   let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
   const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
   /* The rail's fade-in is for a reader's own toggle: nothing moves while the page lands (until the first artefact paints). */
@@ -143,6 +146,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     action.addEventListener('click',()=>{
       readingOverride=true;
       setReading(true);
+      tab.focus({preventScroll:true});   // the button just pressed is gone: the reading view's first control takes focus
     });
     el.append(copy,action);
     preview.parentNode.insertBefore(el,preview);
@@ -163,6 +167,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       const declared=svg.getAttribute('data-min-readable-scale');
       const decision=fitReadabilityDecision({naturalWidth:naturalWidth(svg),fitWidth,declaredMinScale:declared});
       const guard=!matchMedia('(pointer: coarse)').matches&&decision.guard;
+      if(!initialReading && autoFold) dropFold();   // the landing fold was this decision, made on the first artefact
       if(!initialReading && autoFold && guard && !workspace.classList.contains('collapsed') && !reading && !editorFocused() && manualRail !== false){
         setCollapsed(true, {auto:true});
         return;
@@ -257,6 +262,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       declaredMinScale:svg.getAttribute('data-min-readable-scale')});
     readingResolved = true;
     workspace.classList.remove('reading-pending');
+    dropFold();
     const next = initialReadingState({pointerCoarse:matchMedia('(pointer: coarse)').matches,
       workspaceWide:gridWorkspace(), initialCollapsed:workspace.classList.contains('collapsed'),
       guarded:decision.guard, manualOverride:readingOverride});
@@ -266,18 +272,22 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   new MutationObserver(() => {
     if(!pendingPane && !readingResolved && workspace.classList.contains('reading-pending') && svgEl()) pendingPane = paneWidth();
     renderEpoch++;
+    if(!svgEl()) dropFold();   // an empty or invalid document keeps its visible source rail
     applyZoom();
     if(!booted && svgEl()) requestAnimationFrame(() => requestAnimationFrame(() => { booted = true; }));
     if(initialReading === 'when-guarded' && !readingResolved && !readingOverride){
       const epoch = renderEpoch, svg = svgEl();
       if(!svg) return; // Empty/invalid documents retain their visible source rail.
       if(readingFrame) cancelAnimationFrame(readingFrame);
-      readingFrame = requestAnimationFrame(() => resolveInitialReading(epoch, svg));
+      /* Decide in this task, before the first paint of the artefact. Waiting a frame let a loaded or slow page paint the pending
+         layout once and then move the whole stage when the reading view arrived (Bets, desktop: a 0.2 shift whenever the
+         paint came between the two). resolveInitialReading retries a frame later only if the artefact has no size yet. */
+      resolveInitialReading(epoch, svg);
     }
   }).observe(preview, {childList: true});
 
   function setReading(open, {automatic = false} = {}){
-    if(!automatic){ readingOverride=true; readingResolved=true; }
+    if(!automatic){ readingOverride=true; readingResolved=true; dropFold(); }
     reading=!!open;
     workspace.classList.toggle('focus-artefact', reading);
     workspace.dataset.workspaceView = reading ? 'reading' : 'expanded';
@@ -292,7 +302,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
 
   /* collapse */
   function setCollapsed(c, {auto = false} = {}){
-    if(!auto){ manualRail = c; readingOverride=true; readingResolved=true; }
+    if(!auto){ manualRail = c; readingOverride=true; readingResolved=true; dropFold(); }
     reading=false;
     workspace.classList.remove('reading-pending');
     workspace.classList.remove('focus-artefact');

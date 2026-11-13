@@ -3751,7 +3751,9 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
    uses the evaluator-backed impact receipt while Tree retains its editable
    legacy receipt and source-rewrite behavior during the staged migration. ---- */
 if(scope.wants("paths")){
-  const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
+  /* The Brief is drawn no narrower than 1100px, so a receipt rail beside it needs 1466px of stage: this fixture starts wide enough
+     for the rail. Narrower stages put the margin above the drawing, on a click (asserted at 1100px below). */
+  const pctx = await browser.newContext({viewport:{width:1700, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
   // This fixture asserts the pre-deadline announcement. Freeze wall time so
   // its 15 September deadline cannot turn a valid 'due' claim into 'overdue'.
@@ -3906,15 +3908,16 @@ if(scope.wants("paths")){
     await p.locator('#focus-lens').isHidden())));
 
   await p.setViewportSize({width:1100, height:900});
-  check('paths: constrained non-narrow desktop folds source and keeps the Brief plus decision margin readable', await until(async () => (await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
-    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'rail' &&
+  check('paths: constrained non-narrow desktop folds source and keeps the whole Brief drawn, the margin above it and over nothing', await until(async () => (await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'inline' &&
     await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
-    await p.locator('#overview-receipt').isVisible())));
+    await p.evaluate(() => { const r = document.querySelector('#overview-receipt'), s = document.querySelector('#preview svg').getBoundingClientRect(); return r.hidden || r.getBoundingClientRect().bottom <= s.top + 1; }))));
   await p.locator('[data-select-decision][data-decision-key="groups"]').click();
   await p.waitForTimeout(150);
-  check('paths: selecting a constrained-desktop decision updates the readable decision margin',
-    await p.locator('#overview-receipt[data-layout="rail"][data-decision-key="groups"]').isVisible() &&
-    await p.locator('#overview-receipt [data-receipt-close]').count() === 0);
+  check('paths: selecting a constrained-desktop decision shows the decision margin above the drawing, over nothing',
+    await p.locator('#overview-receipt[data-layout="inline"][data-decision-key="groups"]').isVisible() &&
+    await p.locator('#overview-receipt [data-receipt-close]').count() === 0 &&
+    await p.evaluate(() => { const r = document.querySelector('#overview-receipt').getBoundingClientRect(), s = document.querySelector('#preview svg').getBoundingClientRect(); return r.bottom <= s.top + 1; }));
   await p.locator('#overview-receipt [data-open-focus]').click();
   check('paths: Focus remains a deliberate local lens after review folding', await until(async () => (await p.locator('#focus-lens').isVisible() &&
     await p.locator('#focus-lens .focus-branch').count() === 2)));
