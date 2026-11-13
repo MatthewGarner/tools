@@ -1,0 +1,142 @@
+// many decisions and items: 10 decisions, 48 items over 4 periods
+title: Large plan
+today: 2026-11-12
+
+decision d1:
+  question: Question number 1 about market 1?
+  signal: signal 1
+  owner: Team 2
+  answer-by: 2026-02-15
+  learn: Run test 1
+  enough: Yes at 1 or more
+  assume: no 2026-11-01
+
+decision d2:
+  question: Question number 2 about market 2?
+  signal: signal 2
+  owner: Team 3
+  answer-by: 2026-03-15
+  learn: Run test 2
+  enough: Yes at 2 or more
+
+decision d3:
+  question: Question number 3 about market 3?
+  signal: signal 3
+  owner: Team 4
+  answer-by: 2026-04-15
+  learn: Run test 3
+  enough: Yes at 3 or more
+  answer: yes 2026-04-10
+
+decision d4:
+  question: Question number 4 about market 4?
+  signal: signal 4
+  owner: Team 1
+  answer-by: 2026-05-15
+  learn: Run test 4
+  enough: Yes at 4 or more
+
+decision d5:
+  question: Question number 5 about market 5?
+  signal: signal 5
+  owner: Team 2
+  answer-by: 2026-06-15
+  learn: Run test 5
+  enough: Yes at 5 or more
+  assume: no 2026-11-01
+
+decision d6:
+  question: Question number 6 about market 6?
+  signal: signal 6
+  owner: Team 3
+  answer-by: 2026-07-15
+  learn: Run test 6
+  enough: Yes at 6 or more
+  answer: yes 2026-07-10
+
+decision d7:
+  question: Question number 7 about market 7?
+  signal: signal 7
+  owner: Team 4
+  answer-by: 2026-08-15
+  learn: Run test 7
+  enough: Yes at 7 or more
+
+decision d8:
+  question: Question number 8 about market 8?
+  signal: signal 8
+  owner: Team 1
+  answer-by: 2026-09-15
+  learn: Run test 8
+  enough: Yes at 8 or more
+
+decision d9:
+  question: Question number 9 about market 9?
+  signal: signal 9
+  owner: Team 2
+  answer-by: 2026-10-15
+  learn: Run test 9
+  enough: Yes at 9 or more
+  answer: yes 2026-01-10
+  assume: no 2026-11-01
+
+decision d10:
+  question: Question number 10 about market 10?
+  signal: signal 10
+  owner: Team 3
+  answer-by: 2026-11-15
+  learn: Run test 10
+  enough: Yes at 10 or more
+
+NOW
+  Lane 2: Item 1.1 for workstream 1 [unless d2]
+  Lane 3: Item 1.2 for workstream 2
+  Lane 4: Item 1.3 for workstream 3 [if d4]
+  Lane 5: Item 1.4 for workstream 4 [unless d5] [risk]
+  Lane 1: Item 1.5 for workstream 5
+  Lane 2: Item 1.6 for workstream 6 [if d7]
+  Lane 3: Item 1.7 for workstream 7 [unless d8]
+  Lane 4: Item 1.8 for workstream 8 [risk]
+  Lane 5: Item 1.9 for workstream 9 [if d10]
+  Lane 1: Item 1.10 for workstream 10 [unless d1]
+  Lane 2: Item 1.11 for workstream 11
+  Lane 3: Item 1.12 for workstream 12 [if d3] [risk]
+NEXT
+  Lane 2: Item 2.1 for workstream 1 [unless d5]
+  Lane 3: Item 2.2 for workstream 2
+  Lane 4: Item 2.3 for workstream 3 [if d7]
+  Lane 5: Item 2.4 for workstream 4 [unless d8] [risk]
+  Lane 1: Item 2.5 for workstream 5
+  Lane 2: Item 2.6 for workstream 6 [if d10]
+  Lane 3: Item 2.7 for workstream 7 [unless d1]
+  Lane 4: Item 2.8 for workstream 8 [risk]
+  Lane 5: Item 2.9 for workstream 9 [if d3]
+  Lane 1: Item 2.10 for workstream 10 [unless d4]
+  Lane 2: Item 2.11 for workstream 11
+  Lane 3: Item 2.12 for workstream 12 [if d6] [risk]
+LATER
+  Lane 2: Item 3.1 for workstream 1 [unless d8]
+  Lane 3: Item 3.2 for workstream 2
+  Lane 4: Item 3.3 for workstream 3 [if d10]
+  Lane 5: Item 3.4 for workstream 4 [unless d1] [risk]
+  Lane 1: Item 3.5 for workstream 5
+  Lane 2: Item 3.6 for workstream 6 [if d3]
+  Lane 3: Item 3.7 for workstream 7 [unless d4]
+  Lane 4: Item 3.8 for workstream 8 [risk]
+  Lane 5: Item 3.9 for workstream 9 [if d6]
+  Lane 1: Item 3.10 for workstream 10 [unless d7]
+  Lane 2: Item 3.11 for workstream 11
+  Lane 3: Item 3.12 for workstream 12 [if d9] [risk]
+SOMEDAY
+  Lane 2: Item 4.1 for workstream 1 [unless d1]
+  Lane 3: Item 4.2 for workstream 2
+  Lane 4: Item 4.3 for workstream 3 [if d3]
+  Lane 5: Item 4.4 for workstream 4 [unless d4] [risk]
+  Lane 1: Item 4.5 for workstream 5
+  Lane 2: Item 4.6 for workstream 6 [if d6]
+  Lane 3: Item 4.7 for workstream 7 [unless d7]
+  Lane 4: Item 4.8 for workstream 8 [risk]
+  Lane 5: Item 4.9 for workstream 9 [if d9]
+  Lane 1: Item 4.10 for workstream 10 [unless d10]
+  Lane 2: Item 4.11 for workstream 11
+  Lane 3: Item 4.12 for workstream 12 [if d2] [risk]

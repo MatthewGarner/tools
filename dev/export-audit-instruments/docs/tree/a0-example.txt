@@ -1,0 +1,10 @@
+// built-in example: Bid or no bid (verbatim)
+title: Bid for the Acme contract
+currency: £
+
+Bid decision
+  Submit bid: -150k
+    Outcome
+      Win (p=0.3-0.45): 2M to 5M
+      Lose (p=rest): 0
+  No bid: 0

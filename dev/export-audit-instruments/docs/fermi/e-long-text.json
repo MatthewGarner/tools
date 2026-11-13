@@ -1,0 +1,30 @@
+{
+ "about": "question at the 180-character limit, unit at 48, long variable names and formula",
+ "state": {
+  "f": "number_of_enterprise_customers_in_the_region * share_that_would_adopt_the_new_permissions_model * average_seats_per_customer_after_migration * price_per_seat_per_year_in_pounds",
+  "q": "How much additional annual recurring revenue could the permissions migration unlock across the enterprise segment if adoption follows the pattern we saw in the pilot cohorts?",
+  "u": "pounds of annual recurring revenue per year (£)",
+  "v": {
+   "number_of_enterprise_customers_in_the_region": [
+    "300",
+    "600",
+    "auto"
+   ],
+   "share_that_would_adopt_the_new_permissions_model": [
+    "0.1",
+    "0.4",
+    "auto"
+   ],
+   "average_seats_per_customer_after_migration": [
+    "200",
+    "900",
+    "auto"
+   ],
+   "price_per_seat_per_year_in_pounds": [
+    "40",
+    "90",
+    "auto"
+   ]
+  }
+ }
+}

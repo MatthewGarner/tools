@@ -1,0 +1,17 @@
+// characters that break things
+title: R&D <alpha> "beta" | ‘quotes’ 🚀 עברית café Zoë
+today: 2026-11-12
+
+decision amp:
+  question: Will “R&D” <teams> | partners say yes? 🚀
+  signal: שלום עולם replies & sign-ups
+  owner: Zoë & Ünal
+  answer-by: 2026-12-01
+  learn: Ask 10 partners <directly> | by email
+  enough: Yes at 7 & above; no at 3
+
+NOW
+  Core & Infra: Fish & chips <b>bold</b> | pipe [doing] [if amp]
+  Emoji 🚀: Zalgo z̷̢a̶l̸g̵o é é [unless amp]
+  RTL: שלום עולם item
+  Long: Supercalifragilisticexpialidocious_unbroken_identifier_with_no_spaces_anywhere_at_all -- https://example.com/a/very/long/url/that/does/not/break/anywhere/at/all/because/it/is/one/token

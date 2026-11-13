@@ -1,0 +1,8 @@
+// built-in example: Quick gut check (verbatim)
+title: Quick gut check
+unit: £k
+
+Bets
+  Ship the redesign: stake 60, odds 55-70%, payoff 150-260
+    kill: Conversion drops for two weeks straight
+  Delay to Q4: stake 15, odds 80-95%, payoff 20-40

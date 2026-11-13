@@ -1,0 +1,3 @@
+// empty model: a title and a group but no bets
+title: Nothing yet
+Bets

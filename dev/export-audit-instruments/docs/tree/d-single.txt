@@ -1,0 +1,3 @@
+// a root with one leaf option
+Only choice
+  Do it : 100

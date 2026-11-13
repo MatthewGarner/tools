@@ -1,0 +1,12 @@
+// the Start your own skeleton (verbatim)
+title: Your plan
+
+decision unanswered:
+  question: The question you have to answer
+  signal: What you would measure
+  owner: Who owns it
+  answer-by: 2026-10-01
+
+NOW
+  Workstream: What you do either way
+  Workstream: What only makes sense if the answer is yes [if unanswered]

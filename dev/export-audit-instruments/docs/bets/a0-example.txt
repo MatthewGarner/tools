@@ -1,0 +1,16 @@
+// built-in example: Lantern portfolio (verbatim)
+title: Lantern — Q3 bet portfolio
+unit: £k
+
+Growth bets
+  Referral flow v2: stake 80, odds 40-60%, payoff 300-500
+    kill: Signups per referral stay under 0.3 by 2026-09-15
+  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300
+    kill: CAC exceeds £40 for two consecutive months
+
+Platform bets
+  Sync engine rewrite: stake 150, odds 90-98%, payoff 180-260
+  Publisher storefront pilot: stake 60, odds 15-25%, payoff 250-450
+    kill: Fewer than 20 publishers onboarded by 2026-10-01
+  E-reader sync: stake 60, odds 30-40%, payoff 150-280
+    kill: No retail partner signed by 2026-11-01

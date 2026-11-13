@@ -1,0 +1,11 @@
+// characters that break things
+title: R&D <alpha> "beta" | ‘quotes’ 🚀 עברית café Zoë
+currency: €
+Choose & decide <now>
+  Fish & chips <b>bold</b> | pipe
+    Works “well” (p=0.4) : 100k
+    שלום עולם RTL (p=rest) : -20k
+  Emoji 🚀🔥👩🏽‍💻 path : 10k to 30k
+  Zalgo z̷̢a̶l̸g̵o é é : 5k
+  Non breaking spaces : 2k
+  Supercalifragilisticexpialidocious_unbroken_identifier_with_no_spaces_anywhere_at_all : 1k

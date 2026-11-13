@@ -1,0 +1,63 @@
+{
+ "about": "every initiative scored the same (a five-way tie)",
+ "state": {
+  "c": [
+   [
+    "Value",
+    3
+   ],
+   [
+    "Time criticality",
+    2
+   ],
+   [
+    "Risk reduction",
+    1
+   ]
+  ],
+  "e": [
+   "Effort",
+   1
+  ],
+  "i": [
+   [
+    "Tie 1",
+    5,
+    5,
+    5,
+    5
+   ],
+   [
+    "Tie 2",
+    5,
+    5,
+    5,
+    5
+   ],
+   [
+    "Tie 3",
+    5,
+    5,
+    5,
+    5
+   ],
+   [
+    "Tie 4",
+    5,
+    5,
+    5,
+    5
+   ],
+   [
+    "Tie 5",
+    5,
+    5,
+    5,
+    5
+   ]
+  ],
+  "k": 2,
+  "w": 50,
+  "s": 1
+ }
+}

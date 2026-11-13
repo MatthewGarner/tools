@@ -1,0 +1,30 @@
+{
+ "about": "built-in example: New feature revenue",
+ "state": {
+  "f": "monthly_visitors * signup_rate * paid_conversion * annual_price",
+  "q": "What annual revenue could one month’s new customers bring?",
+  "u": "£ per year",
+  "v": {
+   "monthly_visitors": [
+    "80k",
+    "200k",
+    "auto"
+   ],
+   "signup_rate": [
+    "0.02",
+    "0.06",
+    "auto"
+   ],
+   "paid_conversion": [
+    "0.05",
+    "0.15",
+    "auto"
+   ],
+   "annual_price": [
+    "90",
+    "140",
+    "auto"
+   ]
+  }
+ }
+}

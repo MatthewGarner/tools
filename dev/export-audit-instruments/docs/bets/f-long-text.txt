@@ -1,0 +1,11 @@
+// very long names, group names, kill criteria and title
+title: A deliberately long portfolio title that keeps going well past the width a slide title would normally allow on one line
+unit: £k
+
+A very long group heading that describes the strategic theme in far more words than anyone should
+  Rebuild the onboarding journey for small teams who arrive from the marketing site and need to invite colleagues before their trial ends: stake 120, odds 30-50%, payoff 200-600
+    kill: We stop if fewer than one in five teams invites a colleague in their first week, measured over two consecutive monthly cohorts, and the support queue shows no sign of the confusion we expected to fix by 2026-12-31
+  Rebuild the onboarding journey for small teams who arrive from the marketing site and need to invite colleagues before their trial ends (second variant): stake 80, odds 20-40%, payoff 100-500
+    kill: We stop if fewer than one in five teams invites a colleague in their first week, measured over two consecutive monthly cohorts, and the support queue shows no sign of the confusion we expected to fix
+Short
+  Tiny: stake 1, odds 50%, payoff 2

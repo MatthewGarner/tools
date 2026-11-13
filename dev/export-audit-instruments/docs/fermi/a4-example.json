@@ -1,0 +1,30 @@
+{
+ "about": "built-in example: Cadence economics",
+ "state": {
+  "f": "decisions_per_quarter * hours_per_decision * people_in_room * hourly_cost",
+  "q": "What does decision-making cost per quarter?",
+  "u": "£ per quarter",
+  "v": {
+   "decisions_per_quarter": [
+    "12",
+    "30",
+    "auto"
+   ],
+   "hours_per_decision": [
+    "1",
+    "4",
+    "auto"
+   ],
+   "people_in_room": [
+    "4",
+    "9",
+    "auto"
+   ],
+   "hourly_cost": [
+    "60",
+    "120",
+    "auto"
+   ]
+  }
+ }
+}

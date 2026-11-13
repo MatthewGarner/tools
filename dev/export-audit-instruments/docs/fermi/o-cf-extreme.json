@@ -1,0 +1,24 @@
+{
+ "about": "cashflow: huge and negative-only flows (NPV never positive; no IRR)",
+ "state": {
+  "m": "cf",
+  "g": "year",
+  "h": 6,
+  "rl": "3",
+  "rh": "40",
+  "p": [
+   [
+    "-9e12",
+    "-1e12"
+   ],
+   [
+    "-5",
+    "-1"
+   ],
+   [
+    "-1e9",
+    "1e9"
+   ]
+  ]
+ }
+}

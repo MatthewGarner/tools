@@ -1,0 +1,14 @@
+// verdict off
+title: Verdict off
+verdict: off
+today: 2026-11-12
+
+decision x:
+  question: Is X true?
+  signal: x
+  owner: me
+  answer-by: 2026-12-01
+
+NOW
+  Core: Do X [if x]
+  Core: Do Y [unless x]

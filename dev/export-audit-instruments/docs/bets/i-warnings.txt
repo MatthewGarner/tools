@@ -1,0 +1,11 @@
+// warnings: unknown key, config after content, bet before group, bad indent, missing attributes
+title: Warnings
+colour: red
+Orphan bet: stake 10, odds 50%, payoff 30
+Lane
+  Fine: stake 10, odds 40-60%, payoff 30-50
+  Missing attrs
+   Bad indent: stake 5, odds 50%, payoff 10
+  Wrong attr: stake 5, chance 50%, payoff 10
+    note: not a kill line
+unit: £k

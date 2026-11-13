@@ -1,0 +1,18 @@
+{
+ "about": "non-finite and unreadable input: the page should say so and offer no export",
+ "state": {
+  "f": "a / b",
+  "v": {
+   "a": [
+    "abc",
+    "10",
+    "auto"
+   ],
+   "b": [
+    "0",
+    "0",
+    "auto"
+   ]
+  }
+ }
+}

@@ -1,0 +1,14 @@
+// built-in example: Build vs buy (verbatim)
+title: Build vs buy the reporting module
+currency: £
+
+Approach
+  Build in-house: -400k to -700k
+    Delivery
+      On time (p=0.5-0.7): 1.5M to 2.5M
+      Late, still ships (p=rest): 800k to 1.2M
+  Buy vendor product: -250k
+    Fit
+      Good fit (p=0.6-0.8): 1M to 1.6M
+      Poor fit, heavy rework (p=rest): 200k to 600k
+  Do nothing: 0

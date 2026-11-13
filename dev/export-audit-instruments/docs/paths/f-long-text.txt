@@ -1,0 +1,18 @@
+// very long questions, signals, item titles and notes
+title: A deliberately long plan title that keeps going well past the width a slide title would normally allow on one line
+today: 2026-11-12
+
+decision migrate:
+  question: Will enterprise customers with more than five hundred seats accept a mandatory migration to the new permissions model before their renewal date next year
+  signal: The share of renewal conversations in which the customer agrees to the migration date without escalating to their account executive or legal team
+  reading: Four of the first eleven renewal conversations agreed without escalation, two escalated, and five are still open with no clear direction yet
+  learn: Put the migration offer to the next twenty renewals using the same script and the same incentive, and record every escalation
+  enough: Yes at fourteen of twenty or more; no at six or fewer; otherwise keep the question open and widen the sample
+  owner: Enterprise renewals and the permissions platform team together
+  answer-by: 2026-12-20
+
+NOW
+  Platform engineering and permissions: Build the migration tooling that moves every role and group to the new permissions model without downtime [doing] [if migrate] -- this is the long pole and nothing else can start until the dry run passes on the three largest tenants
+  Customer success: Prepare the fallback in which the old permissions model is kept running for another year for anyone who declines [unless migrate] -- expensive, but cheaper than losing renewals
+NEXT
+  Platform engineering and permissions: Retire the old permissions model entirely once the last tenant has moved and the audit trail is verified [if migrate]

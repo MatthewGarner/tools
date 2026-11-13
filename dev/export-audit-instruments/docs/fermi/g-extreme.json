@@ -1,0 +1,26 @@
+{
+ "about": "huge, tiny and negative ranges, mixed signs (normal fit), threshold set",
+ "state": {
+  "f": "huge * tiny + neg",
+  "q": "Extremes",
+  "u": "units",
+  "t": "1e9",
+  "v": {
+   "huge": [
+    "1e12",
+    "1e15",
+    "auto"
+   ],
+   "tiny": [
+    "0.000001",
+    "0.001",
+    "auto"
+   ],
+   "neg": [
+    "-5e9",
+    "2e9",
+    "auto"
+   ]
+  }
+ }
+}

@@ -4,9 +4,10 @@
 import {esc, tint, txt, wrapText} from '../assets/svg.js';
 import {fmt} from './engine.js';
 import {pctProb, pctOne, cashflowMethod, moneyTrio} from './words.js';
+import {mdEscape} from './md.js';
 
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-const W = 860, PAD = 26;
+const SANS_DEFAULT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+const W = 860, PAD = 26, GUTTER = 62;   // the right gutter holds the axis end values, clear of the band and the line
 const f1 = n => (Math.round(n * 100) / 100).toString();
 const pctS = p => pctProb(p, 'whole');   // counted from the runs: whole percent
 /* deterministic money (axis labels, typed ranges): fmt's own figures. Sampled money prints to a shared
@@ -82,10 +83,12 @@ export function verdictLines(r){
   return {head, sub: bits.join(' · ')};
 }
 
+/* ctx.fonts {sans} is the export's own face; the live view keeps the system stack. */
 export function renderCashflow(r, spec, ctx){
   const c = ctx.colors;
+  const SANS = ctx.fonts ? ctx.fonts.sans : SANS_DEFAULT;
   const s = [];
-  let y = PAD + 6;
+  let y = PAD - 16;
   s.push(txt(PAD, y + 14, r.framing === 'runway' ? 'THE RUNWAY VERDICT' : 'THE CASHFLOW VERDICT',
     10, c.muted, {weight: 600, tracking: 1}));
   y += 38;
@@ -96,7 +99,7 @@ export function renderCashflow(r, spec, ctx){
   y += 26;
 
   /* fan chart: cumulative cash, undiscounted */
-  const chW = W - PAD * 2, chH = 190, top = y;
+  const chW = W - PAD * 2 - GUTTER, chH = 190, top = y;
   const H = r.horizon;
   let lo = Math.min(0, ...r.band.map(b => b.p10));
   let hi = Math.max(0, ...r.band.map(b => b.p90));
@@ -117,8 +120,10 @@ export function renderCashflow(r, spec, ctx){
     const ex = X(r.period.p50);
     s.push('<line data-event="" x1="' + f1(ex) + '" y1="' + top + '" x2="' + f1(ex) + '" y2="' + (top + chH - 30) +
       '" stroke="' + c.err + '" stroke-width="1" stroke-dasharray="3 3"/>');
-    s.push(txt(ex + 5, top + 14, (r.period.kind === 'cashout' ? 'cash out' : 'payback') + ' P50', 10.5,
-      c.err, {weight: 600}));
+    /* its label sits below the plot on the period row, centred on the line and kept off the year labels */
+    const evLabel = (r.period.kind === 'cashout' ? 'cash out' : 'payback') + ' P50';
+    const evW = ctx.measure ? ctx.measure(evLabel, '600 10.5px ' + SANS) : evLabel.length * 6;
+    s.push(txt(Math.min(Math.max(ex, PAD + 70 + evW / 2), PAD + chW - 70 - evW / 2), top + chH - 10, evLabel, 10.5, c.err, {weight: 600, anchor: 'middle'}));
   } else {
     s.push('<g data-event="" display="none"></g>');
   }
@@ -126,11 +131,9 @@ export function renderCashflow(r, spec, ctx){
   s.push(txt(PAD + chW, top + chH - 10, periodWord(r.grain, H), 10, c.muted, {anchor: 'end'}));
   s.push(txt(PAD, top - 6, 'CUMULATIVE CASH (UNDISCOUNTED) · P10–P90 BAND, P50 LINE', 9.5, c.muted,
     {weight: 600, tracking: 1}));
-  const halo = (yy, str) => '<text x="' + (PAD + chW - 6) + '" y="' + f1(yy) +
-    '" font-size="10" text-anchor="end" fill="' + c.muted + '" paint-order="stroke" stroke="' +
-    c.card + '" stroke-width="3" stroke-linejoin="round">' + esc(str) + '</text>';
-  s.push(halo(Y(hi - padSpan) + 12, money(hi - padSpan)));
-  s.push(halo(Y(lo + padSpan) - 5, money(lo + padSpan)));
+  /* the axis end values stand in the gutter to the right of the plot, level with the top and bottom of the axis */
+  s.push(txt(W - PAD, Y(hi - padSpan) + 4, money(hi - padSpan), 10, c.muted, {anchor: 'end'}));
+  s.push(txt(W - PAD, Y(lo + padSpan) + 4, money(lo + padSpan), 10, c.muted, {anchor: 'end'}));
   y = top + chH + 8;
 
   /* financing card — appended only when debt is sized, so existing renders
@@ -147,7 +150,7 @@ export function renderCashflow(r, spec, ctx){
     y += 22;
     s.push(txt(PAD, y, fv.head, 18, c.ink, {weight: 600}));
     y += 22;
-    for(const ln of wrapText(fv.sub, 12.5, W - PAD * 2, measure)){ s.push(txt(PAD, y, ln, 12.5, c.muted)); y += 17; }
+    for(const ln of wrapText(fv.sub, '12.5px ' + SANS, W - PAD * 2, measure)){ s.push(txt(PAD, y, ln, 12.5, c.muted)); y += 17; }
     y += 16;
 
     // paired PROJECT vs EQUITY IRR range bars on a shared axis
@@ -156,7 +159,8 @@ export function renderCashflow(r, spec, ctx){
     for(const qd of [d.unlevIrr, d.levIrr]) for(const k of ['p10', 'p90']) if(nn(qd[k])) pool.push(qd[k]);
     let axLo = Math.min(...pool), axHi = Math.max(...pool);
     const axSpan = (axHi - axLo) || 0.1; axLo -= axSpan * 0.06; axHi += axSpan * 0.06;
-    const XI = irr => PAD + (irr - axLo) / (axHi - axLo) * chW2;
+    const axX0 = PAD + 90;   // the axis starts right of the row names: no rule runs under a label
+    const XI = irr => axX0 + (irr - axLo) / (axHi - axLo) * (W - PAD - axX0);
     s.push(txt(PAD, y, 'PROJECT vs EQUITY IRR · P10–P90 BAND, P50 MARK', 9.5, c.muted, {weight: 600, tracking: 1}));
     y += 8;
     for(const [gx, lbl] of [[0, '0%'], [d.costOfDebt, 'debt ' + pct1(d.costOfDebt)]]){
@@ -224,11 +228,11 @@ export function cashflowMarkdown(r, spec, url, typed = null){
   /* the ranges as the author typed them; money() only when no typed text is to hand */
   spec.periods.forEach((p, t) => {
     const tp = typed && typed.periods && typed.periods[t];
-    lines.push('- t' + t + ': ' + (tp ? tp.lo + ' to ' + tp.hi : money(p.lo) + ' to ' + money(p.hi)));
+    lines.push('- t' + t + ': ' + (tp ? mdEscape(tp.lo) + ' to ' + mdEscape(tp.hi) : money(p.lo) + ' to ' + money(p.hi)));
   });
   if(r.horizon > spec.periods.length - 1)
     lines.push('- t' + spec.periods.length + '…t' + r.horizon + ': repeats the last range, resampled');
-  lines.push('- discount rate: ' + (typed && typed.rate ? typed.rate.lo + '–' + typed.rate.hi : spec.rate.lo + '–' + spec.rate.hi) + '%/yr · grain: ' + r.grain);
+  lines.push('- discount rate: ' + (typed && typed.rate ? mdEscape(typed.rate.lo) + '–' + mdEscape(typed.rate.hi) : spec.rate.lo + '–' + spec.rate.hi) + '%/yr · grain: ' + r.grain);
   if(r.debt && r.debt.ok){
     const d = r.debt, fv = financeVerdict(d);
     lines.push('');
