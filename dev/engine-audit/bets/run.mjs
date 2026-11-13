@@ -8,6 +8,7 @@ import {simulate, markdown, verdictParts, NSIM} from '../../../bets/engine.js';
 import {pv, evv, p50Text, lossText, NSIM_TEXT} from '../../../bets/format.js';
 import {betsDiff, betsDiffView, comparisonSafety} from '../../../bets/diff.js';
 import {renderBoard} from '../../../bets/render.js';
+import '../../../bets/face-house.js'; // the page's export path supplies the house face
 import {renderQuadrant} from '../../../bets/render-quadrant.js';
 import {renderBetsPresentation} from '../../../bets/render-presentation.js';
 import {rewriteStake} from '../../../bets/edit-targets.js';

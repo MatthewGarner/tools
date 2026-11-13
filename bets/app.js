@@ -19,6 +19,7 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../assets/exports.js';
 import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
 import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import './face-house.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {createSimMemo, carrySim, runSimulations, isSmall} from './sim-memo.js';
 import {createSimSequencer} from '../assets/sim-sequencer.js';

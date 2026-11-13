@@ -6,6 +6,7 @@ import {check, done, rng} from './lib.mjs';
 import {parse, parseMoney} from '../../../tree/parse.js';
 import {evaluate, evalDet, loadBearing, sliderExtent, flipAlong, refMid} from '../../../tree/engine.js';
 import {render, treeVerdictParts} from '../../../tree/render.js';
+import '../../../tree/face-house.js'; // the page's export path supplies the house face
 import {decisionComparisonProjection} from '../../../tree/comparison.js';
 import {pricedCopy, seamCopy, shiftRange, formatRange, formatMoney, formatP, flipCopy, sharedStep} from '../../../tree/format.js';
 import {fmt, quantile} from '../../../assets/series.js';

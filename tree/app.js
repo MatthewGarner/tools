@@ -14,6 +14,7 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../assets/exports.js';
 import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
 import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import './face-house.js';
 import {rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';

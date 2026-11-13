@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import '../face-house.js'; // the page's export path registers the house face; this test drives it directly
 
 import {parse} from '../parse.js';
 import {project} from '../project.js';
