@@ -1,0 +1,587 @@
+/* Monte Carlo rollback for decision trees. Pure — no DOM.
+   Semantics (spec §2):
+   - Ranges are 90% intervals (log-normal when lo>0, normal otherwise; probabilities
+     clamped to [0,1] and sibling-normalised per simulation).
+   - EXPECTED values are computed, not sampled: a leaf's mean is exact (a point is itself, a normal
+     range its midpoint, a log-normal range exp(mu + sigma^2/2)); a node adds its own; a chance node
+     is the sum of E[q_i] x E[V_i] (exact because probabilities are drawn independently of the
+     subtrees; E[q_i] is exact when every probability at the node is a point, otherwise its mean
+     over the simulated worlds, a bounded quantity with tiny noise).
+   - Policy, not hindsight: each decision node picks the child with the highest EXACT mean, once
+     (ties to the first); the policy is frozen across worlds and free of seed noise.
+   - Sampling stays for what is a spread: the per-node distribution is the distribution of expected
+     value under parameter uncertainty (chance nodes weight children by sampled probabilities),
+     over WORLDS simulated worlds — its P10/P90 and the head-to-head share. */
+import {isWideRange, wideRangeSentence} from './parse.js';
+
+const Z90 = 1.6448536;
+/* coarse scan resolution for probability-flip search: the bisection that
+   follows refines to the same threshold regardless of this value (verified
+   identical to 4dp down to ~24 steps); 30 is a safe margin. */
+const COARSE = 30;
+
+export const WORLDS = 60000;
+
+/* the exact mean of an authored range under the engine's law */
+export function rangeMean(range){
+  if(range.lo === range.hi) return range.lo;
+  if(range.lo > 0){
+    const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2;
+    const sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
+    return Math.exp(mu + sg * sg / 2);
+  }
+  return (range.lo + range.hi) / 2;
+}
+
+/* A leaf's own spread is a known law, so its P10/P50/P90 are exact too (no sampling noise for a lone range);
+   only mixtures — the nodes above leaves — are sampled. */
+const Z10 = 1.2815515655446004;
+function leafQuantiles(range){
+  if(range.lo === range.hi) return {p10: range.lo, p50: range.lo, p90: range.lo};
+  if(range.lo > 0){
+    const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2, sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
+    return {p10: Math.exp(mu - Z10 * sg), p50: Math.exp(mu), p90: Math.exp(mu + Z10 * sg)};
+  }
+  const mu = (range.lo + range.hi) / 2, sg = (range.hi - range.lo) / (2 * Z90);
+  return {p10: mu - Z10 * sg, p50: mu, p90: mu + Z10 * sg};
+}
+
+/* k-th smallest of a (reordered in place): quickselect, O(n), no sort */
+function selectK(a, k, from = 0){
+  let lo = from, hi = a.length - 1;
+  while(lo < hi){
+    const m = (lo + hi) >> 1;
+    const x = a[lo], y = a[m], z = a[hi];
+    const pivot = x < y ? (y < z ? y : (x < z ? z : x)) : (x < z ? x : (y < z ? z : y));
+    let i = lo, j = hi;
+    while(i <= j){
+      while(a[i] < pivot) i++;
+      while(a[j] > pivot) j--;
+      if(i <= j){ const t = a[i]; a[i] = a[j]; a[j] = t; i++; j--; }
+    }
+    if(k <= j) hi = j; else if(k >= i) lo = i; else return a[k];
+  }
+  return a[k];
+}
+/* linear-interpolated quantile, identical to series.js quantile() on the sorted array, by selection */
+function quantiles(arr, qs){
+  const a = Float64Array.from(arr), n = a.length;
+  let from = 0;   /* qs ascend: everything left of the last selected index is already below the rest */
+  return qs.map(q => {
+    const idx = q * (n - 1), lo = Math.floor(idx), hi = Math.ceil(idx);
+    const vLo = selectK(a, lo, from);
+    from = lo;
+    if(hi === lo) return vLo;
+    let vHi = Infinity;
+    for(let i = lo + 1; i < n; i++) if(a[i] < vHi) vHi = a[i];
+    return vLo + (vHi - vLo) * (idx - lo);
+  });
+}
+
+export function evaluate(model, {sims = WORLDS, seed = 0x5EED} = {}){
+  const warnings = [], noOutcome = new Map(), effectiveProbability = new Map();
+  const policy = new Map(), stats = new Map();
+  if(!model.root) return {policy, stats, headToHead: [], flips: [], warnings, noOutcome, effectiveProbability, worlds: sims};
+
+  /* The generator and the Marsaglia polar sampler of assets/series.js (mulberry32 + gaussian), inlined
+     so the hot loops make no closure-to-closure calls. Same arithmetic in the same order: the draws
+     are bit-identical to series.js's for the same seed. */
+  let ra = seed | 0, spare = 0, hasSpare = false, pu = 0, pv = 0, pf = 0;
+  /* one accepted polar pair: pu, pv and the scale pf (draw order: u then v, exactly series.js's) */
+  function pair(){
+    let u, v, s2;
+    do {
+      ra = (ra + 0x6D2B79F5) | 0;
+      let t = Math.imul(ra ^ (ra >>> 15), 1 | ra);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      u = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+      ra = (ra + 0x6D2B79F5) | 0;
+      t = Math.imul(ra ^ (ra >>> 15), 1 | ra);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      v = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+      s2 = u * u + v * v;
+    } while(s2 >= 1 || s2 === 0);
+    pu = u; pv = v; pf = Math.sqrt(-2 * Math.log(s2) / s2);
+  }
+
+  /* fills out[] with exp(mu + sg g) (lognormal) or mu + sg g (normal), g the next standard normals; a
+     spare carried between arrays (an odd world count) behaves exactly as series.js's gaussian() */
+  function fillNormals(out, lognormal, mu, sg){
+    let i = 0;
+    if(hasSpare){ hasSpare = false; out[0] = lognormal ? Math.exp(mu + sg * spare) : mu + sg * spare; i = 1; }
+    if(lognormal){
+      for(; i + 1 < sims; i += 2){ pair(); out[i] = Math.exp(mu + sg * (pu * pf)); out[i + 1] = Math.exp(mu + sg * (pv * pf)); }
+    } else {
+      for(; i + 1 < sims; i += 2){ pair(); out[i] = mu + sg * (pu * pf); out[i + 1] = mu + sg * (pv * pf); }
+    }
+    if(i < sims){
+      pair(); const g = pu * pf;
+      out[i] = lognormal ? Math.exp(mu + sg * g) : mu + sg * g;
+      spare = pv * pf; hasSpare = true;
+    }
+  }
+
+  function sampleArr(range){
+    const out = new Float64Array(sims);
+    if(range.lo === range.hi){ out.fill(range.lo); return out; }
+    if(range.lo > 0){
+      const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2;
+      const sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
+      fillNormals(out, true, mu, sg);
+    } else {
+      const mu = (range.lo + range.hi) / 2, sg = (range.hi - range.lo) / (2 * Z90);
+      fillNormals(out, false, mu, sg);
+    }
+    return out;
+  }
+  /* the midpoint of an authored probability, clamped to [0,1] exactly as every simulated draw is */
+  const mid = r => r === 'rest' ? null : Math.min(1, Math.max(0, (r.lo + r.hi) / 2));
+  const exact = new Map();   // node -> exact expected value under the frozen policy
+  const statsOf = (arr, mean) => {
+    const [p10, p50, p90] = quantiles(arr, [.1, .5, .9]);
+    return {mean, p10, p50, p90};
+  };
+
+  (function warnSums(node){
+    if(node.kind === 'chance'){
+      const explicit = node.children.filter(c => c.p !== 'rest');
+      const hasRest = node.children.some(c => c.p === 'rest');
+      const s = explicit.reduce((a, c) => a + mid(c.p), 0);
+      if(!hasRest && Math.abs(s) >= 1e-12 && Math.abs(s - 1) > 0.02){
+        warnings.push('"' + node.label + '": probabilities sum to ' + s.toFixed(2) + ' — normalised');
+      } else if(hasRest && s > 1.001){
+        warnings.push('"' + node.label + '": explicit probabilities sum to ' + s.toFixed(2) + ' before rest — normalised');
+      }
+    }
+    node.children.forEach(warnSums);
+  })(model.root);
+
+  /* recursive rollback: returns the node's per-sim EV array under the frozen policy */
+  function evalArr(node){
+    const own = node.value ? sampleArr(node.value) : new Float64Array(sims);
+    const ownMean = node.value ? rangeMean(node.value) : 0;
+    let arr, mean;
+    if(node.kind === 'leaf'){
+      arr = own; mean = ownMean;
+    } else if(node.kind === 'decision'){
+      const childArrs = node.children.map(evalArr);
+      let best = 0, bestMean = -Infinity;
+      node.children.forEach((c, i) => {
+        const m = exact.get(c);
+        if(m > bestMean){ bestMean = m; best = i; }
+      });
+      policy.set(node, node.children[best]);
+      mean = ownMean + bestMean;
+      arr = own;
+      const chosen = childArrs[best];
+      for(let s = 0; s < sims; s++) arr[s] += chosen[s];
+    } else {   // chance
+      const childArrs = node.children.map(evalArr);
+      const restIdx = node.children.findIndex(c => c.p === 'rest');
+      const nKids = node.children.length;
+      /* every probability at this node a point: each world has the same weights, so E[q_i] is exact */
+      const allPoints = node.children.every(c => c.p === 'rest' || c.p.lo === c.p.hi);
+      const pArrs = allPoints ? null : node.children.map(c => c.p === 'rest' ? null : sampleArr(c.p));
+      arr = own;
+      const ps = new Float64Array(nKids);
+      const probabilityTotals = new Float64Array(nKids), firstWorld = new Float64Array(nKids);
+      let zeroTotal = 0;
+      if(allPoints){
+        let sum = 0;
+        for(let i = 0; i < nKids; i++){
+          const c = node.children[i].p;
+          const v = c === 'rest' ? 0 : Math.min(1, Math.max(0, c.lo));
+          ps[i] = v; sum += v;
+        }
+        if(restIdx >= 0){
+          if(sum > 1){ for(let i = 0; i < nKids; i++) ps[i] /= sum; sum = 1; }
+          ps[restIdx] = 1 - sum;
+        } else if(sum > 0){
+          for(let i = 0; i < nKids; i++) ps[i] /= sum;
+        } else {
+          zeroTotal = sims;
+        }
+        for(let i = 0; i < nKids; i++) firstWorld[i] = ps[i];
+        if(nKids === 2){
+          const c0 = childArrs[0], c1 = childArrs[1], w0 = ps[0], w1 = ps[1];
+          for(let s = 0; s < sims; s++){ let total = 0; total += w0 * c0[s]; total += w1 * c1[s]; arr[s] += total; }
+        } else {
+          for(let s = 0; s < sims; s++){
+            let total = 0;
+            for(let i = 0; i < nKids; i++) total += ps[i] * childArrs[i][s];
+            arr[s] += total;
+          }
+        }
+      } else for(let s = 0; s < sims; s++){
+        let sum = 0;
+        for(let i = 0; i < nKids; i++){
+          const a = pArrs[i];
+          const v = a === null ? 0 : Math.min(1, Math.max(0, a[s]));
+          ps[i] = v;
+          sum += v;
+        }
+        if(restIdx >= 0){
+          if(sum > 1){ for(let i = 0; i < nKids; i++) ps[i] /= sum; sum = 1; }
+          ps[restIdx] = 1 - sum;
+        } else if(sum > 0){
+          for(let i = 0; i < nKids; i++) ps[i] /= sum;
+        } else {
+          zeroTotal++;
+        }
+        let total = 0;
+        if(s === 0) for(let i = 0; i < nKids; i++) firstWorld[i] = ps[i];
+        for(let i = 0; i < nKids; i++){
+          probabilityTotals[i] += ps[i];
+          total += ps[i] * childArrs[i][s];
+        }
+        arr[s] += total;
+      }
+      mean = ownMean;
+      for(let i = 0; i < nKids; i++){
+        const eq = allPoints ? firstWorld[i] : probabilityTotals[i] / sims;
+        effectiveProbability.set(node.children[i], eq);
+        mean += eq * exact.get(node.children[i]);
+      }
+      if(zeroTotal){
+        noOutcome.set(node, zeroTotal);
+        const pct = (zeroTotal * 100 / sims).toFixed(1).replace(/\.0$/, '');
+        warnings.push('"' + node.label + '": no outcome contributed in ' + zeroTotal + ' of ' +
+          sims + ' sampled worlds (' + pct + '%) because effective probabilities totalled zero');
+      }
+    }
+    exact.set(node, mean);
+    stats.set(node, node.kind === 'leaf' && node.value ? {mean, ...leafQuantiles(node.value)} : statsOf(arr, mean));
+    node._arr = arr;   // kept for head-to-head pairing at the root
+    return arr;
+  }
+  evalArr(model.root);
+
+  /* a ranged leaf whose simulated average lands above its own top: the same sentence parse.js uses
+     for a range wider than 1,000× (which it has already said, so those are skipped here) */
+  (function warnAboveTop(node){
+    const v = node.value, st = stats.get(node);
+    if(node.kind === 'leaf' && v && v.lo !== v.hi && st && st.mean > v.hi && !isWideRange(v))
+      warnings.push(wideRangeSentence(node.label, node.valueRaw || (v.lo + ' to ' + v.hi)));
+    node.children.forEach(warnAboveTop);
+  })(model.root);
+
+  const headToHead = [];
+  if(model.root.kind === 'decision'){
+    const kids = model.root.children;
+    for(let i = 0; i < kids.length; i++){
+      for(let j = i + 1; j < kids.length; j++){
+        const A = kids[i]._arr, B = kids[j]._arr;
+        let wins = 0;
+        for(let s = 0; s < sims; s++) wins += A[s] > B[s] ? 1 : (A[s] === B[s] ? 0.5 : 0);
+        headToHead.push({a: kids[i].label, b: kids[j].label, aNode:kids[i], bNode:kids[j], aShare: wins / sims});
+      }
+    }
+  }
+
+  (function scrub(node){ delete node._arr; node.children.forEach(scrub); })(model.root);
+
+  const flips = [];
+  if(model.root.kind === 'decision' && model.root.children.length > 1){
+    const baseRec = evalDet(model).rec;
+
+    /* probability flips: bisect each explicit chance-child probability */
+    const probNodes = [];
+    (function collect(node){
+      if(node.kind === 'chance'){
+        for(const c of node.children) if(c.p !== 'rest') probNodes.push(c);
+      }
+      node.children.forEach(collect);
+    })(model.root);
+    for(const c of probNodes){
+      const recAt = v => evalDet(model, new Map([[c, v]])).rec;
+      /* every boundary across [0,1] (the same scan the slider's flipAlong uses), not just the first:
+         the effect of one probability is not always monotone. The override is the probability that
+         applies — siblings without a rest sibling are scaled to the remainder (see evalDet). */
+      const boundaries = scanBoundaries(recAt, 0, 1);
+      if(!boundaries.length) continue;
+      /* the stretches of [0,1] where the call differs from the base recommendation, each a
+         {from,to}; a stretch touching 0 or 1 is open-ended ("< t" / "> t") */
+      const edges = [0, ...boundaries, 1], regions = [];
+      for(let k = 0; k < edges.length - 1; k++){
+        if(recAt((edges[k] + edges[k + 1]) / 2) === baseRec) continue;
+        const last = regions[regions.length - 1];
+        if(last && last.to === edges[k]) last.to = edges[k + 1];
+        else regions.push({from: edges[k], to: edges[k + 1]});
+      }
+      /* direction of the first boundary: which side abandons the base recommendation */
+      const direction = recAt(boundaries[0] / 2) === baseRec ? '>' : '<';
+      flips.push({kind: 'prob', label: c.label, threshold: boundaries[0], direction, base: mid(c.p), boundaries, regions});
+    }
+
+    /* payoff flips: pin each ranged value at either end */
+    (function collectV(node){
+      if(node.value && node.value.lo !== node.value.hi){
+        const at = v => evalDet(model, new Map(), new Map([[node, v]])).rec;
+        if(at(node.value.lo) !== baseRec || at(node.value.hi) !== baseRec){
+          flips.push({kind: 'payoff', label: node.label, lo: node.value.lo, hi: node.value.hi});
+        }
+      }
+      node.children.forEach(collectV);
+    })(model.root);
+  }
+
+  return {policy, stats, headToHead, flips, warnings, noOutcome, effectiveProbability, worlds: sims};
+}
+
+/* Deterministic midpoint rollback with optional per-node parameter OVERRIDES — the pure primitive
+   the flip search (above) uses, and the /tree priced-insistence walk (flipAlong/loadBearing) will.
+   Returns {rec, values}: the recommended root option AND the per-root-option deterministic values
+   (so callers have margins). evalDet only ever mids real ranges here (rest is filtered), so a plain
+   midpoint suffices. Extracted from `evaluate` (B0) — behaviour-preserving: `flips` identical + goldens IDENTICAL. */
+export function evalDet(model, pOver = new Map(), vOver = new Map()){
+  const mid = r => (r.lo + r.hi) / 2;
+  const pmid = r => Math.min(1, Math.max(0, mid(r)));   // a probability, clamped as every simulated draw is (TR-9)
+  function walk(node){
+    const own = vOver.has(node) ? vOver.get(node) : (node.value ? mid(node.value) : 0);
+    if(node.kind === 'leaf') return own;
+    if(node.kind === 'decision') return own + Math.max(...node.children.map(walk));
+    const explicit = node.children.filter(c => c.p !== 'rest');
+    const restChild = node.children.find(c => c.p === 'rest');
+    const ps = new Map(explicit.map(c => [c, pOver.has(c) ? Math.min(1, Math.max(0, pOver.get(c))) : pmid(c.p)]));
+    let sum = [...ps.values()].reduce((a, b) => a + b, 0);
+    const pinned = explicit.filter(c => pOver.has(c)), loose = explicit.filter(c => !pOver.has(c));
+    if(restChild){
+      if(sum > 1){ for(const [k, v] of ps) ps.set(k, v / sum); sum = 1; }
+      ps.set(restChild, 1 - sum);
+    } else if(pinned.length && loose.length){
+      /* no rest sibling: a probability moved to v IS v. Its siblings are scaled in proportion to
+         share the remainder, so the set still sums to one and v is the probability that applies (TR-4) */
+      const pinnedSum = pinned.reduce((a, c) => a + ps.get(c), 0), looseSum = loose.reduce((a, c) => a + ps.get(c), 0);
+      if(pinnedSum >= 1){ for(const c of loose) ps.set(c, 0); for(const c of pinned) ps.set(c, ps.get(c) / pinnedSum); }
+      else if(looseSum > 0){ for(const c of loose) ps.set(c, ps.get(c) * (1 - pinnedSum) / looseSum); }
+      else if(sum > 0){ for(const [k, v] of ps) ps.set(k, v / sum); }
+    } else if(sum > 0){
+      for(const [k, v] of ps) ps.set(k, v / sum);
+    }
+    let total = own;
+    for(const c of node.children) total += (ps.get(c) || 0) * walk(c);
+    return total;
+  }
+  if(model.root.kind !== 'decision') return {rec: null, values: []};
+  const base = model.root.value ? mid(model.root.value) : 0;
+  const values = model.root.children.map(c => base + walk(c));
+  let best = null, bestV = -Infinity;
+  model.root.children.forEach((c, i) => { if(values[i] > bestV){ bestV = values[i]; best = c; } });
+  return {rec: best, values};
+}
+
+/* ---------- priced-insistence walk (B1): where the decision actually hinges ----------
+   An inputRef names one number in the DSL by kind + source line:
+     {kind:'prob'|'value', line}  — a chance-child probability, or a node's payoff.
+   These ride evalDet's midpoint rollback with a single override, so they never invent
+   RNG and never run the 10k-sim MC per frame — the live layer is the honest midpoint story. */
+
+export function findByLine(model, line){
+  let found = null;
+  // The synthetic implicit root (parse.js) SHARES its srcLine with the first top-level option,
+  // and preorder visits it first — so skip it, or refs to that line resolve to a value-less
+  // wrapper (C-1: crashed sliderExtent, and silently dropped the first option from the marks).
+  (function w(n){ if(!n || found) return; if(n.srcLine === line && !n.implicit) found = n; n.children.forEach(w); })(model.root);
+  return found;
+}
+
+export function probabilityActionState(node){
+  const editable = Boolean(node && node.p && node.p !== 'rest');
+  const lo = editable ? node.p.lo : NaN, hi = editable ? node.p.hi : NaN;
+  const inDomain = Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && lo <= hi && hi <= 1;
+  return {editable, explorable: editable && node.pParseValid !== false && inDomain};
+}
+
+/* the ref's current midpoint (what evalDet uses by default). A probability with no rest sibling
+   is read as the share it actually carries once its siblings are normalised to one (TR-4), so the
+   slider starts where the call is; a set that already sums to one is read exactly as written. */
+export function refMid(model, ref){
+  const n = findByLine(model, ref.line);
+  if(!n) return null;
+  if(ref.kind === 'prob'){
+    if(!probabilityActionState(n).explorable) return null;
+    const own = (n.p.lo + n.p.hi) / 2, parent = parentOf(model.root, n);
+    if(!parent || parent.kind !== 'chance' || parent.children.some(c => c.p === 'rest')) return own;
+    const sum = parent.children.reduce((a, c) => a + (c.p ? Math.min(1, Math.max(0, (c.p.lo + c.p.hi) / 2)) : 0), 0);
+    return sum > 1e-12 && Math.abs(sum - 1) > 1e-9 ? Math.min(1, Math.max(0, own)) / sum : own;
+  }
+  return n.value ? (n.value.lo + n.value.hi) / 2 : null;
+}
+
+export function parentOf(root, node){
+  let found = null;
+  (function w(n){ if(found) return; if(n.children.includes(node)) found = n; else n.children.forEach(w); })(root);
+  return found;
+}
+
+/* the recommended root option with the ref pinned to x (node identity is stable across calls) */
+function recAt(model, node, ref, x){
+  return ref.kind === 'prob'
+    ? evalDet(model, new Map([[node, x]])).rec
+    : evalDet(model, new Map(), new Map([[node, x]])).rec;
+}
+
+/* every point in [lo,hi] where `at(x)` (the recommended option) changes: a COARSE scan, then a
+   bisection of each change. Shared by the slider (flipAlong) and the printed flip list. */
+function scanBoundaries(at, lo, hi){
+  const boundaries = [];
+  let prevX = lo, prevRec = at(lo);
+  for(let i = 1; i <= COARSE; i++){
+    const x = lo + (hi - lo) * (i / COARSE);
+    const rec = at(x);
+    if(rec !== prevRec){
+      let a = prevX, b = x;                       // bisect the sign-change [prevX, x]
+      for(let k = 0; k < 40; k++){ const m = (a + b) / 2; if(at(m) === prevRec) a = m; else b = m; }
+      boundaries.push((a + b) / 2);
+    }
+    prevX = x; prevRec = rec;
+  }
+  return boundaries;
+}
+
+/* TWO-SIDED scan-then-bisect (I1): the affected option's value is piecewise-affine under a
+   downstream inner max, so the base's holding region need not be one interval and a flip can
+   hide from pure bisection. COARSE scan the extent, bisect each rec sign-change, report the
+   nearest boundary below and above the current midpoint plus the extreme winners. */
+export function flipAlong(model, ref, extent){
+  const node = findByLine(model, ref.line);
+  const cur = refMid(model, ref);
+  const {lo, hi} = extent;
+  if(!node || cur === null || !(hi > lo)) return {below: null, above: null, winnerAtLo: null, winnerAtHi: null, boundaries: []};
+  const at = x => recAt(model, node, ref, x);
+  const winnerAtLo = at(lo), winnerAtHi = at(hi);
+  const boundaries = scanBoundaries(at, lo, hi);
+  let below = null, above = null;
+  for(const b of boundaries){
+    if(b <= cur){ if(below === null || b > below) below = b; }
+    else if(above === null || b < above) above = b;
+  }
+  return {below, above, winnerAtLo, winnerAtHi, boundaries};
+}
+
+const nearestBoundary = (fl, cur) => {
+  const cands = [fl.below, fl.above].filter(b => b !== null);
+  if(!cands.length) return null;
+  return cands.reduce((best, b) => Math.abs(b - cur) < Math.abs(best - cur) ? b : best);
+};
+
+/* the slider's min/max for a ref (I3): a probability is [0,1]; a ranged value is its stated
+   90% interval EXTENDED to reveal the flip, clamped to stated ± 2×span; a point value is a
+   window around the flip (flip ± 25%·|flip−cur|), else ±50%·|value|. Always returns the flips
+   found inside the final track, so the caller can notch them. */
+const NO_EXTENT = {lo: 0, hi: 0, flips: {below: null, above: null, winnerAtLo: null, winnerAtHi: null, boundaries: []}};
+/* the largest payoff magnitude in the tree — the scale for a point value sitting at ≈0,
+   where an absolute reach would be blind (a £4 window on a £M tree; M-1) */
+export function treeScale(model){
+  let m = 0;
+  (function w(n){ if(!n) return; if(n.value) m = Math.max(m, Math.abs(n.value.lo), Math.abs(n.value.hi)); n.children.forEach(w); })(model.root);
+  return m;
+}
+export function sliderExtent(ref, model){
+  const node = findByLine(model, ref.line);
+  const cur = refMid(model, ref);
+  if(node === null || cur === null) return {...NO_EXTENT};   // resolution failure must never throw (C-1)
+  if(ref.kind === 'prob'){
+    return {lo: 0, hi: 1, flips: flipAlong(model, ref, {lo: 0, hi: 1})};
+  }
+  const v = node.value;
+  if(!v) return {...NO_EXTENT};
+  if(v.lo !== v.hi){                                   // ranged value
+    const span = v.hi - v.lo;
+    const clampLo = v.lo - 2 * span, clampHi = v.hi + 2 * span;
+    const near = nearestBoundary(flipAlong(model, ref, {lo: clampLo, hi: clampHi}), cur);
+    let lo = v.lo, hi = v.hi;                          // start at the stated range, never shrink below it
+    if(near !== null){ lo = Math.min(lo, near); hi = Math.max(hi, near); }
+    lo = Math.max(lo, clampLo); hi = Math.min(hi, clampHi);
+    return {lo, hi, flips: flipAlong(model, ref, {lo, hi})};
+  }
+  // point value: search a generous window for the flip, then tighten around it. When cur≈0 the
+  // window must be sized by the TREE's scale, not an absolute unit (M-1: a "0" payoff still has a
+  // flip somewhere in £M territory; a £4 reach or a ±£1 fallback would never see it).
+  const scale = treeScale(model);
+  const reach = 4 * Math.max(Math.abs(cur), scale * 0.25, 1);
+  const near = nearestBoundary(flipAlong(model, ref, {lo: cur - reach, hi: cur + reach}), cur);
+  let lo, hi;
+  if(near !== null){
+    const d = Math.abs(near - cur);
+    lo = Math.min(cur, near) - 0.25 * d;
+    hi = Math.max(cur, near) + 0.25 * d;
+  } else {
+    const pad = Math.abs(cur) * 0.5 || scale * 0.25 || 1;
+    lo = cur - pad; hi = cur + pad;
+  }
+  return {lo, hi, flips: flipAlong(model, ref, {lo, hi})};
+}
+
+/* which numbers are load-bearing (I3): an input is marked iff a flip lies within its slider
+   track, ranked by how near that flip sits to the current value. Degenerate (a runaway winner,
+   nothing load-bearing) → the single widest-margin input via evalDet.values, never zero marks
+   with no explanation. Returns [{ref, nearestFlip, distance, degenerate?}] . */
+export function loadBearing(model){
+  if(!model.root || model.root.kind !== 'decision' || model.root.children.length < 2) return [];
+  const refs = [];
+  (function w(n){
+    if(!n) return;
+    if(probabilityActionState(n).explorable) refs.push({kind: 'prob', line: n.srcLine});
+    if(n.value) refs.push({kind: 'value', line: n.srcLine});
+    n.children.forEach(w);
+  })(model.root);
+
+  const marked = [];
+  for(const ref of refs){
+    const ext = sliderExtent(ref, model);
+    const cur = refMid(model, ref);
+    const nf = nearestBoundary(ext.flips, cur);
+    if(nf !== null){
+      const width = ext.hi - ext.lo;
+      // normalise distance by the track width so prob (0–1) and money (millions) rank comparably:
+      // a flip right at your current belief ⇒ ~0 (most load-bearing), one at the track edge ⇒ ~0.5–1
+      marked.push({ref, extent: {lo: ext.lo, hi: ext.hi}, nearestFlip: nf,
+        distance: Math.abs(nf - cur), proximity: width > 0 ? Math.abs(nf - cur) / width : Infinity});
+    }
+  }
+  if(marked.length){
+    marked.sort((a, b) => a.proximity - b.proximity);
+    return marked;
+  }
+
+  // degenerate: no input flips the call — surface the one that moves the winning margin most
+  const marginOf = vs => { const s = [...vs].sort((a, b) => b - a); return s.length > 1 ? s[0] - s[1] : Infinity; };
+  const baseMargin = marginOf(evalDet(model).values);
+  let widest = null, widestSwing = -Infinity;
+  for(const ref of refs){
+    const ext = sliderExtent(ref, model);
+    const node = findByLine(model, ref.line);
+    let swing = 0;
+    for(const x of [ext.lo, ext.hi]){
+      const vs = ref.kind === 'prob'
+        ? evalDet(model, new Map([[node, x]])).values
+        : evalDet(model, new Map(), new Map([[node, x]])).values;
+      swing = Math.max(swing, Math.abs(marginOf(vs) - baseMargin));
+    }
+    if(swing > widestSwing){ widestSwing = swing; widest = ref; }
+  }
+  return widest ? [{ref: widest, extent: sliderExtent(widest, model), nearestFlip: null, distance: Infinity, proximity: Infinity, degenerate: true}] : [];
+}
+
+/* B3 — the priced-insistence readout's two no-flip cases (I4). loadBearing already only marks
+   inputs whose flip lies WITHIN their sliderExtent track, so this only matters for a number
+   explored via the card-menu (I-3) that ISN'T load-bearing: sliderExtent's own track (`ext`,
+   already computed by the caller) found no flip, but does one exist further out? For a
+   probability the track already IS the whole domain ([0,1]), so it never hinges further out
+   (returns null unconditionally). For a money value, probe a further ±10×track-span beyond the
+   track — generous enough to separate "never hinges" from "hinges, but only past a plausible
+   value", while staying close enough to the track's own scale that the COARSE scan can still
+   resolve the crossing (a probe scaled to the whole tree, independent of the track, can outrun
+   the scan's resolution and silently miss a boundary that's only modestly out of range). Beyond
+   that reach, "never" and "only at an implausible extreme" are equally honest — this is a
+   deliberately bounded, not exhaustive, search. Returns the nearest such far boundary, or null. */
+export function hingesBeyondTrack(model, ref, ext){
+  if(ref.kind === 'prob') return null;   // [0,1] IS the full domain already; sliderExtent covers it
+  const node = findByLine(model, ref.line);
+  const cur = refMid(model, ref);
+  if(!node || !node.value || cur === null) return null;
+  const span = Math.max(ext.hi - ext.lo, 1);
+  const wide = flipAlong(model, ref, {lo: ext.lo - 10 * span, hi: ext.hi + 10 * span});
+  return nearestBoundary(wide, cur);
+}
