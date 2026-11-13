@@ -132,6 +132,15 @@ async function checkSvg(page, add, ctx, file, {liveSvg, theme, man, tool, doc, d
     const missing = [...new Set(liveWords.filter(w => !exportWords.has(w)))];
     add(ctx, 'svg:mirrors-live-words', missing.length === 0, {missing: missing.slice(0, 30), count: missing.length}, 'every word drawn in the live view is in the export (wrapping may differ)');
   }
+  /* Fermi: the driver tree is headed by the question (XF-14); a comparison export describes both variants (XF-7) */
+  if(tool === 'fermi' && ctx.view === 'tree' && doc.state && (doc.state.q || doc.state.a?.q)){
+    const q = normText(doc.state.q || doc.state.a.q), all = normText(svgTexts(svg).join(' '));
+    add(ctx, 'svg:fermi-tree-titled', all.includes(q.slice(0, 20)) || words(q).slice(0, 3).every(w => all.includes(w)), {question: q.slice(0, 60)}, 'XF-14: the question heads the driver-tree export');
+  }
+  if(tool === 'fermi' && ctx.view === 'dist' && doc.state?.a && doc.state?.b){
+    const all = svgTexts(svg).join(' '), fa = (doc.state.a.f || '').trim(), fb = (doc.state.b.f || '').trim();
+    add(ctx, 'svg:fermi-variants-described', all.includes('Variant A: ' + fa) && all.includes('Variant B: ' + fb), {a: fa, b: fb}, 'XF-7: the comparison picture describes both A and B');
+  }
   /* authored strings present */
   const auth = (tool === 'bets' && ctx.view !== 'board') ? [] : authored(tool, doc);
   if(auth.length){
@@ -174,7 +183,7 @@ async function checkPng(page, add, ctx, file, {dir, id, theme, man, ex}){
 function checkMd(add, ctx, md, {tool, doc, man, liveSvg}){
   const probs = checkMarkdownTables(md);
   add(ctx, 'md:tables-valid', probs.length === 0, {problems: probs.slice(0, 8)}, 'every table row has the header\'s cell count (an unescaped pipe in a cell adds a column)');
-  const raw = /<(?!https?:)[a-z\/][^>]*>/i.exec(md);
+  const raw = /<(?!https?:)[a-z\/][^>]*>/i.exec(md.replace(/\\[\\|*_`\[\]<>]/g, ''));   // a backslash-escaped < or > is not markup
   add(ctx, 'md:no-raw-html', !raw, {match: raw?.[0]}, 'authored < > reach Markdown escaped, not as live HTML');
   const unesc = md.replace(/\\([|*_`\[\]<>\\#])/g, '$1');
   const auth = authored(tool, doc);

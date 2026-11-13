@@ -15,6 +15,9 @@ import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
 import {wireExports, flashButton} from '../assets/exports.js';
+import {wirePrintArtefact} from '../assets/print-artefact.js';
+import {renderResultCard, RESULT_CW} from './result-card.js';
+import {estimateMarkdown} from './md.js';
 import {offer as provide} from '../assets/recent-ui.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
@@ -519,7 +522,7 @@ function setEstimateStatus(message = ''){
   $('estimate-status').hidden = !stale;
   $('results').classList.toggle('is-stale', stale);
   $('results').inert = stale;
-  for(const control of $('results').querySelectorAll('#copy, #copydoc, #png, #treepng, #treesvg, .vcopy')) control.disabled = stale;
+  for(const control of $('results').querySelectorAll('#copy, #copydoc, #png, #distcopypng, #distsvg, #treepng, #treesvg, .vcopy')) control.disabled = stale;
   syncLive();
 }
 function showPlaceholder(msg){
@@ -667,6 +670,7 @@ liveBtn.addEventListener('click', () => {
 });
 
 /* ---------- render results ---------- */
+let shown = null;      // the sentences the page printed for the current result (the exports quote them)
 let resultsSig = '';   // output-unchanged gate: skip the DOM rebuild when nothing shown would differ (batch 7)
 // The formula identifies the estimate; its result belongs in the answer.
 function formulaLabel(){
@@ -709,6 +713,7 @@ function renderResults(){
     notes.push('Entered high-to-low: ' + inverted.map(n => n.replace(/_/g, ' ')).join(', ') + ' — read as a range either way.');
   }
   const warnText = notes.join(' ');
+  shown = {verdict: sayText, spread: spreadText, method: estimateMethod(r.varNames, r.ranges, r.dists, N, !!r.exact)};
 
   const sens = r.sens;
   const sensSig = sens.map(s => s.name + ':' + s.share.toFixed(4) + ':' + s.label).join(',');
@@ -838,7 +843,7 @@ function applyViewContent(){
   $('pourverdict').hidden = tree;
   if(tree){ pour.stop(); clearConfession(); }   // the confession is dist-view only too
   $('threshrow').hidden = tree;
-  $('png').hidden = tree;
+  $('png').hidden = tree; $('distcopypng').hidden = tree; $('distsvg').hidden = tree;
   $('treesvg').hidden = !tree;
   $('treepng').hidden = !tree;
   renderDriverView();
@@ -867,8 +872,30 @@ function setView(next, btn){
 $('viewdist').addEventListener('click', () => setView('dist', $('viewdist')));
 $('viewtree').addEventListener('click', () => setView('tree', $('viewtree')));
 const treeSlug = () => 'drivers-' + ($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model');
-wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
-  getSvg: () => { ensureFreshEstimate(); return last ? lastTreeSvg || null : null; }, slug: treeSlug});
+/* ---------- exports: the same embedded fonts as Roadmap and Timeline ---------- */
+const EXPORT_FONTS = {sans: "'DM Sans',sans-serif"};
+const exportLine = $('exportstatus');
+/* The embedded faces (the same Roadmap and Timeline embed) load once the page is idle, or at the first sign of an export (a hover, a
+   touch, the export row scrolling into view): a Copy PNG press has to build its picture in the click itself. */
+let fontsApi = null, fontsLoading = null;
+const chapterFontsReady = () => !!fontsApi && fontsApi.chapterFontsReady();
+const embedChapterFonts = svg => fontsApi.embedChapterFonts(svg);
+function warmFonts(){
+  return fontsLoading ||= import('../assets/chapter-font-loader.js').then(async m => { await m.loadChapterFonts(); fontsApi = m; })
+    .catch(() => { fontsLoading = null; exportLine.textContent = 'Fonts for exports could not load, so Copy PNG, PNG and SVG are unavailable. Reload to try again.'; exportLine.hidden = false; });
+}
+(window.requestIdleCallback || (f => setTimeout(f, 1500)))(warmFonts, {timeout: 4000});
+for(const ev of ['pointerenter', 'touchstart', 'focusin']) document.querySelector('#results .actions').addEventListener(ev, warmFonts, {once: true, passive: true});
+const fontsReadyFor = fn => () => { if(!chapterFontsReady()){ warmFonts(); exportLine.textContent = 'Fonts for exports are still loading: try again in a moment.'; exportLine.hidden = false; return null; } exportLine.hidden = true; return fn(); };
+const lightly = fn => {   // a print sheet is light whatever the page is
+  const root = document.documentElement, was = root.dataset.theme;
+  root.dataset.theme = 'light';
+  try{ return fn(); }finally{ if(was === undefined) delete root.dataset.theme; else root.dataset.theme = was; }
+};
+const treeExport = (embed = true) => { ensureFreshEstimate(); if(!last) return null;
+  return (embed ? embedChapterFonts : svg => svg)(renderDriverTree({...last, scenLabel: compareOn ? active : null, title: $('estimatequestion').value.trim() || formulaLabel()},
+    {colors: themeColors(), measure, fonts: EXPORT_FONTS})); };
+wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')}, getSvg: fontsReadyFor(treeExport), slug: treeSlug});
 
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
@@ -1297,91 +1324,62 @@ $('copydoc').addEventListener('click', async () => {
   ensureFreshEstimate();
   if(!last) return;
   await flushEstimateHash();
-  const lines = [];
-  if($('estimatequestion').value.trim()) lines.push($('estimatequestion').value.trim(), '');
-  if($('estimateunit').value.trim()) lines.push('Results in ' + $('estimateunit').value.trim(), '');
-  lines.push('**Estimate — `' + $('formula').value.trim() + '`**');
-  lines.push('');
-  let head = 'P50 ≈ **' + fmt(last.p50) + '** · 80% range ' + fmt(last.p10) + ' – ' + fmt(last.p90);
-  if(last.p10 > 0) head += ' (spread ×' + ratioStr(last.p90 / last.p10) + ')';
-  lines.push(head);
-  const t = threshValue();
-  if(t !== null) lines.push('P(> ' + fmt(t) + ') = ' + $('tout').textContent);
-  lines.push('');
-  const anyUni = currentVarNames.some(n => varState.get(n)?.dist === 'uni');
-  lines.push('Assumptions (90% intervals' + (anyUni ? '; a uniform input is its full range' : '') + '):');
-  for(const name of currentVarNames){
-    const st = varState.get(name);
-    if(st) lines.push('- ' + name.replace(/_/g,' ') + ': ' + st.lo + ' – ' + st.hi + (st.dist === 'uni' ? ' (uniform, full range)' : '') + ' — ' + receiptLabel(st.base));
-  }
-  if(last.sens.length > 1){
-    const fullLabel = isFinite(last.fullRatio) ? '×' + ratioStr(last.fullRatio) : fmt(last.p10) + ' – ' + fmt(last.p90);
-    lines.push('');
-    lines.push(leverLine(last.sens, fullLabel));
-  }
-  if(pourVerdictText){ lines.push(''); lines.push(pourVerdictText); }
-  if(lastConfess){ const cv = $('confessverdict').textContent.replace(/\s*(Adopt|Undo)$/, '').trim(); if(cv){ lines.push(''); lines.push(cv); } }
-  const pcmp = compareOn ? pBeatsStr() : null;
-  if(pcmp !== null){
-    lines.push('');
-    lines.push('Model variant A P50 ' + fmt(lastBy.A.p50) + ' vs model variant B P50 ' + fmt(lastBy.B.p50) +
-      ' — independently sampled B outputs exceed A in ' + pcmp + '. This is sensitivity analysis, not a chance state.');
-  }
-  lines.push('');
-  lines.push('_' + estimateMethod(last.varNames, last.ranges, last.dists, N, !!last.exact) + ' · [live model](' + location.href + ')_');
-  const txt = lines.join('\n');
+  const t = threshValue(), pcmp = compareOn ? pBeatsStr() : null;
+  const txt = estimateMarkdown({
+    question: $('estimatequestion').value.trim(), unit: $('estimateunit').value.trim(), formula: $('formula').value.trim(),
+    p10: fmt(last.p10), p50: fmt(last.p50), p90: fmt(last.p90), ratio: last.p10 > 0 ? ratioStr(last.p90 / last.p10) : '',
+    threshold: t !== null ? {text: fmt(t), pct: $('tout').textContent} : null,
+    vars: currentVarNames.map(name => varState.get(name)).map((st, i) => st && ({name: currentVarNames[i], lo: st.lo, hi: st.hi, uniform: st.dist === 'uni', receipt: receiptLabel(st.base)})).filter(Boolean),
+    lever: last.sens.length > 1 ? leverLine(last.sens, isFinite(last.fullRatio) ? '×' + ratioStr(last.fullRatio) : fmt(last.p10) + ' – ' + fmt(last.p90)) : '',
+    pour: pourVerdictText,
+    confession: lastConfess ? $('confessverdict').textContent.replace(/\s*(Adopt|Undo)$/, '').trim() : '',
+    compare: pcmp !== null ? {a: fmt(lastBy.A.p50), b: fmt(lastBy.B.p50), pct: pcmp} : null,
+    method: estimateMethod(last.varNames, last.ranges, last.dists, N, !!last.exact), link: location.href});
   try{
     await navigator.clipboard.writeText(txt);
-    $('copydoc').textContent = 'Copied';
-    setTimeout(() => { $('copydoc').textContent = 'Copy as markdown'; }, 1500);
+    flashButton($('copydoc'), 'Copied — paste into your doc');
   }catch(e){
+    exportLine.textContent = 'Copy blocked by this browser. The Markdown is in the prompt that opened: copy it from there.'; exportLine.hidden = false;
     prompt('Copy this:', txt);
   }
 });
-$('png').addEventListener('click', async () => {
-  ensureFreshEstimate();
-  if(!last) return;
-  const result = last, snap = snapshot(), C = themeColors(), w = 760, pad = 28;
-  const chart = document.createElement('canvas');
-  drawHist(undefined, {canvas:chart, width:w});
-  // Capture everything before encoding: later edits must not change this receipt.
-  const model = compareOn
-    ? {a:packScen(active === 'A' ? snap : scenStore.A), b:packScen(active === 'B' ? snap : scenStore.B), on:active}
-    : packScen(snap);
-  const rows = [
-    {text:snap.question.trim() || snap.f, size:19, weight:600},
-    {text:'Conditional estimate' + (snap.unit.trim() ? ' · '+snap.unit.trim() : ''), size:12},
-    {text:'P10 '+fmt(result.p10)+' · P50 '+fmt(result.p50)+' · P90 '+fmt(result.p90), size:16, weight:600},
-    {text:'Formula: '+snap.f, size:13},
-    {text:'ASSUMPTIONS · 90% INPUT RANGES' + (result.varNames.some(n => snap.vars.get(n)?.dist === 'uni') ? ' (UNIFORM: FULL RANGE)' : ''), size:11, weight:600},
-    ...result.varNames.map(name => {
-      const st = snap.vars.get(name);
-      return {text:name+': '+st.lo+' – '+st.hi+' · '+shapeLabel(st.dist, Math.min(parseNum(st.lo), parseNum(st.hi)))+' · '+receiptLabel(st.base),size:12};
-    }),
-    {text:N.toLocaleString('en-GB') + ' seeded samples, independent inputs. These ranges are assumptions, not a guarantee of outcomes.', size:11},
-  ];
-  if(compareOn) rows.push({text:'Model variant '+active+' filled; '+(active === 'A' ? 'B' : 'A')+' outlined. Variant comparison is sensitivity analysis, not a chance state.',size:11});
-  const hash = await encodeHash(targetHashState(model, inboundHandoff));
-  rows.push({text:'Reopen this model: '+location.origin+location.pathname+'#'+hash, size:9});
-  const c = document.createElement('canvas'), ctx = c.getContext('2d'), lines = [];
-  let y = pad + 180 + 28;
-  for(const row of rows){
-    const font = (row.weight || 400)+' '+row.size+'px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.font = font;
-    let line = '';
-    for(const char of row.text){
-      if(ctx.measureText(line+char).width > w){lines.push({text:line,font,y});y+=row.size+6;line=char;}
-      else line+=char;
-    }
-    lines.push({text:line,font,y});y+=row.size+14;
-  }
-  c.width=(w+pad*2)*2;c.height=(y+pad)*2;ctx.scale(2,2);
-  ctx.fillStyle=C.card;ctx.fillRect(0,0,w+pad*2,y+pad);
-  ctx.drawImage(chart,pad,pad,w,180);ctx.fillStyle=C.ink;
-  for(const line of lines){ctx.font=line.font;ctx.fillText(line.text,pad,line.y);}
-  c.toBlob(blob => {if(blob){ download('estimate.png',blob); flashButton($('png'), 'Saved', 1500); }},'image/png');
-});
 
+/* the distribution picture: the result card as the page shows it. The PNG is this SVG at 2x, the same for Copy PNG and Download PNG. */
+function outlineOf(other, L){
+  const counts = new Array(L.NB).fill(0);
+  for(const v of other.raw){
+    if(v < L.lo || v > L.hi || (L.useLog && v <= 0)) continue;
+    let b = Math.floor((L.tx(v) - L.tlo) / (L.thi - L.tlo) * L.NB);
+    if(b === L.NB) b = L.NB - 1;
+    if(b >= 0 && b < L.NB) counts[b]++;
+  }
+  const max = Math.max(...counts);
+  return max > 0 ? counts.map(n => n / max) : null;
+}
+function distExport(embed = true){
+  ensureFreshEstimate();
+  const r = last;
+  if(!r || !shown) return null;
+  const C = themeColors(), tv = threshValue(), L = histLayout(r.sorted, {width: RESULT_CW, threshold: tv});
+  const own = active === 'A' ? C.accent : C.accent2, otherLetter = active === 'A' ? 'B' : 'A', other = compareOn ? lastBy[otherLetter] : null;
+  const variantOf = (name, res, snap) => ({name, formula: (snap?.f || '').trim(), p10: fmt(res.p10), p50: fmt(res.p50), p90: fmt(res.p90)});
+  const cmpP = compareOn ? pBeatsStr() : null;
+  return (embed ? embedChapterFonts : svg => svg)(renderResultCard({
+    question: $('estimatequestion').value.trim(), unit: $('estimateunit').value.trim(), formula: $('formula').value.trim(),
+    p10: r.p10, p50: r.p50, p90: r.p90, p10Text: fmt(r.p10), p50Text: fmt(r.p50), p90Text: fmt(r.p90),
+    verdict: shown.verdict, spread: shown.spread, method: shown.method,
+    layout: L, fill: own, threshold: tv, loText: L.ok ? fmt(L.lo) : '', hiText: L.ok ? fmt(L.hi) : '',
+    threshText: tv !== null ? 'Chance the answer exceeds ' + fmt(tv) + ' = ' + threshPctText() : '',
+    outline: other && L.ok ? outlineOf(other, L) : null, outlineColor: otherLetter === 'A' ? C.accent : C.accent2,
+    compare: compareOn ? {active, other: other ? otherLetter : ''} : null,
+    variants: compareOn && other ? [variantOf('A', lastBy.A, active === 'A' ? snapshot() : scenStore.A), variantOf('B', lastBy.B, active === 'B' ? snapshot() : scenStore.B)] : null,
+    compareText: cmpP ? 'B exceeds A in ' + cmpP + ' (independently sampled; sensitivity, not a chance state).' : '',
+  }, {colors: C, measure, fonts: EXPORT_FONTS}));
+}
+wireExports({buttons: {dlsvg: $('distsvg'), dlpng: $('png'), copypng: $('distcopypng')}, getSvg: fontsReadyFor(distExport),
+  slug: () => 'estimate-' + (($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model'))});
+/* print is the current view's artefact alone, light, as a picture */
+wirePrintArtefact({getSvg: () => lightly(() => pageMode === 'cf' ? cfExport(false) : view === 'tree' ? treeExport(false) : distExport(false))});
 
 $('formula').addEventListener('input', () => schedule(120));
 for(const id of ['estimatequestion','estimateunit']) $(id).addEventListener('input', () => schedule(120));
@@ -1636,8 +1634,12 @@ for(const ex of CF_EXAMPLES){
   $('cfchips').appendChild(b);
 }
 
+function cfExport(embed = true){
+  ensureFreshCashflow();
+  return cfResult ? (embed ? embedChapterFonts : svg => svg)(renderCashflow(cfResult, cfSpec, {colors: themeColors(), measure, fonts: EXPORT_FONTS})) : null;
+}
 wireExports({buttons: {dlsvg: $('cfsvg'), dlpng: $('cfpng'), copypng: $('cfcopypng')},
-  getSvg: () => { ensureFreshCashflow(); return cfSvg || null; },
+  getSvg: fontsReadyFor(cfExport),
   slug: () => cfResult && cfResult.framing === 'runway' ? 'runway' : 'cashflow-npv'});
 $('cfcopydoc').addEventListener('click', async () => {
   ensureFreshCashflow();

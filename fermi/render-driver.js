@@ -7,16 +7,21 @@ import {fmt, ratioStr} from './engine.js';
 import {topDrivers, treeHeadline} from './words.js';
 import {normalizeReceipt, receiptChipLabel, receiptLabel} from './state.js';
 
-const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+const MONO_DEFAULT = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
+const SANS_DEFAULT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const OP = {'*': '×', '/': '÷', '+': '+', '-': '−', '^': '^', neg: '−'};
 const PAD = 28, ROW_H = 72, COL_W = 128, CAP_H = 58, OP_R = 13, OUT_W = 236, OUT_H = 96, HEAD_H = 64;
 
 const f1 = n => (Math.round(n * 100) / 100).toString();
 
+/* ctx.fonts {sans} is the export's own face (embedded by the page): every text then uses it. The live view keeps the system stacks.
+   model.title heads the picture with the question. */
 export function renderDriverTree(model, ctx){
   const c = ctx.colors, measure = ctx.measure;
+  const SANS = ctx.fonts ? ctx.fonts.sans : SANS_DEFAULT, MONO = ctx.fonts ? ctx.fonts.sans : MONO_DEFAULT, monoAttr = !ctx.fonts;
+  const TOP = model.title ? 26 : 0;   // room for the question above the kicker
   const {ast, ranges, sens = [], p10, p50, p90, fullRatio, scenLabel, bases} = model;
+  const HEAD = HEAD_H + TOP;
   const shares = Object.fromEntries(sens.map(s => [s.name, s.share]));
   const tied = new Set(topDrivers(sens));          // every input within 2 points of the top is marked
   const labelled = new Set();                      // a variable used twice shows its share once
@@ -43,7 +48,7 @@ export function renderDriverTree(model, ctx){
       node = {n, d, y: C.y, kids: [C]};
       n._share = n.e._share;
     } else {
-      node = {n, d, y: HEAD_H + li * ROW_H + ROW_H / 2, leaf: true};
+      node = {n, d, y: HEAD + li * ROW_H + ROW_H / 2, leaf: true};
       n._share = n.t === 'var' ? (shares[n.name] || 0) : 0;
       li++;
     }
@@ -60,7 +65,7 @@ export function renderDriverTree(model, ctx){
   const capW = Math.min(260, Math.max(110, ...leafTexts) + 26);
   const rootCx = PAD + capW + maxD * COL_W + (maxD ? 0 : 30);
   const W = Math.round(rootCx + 30 + OUT_W + PAD);
-  const H = Math.round(Math.max(HEAD_H + li * ROW_H, root.y + OUT_H / 2 + 8) + PAD);
+  const H = Math.round(Math.max(HEAD + li * ROW_H, root.y + OUT_H / 2 + 8) + PAD - 8);
   const cx = nd => nd.leaf ? null : PAD + capW + (maxD - nd.d) * COL_W;
 
   const shareOf = n => n._share;
@@ -68,11 +73,12 @@ export function renderDriverTree(model, ctx){
 
   const s = [];
   /* header */
-  s.push(txt(PAD, PAD + 4, 'WHAT DRIVES THE ANSWER' + (scenLabel ? ' — SCENARIO ' + scenLabel : ''),
+  if(model.title) s.push(txt(PAD, PAD + 8, fit(model.title, W - PAD * 2, '600 17px ' + SANS, measure), 17, c.ink, {weight: 600}));
+  s.push(txt(PAD, PAD + 4 + TOP, 'WHAT DRIVES THE ANSWER' + (scenLabel ? ' — SCENARIO ' + scenLabel : ''),
     10, c.muted, {weight: 600, tracking: 1}));
   const fullLabel = isFinite(fullRatio) ? '×' + ratioStr(fullRatio) : fmt(p10) + ' – ' + fmt(p90);
   const headline = treeHeadline(sens, fullLabel);
-  s.push(txt(PAD, PAD + 24, headline, 13, c.ink));
+  s.push(txt(PAD, PAD + 24 + TOP, headline, 13, c.ink));
 
   /* edges (drawn beneath nodes) */
   function edgeAnchors(child){
@@ -115,15 +121,15 @@ export function renderDriverTree(model, ctx){
           '" width="' + f1(capW) + '" height="' + CAP_H + '" rx="0" fill="' +
           (isTop ? tint(c.accent) : c.card) + '" stroke="' + (isTop ? c.accent : c.border) + '"/>');
         s.push(txt(PAD + 13, nd.y - 10, fit(nd.n.name, capW - 26, '600 12px ' + MONO, measure),
-          12, c.ink, {weight: 600, mono: true}));
-        s.push(txt(PAD + 13, nd.y + 5, rangeText(ranges[nd.n.name]), 11, c.muted));
+          12, c.ink, {weight: 600, mono: monoAttr}));
+        s.push(txt(PAD + 13, nd.y + 5, rangeText(ranges[nd.n.name]), 11, isTop ? c.ink : c.muted));   /* on the highlighted card muted ink is under 4.5:1 */
         const receipt = receiptChipLabel(baseFor(nd.n.name));
         s.push(txt(PAD + 13, nd.y + 20, fit(receipt, capW - 26, '600 9.5px ' + SANS, measure),
-          9.5, baseFor(nd.n.name) ? c.accent : c.muted, {weight: 600}));
+          9.5, baseFor(nd.n.name) ? c.accent : (isTop ? c.ink : c.muted), {weight: 600}));
       } else {
         s.push('<rect data-node="num" x="' + PAD + '" y="' + f1(nd.y - 12) + '" width="' + f1(capW) +
           '" height="24" rx="0" fill="none" stroke="' + c.border + '" stroke-dasharray="3 3"/>');
-        s.push(txt(PAD + 13, nd.y + 4, fmt(nd.n.v), 12, c.muted, {mono: true}));
+        s.push(txt(PAD + 13, nd.y + 4, fmt(nd.n.v), 12, c.muted, {mono: monoAttr}));
       }
     } else {
       const x = cx(nd);
@@ -135,15 +141,15 @@ export function renderDriverTree(model, ctx){
   }
 
   /* outcome card */
-  const oy = Math.max(HEAD_H + OUT_H / 2, Math.min(root.y, H - PAD - OUT_H / 2));
+  const oy = Math.max(HEAD + OUT_H / 2, Math.min(root.y, H - PAD - OUT_H / 2));
   const ox = rootCx + 30;
   s.push('<rect data-node="out" x="' + f1(ox) + '" y="' + f1(oy - OUT_H / 2) + '" width="' + OUT_W +
     '" height="' + OUT_H + '" rx="0" fill="' + tint(c.accent) + '" stroke="' + c.accent + '"/>');
-  s.push(txt(ox + 16, oy - OUT_H / 2 + 22, 'THE ANSWER', 9.5, c.muted, {weight: 600, tracking: 1}));
+  s.push(txt(ox + 16, oy - OUT_H / 2 + 22, 'THE ANSWER', 9.5, c.ink, {weight: 600, tracking: 1}));   /* ink, not muted: on the tinted card muted is under 4.5:1 */
   s.push(txt(ox + 16, oy - OUT_H / 2 + 46, fmt(p50), 21, c.ink, {weight: 700}));
   s.push(txt(ox + 16, oy - OUT_H / 2 + 64, 'P10 ' + fmt(p10) + '  ·  P90 ' + fmt(p90), 11.5, c.ink));
   s.push(txt(ox + 16, oy - OUT_H / 2 + 82, 'spread ' + fullLabel +
-    (isFinite(fullRatio) ? ' (P90 ÷ P10)' : ''), 11, c.muted));
+    (isFinite(fullRatio) ? ' (P90 ÷ P10)' : ''), 11, c.ink));
 
   /* pure display — no data-edit targets here, so a role="img" summary is
      safe (it never hides interactive descendants) */
@@ -154,7 +160,7 @@ export function renderDriverTree(model, ctx){
     (provenanceSummary ? ' Assumption sources. ' + provenanceSummary + '.' : '');
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +
-    esc(accessibleSummary) + '"><title>What drives the answer</title><desc>' + esc(accessibleSummary) + '</desc>' +
+    esc(accessibleSummary) + '"><title>' + esc(model.title || 'What drives the answer') + '</title><desc>' + esc(accessibleSummary) + '</desc>' +
     '<rect width="' + W + '" height="' + H + '" fill="' + c.card + '"/>' + s.join('') + '</svg>';
 }
 

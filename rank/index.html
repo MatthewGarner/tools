@@ -126,6 +126,7 @@
   @media (max-width:640px){#tbl tr.undorow{display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 5%,var(--card));padding:4px 12px}#tbl tr.undorow td{border-top:none;background:none;min-height:44px}}
   @media (prefers-reduced-motion:no-preference){tr.row-in{animation:row-in var(--dur-base) var(--ease-out)}}
   @keyframes row-in{from{opacity:0}to{opacity:1}}
+  .export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
   .toolbar{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
   .toolbar .note{font-size:12.5px;color:var(--muted)}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
@@ -240,6 +241,18 @@
     #liveread.on{transition-delay:0s}
   }
 
+  /* print: the ranking alone (the verdict, the cut, the rows and their key), light, on paper width; no row is cut across a page */
+  @media print{
+    @page{margin:12mm}
+    html,body{background:#fff!important;color:#000}
+    .mg-masthead,.mg-footer,.mg-skip,[data-tool-header],.about,#liveread,.wstrip,#results .actions,.kpick input,main>.card:not(#resultcard){display:none!important}
+    .wrap{max-width:none;padding:0;margin:0}
+    #resultcard{border:0;box-shadow:none;padding:0;margin:0}
+    .rrow,.verdict-block,.legend{break-inside:avoid}
+    .rrow{padding:3px 0;gap:8px}.rankbar{height:14px}
+    .rankbar .cell.in,.rankbar .cell.med,.knifepill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+
   /* fingers get full-size controls */
   @media (pointer: coarse){
     td .del{min-width:40px;min-height:40px}
@@ -331,6 +344,7 @@
         <button class="btn primary" id="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button>
         <span class="method">Wobble: weights <input id="ww" type="number" min="0" max="200" step="10" value="50" aria-label="Weight wobble percent">% (<span id="wwx">up to 1.5× larger or smaller</span>) · scores ±<input id="sw" type="number" min="0" max="5" step="0.5" value="1" aria-label="Score wobble points"> pts · <span data-runs>16,000</span> simulations · deterministic</span>
       </div>
+      <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
     </div>
   </section>
 

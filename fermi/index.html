@@ -41,6 +41,7 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/handoff.css">
 <link rel="stylesheet" href="/assets/motion.css">
+<link rel="stylesheet" href="/assets/print-artefact.css" media="print">
 <style>  .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
   h1{
     font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;
@@ -195,6 +196,7 @@
   .confessverdict b{color:var(--ink);font-weight:600}
   .confessverdict b.over{color:var(--err)}
   .cghost{display:flex;align-items:center;gap:10px;padding:1px 0 7px;font-size:12.5px;color:var(--muted)}
+  .export-status{margin:12px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
   #confesscards{margin:6px 0 0}#confesscards .cghost{padding:0}.ctxt .cn{color:var(--ink);font-weight:600}
   .cspark{width:56px;height:26px;flex:none;opacity:.9}
   .ctxt{flex:1;min-width:0;font-variant-numeric:tabular-nums}
@@ -432,7 +434,9 @@
       <div class="actions">
         <button id="copy" class="btn">Copy summary</button>
         <button id="copydoc" class="btn" data-capability="presentationExports.estimate-markdown">Copy as markdown</button>
+        <button id="distcopypng" class="btn" data-capability="presentationExports.distribution-png">Copy PNG</button>
         <button id="png" class="btn" data-capability="presentationExports.distribution-png">PNG</button>
+        <button id="distsvg" class="btn" data-capability="presentationExports.distribution-svg">SVG</button>
         <button id="treepng" class="btn" data-capability="presentationExports.driver-tree-png" hidden>Tree PNG</button>
         <button id="treesvg" class="btn" data-capability="presentationExports.driver-tree-svg" hidden>Tree SVG</button>
         <span class="method" id="estmethod">20,000 samples</span>
@@ -445,6 +449,7 @@
         <dl id="resultreviewfacts"></dl>
       </aside>
     </div>
+    <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
   </section>
 
   <section class="about">

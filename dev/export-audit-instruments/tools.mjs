@@ -70,7 +70,7 @@ export const TOOLS = {
     },
     exports: view => view === 'cf'
       ? [{id: 'svg', kind: 'svg', sel: '#cfsvg'}, {id: 'png', kind: 'png', sel: '#cfpng'}, {id: 'copypng', kind: 'copypng', sel: '#cfcopypng'}, {id: 'md', kind: 'md', sel: '#cfcopydoc'}]
-      : [...(view === 'tree' ? [{id: 'svg', kind: 'svg', sel: '#treesvg'}, {id: 'png', kind: 'png', sel: '#treepng'}] : [{id: 'png', kind: 'png', sel: '#png', canvas: true}]),
+      : [...(view === 'tree' ? [{id: 'svg', kind: 'svg', sel: '#treesvg'}, {id: 'png', kind: 'png', sel: '#treepng'}] : [{id: 'svg', kind: 'svg', sel: '#distsvg'}, {id: 'png', kind: 'png', sel: '#png'}, {id: 'copypng', kind: 'copypng', sel: '#distcopypng'}]),
         {id: 'md', kind: 'md', sel: '#copydoc'}, {id: 'summary', kind: 'text', sel: '#copy'}, {id: 'verdict', kind: 'text', sel: '.vcopy'}],
   },
   rank: {

@@ -12,7 +12,7 @@ import {knownFor} from './known.mjs';
 const OUT = arg('out', '/Users/matthew/repos/tools/docs/superpowers/specs/export-audit-instruments');
 const tools = asList(arg('tool')) || Object.keys(TOOLS);
 const docFilter = asList(arg('doc')) || ['a0', 'a-example', 'many', 'long'];
-const CHROME_WORDS = /\b(Copy PNG|Copy as markdown|Copy summary|Export|Share|Undo|Edit formula|Add initiative|Paste from spreadsheet|Syntax reference|More views|Replay the maths)\b/i;
+const CHROME_WORDS = /\b(Copy PNG|Copy as markdown|Copy summary|Export|Undo|Edit formula|Add initiative|Paste from spreadsheet|Syntax reference|More views|Replay the maths)\b/i;
 
 const env = await boot();
 const lines = [], results = [];
@@ -42,7 +42,7 @@ try{
         const text = execFileSync('pdftotext', ['-layout', pdf, '-']).toString();
         writeFileSync(join(dir, 'print.txt'), text);
         const c = {tool, doc: doc.name, theme, view};
-        const chrome = text.match(CHROME_WORDS);
+        const chrome = text.match(CHROME_WORDS) || text.match(/\bShare\b/);   // the Share control is capitalised; prose says "share of simulations"
         add(c, 'print:artefact-alone', !chrome, {pages: pages.length, chromeWord: chrome?.[0]});
         add(c, 'print:pages', pages.length <= 2, {pages: pages.length});
         /* the artefact is on paper whole: every word of the downloaded SVG for this view is in the PDF's text */

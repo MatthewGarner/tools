@@ -37,18 +37,9 @@ export const KNOWN = [
   {id: 'XP-12', match: r => r.tool === 'paths' && PRINT(r.check)},
   {id: 'XP-13', match: r => r.tool === 'paths' && /svg:margins|png:margins-symmetric|png:ink-off-edge/.test(r.check)},
   {id: 'XP-15', match: is('paths', 'png:matches-svg')},
-  /* Fermi */
-  {id: 'XF-1', match: is('fermi', 'canvas:house-font')},
-  {id: 'XF-2', match: is('fermi', 'canvas:no-mid-word-wrap')},
-  {id: 'XF-6', match: is('fermi', 'png:margins-symmetric', r => /point/.test(r.doc))},
-  {id: 'XF-8', match: is('fermi', 'md:no-raw-html')},
-  {id: 'XF-9', match: is('fermi', 'svg:contrast')},
-  {id: 'XF-11', match: r => r.tool === 'fermi' && r.view === 'cf' && /overlap:text-shape|svg:margins/.test(r.check)},
-  {id: 'XF-12', match: is('fermi', 'svg:self-contained:font-families')},
-  {id: 'XF-13', match: r => r.tool === 'fermi' && PRINT(r.check)},
+  /* accepted as is (export contract §7): a glyph outside the embedded Latin faces falls back to the viewer's system font */
+  {id: 'accepted-non-latin', match: r => r.check === 'svg:self-contained:glyph-coverage' || (r.check === 'png:matches-svg' && /awkward/.test(r.doc))},
   /* Rank */
-  {id: 'XR-1', match: r => r.tool === 'rank' && /md:no-raw-html|md:markdown-specials-escaped/.test(r.check)},
-  {id: 'XR-4', match: r => r.tool === 'rank' && PRINT(r.check)},
 ];
 export function knownFor(r){
   for(const k of KNOWN) if(k.match(r)) return k.id;

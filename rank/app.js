@@ -8,6 +8,7 @@ import {readHashState, writeHashState, encodeHash, fmt} from '../assets/series.j
 import {captureFlip, applyFlip, motionStill} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
 import {STARTER} from './starter.js';
+import {rankMarkdown} from './md.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 /* the run count on the page is the engine's constant */
@@ -349,36 +350,30 @@ function renderResults(){
 }
 
 /* ---------- copy for a doc ---------- */
+let copyTimer = 0;
 $('copydoc').addEventListener('click', async () => {
   clearTimeout(timer); timer = null;
   compute(); renderResults();
   if(!lastResult) return;
   const exportState = hashState();
   const {stats, baseOrder, k} = lastResult;
-  const lines = [];
-  lines.push('**Prioritisation — rank stability check**');
-  lines.push('');
-  lines.push('| # | Initiative | Median rank | 90% rank range | P(top-' + k + ') |');
-  lines.push('|---|---|---|---|---|');
-  baseOrder.forEach((idx, pos) => {
-    const s = stats.find(x => x.i === idx);
-    lines.push('| ' + (pos+1) + ' | ' + mdCell(s.name) + ' | ' + (s.med+1) + ' | ' +
-      (s.p10+1) + '–' + (s.p90+1) + ' | ' + pctStr(s.ptop) + ' |');
-  });
-  lines.push('');
-  lines.push(verdictText);
-  const flipText = $('flipline').textContent;
-  if(flipText){ lines.push(''); lines.push(flipText); }
-  lines.push('');
+  const knife = perRowKnife(state);
   const link = new URL(location.pathname, location.origin);
   link.hash = await encodeHash(exportState);
-  lines.push('_' + weightWobbleText(exportState.w).replace(/^./, ch => ch.toUpperCase()) + ', scores ±' + exportState.s + ', ' + NSIM_TEXT + ' simulations · [live table](' + link.href + ')_');
-  const txt = lines.join('\n');
+  const txt = rankMarkdown({
+    criteria: state.criteria, effort: state.effort, items: state.items, k,
+    rows: baseOrder.map((idx, pos) => { const s = stats.find(x => x.i === idx);
+      return {pos: pos + 1, name: s.name, med: s.med + 1, p10: s.p10 + 1, p90: s.p90 + 1, ptop: pctStr(s.ptop), knife: !!knife[idx]}; }),
+    verdict: verdictText, flip: $('flipline').textContent,
+    wobble: weightWobbleText(exportState.w).replace(/^./, ch => ch.toUpperCase()) + ', scores ±' + exportState.s,
+    runs: NSIM_TEXT + ' simulations', link: link.href});
+  const say = t => { $('exportstatus').textContent = t; $('exportstatus').hidden = !t; };
+  say('');
   try{
     await navigator.clipboard.writeText(txt);
-    $('copydoc').textContent = 'Copied';
-    setTimeout(() => { $('copydoc').textContent = 'Copy as markdown'; }, 1500);
-  }catch(e){ prompt('Copy this:', txt); }
+    $('copydoc').textContent = 'Copied — paste into your doc';
+    clearTimeout(copyTimer); copyTimer = setTimeout(() => { $('copydoc').textContent = 'Copy as markdown'; }, 2000);
+  }catch(e){ say('Copy blocked by this browser. The Markdown is in the prompt that opened: copy it from there.'); prompt('Copy this:', txt); }
 });
 
 /* ---------- URL state ---------- */
@@ -580,5 +575,10 @@ renderRows();
 compute();
 renderResults();
 for(const el of document.querySelectorAll('[data-boot]')) el.removeAttribute('data-boot');
+
+/* print is the light ranking alone: the page is light for the moment the sheet is made, then returns to the viewer's theme */
+let printTheme = null;
+addEventListener('beforeprint', () => { printTheme = document.documentElement.dataset.theme ?? ''; document.documentElement.dataset.theme = 'light'; });
+addEventListener('afterprint', () => { if(printTheme !== null){ if(printTheme) document.documentElement.dataset.theme = printTheme; else delete document.documentElement.dataset.theme; printTheme = null; } });
 
 mountRecentSave({getState:hashState});
