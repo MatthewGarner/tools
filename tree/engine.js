@@ -37,7 +37,8 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     }
     return out;
   }
-  const mid = r => r === 'rest' ? null : (r.lo + r.hi) / 2;
+  /* the midpoint of an authored probability, clamped to [0,1] exactly as every simulated draw is */
+  const mid = r => r === 'rest' ? null : Math.min(1, Math.max(0, (r.lo + r.hi) / 2));
   const statsOf = arr => {
     const sorted = Float64Array.from(arr).sort();
     let sum = 0;
@@ -162,25 +163,23 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     })(model.root);
     for(const c of probNodes){
       const recAt = v => evalDet(model, new Map([[c, v]])).rec;
-      /* coarse scan for a change, then bisect the boundary */
-      let prev = recAt(0), changeLo = null, changeHi = null;
-      for(let i = 1; i <= COARSE; i++){
-        const v = i / COARSE;
-        const rec = recAt(v);
-        if(rec !== prev){ changeLo = (i - 1) / COARSE; changeHi = v; break; }
-        prev = rec;
+      /* every boundary across [0,1] (the same scan the slider's flipAlong uses), not just the first:
+         the effect of one probability is not always monotone. The override is the probability that
+         applies — siblings without a rest sibling are scaled to the remainder (see evalDet). */
+      const boundaries = scanBoundaries(recAt, 0, 1);
+      if(!boundaries.length) continue;
+      /* the stretches of [0,1] where the call differs from the base recommendation, each a
+         {from,to}; a stretch touching 0 or 1 is open-ended ("< t" / "> t") */
+      const edges = [0, ...boundaries, 1], regions = [];
+      for(let k = 0; k < edges.length - 1; k++){
+        if(recAt((edges[k] + edges[k + 1]) / 2) === baseRec) continue;
+        const last = regions[regions.length - 1];
+        if(last && last.to === edges[k]) last.to = edges[k + 1];
+        else regions.push({from: edges[k], to: edges[k + 1]});
       }
-      if(changeLo === null) continue;
-      let lo = changeLo, hi = changeHi;
-      for(let k = 0; k < 30; k++){
-        const midV = (lo + hi) / 2;
-        if(recAt(midV) === recAt(lo)) lo = midV; else hi = midV;
-      }
-      const threshold = (lo + hi) / 2;
-      const baseMid = mid(c.p);
-      /* direction: which side of the threshold abandons the base recommendation */
-      const direction = (recAt(Math.max(0, threshold - 0.01)) === baseRec) ? '>' : '<';
-      flips.push({kind: 'prob', label: c.label, threshold, direction, base: baseMid});
+      /* direction of the first boundary: which side abandons the base recommendation */
+      const direction = recAt(boundaries[0] / 2) === baseRec ? '>' : '<';
+      flips.push({kind: 'prob', label: c.label, threshold: boundaries[0], direction, base: mid(c.p), boundaries, regions});
     }
 
     /* payoff flips: pin each ranged value at either end */
@@ -205,17 +204,26 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
    midpoint suffices. Extracted from `evaluate` (B0) — behaviour-preserving: `flips` identical + goldens IDENTICAL. */
 export function evalDet(model, pOver = new Map(), vOver = new Map()){
   const mid = r => (r.lo + r.hi) / 2;
+  const pmid = r => Math.min(1, Math.max(0, mid(r)));   // a probability, clamped as every simulated draw is (TR-9)
   function walk(node){
     const own = vOver.has(node) ? vOver.get(node) : (node.value ? mid(node.value) : 0);
     if(node.kind === 'leaf') return own;
     if(node.kind === 'decision') return own + Math.max(...node.children.map(walk));
     const explicit = node.children.filter(c => c.p !== 'rest');
     const restChild = node.children.find(c => c.p === 'rest');
-    const ps = new Map(explicit.map(c => [c, pOver.has(c) ? pOver.get(c) : mid(c.p)]));
+    const ps = new Map(explicit.map(c => [c, pOver.has(c) ? Math.min(1, Math.max(0, pOver.get(c))) : pmid(c.p)]));
     let sum = [...ps.values()].reduce((a, b) => a + b, 0);
+    const pinned = explicit.filter(c => pOver.has(c)), loose = explicit.filter(c => !pOver.has(c));
     if(restChild){
       if(sum > 1){ for(const [k, v] of ps) ps.set(k, v / sum); sum = 1; }
       ps.set(restChild, 1 - sum);
+    } else if(pinned.length && loose.length){
+      /* no rest sibling: a probability moved to v IS v. Its siblings are scaled in proportion to
+         share the remainder, so the set still sums to one and v is the probability that applies (TR-4) */
+      const pinnedSum = pinned.reduce((a, c) => a + ps.get(c), 0), looseSum = loose.reduce((a, c) => a + ps.get(c), 0);
+      if(pinnedSum >= 1){ for(const c of loose) ps.set(c, 0); for(const c of pinned) ps.set(c, ps.get(c) / pinnedSum); }
+      else if(looseSum > 0){ for(const c of loose) ps.set(c, ps.get(c) * (1 - pinnedSum) / looseSum); }
+      else if(sum > 0){ for(const [k, v] of ps) ps.set(k, v / sum); }
     } else if(sum > 0){
       for(const [k, v] of ps) ps.set(k, v / sum);
     }
@@ -253,12 +261,26 @@ export function probabilityActionState(node){
   return {editable, explorable: editable && node.pParseValid !== false && inDomain};
 }
 
-/* the ref's current midpoint (what evalDet uses by default) */
+/* the ref's current midpoint (what evalDet uses by default). A probability with no rest sibling
+   is read as the share it actually carries once its siblings are normalised to one (TR-4), so the
+   slider starts where the call is; a set that already sums to one is read exactly as written. */
 export function refMid(model, ref){
   const n = findByLine(model, ref.line);
   if(!n) return null;
-  if(ref.kind === 'prob') return probabilityActionState(n).explorable ? (n.p.lo + n.p.hi) / 2 : null;
+  if(ref.kind === 'prob'){
+    if(!probabilityActionState(n).explorable) return null;
+    const own = (n.p.lo + n.p.hi) / 2, parent = parentOf(model.root, n);
+    if(!parent || parent.kind !== 'chance' || parent.children.some(c => c.p === 'rest')) return own;
+    const sum = parent.children.reduce((a, c) => a + (c.p ? Math.min(1, Math.max(0, (c.p.lo + c.p.hi) / 2)) : 0), 0);
+    return sum > 1e-12 && Math.abs(sum - 1) > 1e-9 ? Math.min(1, Math.max(0, own)) / sum : own;
+  }
   return n.value ? (n.value.lo + n.value.hi) / 2 : null;
+}
+
+export function parentOf(root, node){
+  let found = null;
+  (function w(n){ if(found) return; if(n.children.includes(node)) found = n; else n.children.forEach(w); })(root);
+  return found;
 }
 
 /* the recommended root option with the ref pinned to x (node identity is stable across calls) */
@@ -266,6 +288,24 @@ function recAt(model, node, ref, x){
   return ref.kind === 'prob'
     ? evalDet(model, new Map([[node, x]])).rec
     : evalDet(model, new Map(), new Map([[node, x]])).rec;
+}
+
+/* every point in [lo,hi] where `at(x)` (the recommended option) changes: a COARSE scan, then a
+   bisection of each change. Shared by the slider (flipAlong) and the printed flip list. */
+function scanBoundaries(at, lo, hi){
+  const boundaries = [];
+  let prevX = lo, prevRec = at(lo);
+  for(let i = 1; i <= COARSE; i++){
+    const x = lo + (hi - lo) * (i / COARSE);
+    const rec = at(x);
+    if(rec !== prevRec){
+      let a = prevX, b = x;                       // bisect the sign-change [prevX, x]
+      for(let k = 0; k < 40; k++){ const m = (a + b) / 2; if(at(m) === prevRec) a = m; else b = m; }
+      boundaries.push((a + b) / 2);
+    }
+    prevX = x; prevRec = rec;
+  }
+  return boundaries;
 }
 
 /* TWO-SIDED scan-then-bisect (I1): the affected option's value is piecewise-affine under a
@@ -279,18 +319,7 @@ export function flipAlong(model, ref, extent){
   if(!node || cur === null || !(hi > lo)) return {below: null, above: null, winnerAtLo: null, winnerAtHi: null, boundaries: []};
   const at = x => recAt(model, node, ref, x);
   const winnerAtLo = at(lo), winnerAtHi = at(hi);
-  const boundaries = [];
-  let prevX = lo, prevRec = winnerAtLo;
-  for(let i = 1; i <= COARSE; i++){
-    const x = lo + (hi - lo) * (i / COARSE);
-    const rec = at(x);
-    if(rec !== prevRec){
-      let a = prevX, b = x;                       // bisect the sign-change [prevX, x]
-      for(let k = 0; k < 40; k++){ const m = (a + b) / 2; if(at(m) === prevRec) a = m; else b = m; }
-      boundaries.push((a + b) / 2);
-    }
-    prevX = x; prevRec = rec;
-  }
+  const boundaries = scanBoundaries(at, lo, hi);
   let below = null, above = null;
   for(const b of boundaries){
     if(b <= cur){ if(below === null || b > below) below = b; }

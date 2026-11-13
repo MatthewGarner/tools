@@ -2,6 +2,7 @@
    Each apply() replaces exactly one component of one source line. */
 import {parse, parseMoney, parseProbability, splitValue} from './parse.js';
 import {shiftRange, formatRange} from './format.js';
+import {parentOf} from './engine.js';
 
 export const validators = {
   title(v){
@@ -207,4 +208,29 @@ export function applyExplore(line, node, x, isProb){
   const oldRaw = isProb ? (node.pRaw || '') : (node.valueRaw || '');
   const text = formatRange(shiftRange(range, x, isProb), isProb);
   return isProb ? applies.prob(line, oldRaw, text) : applies.value(line, oldRaw, text);
+}
+
+/* The slider's release-commit for a PROBABILITY, as the line edits it needs: [{line, text}].
+   The explored number is the probability that applies (engine.js evalDet), so with no rest sibling
+   its siblings are scaled in proportion to share what is left — and the text is rewritten to say
+   so, in the same change set, or the next parse would normalise them back to something else. A
+   sibling keeps its own range width (shiftRange); one at zero, or without a readable p=, is left
+   as it is. With a rest sibling only the explored line changes. `getLine(n)` returns source line n. */
+export function exploreProbOps(model, node, x, getLine){
+  const ops = [{line: node.srcLine, text: applyExplore(getLine(node.srcLine), node, x, true)}];
+  const parent = parentOf(model.root, node);
+  if(!parent || parent.kind !== 'chance' || parent.children.some(c => c.p === 'rest')) return ops;
+  const clamp01 = v => Math.min(1, Math.max(0, v));
+  const others = parent.children.filter(c => c !== node);
+  const othersSum = others.reduce((a, c) => a + (c.p ? clamp01((c.p.lo + c.p.hi) / 2) : 0), 0);
+  if(!(othersSum > 0)) return ops;
+  for(const sib of others){
+    if(!sib.p || sib.pParseValid === false) continue;
+    const mid = clamp01((sib.p.lo + sib.p.hi) / 2);
+    if(mid === 0) continue;
+    const next = mid * (1 - clamp01(x)) / othersSum;
+    const line = getLine(sib.srcLine), text = applyExplore(line, sib, next, true);
+    if(text !== line) ops.push({line: sib.srcLine, text});
+  }
+  return ops;
 }

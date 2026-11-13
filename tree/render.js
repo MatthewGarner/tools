@@ -3,6 +3,7 @@
 import {fmt} from '../assets/series.js';
 import {resolveVerdict} from '../assets/verdict-core.js';
 import {renderDensity} from './render-density.js';
+import {closeCall} from './comparison.js';
 
 export const TOKENS = {slideScale: 1.35};
 
@@ -15,7 +16,12 @@ export function treeVerdictParts(model, results){
   const cur = model.currency || '£';
   const money = value => (value < 0 ? '−' : '') + cur + fmt(Math.abs(value));
   const fig = money(st.mean);
-  return resolveVerdict(model.verdict, {line: 'Choose ' + rec.label + ' — expected value ' + fig, fig});
+  /* a head-to-head share of 45–55% between the top two is a coin toss: say so, naming both. The
+     recommendation, the policy and every figure are unchanged (TR-7). */
+  const tie = closeCall(model, results);
+  const line = tie ? rec.label + ' and ' + tie.rival.label + ' are too close to call — expected value ' + fig
+    : 'Choose ' + rec.label + ' — expected value ' + fig;
+  return resolveVerdict(model.verdict, {line, fig});
 }
 
 export function render(model, results, ctx){

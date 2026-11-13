@@ -262,7 +262,7 @@ check('label rename lands in text and diagram', await until(async () => ((await 
   // leaf node ("Win", srcLine 6): Rename, Edit value, Add outcome, Remove — every row live
   await tapMarker(6);
   check('tree: leaf marker tap opens the menu with the expected rows', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit value…|Edit probability…|Explore success odds…|Explore payoff…|＋ Add outcome|Remove')));
+      'Rename…|Edit value…|Edit probability…|Explore odds…|Explore payoff…|＋ Add outcome|Remove')));
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   check('tree: leaf menu Rename opens the label input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === 'Win')));
