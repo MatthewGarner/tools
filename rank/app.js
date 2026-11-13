@@ -2,7 +2,8 @@ import {rankResultRows, pctStr} from './render.js';
 import {offer as provide} from '../assets/recent-ui.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
-import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale} from './engine.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale,
+  readWeight, readWobbleWeights, readWobbleScores, readLinkItems, parsePaste, weightWobbleText, wobbleFactorText, mdCell} from './engine.js';
 import {readHashState, writeHashState, encodeHash, fmt} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
@@ -272,7 +273,7 @@ function renderResults(){
   $('results').classList.remove('pending');   // fresh MC — the readouts are current again
   const {stats, baseOrder, n, k} = R;
 
-  const {headline, body, contested, fig} = verdictCopy(stats, k);
+  const {headline, body, contested, fig} = verdictCopy(stats, k, {setShare: R.setShare});
   verdictText = headline + body;
   paintVerdict($('verdict'), headline, fig);
   /* the display line is the headline alone; the reasoning and the tie list are
@@ -309,7 +310,7 @@ $('copydoc').addEventListener('click', async () => {
   lines.push('|---|---|---|---|---|');
   baseOrder.forEach((idx, pos) => {
     const s = stats.find(x => x.i === idx);
-    lines.push('| ' + (pos+1) + ' | ' + s.name + ' | ' + (s.med+1) + ' | ' +
+    lines.push('| ' + (pos+1) + ' | ' + mdCell(s.name) + ' | ' + (s.med+1) + ' | ' +
       (s.p10+1) + '–' + (s.p90+1) + ' | ' + pctStr(s.ptop) + ' |');
   });
   lines.push('');
@@ -319,7 +320,7 @@ $('copydoc').addEventListener('click', async () => {
   lines.push('');
   const link = new URL(location.pathname, location.origin);
   link.hash = await encodeHash(exportState);
-  lines.push('_Weights perturbed ±' + exportState.w + '%, scores ±' + exportState.s + ', 4,000 simulations · [live table](' + link.href + ')_');
+  lines.push('_' + weightWobbleText(exportState.w).replace(/^./, ch => ch.toUpperCase()) + ', scores ±' + exportState.s + ', 4,000 simulations · [live table](' + link.href + ')_');
   const txt = lines.join('\n');
   try{
     await navigator.clipboard.writeText(txt);
@@ -344,16 +345,15 @@ async function readHash(){
   try{
     const s = await readHashState();
     if(!s || !Array.isArray(s.c) || !Array.isArray(s.i)) return false;
-    state.criteria = s.c.map(p => ({name:String(p[0]), w:+p[1] || 0}));
+    state.criteria = s.c.map(p => ({name:String(p[0]), w:readWeight(p[1])}));
     if(Array.isArray(s.e)) state.effort = {name:String(s.e[0]), w:+s.e[1] || 1};
-    state.items = s.i.map(row => ({
-      name: String(row[0]),
-      s: row.slice(1, 1 + state.criteria.length).map(Number),
-      e: +row[1 + state.criteria.length],
-    }));
+    /* the same bounds as the controls: scores 1-10, weight wobble 0-200, score wobble 0-5; an
+       unreadable cell keeps its row (as the new-row score 5) so no other row changes place */
+    state.items = readLinkItems(s.i, state.criteria.length);
     if(isFinite(+s.k)) state.k = +s.k;
-    if(isFinite(+s.w)) state.ww = +s.w;
-    if(isFinite(+s.s)) state.sw = +s.s;
+    const ww = readWobbleWeights(s.w), sw = readWobbleScores(s.s);
+    if(ww !== null) state.ww = ww;
+    if(sw !== null) state.sw = sw;
     if(Array.isArray(s.o)){
       $('oda').value = String(s.o[0] || '');
       $('odb').value = String(s.o[1] || '');
@@ -449,42 +449,23 @@ $('kin').addEventListener('input', () => {
   syncCapacity($('kin').value);
   schedule(150);
 });
+const paintWobble = () => { $('wwx').textContent = wobbleFactorText(state.ww); };
 $('ww').addEventListener('input', () => {
-  state.ww = Math.max(0, Math.min(200, parseFloat($('ww').value) || 0));
+  state.ww = readWobbleWeights(parseFloat($('ww').value)) ?? 0;
+  paintWobble();
   schedule(200);
 });
 $('sw').addEventListener('input', () => {
-  state.sw = Math.max(0, Math.min(5, parseFloat($('sw').value) || 0));
+  state.sw = readWobbleScores(parseFloat($('sw').value)) ?? 0;
   schedule(200);
 });
-for(const id of ['ww', 'sw']) $(id).addEventListener('change', () => { $(id).value = state[id]; });
+for(const id of ['ww', 'sw']) $(id).addEventListener('change', () => { $(id).value = state[id]; paintWobble(); });
 
 /* ---------- paste import ---------- */
 $('pastebtn').addEventListener('click', () => {
   $('pastebox').classList.toggle('open');
   if($('pastebox').classList.contains('open')) $('pastearea').focus();
 });
-function parsePaste(text){
-  const items = [], bad = [];
-  for(const rawLine of text.split(/\r?\n/)){
-    const line = rawLine.trim();
-    if(!line) continue;
-    if(/^\|?[\s:|-]+\|?$/.test(line)) continue;            // markdown separator row
-    let parts;
-    if(line.includes('|')) parts = line.split('|').map(s => s.trim()).filter(Boolean);
-    else if(line.includes('\t')) parts = line.split('\t').map(s => s.trim());
-    else parts = line.split(',').map(s => s.trim());
-    if(parts.length < 5){ bad.push(line); continue; }
-    const nums = parts.slice(-4).map(Number);
-    if(nums.some(v => !isFinite(v) || v <= 0)){
-      // probably a header row — skip silently if nothing numeric at all
-      if(parts.slice(-4).every(v => isNaN(Number(v)))) continue;
-      bad.push(line); continue;
-    }
-    items.push({name: parts.slice(0, parts.length - 4).join(' '), s: nums.slice(0, 3), e: nums[3]});
-  }
-  return {items, bad};
-}
 $('pastego').addEventListener('click', () => {
   const {items, bad} = parsePaste($('pastearea').value);
   const err = $('perr');
@@ -523,6 +504,7 @@ else {
   state.items = ex.items.map(r => ({name: r[0], s: r.slice(1, 4), e: r[4]}));
   syncCapacity(ex.k);
 }
+paintWobble();
 paintKicker($('kicker'), '04', 'Ranking that survives its own uncertainty');
 wireCopyVerdict($('verdict'));
 renderHead();

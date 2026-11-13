@@ -5,7 +5,7 @@ import {openExamples, openFileMenu} from './_harness.mjs';
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS} from '../tool-dirs.mjs';
-import {trackErrors, tally, emptyPaint, pickExample, openRoadmapSource} from './_harness.mjs';
+import {trackErrors, tally, emptyPaint, pickExample, openRoadmapSource, until} from './_harness.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
 import {scopeFor} from './_scope.mjs';
 const scope = scopeFor('smoke.mjs');
@@ -1689,6 +1689,30 @@ if(scope.wants("rank")){
   check('/rank/ start: the starter grid replaces the example',
     rows.includes('Your first initiative') && !rows.includes('Resume position'));
   check('/rank/ start: no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* rank, a saved link with an unreadable row (RK-14): no row changes place. The first row has no
+   effort, so it used to drop out of the results and shift every other result row's
+   data-item-idx onto its neighbour: renaming row 2 relabelled row 3's result. Positive
+   control first (the untouched rows name the right initiatives), then the rename. */
+if(scope.wants("rank")){
+  const {page, errors} = await freshPage('/rank/');
+  const hash = await page.evaluate(async () => (await import('/assets/series.js')).encodeHash({
+    c: [['Value', 3], ['Time criticality', 2], ['Risk reduction', 1]], e: ['Effort', 1],
+    i: [['Damaged', 5, 5, 5], ['North', 9, 9, 9, 2], ['South', 3, 3, 3, 8], ['West', 6, 2, 6, 3]], k: 2, w: 50, s: 1}));
+  await page.goto(BASE + '/rank/#' + hash, {waitUntil: 'networkidle'});
+  await page.reload({waitUntil: 'networkidle'});
+  await page.waitForFunction(() => document.querySelectorAll('#rrows .rrow').length >= 3);
+  const resultName = idx => page.locator('#rrows .rrow[data-item-idx="' + idx + '"] .nmtext').innerText();
+  check('rank link: every table row keeps its place (Damaged, North, South, West)',
+    (await page.locator('#rows .iname').evaluateAll(els => els.map(e => e.value))).join() === 'Damaged,North,South,West');
+  check('rank link: each result row\'s data-item-idx points at its own initiative',
+    (await resultName(1)) === 'North' && (await resultName(2)) === 'South' && (await resultName(3)) === 'West');
+  await page.locator('#rows .iname').nth(1).fill('North renamed');
+  check('rank link: renaming table row 2 changes exactly its own result row',
+    await until(async () => (await resultName(1)) === 'North renamed') && (await resultName(2)) === 'South' && (await resultName(3)) === 'West');
+  check('rank link: no console errors', errors.length === 0);
   await page.close();
 }
 

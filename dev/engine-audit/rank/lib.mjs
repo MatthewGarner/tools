@@ -3,7 +3,8 @@
 export const results = [];
 export function check(id, ok, detail = '', {known = false} = {}){
   results.push({id, ok, known});
-  console.log(`${ok ? 'PASS' : 'FAIL'}${known ? ' [DEFECT]' : ''} ${id}${detail ? ' :: ' + detail : ''}`);
+  /* `known` is true (a documented defect) or a string: the reason it is left, e.g. "needs a draw change, awaiting the owner" */
+  console.log(`${ok ? 'PASS' : 'FAIL'}${known ? ' [DEFECT' + (typeof known === 'string' ? ': ' + known : '') + ']' : ''} ${id}${detail ? ' :: ' + detail : ''}`);
 }
 export function done(){
   const f = results.filter(r => !r.ok), kf = f.filter(r => r.known);

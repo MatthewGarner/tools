@@ -3,7 +3,7 @@
 // A check tagged [DEFECT] proves a confirmed defect and FAILS today. Everything else is a covered-and-correct PASS
 // (or a modelling question recorded as a PASS that demonstrates the behaviour).
 import {check, done, rng, polar, xorshift, boxMuller, mean, sd} from './lib.mjs';
-import {simulate, verdictCopy, flipAnalysis, flipCopy, perRowKnife, sigmaW, orderDiff, orderDiffCopy, sliderScale, NSIM, SEED} from '../../../rank/engine.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy, perRowKnife, sigmaW, orderDiff, orderDiffCopy, sliderScale, parsePaste, NSIM, SEED} from '../../../rank/engine.js';
 import {rankResultRows, pctStr} from '../../../rank/render.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from '../../../rank/examples.js';
 import {STARTER} from '../../../rank/starter.js';
@@ -12,15 +12,12 @@ import {fileURLToPath} from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const appSrc = readFileSync(ROOT + 'rank/app.js', 'utf8');
-// the app's own paste parser, lifted verbatim (pure: no DOM)
-const parsePaste = (() => { const i = appSrc.indexOf('function parsePaste(text){'); let d = 0, j = i;
-  for(; j < appSrc.length; j++){ if(appSrc[j] === '{') d++; else if(appSrc[j] === '}'){ d--; if(d === 0) break; } }
-  return new Function('return ' + appSrc.slice(i, j + 1))(); })();
 const mk = (items, {k = 3, ww = 50, sw = 1, w = DEFAULT_CRITERIA.map(c => c.w)} = {}) => ({
   criteria: DEFAULT_CRITERIA.map((c, i) => ({name: c.name, w: w[i]})), effort: {...DEFAULT_EFFORT},
   items: items.map(r => ({name: r[0], s: r.slice(1, 4), e: r[4]})), k, ww, sw});
 const ALL = [...EXAMPLES.map(e => ({name: e.name, st: mk(e.items, {k: e.k})})), {name: 'Start your own', st: mk(STARTER.items, {k: STARTER.k})}];
 const pctNum = p => Math.round(p * 100);
+const RUNS = 'needs more runs, awaiting the owner';
 const Phi = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
   const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429)))); return z > 0 ? 1 - p : p; };
 
@@ -91,14 +88,16 @@ for(const {name, st} of ALL){
   const sds = e.stats.map((s, i) => sd(runs.map(r => 100 * r.stats[i].ptop)));
   const w = sds.indexOf(Math.max(...sds));
   console.log(`   info: ${name}: seed sd of printed P(top-k) per item (pp): ${sds.map(v => v.toFixed(2)).join(', ')}`);
-  check(`N1 ${name}: the printed P(top-${st.k}) (whole percent) has a seed-to-seed sd of at most half a point`, sds[w] <= .5, `worst ${e.stats[w].name} sd ${sds[w].toFixed(2)} pp, printed values across 200 seeds ${Math.min(...runs.map(r => pctNum(r.stats[w].ptop)))}%..${Math.max(...runs.map(r => pctNum(r.stats[w].ptop)))}%`, {known: sds[w] > .5});
+  check(`N1 ${name}: the printed P(top-${st.k}) (whole percent) has a seed-to-seed sd of at most half a point`, sds[w] <= .5, `worst ${e.stats[w].name} sd ${sds[w].toFixed(2)} pp, printed values across 200 seeds ${Math.min(...runs.map(r => pctNum(r.stats[w].ptop)))}%..${Math.max(...runs.map(r => pctNum(r.stats[w].ptop)))}%`, {known: sds[w] > .5 && RUNS});
   const bandSd = Math.max(...e.stats.flatMap((s, i) => ['p10', 'med', 'p90'].map(k => sd(runs.map(r => r.stats[i][k])))));
   const changed = runs.filter(r => r.stats.some((s, i) => s.p10 !== e.stats[i].p10 || s.med !== e.stats[i].med || s.p90 !== e.stats[i].p90)).length;
-  check(`N2 ${name}: the printed rank bands (median and 90 % range) do not change with the seed in more than 5 % of seeds`, changed <= 10, `${changed} of 200 seeds print a different band somewhere (largest band sd ${bandSd.toFixed(2)} ranks)`, {known: changed > 10});
-  const heads = new Set(runs.map(r => verdictCopy(r.stats, r.k).headline + verdictCopy(r.stats, r.k).body));
-  check(`N3 ${name}: the verdict headline and body are the same at every seed`, heads.size === 1, `${heads.size} distinct verdict texts across 200 seeds`, {known: heads.size > 1});
+  check(`N2 ${name}: the printed rank bands (median and 90 % range) do not change with the seed in more than 5 % of seeds`, changed <= 10, `${changed} of 200 seeds print a different band somewhere (largest band sd ${bandSd.toFixed(2)} ranks)`, {known: changed > 10 && RUNS});
+  const vc = r => verdictCopy(r.stats, r.k, {setShare: r.setShare});
+  /* RK-9 now prints the percentage for an item between the 85% line and 99%, which is the same noisy figure the rows print (RK-2): the verdict's wording is compared with those percentages masked */
+  const heads = new Set(runs.map(r => (vc(r).headline + vc(r).body).replace(/\d+% of reasonable weightings/g, 'N% of reasonable weightings')));
+  check(`N3 ${name}: the verdict headline and body are the same at every seed (percentages inside "in N% of reasonable weightings" masked, see RK-9)`, heads.size === 1, `${heads.size} distinct verdict texts across 200 seeds`, {known: heads.size > 1 && RUNS});
   const fc = flipCopy(flipAnalysis(st), st.ww), kn = perRowKnife(st);
-  BEFORE.push({example: name, k: e.k, verdict: verdictCopy(e.stats, e.k).headline, flip: fc.text,
+  BEFORE.push({example: name, k: e.k, verdict: verdictCopy(e.stats, e.k, {setShare: e.setShare}).headline, flip: fc.text,
     rows: e.baseOrder.map((i, pos) => ({pos: pos + 1, name: e.stats[i].name, score: +e.baseScore[i].toFixed(4), median: e.stats[i].med + 1, range: (e.stats[i].p10 + 1) + '-' + (e.stats[i].p90 + 1), ptop: e.stats[i].ptop, printed: pctStr(e.stats[i].ptop), knife: kn[i]}))});
 }
 {
@@ -120,7 +119,7 @@ for(const {name, st} of ALL){
     const perm = st.items.map((_, i) => i).sort(() => pu() - .5), ps = simulate({...st, items: perm.map(i => st.items[i])});
     perm.forEach((orig, pos) => { const a = pctStr(e.stats[orig].ptop), b = pctStr(ps.stats[pos].ptop); if(a !== b) moved.push(e.stats[orig].name + ' ' + a + ' -> ' + b + ' (order ' + perm.join('') + ')'); });
   }
-  check('H2 listing the same initiatives in a different order prints the same P(top-k) for each (up to 6 shuffles tried)', moved.length === 0, moved.join(', ') + ' [reason: each row\'s draws are tied to its list position]', {known: moved.length > 0});
+  check('H2 listing the same initiatives in a different order prints the same P(top-k) for each (up to 6 shuffles tried)', moved.length === 0, moved.join(', ') + ' [reason: each row\'s draws are tied to its list position]', {known: moved.length > 0 && RUNS});
 }
 
 // =============================================================================================
@@ -129,41 +128,41 @@ for(const {name, st} of ALL){
 {
   // ties manufacture a winner
   const tie = mk([['Alpha', 6, 6, 6, 5], ['Beta', 6, 6, 6, 5], ['Gamma', 2, 2, 2, 9]], {k: 1, sw: 0});
-  const t = simulate(tie), v = verdictCopy(t.stats, t.k);
-  check('W1 two identical rows with score wobble 0 are not reported as one settled winner', !(t.stats[0].ptop === 1 && /settled/.test(v.headline) && !/Nothing/.test(v.headline)), `Alpha P(top-1) ${pctStr(t.stats[0].ptop)}, Beta ${pctStr(t.stats[1].ptop)}; verdict "${v.headline}" [stable sort gives every tie to the upper row]`, {known: true});
+  const t = simulate(tie), v = verdictCopy(t.stats, t.k, {setShare: t.setShare});
+  check('W1 two identical rows with score wobble 0 are not reported as one settled winner', !(t.stats[0].ptop === 1 && /settled/.test(v.headline) && !/Nothing/.test(v.headline)), `Alpha P(top-1) ${pctStr(t.stats[0].ptop)}, Beta ${pctStr(t.stats[1].ptop)}; verdict "${v.headline}" [stable sort gives every tie to the upper row]`);
   const prop = mk([['Small', 2, 2, 2, 1], ['Double', 4, 4, 4, 2], ['Gamma', 2, 2, 2, 9]], {k: 1, sw: 0});
   const tp = simulate(prop);
-  check('W1b rows with proportional scores (2,2,2 / 1 and 4,4,4 / 2: equal WSJF under every weighting) are not split 100/0', !(tp.stats[0].ptop === 1), `Small ${pctStr(tp.stats[0].ptop)}, Double ${pctStr(tp.stats[1].ptop)}`, {known: tp.stats[0].ptop === 1});
+  check('W1b rows with proportional scores (2,2,2 / 1 and 4,4,4 / 2: equal WSJF under every weighting) are not split 100/0', !(tp.stats[0].ptop === 1), `Small ${pctStr(tp.stats[0].ptop)}, Double ${pctStr(tp.stats[1].ptop)}`);
   // more settled items than places
   const eight = mk(Array.from({length: 8}, (_, i) => ['Item ' + (i + 1), 6, 6, 6, 5]), {k: 7, sw: 1});
-  const ei = simulate(eight), ev = verdictCopy(ei.stats, ei.k);
-  check('W2 "The top k is settled" is not printed when more than k items clear 85 % (8 interchangeable items, 7 places: each misses the cut about 1 run in 8)', !/^The top 7 is settled/.test(ev.headline), `"${ev.headline}" with P(top-7) ${ei.stats.map(s => pctStr(s.ptop)).join(', ')}`, {known: /^The top 7 is settled/.test(ev.headline)});
+  const ei = simulate(eight), ev = verdictCopy(ei.stats, ei.k, {setShare: ei.setShare});
+  check('W2 "The top k is settled" is not printed when more than k items clear 85 % (8 interchangeable items, 7 places: each misses the cut about 1 run in 8)', !/^The top 7 is settled/.test(ev.headline), `"${ev.headline}" with P(top-7) ${ei.stats.map(s => pctStr(s.ptop)).join(', ')}`);
   const one = verdictCopy([{name: 'A', ptop: .97}, {name: 'B', ptop: .6}, {name: 'C', ptop: .11}, {name: 'D', ptop: .11}, {name: 'E', ptop: .11}, {name: 'F', ptop: .1}], 2);
-  check('W3 a "genuine tie" names at least two contenders (here only B sits in the 15-85 % band)', !/a genuine tie between B —/.test(one.body), `"${one.body.trim()}"`, {known: /a genuine tie between B —/.test(one.body)});
+  check('W3 a "genuine tie" names at least two contenders (here only B sits in the 15-85 % band)', !/a genuine tie between B —/.test(one.body), `"${one.body.trim()}"`);
   const bd = verdictCopy([{name: 'A', ptop: .97}, {name: 'B', ptop: .8496}, {name: 'C', ptop: .1834}], 2);
-  check('W4 an item printed as "85%" is not simultaneously called unsettled (0.8496 prints 85 % but sits below the 85 % bar)', !(pctStr(.8496) === '85%' && bd.contested.some(s => s.name === 'B')), `pctStr(0.8496) = "${pctStr(.8496)}"; verdict "${bd.headline}"; contested list "B (${pctStr(.8496)})"`, {known: true});
-  const kn = simulate({...ALL[0].st, k: 5}), kv = verdictCopy(kn.stats, kn.k);
-  check('W5 with capacity equal to the whole list the verdict does not call the ranking "settled" (every item is in the top 5 by definition)', !/settled/.test(kv.headline) || /Nothing/.test(kv.headline), `"${kv.headline}${kv.body}"`, {known: /^The top 5 is settled/.test(kv.headline)});
+  check('W4 an item printed as "85%" is not simultaneously called unsettled (0.8496 prints 85 % but sits below the 85 % bar)', !(pctStr(.8496) === '85%' && bd.contested.some(s => s.name === 'B')), `pctStr(0.8496) = "${pctStr(.8496)}"; verdict "${bd.headline}"; contested list "B (${pctStr(.8496)})"`);
+  const kn = simulate({...ALL[0].st, k: 5}), kv = verdictCopy(kn.stats, kn.k, {setShare: kn.setShare});
+  check('W5 with capacity equal to the whole list the verdict does not call the ranking "settled" (every item is in the top 5 by definition)', !/settled/.test(kv.headline) || /Nothing/.test(kv.headline), `"${kv.headline}${kv.body}"`);
   const over = verdictCopy([{name: 'A', ptop: .86}, {name: 'B', ptop: .6}, {name: 'C', ptop: .54}], 2);
-  check('W6 an 86 % item is not described as making the cut "under any reasonable weights" (it misses 14 % of reasonable weightings)', !/under any reasonable weights/.test(over.body), `"${over.body.trim().slice(0, 60)}..."`, {known: /under any reasonable weights/.test(over.body)});
+  check('W6 an 86 % item is not described as making the cut "under any reasonable weights" (it misses 14 % of reasonable weightings)', !/under any reasonable weights/.test(over.body), `"${over.body.trim().slice(0, 60)}..."`);
   // ±ww label vs the interval it stands for
   const frag = mk([['Anchor', 10, 1, 1, 1], ['Rival', 1, 9, 1.2, 1], ['Low', 1, 1, 1, 9]], {k: 1, sw: 0});
   const fa = flipAnalysis(frag), fc = flipCopy(fa, 50);
   const tail = Phi(Math.log(fa.easiest.newWeight / 3) / sigmaW(50));
-  check('W7 "inside the ±50% you already call reasonable" is said only of reweightings inside the wobble\'s own 90 % interval (x1/1.5 = a 33 % cut at most)', !(fc.tone === 'fragile' && fa.easiest.newWeight / 3 < 1 / 1.5), `"${fc.text}" — a ${Math.abs(fa.easiest.pct).toFixed(0)} % cut has probability ${(100 * tail).toFixed(1)} % under the wobble`, {known: fc.tone === 'fragile' && fa.easiest.newWeight / 3 < 1 / 1.5});
-  check('W7b the copy-as-markdown footer "Weights perturbed ±50%" describes an interval that is -33 %/+50 % (recorded with W7; label only)', !/Weights perturbed ±/.test(appSrc), 'app.js: "_Weights perturbed ±" + w + "%, scores ±" + s', {known: true});
+  check('W7 "inside the ±50% you already call reasonable" is said only of reweightings inside the wobble\'s own 90 % interval (x1/1.5 = a 33 % cut at most)', !(fc.tone === 'fragile' && fa.easiest.newWeight / 3 < 1 / 1.5), `"${fc.text}" — a ${Math.abs(fa.easiest.pct).toFixed(0)} % cut has probability ${(100 * tail).toFixed(1)} % under the wobble`);
+  check('W7b the copy-as-markdown footer "Weights perturbed ±50%" describes an interval that is -33 %/+50 % (recorded with W7; label only)', !/Weights perturbed ±/.test(appSrc), 'app.js: "_Weights perturbed ±" + w + "%, scores ±" + s');
   // tie at the top: zero-size flip
   const tied = mk([['Alpha', 6, 6, 6, 1], ['Beta', 8, 3, 6, 1], ['Low', 1, 1, 1, 9]], {k: 1});
   const tc = flipCopy(flipAnalysis(tied), 50);
-  check('W8 a tie for first place is not described as a weight change of 0 % ("cut Value\'s weight 0% (3 → 3)")', !/0% \(3 → 3\)/.test(tc.text), `"${tc.text}"`, {known: /0% \(3 → 3\)/.test(tc.text)});
+  check('W8 a tie for first place is not described as a weight change of 0 % ("cut Value\'s weight 0% (3 → 3)")', !/0% \(3 → 3\)/.test(tc.text), `"${tc.text}"`);
   const near = flipCopy({top: {name: 'A'}, easiest: {criterion: 'Value', delta: 1.509, newWeight: 4.509, pct: 50.3, rivalName: 'B'}}, 50);
-  check('W9 a reweighting that rounds to the wobble itself is not called "well beyond" it (50.3 % vs ±50 %)', !/50%, well beyond the ±50%/.test(near.text), `"${near.text}"`, {known: /50%, well beyond the ±50%/.test(near.text)});
+  check('W9 a reweighting that rounds to the wobble itself is not called "well beyond" it (50.3 % vs ±50 %)', !/50%, well beyond the ±50%/.test(near.text), `"${near.text}"`);
   // clamping disagreement between the table and the flip line
   const hot = mk([['Hot', 20, 1, 1, 1], ['Steady', 10, 10, 10, 1], ['Low', 1, 1, 1, 9]], {k: 1});
   const hs = simulate(hot), hf = flipAnalysis(hot);
-  check('W10 the flip line\'s leader is the table\'s #1 when a score sits outside 1-10 (a paste or a link can put one there)', hf.top.name === hs.stats[hs.baseOrder[0]].name, `table #1 "${hs.stats[hs.baseOrder[0]].name}" (simulation clamps 20 -> 10); flip line: "${flipCopy(hf, 50).text}"`, {known: hf.top.name !== hs.stats[hs.baseOrder[0]].name});
+  check('W10 the flip line\'s leader is the table\'s #1 when a score sits outside 1-10 (a paste or a link can put one there)', hf.top.name === hs.stats[hs.baseOrder[0]].name, `table #1 "${hs.stats[hs.baseOrder[0]].name}" (simulation clamps 20 -> 10); flip line: "${flipCopy(hf, 50).text}"`);
   const pasted = parsePaste('Hot, 20, 1, 1, 1\nSteady, 10, 10, 10, 1\nHalf, 5, 5, 5, 0.5');
-  check('W10b the app\'s paste import clamps scores to 1-10 (it stores what it reads)', pasted.items.every(it => it.s.every(v => v >= 1 && v <= 10) && it.e >= 1 && it.e <= 10), `parsePaste stores ${pasted.items.map(it => it.name + ' [' + it.s.join(',') + '] / ' + it.e).join('; ')}`, {known: true});
+  check('W10b the app\'s paste import clamps scores to 1-10 (it stores what it reads)', pasted.items.every(it => it.s.every(v => v >= 1 && v <= 10) && it.e >= 1 && it.e <= 10), `parsePaste stores ${pasted.items.map(it => it.name + ' [' + it.s.join(',') + '] / ' + it.e).join('; ')}`);
   const knifeHot = perRowKnife(mk([['Hot', 20, 1, 1, 2], ['Steady', 9, 9, 9, 3], ['Low', 1, 1, 1, 9]], {k: 1}));
   const simHot = simulate(mk([['Hot', 20, 1, 1, 2], ['Steady', 9, 9, 9, 3], ['Low', 1, 1, 1, 9]], {k: 1}));
   console.log(`   info: knife-edge reads raw 20 while the table uses 10: knife ${knifeHot.join(',')}; table order ${simHot.baseOrder.map(i => simHot.stats[i].name).join(' > ')}`);
@@ -173,11 +172,11 @@ for(const {name, st} of ALL){
   const br = simulate(broken), bk = perRowKnife(broken), html = rankResultRows(br, bk);
   const idxs = [...html.matchAll(/data-item-idx="(\d+)"/g)].map(m => +m[1]);
   const wrong = br.stats.filter(s => broken.items[s.i].name !== s.name).map(s => `stats "${s.name}" carries data-item-idx ${s.i} = state row "${broken.items[s.i].name}"`);
-  check('W11 a link with one damaged row: each result row\'s data-item-idx (used for knife-edge, rename and live re-sort) points at its own initiative', wrong.length === 0, wrong.join('; '), {known: wrong.length > 0});
+  check('W11 a link with one damaged row: each result row\'s data-item-idx (used for knife-edge, rename and live re-sort) points at its own initiative', wrong.length === 0, wrong.join('; '));
   // ranking diff
   const A = Array.from({length: 25}, (_, i) => 'Item ' + i), B = A.slice(); [B[10], B[11]] = [B[11], B[10]];
   const d = orderDiff(A, B), dc = orderDiffCopy(d);
-  check('W12 ranking diff: an order with one swapped pair out of 300 does not print "agree on 100%"', !/agree on 100%/.test(dc), `"${dc}"`, {known: /agree on 100%/.test(dc)});
+  check('W12 ranking diff: an order with one swapped pair out of 300 does not print "agree on 100%"', !/agree on 100%/.test(dc), `"${dc}"`);
   let tauOk = true; const u = rng(5);
   for(let t = 0; t < 200; t++){ const n = 2 + Math.floor(u() * 12), a = Array.from({length: n}, (_, i) => 'x' + i), b = a.slice().sort(() => u() - .5);
     let c = 0, dd = 0; for(let i = 0; i < n; i++) for(let j = i + 1; j < n; j++){ const s = (i - j) * (b.indexOf(a[i]) - b.indexOf(a[j])); if(s > 0) c++; else dd++; }
@@ -196,7 +195,7 @@ for(const {name, st} of ALL){
   check('W15 knife-edge flags equal a brute-force "rank changes under a ±10 % nudge of one weight" on all built-ins', kOk);
   check('W16 pctStr never prints a flat 0 % or 100 %: 1 -> ">99%", 0 -> "<1%", 0.996 -> ">99%", 0.004 -> "<1%"', pctStr(1) === '>99%' && pctStr(0) === '<1%' && pctStr(.996) === '>99%' && pctStr(.004) === '<1%');
   const md = /lines\.push\('\| ' \+ \(pos\+1\) \+ ' \| ' \+ s\.name \+ ' \| '/.test(appSrc);
-  check('W17 copy-as-markdown escapes "|" in initiative names (a name like "Search | v2" splits the table row)', !md, 'app.js writes s.name into the table cell unescaped', {known: md});
+  check('W17 copy-as-markdown escapes "|" in initiative names (a name like "Search | v2" splits the table row)', !md, 'app.js writes s.name into the table cell unescaped');
   check('Q1 recorded (RK-Q1): the effort column\'s weight is stored in links but never used (effort is a plain divisor)', !/effort\.w/.test(readFileSync(ROOT + 'rank/engine.js', 'utf8')));
   const top10 = []; { const uu = rng(1); for(let i = 0; i < 200000; i++) top10.push(Math.max(1, Math.min(10, 10 + (uu() * 2 - 1)))); }
   check('Q2 recorded (RK-Q2): score wobble is a uniform ±sw then clipped to 1-10, so a 10 averages 9.75 under ±1 (biased toward the middle), and it is a full range while the weight wobble is a 90 % interval', Math.abs(mean(top10) - 9.75) < .01, `mean of a wobbled 10: ${mean(top10).toFixed(3)}`);

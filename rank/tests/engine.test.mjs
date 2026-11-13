@@ -64,7 +64,7 @@ test('verdict grammar: one settled item "makes" the cut', () => {
 
 test('verdict grammar: several settled items "make" the cut', () => {
   const {body} = verdictCopy([
-    {name: 'A', ptop: 0.97}, {name: 'B', ptop: 0.96},
+    {name: 'A', ptop: 0.999}, {name: 'B', ptop: 0.998},
     {name: 'C', ptop: 0.5}, {name: 'D', ptop: 0.4},
   ], 3);
   assert.match(body, /A, B make the cut/);

@@ -1,6 +1,7 @@
 /* Shared pure result-row renderer; native table and article use identical ranks. */
 import {esc} from '../assets/svg.js';
-export const pctStr = p => p > .995 ? '>99%' : p < .005 ? '<1%' : Math.round(p*100)+'%';
+import {pctStr} from './engine.js';
+export {pctStr};
 export function rankResultRows(result, knife=[]){
   const {stats,baseOrder,n,k}=result;
   return baseOrder.map((idx,pos)=>{

@@ -137,6 +137,7 @@ function refDraw(models, N, seed){
   return {bs, ind: summary(ind), sh: summary(sh)};
 }
 const sweep = (m, seeds) => seeds.map(s => simulate(m, {seed: s}));
+const DRAW = 'needs a draw change, awaiting the owner';
 const SEEDS = Array.from({length: 200}, (_, i) => 1000 + i * 7919);
 const BEFORE = {};
 for(const ex of EXAMPLES){
@@ -153,15 +154,17 @@ for(const ex of EXAMPLES){
   // seed noise versus printed step: board prints whole units and whole percent
   const rows = [];
   ref.bs.forEach(x => { for(const k of ['p10', 'p50', 'p90']) rows.push([x.b.name + ' EV ' + k, sd(runs.map(r => r.bets.get(x.b.srcLine).ev[k])), 1]); });
-  for(const k of ['p10', 'p50', 'p90']){ rows.push(['portfolio ' + k, sd(runs.map(r => r.portfolio[k])), 1]); rows.push(['shared ' + k, sd(runs.map(r => r.scenarios.shared[k])), 1]); }
+  /* a median that sits in an empty stretch prints as a split (BT-1), never as a point, so it is not a point figure here (see N5) */
+  const printsSplit = runs.filter(r => r.scenarios.shared.split).length >= 185;
+  for(const k of ['p10', 'p50', 'p90']){ rows.push(['portfolio ' + k, sd(runs.map(r => r.portfolio[k])), 1]); if(!(k === 'p50' && printsSplit)) rows.push(['shared ' + k, sd(runs.map(r => r.scenarios.shared[k])), 1]); }
   rows.push(['portfolio P(loss) %', sd(runs.map(r => 100 * r.portfolio.pLoss)), 1]); rows.push(['shared P(loss) %', sd(runs.map(r => 100 * r.scenarios.shared.pLoss)), 1]);
   for(const [l, s, step] of rows) console.log(`   info: ${tag}: seed sd of ${l} = ${s.toFixed(3)} (printed step ${step}) -> ${(s / step).toFixed(2)} steps`);
   const evRows = rows.filter(r => / EV /.test(r[0])), pfRows = rows.filter(r => /^(portfolio|shared) p\d/.test(r[0])), plRows = rows.filter(r => /P\(loss\)/.test(r[0]));
   const w = rs => rs.reduce((a, r) => r[1] / r[2] > a[1] / a[2] ? r : a);
   const we = w(evRows), wp = w(pfRows), wl = w(plRows);
-  check(`N1 ${tag}: per-bet EV P10/P50/P90 seed-to-seed sd is at most half the printed step (whole units)`, we[1] / we[2] <= .5, `worst ${we[0]} sd ${we[1].toFixed(2)} = ${(we[1] / we[2]).toFixed(2)} steps`, {known: we[1] / we[2] > .5});
-  check(`N2 ${tag}: portfolio P10/P50/P90 (both scenarios) seed sd is at most half the printed step (whole units)`, wp[1] / wp[2] <= .5, `worst ${wp[0]} sd ${wp[1].toFixed(2)} = ${(wp[1] / wp[2]).toFixed(1)} steps`, {known: wp[1] / wp[2] > .5});
-  check(`N3 ${tag}: printed P(loses money) seed sd is at most half a percentage point`, wl[1] <= .5, `worst ${wl[0]} sd ${wl[1].toFixed(2)} pp`, {known: wl[1] > .5});
+  check(`N1 ${tag}: per-bet EV P10/P50/P90 seed-to-seed sd is at most half the printed step (whole units)`, we[1] / we[2] <= .5, `worst ${we[0]} sd ${we[1].toFixed(2)} = ${(we[1] / we[2]).toFixed(2)} steps`, {known: we[1] / we[2] > .5 && DRAW});
+  check(`N2 ${tag}: portfolio P10/P50/P90 (both scenarios) seed sd is at most half the printed step (whole units)`, wp[1] / wp[2] <= .5, `worst ${wp[0]} sd ${wp[1].toFixed(2)} = ${(wp[1] / wp[2]).toFixed(1)} steps`, {known: wp[1] / wp[2] > .5 && DRAW});
+  check(`N3 ${tag}: printed P(loses money) seed sd is at most half a percentage point`, wl[1] <= .5, `worst ${wl[0]} sd ${wl[1].toFixed(2)} pp`, {known: wl[1] > .5 && DRAW});
   const signs = runs.map(r => Math.sign(int(r.portfolio.p50)));
   const neg = signs.filter(s => s < 0).length, pos = signs.filter(s => s > 0).length;
   if(tag.startsWith('Lantern')){
@@ -169,7 +172,11 @@ for(const ex of EXAMPLES){
     console.log(`   info: Lantern independent median across 200 seeds: min ${Math.min(...printed)} max ${Math.max(...printed)}; printed sign: ${pos} positive, ${neg} negative; reference ${ref.ind.p50.toFixed(2)}`);
     check('N4 Lantern: the sign of the printed independent "MEDIAN OUTCOME" does not depend on the seed (a reader takes +/- as the message)', neg === 0 || pos === 0, `${pos} seeds print +, ${neg} print -, range ${Math.min(...printed)}..${Math.max(...printed)}`, {known: neg > 0 && pos > 0});
     const shm = runs.map(r => int(r.scenarios.shared.p50));
-    check('N5 Lantern: the printed Shared-outcome stress "MEDIAN OUTCOME" is a stable figure (seed sd at most half a unit)', sd(shm) <= .5, `printed shared median across 200 seeds runs ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); default seed prints ${int(e.scenarios.shared.p50)}; 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}. The median falls in an empty gap of the outcome distribution (no outcomes between about -299 and -144 at the default seed: the gap is Referral flow v2 winning or losing on the shared draw)`, {known: sd(shm) > .5});
+    const splits = runs.map(r => r.scenarios.shared.split), found = splits.filter(Boolean), missed = splits.length - found.length;
+    check('N5 Lantern: the Shared-outcome stress median sits in an empty gap, so every one of 200 seeds prints it as a split ("P50 -x or -y"), never as a single point (BT-1)', missed === 0, `${found.length} of 200 seeds carry a split; the single-point median would have run ${Math.min(...shm)}..${Math.max(...shm)} (sd ${sd(shm).toFixed(0)}); 1,000,000-draw reference ${ref.sh.p50.toFixed(0)}`, {known: missed > 0 && missed <= 15 && 'the ruled threshold (largest gap > 5% of P90-P10) is missed by a few seeds whose gap is just under it; the owner may lower it. Bounded: more than 15 misses fails'});
+    const printedSplit = new Set(found.map(x => int(x.lo) + ' or ' + int(x.hi)));
+    check('N5b Lantern: the two printed values of the split are the same on every seed (the ruling asked for this)', printedSplit.size === 1, `${printedSplit.size} distinct printed pairs across ${found.length} seeds; the lower value has seed sd ${sd(found.map(x => x.lo)).toFixed(1)} and the upper ${sd(found.map(x => x.hi)).toFixed(1)}: each is the edge of the gap, an extreme order statistic of a cluster, so a whole-unit figure cannot hold across seeds without more runs`, {known: printedSplit.size > 1 && 'the two values either side of the gap are cluster edges, noisy by construction; needs a draw change (BT-2), awaiting the owner'});
+    check('N5c Lantern: the split values stay in their audited neighbourhood (lower -300..-150, upper -260..-20), so a regression in the detector cannot hide behind N5b', found.every(x => x.lo > -300 && x.lo < -150 && x.hi > -260 && x.hi < -20), `lower ${Math.min(...found.map(x => x.lo)).toFixed(0)}..${Math.max(...found.map(x => x.lo)).toFixed(0)}, upper ${Math.min(...found.map(x => x.hi)).toFixed(0)}..${Math.max(...found.map(x => x.hi)).toFixed(0)}`);
     const plp = runs.map(r => pct(r.portfolio.pLoss));
     console.log(`   info: Lantern printed P(loses money) across 200 seeds: ${Math.min(...plp)}%..${Math.max(...plp)}% (reference ${(100 * ref.ind.pLoss).toFixed(2)}%)`);
   }
@@ -184,13 +191,13 @@ for(const ex of EXAMPLES){
   const d50 = Math.abs(int(a.portfolio.p50) - int(b.portfolio.p50)), dpl = Math.abs(pct(a.portfolio.pLoss) - pct(b.portfolio.pLoss));
   const ds = Math.abs(int(a.scenarios.shared.p50) - int(b.scenarios.shared.p50));
   check('H1 Lantern: widening Referral\'s stake from the point 80 to 80..80.0001 leaves the printed portfolio figures unchanged (the change is worth 0.0001)', d50 === 0 && dpl === 0 && ds === 0,
-    `independent median ${int(a.portfolio.p50)} -> ${int(b.portfolio.p50)}, P(loss) ${pct(a.portfolio.pLoss)}% -> ${pct(b.portfolio.pLoss)}%, shared median ${int(a.scenarios.shared.p50)} -> ${int(b.scenarios.shared.p50)} [reason: a point range consumes no draw, a range consumes one, so every later draw shifts]`, {known: !(d50 === 0 && dpl === 0 && ds === 0)});
+    `independent median ${int(a.portfolio.p50)} -> ${int(b.portfolio.p50)}, P(loss) ${pct(a.portfolio.pLoss)}% -> ${pct(b.portfolio.pLoss)}%, shared median ${int(a.scenarios.shared.p50)} -> ${int(b.scenarios.shared.p50)} [reason: a point range consumes no draw, a range consumes one, so every later draw shifts]`, {known: !(d50 === 0 && dpl === 0 && ds === 0) && DRAW});
   const lines = src.split('\n'), gi = lines.indexOf('Platform bets');
   const swapped = [...lines.slice(0, 3), ...lines.slice(gi), '', ...lines.slice(3, gi)].join('\n');
   const c = simulate(parse(swapped));
   const same = int(a.portfolio.p50) === int(c.portfolio.p50) && pct(a.portfolio.pLoss) === pct(c.portfolio.pLoss) && int(a.scenarios.shared.p50) === int(c.scenarios.shared.p50);
   check('H2 Lantern: listing the two groups in the other order (same bets, same numbers) prints the same portfolio median, P(loss) and shared median', same,
-    `independent median ${int(a.portfolio.p50)} -> ${int(c.portfolio.p50)}, P(loss) ${pct(a.portfolio.pLoss)}% -> ${pct(c.portfolio.pLoss)}%, shared median ${int(a.scenarios.shared.p50)} -> ${int(c.scenarios.shared.p50)}, shared P(loss) ${pct(a.scenarios.shared.pLoss)}% -> ${pct(c.scenarios.shared.pLoss)}% [reason: draws are assigned by source position; and the shared draw is the first listed bet's]`, {known: !same});
+    `independent median ${int(a.portfolio.p50)} -> ${int(c.portfolio.p50)}, P(loss) ${pct(a.portfolio.pLoss)}% -> ${pct(c.portfolio.pLoss)}%, shared median ${int(a.scenarios.shared.p50)} -> ${int(c.scenarios.shared.p50)}, shared P(loss) ${pct(a.scenarios.shared.pLoss)}% -> ${pct(c.scenarios.shared.pLoss)}% [reason: draws are assigned by source position; and the shared draw is the first listed bet's]`, {known: !same && DRAW});
   const k = src.replace(/stake (\d+)/g, (_, v) => 'stake ' + v * 1000).replace(/payoff (\d+)-(\d+)/g, (_, x, y) => 'payoff ' + x * 1000 + '-' + y * 1000);
   const s = simulate(parse(k));
   check('H3 scale invariance: multiplying every stake and payoff by 1000 multiplies portfolio quantiles by 1000 and leaves P(loss) identical', s.portfolio.pLoss === a.portfolio.pLoss && Math.abs(s.portfolio.p50 / a.portfolio.p50 - 1000) < 1e-6 * 1000 && s.scenarios.shared.pLoss === a.scenarios.shared.pLoss);
@@ -209,34 +216,34 @@ for(const ex of EXAMPLES){
   const hi = parse('title: T\nunit: £k\nG\n  A: stake 10, odds 0.2%, payoff 100\n    kill: k'), his = simulate(hi);
   const tl = board(lo, los), th = board(hi, his), md = markdown(lo, los, '');
   console.log(`   info: odds 99.6%: P(loss) exact 0.4%, engine ${(100 * los.portfolio.pLoss).toFixed(2)}%; odds 0.2%: exact 99.8%, engine ${(100 * his.portfolio.pLoss).toFixed(2)}%`);
-  check('W1 P(loses money) never prints a flat 0% for a portfolio that does lose money (exact 0.4% here)', !/P\(LOSES MONEY\) 0%/.test(tl) && !/\*\*0%\*\*/.test(md), `board: "${(/P\(LOSES MONEY\) \d+%/.exec(tl) || [''])[0]}", "${(/\d+% BELOW ZERO/.exec(tl) || [''])[0]}"; markdown "P(loses money) **${pct(los.portfolio.pLoss)}%**"`, {known: true});
-  check('W1b P(loses money) never prints a flat 100% for a portfolio that sometimes makes money (exact 99.8% here)', !/P\(LOSES MONEY\) 100%/.test(th), `board: "${(/P\(LOSES MONEY\) \d+%/.exec(th) || [''])[0]}" for engine ${(100 * his.portfolio.pLoss).toFixed(2)}%`, {known: /P\(LOSES MONEY\) 100%/.test(th)});
+  check('W1 P(loses money) never prints a flat 0% for a portfolio that does lose money (exact 0.4% here)', !/P\(LOSES MONEY\) 0%/.test(tl) && !/\*\*0%\*\*/.test(md), `board: "${(/P\(LOSES MONEY\) \d+%/.exec(tl) || [''])[0]}", "${(/\d+% BELOW ZERO/.exec(tl) || [''])[0]}"; markdown "P(loses money) **${pct(los.portfolio.pLoss)}%**"`);
+  check('W1b P(loses money) never prints a flat 100% for a portfolio that sometimes makes money (exact 99.8% here)', !/P\(LOSES MONEY\) 100%/.test(th), `board: "${(/P\(LOSES MONEY\) \d+%/.exec(th) || [''])[0]}" for engine ${(100 * his.portfolio.pLoss).toFixed(2)}%`);
   const ex = simulate(parse(EXAMPLES[0].src));
   console.log(`   info: Lantern independent P(loss) = ${ex.portfolio.pLoss} -> printed ${pct(ex.portfolio.pLoss)}%`);
 
   const zero = parse('title: T\nunit: £k\nG\n  B: stake 10, odds 50%, payoff 19.4\n    kill: k\n  C: stake 5, odds 50%, payoff 30\n    kill: k'), zs = simulate(zero), tz = board(zero, zs);
-  check('W2 a per-bet EV of -0.3 does not print as "−0" (a signed zero with the red LOSES AT P50 badge beside it)', !/\| −0 \|/.test(tz), `board row B: "${(/B \| 10 \| 50% \| 19 \| [^|]+\| [^|]+\| [^|]+/.exec(tz) || [''])[0]}"`, {known: /\| −0 \|/.test(tz)});
+  check('W2 a per-bet EV of -0.3 does not print as "−0" (a signed zero with the red LOSES AT P50 badge beside it)', !/\| −0 \|/.test(tz), `board row B: "${(/B \| 10 \| 50% \| 19 \| [^|]+\| [^|]+\| [^|]+/.exec(tz) || [''])[0]}"`);
 
   const frac = parse('title: T\nunit: £k\nG\n  A: stake 0.5-2.5, odds 40-60%, payoff 19.4\n    kill: k\n  B: stake 20, odds 50%, payoff 60\n    kill: k'), fs = simulate(frac);
   const live = renderBoard(frac, fs, {...ctxN, intent: 'live', edit: true}), ft = svgText(live);
-  check('W3 authored inputs print as authored: stake 0.5-2.5 and payoff 19.4 appear as written on the board', /0\.5–2\.5/.test(ft) && /19\.4/.test(ft), `board prints stake "${(/A \| ([^|]+) \|/.exec(ft) || [, ''])[1].trim()}" and payoff "${/ 19 \|/.test(ft) ? '19' : '?'}"`, {known: true});
+  check('W3 authored inputs print as authored: stake 0.5-2.5 and payoff 19.4 appear as written on the board', /0\.5–2\.5/.test(ft) && /19\.4/.test(ft), `board prints stake "${(/A \| ([^|]+) \|/.exec(ft) || [, ''])[1].trim()}" and payoff "${/ 19 \|/.test(ft) ? '19' : '?'}"`);
   const raw = (/data-edit="stake" data-line="4" data-raw="([^"]*)"/.exec(live) || [, ''])[1];
-  const ops = rewriteStake(frac.groups.length && 'title: T\nunit: £k\nG\n  A: stake 0.5-2.5, odds 40-60%, payoff 19.4\n    kill: k', 4, raw, raw.replace('3', '4').replace('–', '-'));
-  check('W3b editing only the top of a stake range in place keeps the authored bottom (0.5)', !!ops && /stake 0\.5-4/.test(ops[0].text), `edit field is prefilled "${raw}"; changing its top to 4 writes "${ops && ops[0].text.trim()}"`, {known: true});
+  const ops = rewriteStake('title: T\nunit: £k\nG\n  A: stake 0.5-2.5, odds 40-60%, payoff 19.4\n    kill: k', 4, raw, raw.replace('2.5', '4').replace('–', '-'));
+  check('W3b editing only the top of a stake range in place keeps the authored bottom (0.5)', !!ops && /stake 0\.5-4/.test(ops[0].text), `edit field is prefilled "${raw}"; changing its top to 4 writes "${ops && ops[0].text.trim()}"`);
 
   const two = parse('title: T\nunit: £k\nG\n  A: stake 50, odds 50%, payoff 120\n    kill: k\n  B: stake 50, odds 50%, payoff 120\n    kill: k'), ts = simulate(two);
   const tt = board(two, ts);
-  check('W4 the concentration line does not say "one bet carries the book" when two bets carry equal stakes (50/50)', !/one bet carries the book/.test(tt), `"${(/⚑[^|]+/.exec(tt) || [''])[0].trim()}"; engine share ${ts.concentration && ts.concentration.share} for the FIRST of two equal bets`, {known: true});
+  check('W4 the concentration line does not say "one bet carries the book" when two bets carry equal stakes (50/50)', !/one bet carries the book/.test(tt), `"${(/⚑[^|]+/.exec(tt) || [''])[0].trim()}"; engine share ${ts.concentration && ts.concentration.share} for the FIRST of two equal bets`);
   const three = parse('G\n  A: stake 40, odds 50%, payoff 120\n  B: stake 30, odds 50%, payoff 120\n  C: stake 30, odds 50%, payoff 120');
   check('W4b concentration flag switches at exactly 40% of midpoint stake (40/100 flags, 39/99 does not)', !!simulate(three).concentration && !simulate(parse('G\n  A: stake 39, odds 50%, payoff 120\n  B: stake 30, odds 50%, payoff 120\n  C: stake 30, odds 50%, payoff 120')).concentration);
 
   const lan = parse(EXAMPLES[0].src), ls = simulate(lan), wide = board(lan, ls);
-  check('W5 the wide board\'s shared-stress receipt prints its whole condition, not a dangling "parameter ranges"', /stay independent/.test(wide), `wide receipt reads "${(/If realised[^|]+/.exec(wide) || [''])[0].trim()}" (copyLines.slice(0, 1) keeps one line)`, {known: !/stay independent/.test(wide)});
+  check('W5 the wide board\'s shared-stress receipt prints its whole condition, not a dangling "parameter ranges"', /stay independent/.test(wide), `wide receipt reads "${(/If realised[^|]+/.exec(wide) || [''])[0].trim()}" (copyLines.slice(0, 1) keeps one line)`);
   const nq = svgText(renderQuadrant(lan, ls, {...ctxN, width: 400}));
-  check('W6 the narrow quadrant\'s shared-stress caption does not overstate the scenario ("Whole portfolio moves together" while stakes, odds and payoffs stay independent)', !/Whole portfolio moves together/.test(nq), '"Whole portfolio moves together" vs board "If realised wins and losses move together; parameter ranges stay independent"', {known: /Whole portfolio moves together/.test(nq)});
+  check('W6 the narrow quadrant\'s shared-stress caption does not overstate the scenario ("Whole portfolio moves together" while stakes, odds and payoffs stay independent)', !/Whole portfolio moves together/.test(nq), '"Whole portfolio moves together" vs board "If realised wins and losses move together; parameter ranges stay independent"');
   const nounit = parse('title: T\nG\n  A: stake 10, odds 50%, payoff 30\n    kill: k');
   const nut = board(nounit, simulate(nounit));
-  check('W7 with no unit the footer does not print a bare "ALL FIGURES"', !/ALL FIGURES\s*$/.test(nut), `footer ends "${nut.slice(-20)}"`, {known: /ALL FIGURES\s*$/.test(nut)});
+  check('W7 with no unit the footer does not print a bare "ALL FIGURES"', !/ALL FIGURES\s*$/.test(nut), `footer ends "${nut.slice(-20)}"`);
   // markdown and board agree on every printed portfolio figure (to the board's step)
   const md2 = markdown(lan, ls, '');
   const mdMed = /Independent baseline: Median outcome \*\*([^ *]+)/.exec(md2)[1];
@@ -252,15 +259,15 @@ for(const ex of EXAMPLES){
   // diff headline wording
   const was = parse('G\n  A: stake 10, odds 50%, payoff 30\n  B: stake 5, odds 50%, payoff 30'), now = parse('G\n  A: stake 20, odds 50%, payoff 30\n  B: stake 5, odds 50%, payoff 30');
   const view = betsDiffView(betsDiff(was, now), 'snap');
-  check('W12 snapshot headline names what changed: a stake-only change does not read "odds moved"', !/odds moved/.test(view.headline), `"${view.headline}" for a stake change 10 -> 20 (documented trade-off in diff.js)`, {known: /odds moved/.test(view.headline)});
+  check('W12 snapshot headline names what changed: a stake-only change does not read "odds moved"', !/odds moved/.test(view.headline), `"${view.headline}" for a stake change 10 -> 20 (documented trade-off in diff.js)`);
   const dup = parse('Growth\n  Pilot: stake 10, odds 50%, payoff 30\nPlatform\n  Pilot: stake 5, odds 50%, payoff 30');
-  check('W13 comparison is not paused for the same bet name in two DIFFERENT groups (the occurrence key already includes the group)', comparisonSafety(dup, dup).safe, comparisonSafety(dup, dup).warning, {known: !comparisonSafety(dup, dup).safe});
+  check('W13 comparison is not paused for the same bet name in two DIFFERENT groups (the occurrence key already includes the group)', comparisonSafety(dup, dup).safe, comparisonSafety(dup, dup).warning);
   // presentation vs board agree
   const pres = svgText(renderBetsPresentation(lan, ls, {...ctxN, intent: 'presentation'}));
   check('W14 presentation export prints the same P(loses money) and median as the board for both scenarios', pres.includes('P(LOSES MONEY) ' + pct(ls.portfolio.pLoss) + '%') && pres.includes('MEDIAN ' + (ls.portfolio.p50 < 0 ? '−' : '+') + int(Math.abs(ls.portfolio.p50))) && pres.includes('P(LOSES MONEY) ' + pct(ls.scenarios.shared.pLoss) + '%'));
-  check('W15 presentation per-bet columns are labelled as EV (the board says "EV P10"; the slide says bare "P10 | P50 | P90" over per-bet EV, the same words it uses for portfolio outcomes)', /EV P10|P10 EV/.test(pres), 'slide column heads: "P10 | P50 | P90"', {known: !/EV P10|P10 EV/.test(pres)});
+  check('W15 presentation per-bet columns are labelled as EV (the board says "EV P10"; the slide says bare "P10 | P50 | P90" over per-bet EV, the same words it uses for portfolio outcomes)', /EV P10|P10 EV/.test(pres), 'slide column heads: "P10 | P50 | P90"');
   const nqc = svgText(renderQuadrant(parse('G\n  A: stake 10, odds 50%, payoff 30\n  Bad: stake 10\nEmpty\nOther\n  C: stake 10, odds 50%, payoff 30'), simulate(parse('G\n  A: stake 10, odds 50%, payoff 30\n  Bad: stake 10\nEmpty\nOther\n  C: stake 10, odds 50%, payoff 30')), {...ctxN, width: 400}));
-  check('W16 narrow quadrant count line counts every bet and only lanes that hold bets (3 bets, 2 lanes here)', /3 bets · 2 lanes/.test(nqc), `prints "${(/\d+ bets · \d+ lanes/.exec(nqc) || [''])[0]}" (unscored bet dropped, empty group counted)`, {known: !/3 bets · 2 lanes/.test(nqc)});
+  check('W16 narrow quadrant count line counts every bet and only lanes that hold bets (3 bets, 2 lanes here)', /3 bets · 2 lanes/.test(nqc), `prints "${(/\d+ bets · \d+ lanes/.exec(nqc) || [''])[0]}" (unscored bet dropped, empty group counted)`);
   // the engine's own verdict sentence is never shown: record
   check('W17 recorded: engine.js verdictParts()/verdictCopy() is not imported by any surface (dead copy; the board owns the reading)', !/verdictParts|verdictCopy/.test(appSrc) && typeof verdictParts === 'function');
 }
@@ -287,17 +294,17 @@ for(const ex of EXAMPLES){
 {
   const w = s => parse('G\n  A: ' + s).warnings.map(x => x.msg);
   const b = s => parse('G\n  A: ' + s).groups[0].bets[0];
-  check('P1 parser rejects or warns on a malformed number "stake 1.2.3"', b('stake 1.2.3, odds 50%, payoff 30').stake === null || w('stake 1.2.3, odds 50%, payoff 30').length > 0, `read as stake ${JSON.stringify(b('stake 1.2.3, odds 50%, payoff 30').stake)} with ${w('stake 1.2.3, odds 50%, payoff 30').length} warnings`, {known: true});
-  check('P2 parser warns when odds look like fractions ("odds 0.3-0.5" reads as 0.3-0.5%, not 30-50%)', w('stake 10, odds 0.3-0.5, payoff 30').length > 0, `read as ${JSON.stringify(b('stake 10, odds 0.3-0.5, payoff 30').odds)} %, no warning`, {known: true});
+  check('P1 parser rejects or warns on a malformed number "stake 1.2.3"', b('stake 1.2.3, odds 50%, payoff 30').stake === null || w('stake 1.2.3, odds 50%, payoff 30').length > 0, `read as stake ${JSON.stringify(b('stake 1.2.3, odds 50%, payoff 30').stake)} with ${w('stake 1.2.3, odds 50%, payoff 30').length} warnings`);
+  check('P2 parser warns when odds look like fractions ("odds 0.3-0.5" reads as 0.3-0.5%, not 30-50%)', w('stake 10, odds 0.3-0.5, payoff 30').length > 0, `read as ${JSON.stringify(b('stake 10, odds 0.3-0.5, payoff 30').odds)} %, no warning`);
   const th = parse('G\n  A: stake 1,000, odds 50%, payoff 3000'), thb = th.groups[0].bets[0], ths = simulate(th);
-  check('P3 "stake 1,000" is not scored as a stake of 1 (a thousands separator)', !(thb.stake && thb.stake[0] === 1 && ths.bets.get(2).scoreable), `stake ${JSON.stringify(thb.stake)}, scoreable ${ths.bets.get(2).scoreable}, warning "${th.warnings.map(x => x.msg).join(' / ')}"`, {known: true});
-  check('P4 "stake 50%" (a percent sign on money) is not silently accepted', b('stake 50%, odds 50%, payoff 30').stake === null || w('stake 50%, odds 50%, payoff 30').length > 0, `stake ${JSON.stringify(b('stake 50%, odds 50%, payoff 30').stake)}, ${w('stake 50%, odds 50%, payoff 30').length} warnings`, {known: true});
+  check('P3 "stake 1,000" is not scored as a stake of 1 (a thousands separator)', !(thb.stake && thb.stake[0] === 1 && ths.bets.get(2).scoreable), `stake ${JSON.stringify(thb.stake)}, scoreable ${ths.bets.get(2).scoreable}, warning "${th.warnings.map(x => x.msg).join(' / ')}"`);
+  check('P4 "stake 50%" (a percent sign on money) is not silently accepted', b('stake 50%, odds 50%, payoff 30').stake === null || w('stake 50%, odds 50%, payoff 30').length > 0, `stake ${JSON.stringify(b('stake 50%, odds 50%, payoff 30').stake)}, ${w('stake 50%, odds 50%, payoff 30').length} warnings`);
   const big = parse('G\n  A: stake 10, odds 50%, payoff ' + '9'.repeat(400) + '\n  B: stake 10, odds 50%, payoff 30'), bs = simulate(big);
   const finite = [bs.portfolio.p10, bs.portfolio.p50, bs.portfolio.p90].every(Number.isFinite);
   const bt = svgText(renderBoard(big, bs, ctxN));
-  check('P5 a 400-digit payoff is rejected or warned, not simulated as Infinity', big.groups[0].bets[0].payoff === null || big.warnings.length > 0, `payoff ${big.groups[0].bets[0].payoff && big.groups[0].bets[0].payoff[0]}; portfolio P10/P50/P90 finite: ${finite}; board shows "${(/PORTFOLIO \| [^|]+\| [^|]+\| [^|]+\| [^|]+/.exec(bt) || [''])[0]}"`, {known: true});
+  check('P5 a 400-digit payoff is rejected or warned, not simulated as Infinity', big.groups[0].bets[0].payoff === null || big.warnings.length > 0, `payoff ${big.groups[0].bets[0].payoff && big.groups[0].bets[0].payoff[0]}; portfolio P10/P50/P90 finite: ${finite}; board shows "${(/PORTFOLIO \| [^|]+\| [^|]+\| [^|]+\| [^|]+/.exec(bt) || [''])[0]}"`);
   const kd = parse('G\n  A: stake 1, odds 50%, payoff 2\n    kill: stop by 2026-02-31');
-  check('P6 a kill date that does not exist (2026-02-31) warns', kd.warnings.length > 0, `kill.by = ${kd.groups[0].bets[0].kill.by}, ${kd.warnings.length} warnings`, {known: true});
+  check('P6 a kill date that does not exist (2026-02-31) warns', kd.warnings.length > 0, `kill.by = ${kd.groups[0].bets[0].kill.by}, ${kd.warnings.length} warnings`);
   let ok = true; try{ const m = parse('__proto__\n  __proto__: stake 10, odds 50%, payoff 30\n  constructor: stake 5, odds 50%, payoff 30'); const s = simulate(m); renderBoard(m, s, ctxN); markdown(m, s, ''); betsDiffView(betsDiff(m, m), 'x'); ok = s.scoreableCount === 2 && Object.prototype.toString.call({}) === '[object Object]'; }catch(e){ ok = false; }
   check('P7 names "__proto__" and "constructor" parse, simulate, render, export and diff without harm', ok);
   let ok2 = true; try{ for(const t of ['', '\n\n', 'title: x', 'G', 'G\n  A', 'G\n  A: stake 5']){ const m = parse(t), s = simulate(m); if(s.portfolio !== null) ok2 = false; if(flat(m).length) renderBoard(m, s, ctxN); } }catch(e){ ok2 = false; console.log(e); }

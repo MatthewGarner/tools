@@ -10,9 +10,65 @@ export function sigmaW(ww){ return Math.log(1 + ww / 100) / 1.6448536; }
 const clampScore = v => Math.max(1, Math.min(10, v));
 const clampWeight = v => Math.max(0, v);
 
+/* ---------- one reader for scores, wobble and capacity ----------
+   Typed cells, pasted rows and saved links all pass through these, so the table,
+   the flip line and the knife-edge flags can never hold different numbers. */
+export const SCORE_MIN = 1, SCORE_MAX = 10, WW_MAX = 200, SW_MAX = 5;
+export function readScore(value, fallback = null){
+  const v = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+  return Number.isFinite(v) ? clampScore(v) : fallback;
+}
+export const readWobbleWeights = value => Number.isFinite(+value) && value !== null && value !== '' ? Math.max(0, Math.min(WW_MAX, +value)) : null;
+export const readWobbleScores = value => Number.isFinite(+value) && value !== null && value !== '' ? Math.max(0, Math.min(SW_MAX, +value)) : null;
+export const readWeight = value => Number.isFinite(+value) && value !== null && value !== '' ? clampWeight(+value) : 0;
+
+/* The weight wobble is multiplicative: a 90% interval from 1/f to f times the stated
+   weight, where f = 1 + wobble/100. "±50%" would suggest -50%/+50%; it is ÷1.5 to ×1.5. */
+const fmtX = f => (Math.round(f * 100) / 100) + '×';
+export const wobbleFactorText = ww => ww > 0 ? 'up to ' + fmtX(1 + ww / 100) + ' larger or smaller' : 'no wobble';
+export const weightWobbleText = ww => ww > 0 ? 'weights ' + wobbleFactorText(ww) : 'no weight wobble';
+
+/* paste import: "name, V, T, R, E" rows (comma, tab or | separated). Pure. */
+export function parsePaste(text){
+  const items = [], bad = [];
+  for(const rawLine of text.split(/\r?\n/)){
+    const line = rawLine.trim();
+    if(!line) continue;
+    if(/^\|?[\s:|-]+\|?$/.test(line)) continue;            // markdown separator row
+    let parts;
+    if(line.includes('|')) parts = line.split('|').map(s => s.trim()).filter(Boolean);
+    else if(line.includes('\t')) parts = line.split('\t').map(s => s.trim());
+    else parts = line.split(',').map(s => s.trim());
+    if(parts.length < 5){ bad.push(line); continue; }
+    const nums = parts.slice(-4).map(Number);
+    if(nums.some(v => !isFinite(v) || v <= 0)){
+      // probably a header row — skip silently if nothing numeric at all
+      if(parts.slice(-4).every(v => isNaN(Number(v)))) continue;
+      bad.push(line); continue;
+    }
+    const scores = nums.map(v => readScore(v));
+    items.push({name: parts.slice(0, parts.length - 4).join(' '), s: scores.slice(0, 3), e: scores[3]});
+  }
+  return {items, bad};
+}
+
+/* a saved link's rows: every cell read through the same bounds as a typed one. An
+   unreadable score becomes the app's own new-row score (5) rather than dropping the
+   row, so no other row changes place. */
+export function readLinkItems(rows, nc){
+  return (Array.isArray(rows) ? rows : []).map(row => {
+    const r = Array.isArray(row) ? row : [];
+    return {name: String(r[0] ?? ''),
+      s: Array.from({length: nc}, (_, ci) => readScore(r[1 + ci], 5)), e: readScore(r[1 + nc], 5)};
+  });
+}
+
+/* Markdown cell: a | or a line break in a name would split or break the row */
+export const mdCell = value => String(value ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
 export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
-  const items = state.items.filter(it =>
-    it.s.every(v => isFinite(v)) && isFinite(it.e));
+  const items = [], origin = [];          // origin[j]: the row's own place in state.items
+  state.items.forEach((it, oi) => { if(it.s.every(v => isFinite(v)) && isFinite(it.e)){ items.push(it); origin.push(oi); } });
   const n = items.length;
   if(n < 2) return null;
   const nc = state.criteria.length;
@@ -31,6 +87,8 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
   const scoreBuf = new Array(n);
   const order = Array.from({length: n}, (_, i) => i);
 
+  const k = Math.max(1, Math.min(n, Math.round(state.k)));
+  const setCounts = new Map();
   const sw = Math.max(0, state.sw || 0), sgw = sigmaW(Math.max(0, state.ww || 0));
   for(let sim = 0; sim < nsim; sim++){
     const ws = state.criteria.map(c => clampWeight(c.w || 0) * Math.exp(sgw * gauss()));
@@ -44,7 +102,24 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
       scoreBuf[i] = benefit / eff;
     }
     order.sort((a, b) => scoreBuf[b] - scoreBuf[a]);
-    for(let r = 0; r < n; r++) rankCounts[order[r]][r]++;
+    /* exact ties share the places they occupy: m tied items each take 1/m of every
+       one of those m places. No tie, no change: the same whole-number counts as before. */
+    for(let r = 0; r < n;){
+      let t = r + 1;
+      while(t < n && scoreBuf[order[t]] === scoreBuf[order[r]]) t++;
+      if(t === r + 1) rankCounts[order[r]][r]++;
+      else {
+        const share = 1 / (t - r);
+        for(let a = r; a < t; a++) for(let b = r; b < t; b++) rankCounts[order[a]][b] += share;
+      }
+      r = t;
+    }
+    /* the exact SET of items in the top k; a tie that straddles the cut leaves the set
+       undecided in that run, so that run supports no set */
+    if(!(k < n && scoreBuf[order[k - 1]] === scoreBuf[order[k]])){
+      const key = order.slice(0, k).sort((a, b) => a - b).join(',');
+      setCounts.set(key, (setCounts.get(key) || 0) + 1);
+    }
   }
 
   /* base ranking with unperturbed values */
@@ -54,9 +129,8 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
     return b / clampScore(it.e);
   });
   const baseOrder = Array.from({length: n}, (_, i) => i)
-    .sort((a, b) => baseScore[b] - baseScore[a]);
+    .sort((a, b) => baseScore[b] - baseScore[a]).map(j => origin[j]);
 
-  const k = Math.max(1, Math.min(n, Math.round(state.k)));
   const stats = items.map((it, i) => {
     const counts = rankCounts[i];
     let cum = 0, p10 = 0, med = 0, p90 = n - 1, got10 = false, got50 = false;
@@ -68,33 +142,57 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
     }
     let ptop = 0;
     for(let r = 0; r < k; r++) ptop += counts[r];
-    return {i, name: it.name || 'Initiative ' + (i + 1), p10, med, p90, ptop: ptop / nsim};
+    return {i: origin[i], name: it.name || 'Initiative ' + (origin[i] + 1), p10, med, p90, ptop: ptop / nsim};
   });
-  return {stats, baseOrder, baseScore, n, k};
+  const setShare = Math.max(0, ...setCounts.values()) / nsim;
+  return {stats, baseOrder, baseScore, n, k, setShare};
 }
 
 /* {headline, body, contested, fig} — `headline` is the display line, `fig` the
    ONE load-bearing count inside it (verbatim, so the surface can mark it without
-   re-deriving it) and `body` the supporting sentence that sits below. */
-export function verdictCopy(stats, k){
-  const secure = stats.filter(s => s.ptop >= 0.85);
-  const contested = stats.filter(s => s.ptop > 0.15 && s.ptop < 0.85);
+   re-deriving it) and `body` the supporting sentence that sits below.
+
+   "Settled" is a claim about the SET: it needs k items that each clear the line AND
+   one exact group of k that turns up in at least 85% of runs (`info.setShare`, from
+   simulate()). The lines are applied to the figures as printed, so an item shown as
+   "85%" is never also listed as contested. */
+const pctShown = p => Math.round(p * 100);
+export function verdictCopy(stats, k, info = {}){
+  const n = stats.length;
+  const secure = stats.filter(s => pctShown(s.ptop) >= 85);
+  const contested = stats.filter(s => pctShown(s.ptop) > 15 && pctShown(s.ptop) < 85);
+  const plural = (count, one, many) => count + ' ' + (count === 1 ? one : many);
   let headline, body, fig;
-  if(secure.length >= k){
+  if(n > 0 && k >= n){
+    fig = '';
+    headline = 'There is no cut to contest.';
+    body = ' Every initiative fits within the capacity of ' + k + ', so nothing is left out. The rank bars below still show how firm each order is.';
+  } else if(secure.length > k || (secure.length === k && info.setShare !== undefined && pctShown(info.setShare) < 85)){
+    const compete = secure.length + contested.length;
+    fig = String(compete);
+    headline = 'The cut for the top ' + k + ' is contested: ' + plural(compete, 'initiative competes', 'initiatives compete') + ' for ' + plural(k, 'place', 'places') + '.';
+    body = secure.length > k
+      ? ' More than ' + k + ' initiatives each make the cut in at least 85% of simulations, but they cannot all fit — which ones fill the places changes with the weights. Decide the cut on strategy or sequencing.'
+      : ' Each of the ' + k + ' makes the cut in at least 85% of simulations on its own, but no single group of ' + k + ' shows up in 85% of them. Decide the cut on strategy or sequencing.';
+  } else if(secure.length >= k){
     fig = String(k);
     headline = 'The top ' + k + ' is settled.';
-    body = ' Every initiative that makes the cut does so in at least 85% of simulations — reasonable people with different weights get the same answer. Stop tuning the spreadsheet; use the stable order alongside strategy and delivery judgement.';
+    body = ' Every initiative that makes the cut does so in at least 85% of simulations, and the same group of ' + k + ' wins in at least 85% of them — reasonable people with different weights get the same answer. Stop tuning the spreadsheet; use the stable order alongside strategy and delivery judgement.';
   } else if(secure.length > 0){
     fig = String(secure.length);
     headline = secure.length + ' of the top ' + k + (secure.length === 1 ? ' is' : ' are') + ' settled.';
-    body = ' ' + secure.map(s => s.name).join(', ') +
-      (secure.length === 1 ? ' makes' : ' make') +
-      ' the cut under any reasonable weights. The remaining ' + (k - secure.length) +
-      (k - secure.length === 1 ? ' place is' : ' places are') +
-      (contested.length
+    const sure = secure.filter(s => s.ptop > 0.995), firm = secure.filter(s => !(s.ptop > 0.995));
+    const parts = [];
+    if(sure.length) parts.push(sure.map(s => s.name).join(', ') + (sure.length === 1 ? ' makes' : ' make') + ' the cut under any reasonable weights.');
+    for(const s of firm) parts.push(s.name + ' makes the cut in ' + pctStr(s.ptop) + ' of reasonable weightings.');
+    const left = k - secure.length;
+    body = ' ' + parts.join(' ') + ' The remaining ' + (left === 1 ? 'place is' : left + ' places are') +
+      (contested.length >= 2
         ? ' a genuine tie between ' + contested.map(s => s.name).join(', ') +
           ' — the framework can’t decide it, so decide it on strategy or sequencing.'
-        : ' up for grabs across the rest of the field — no single challenger stands out, so decide on strategy or sequencing.');
+        : contested.length === 1
+          ? ' not settled: ' + contested[0].name + ' is the closest contender, but it misses the cut too often to call — decide it on strategy or sequencing.'
+          : ' up for grabs across the rest of the field — no single challenger stands out, so decide on strategy or sequencing.');
   } else {
     fig = '';                        // nothing survived: the line turns on no count
     headline = 'Nothing is settled.';
@@ -104,14 +202,24 @@ export function verdictCopy(stats, k){
   return {headline, body, contested, fig};
 }
 
+export const pctStr = p => p > .995 ? '>99%' : p < .005 ? '<1%' : Math.round(p * 100) + '%';
+
 /* What flips #1: for each criterion and rival, the exact weight delta at which the
    rival's WSJF score equals the leader's (closed form — no simulation). Deterministic
    companion to the wobble: the wobble says how often ranks reshuffle; this names the
    cheapest single reweighting that dethrones the top item. */
+/* rows and weights are read exactly as simulate() reads them: finite rows only, scores
+   clamped to 1-10, weights floored at 0, so a stray out-of-range value cannot name a leader
+   the table does not show. Each row keeps its own place in state.items (`at`). */
+const readRows = state => {
+  const rows = [];
+  state.items.forEach((it, at) => {
+    if(it.s.every(v => isFinite(v)) && isFinite(it.e)) rows.push({name: it.name, s: it.s.map(clampScore), e: clampScore(it.e), at});
+  });
+  return rows;
+};
 export function flipAnalysis(state){
-  const items = state.items.filter(it =>
-    it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0);
-  return buildFlips(state, items);
+  return buildFlips({...state, criteria: state.criteria.map(c => ({...c, w: clampWeight(c.w || 0)}))}, readRows(state));
 }
 
 function buildFlips(state, items){
@@ -132,7 +240,7 @@ function buildFlips(state, items){
       const delta = (BB * A.e - BA * B.e) / den;
       const newWeight = c.w + delta;
       if(!(newWeight > 0)) return;                 // would need a zero/negative weight
-      flips.push({ci, criterion: c.name, rival: state.items.indexOf(B), rivalName: B.name || 'Initiative',
+      flips.push({ci, criterion: c.name, rival: B.at, rivalName: B.name || 'Initiative',
         delta, newWeight, pct: delta / c.w * 100});
     });
   });
@@ -143,7 +251,7 @@ function buildFlips(state, items){
     if(!cur || Math.abs(f.pct) < Math.abs(cur.pct)) best.set(f.ci, f);
   }
   const ranked = [...best.values()].sort((a, b) => Math.abs(a.pct) - Math.abs(b.pct));
-  return {top: {i: state.items.indexOf(A), name: A.name || 'Initiative'},
+  return {top: {i: A.at, name: A.name || 'Initiative'},
     flips: ranked, easiest: ranked[0] || null};
 }
 
@@ -170,19 +278,27 @@ export function flipCopy(flip, ww){
       text: 'No single weight change flips first place — under this scheme the leader is structural.'};
   }
   const e = flip.easiest;
+  if(Math.abs(e.pct) < 1e-9){
+    return {tone: 'fragile',
+      text: 'First place is already tied: ' + e.rivalName + ' scores the same as ' + flip.top.name + ' under the current weights.'};
+  }
   const dir = e.delta > 0 ? 'raise' : 'cut';
   const pctAbs = Math.round(Math.abs(e.pct));
   const move = dir + ' ' + e.criterion + '’s weight ' + Math.abs(e.pct).toFixed(0) + '% (' +
     fmtW(e.newWeight - e.delta) + ' → ' + fmtW(e.newWeight) + ')';
-  if(Math.abs(e.pct) <= ww){
+  /* the wobble is multiplicative (÷f to ×f), so the move is compared on that scale: a 40%
+     cut is ×0.6, beyond ÷1.5 */
+  const factor = 1 + ww / 100, ratio = 1 + e.pct / 100, size = ratio >= 1 ? ratio : 1 / ratio;
+  const wobble = weightWobbleText(ww);
+  if(size <= factor + 1e-9){
     return {tone: 'fragile',
       text: 'Fragile first place: ' + move + ' and ' + e.rivalName + ' overtakes ' + flip.top.name +
-        '. That’s inside the ±' + ww + '% you already call reasonable.'};
+        '. That’s inside the wobble you already call reasonable (' + wobble + ').'};
   }
+  const how = pctAbs >= 999 ? 'far' : fmtX(size) === fmtX(factor) ? 'just' : 'well';
   return {tone: 'robust',
     text: 'First place holds: the cheapest single reweighting that dethrones ' + flip.top.name +
-      ' is ' + move + ' — ' + (pctAbs >= 999 ? 'far' : pctAbs + '%, well') +
-      ' beyond the ±' + ww + '% wobble.'};
+      ' is ' + move + ' — ' + how + ' beyond the wobble (' + wobble + ').'};
 }
 
 /* Per-row fragility probe (the knife-edge pill): does a ±nudge of ANY single criterion weight
@@ -190,13 +306,14 @@ export function flipCopy(flip, ww){
    hair-trigger (default ±10%), distinct from the ww-keyed flipCopy verdict — labelled on-surface. */
 export function perRowKnife(state, nudge = 0.1){
   const idx = state.items.map((_, i) => i);
-  const valid = i => { const it = state.items[i]; return it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0; };
+  const valid = i => { const it = state.items[i]; return it.s.every(v => isFinite(v)) && isFinite(it.e); };
   const rankOf = ws => {                       // pos[] over all items; ranks the valid ones by score desc, tie→name
-    const score = it => state.criteria.reduce((a, c, ci) => a + ws[ci] * it.s[ci], 0) / it.e;
+    /* scores clamped to 1-10 exactly as simulate() reads them */
+    const score = it => state.criteria.reduce((a, c, ci) => a + ws[ci] * clampScore(it.s[ci]), 0) / clampScore(it.e);
     const order = idx.filter(valid).sort((a, b) => score(state.items[b]) - score(state.items[a]));   // stable, no tie-break (matches baseOrder)
     const pos = []; order.forEach((it, r) => { pos[it] = r; }); return pos;
   };
-  const w0 = state.criteria.map(c => c.w);
+  const w0 = state.criteria.map(c => clampWeight(c.w || 0));
   const base = rankOf(w0);
   const knife = state.items.map(() => false);
   for(let ci = 0; ci < w0.length; ci++){
@@ -257,7 +374,8 @@ export function orderDiff(listA, listB){
 export function orderDiffCopy(d){
   if(d.common.length < 2)
     return 'The two lists share fewer than two items — nothing to compare yet.';
-  const head = 'The two orders agree on ' + d.agreementPct + '% of pairwise comparisons (Kendall τ ' +
+  const agree = d.agreementPct === null ? null : d.agreementPct >= 100 && d.tau < 1 ? '>99' : d.agreementPct <= 0 && d.tau > -1 ? '<1' : d.agreementPct;
+  const head = 'The two orders agree on ' + agree + '% of pairwise comparisons (Kendall τ ' +
     (Math.round(d.tau * 100) / 100) + ').';
   if(!d.movers.length) return head + ' Same order, shared items considered.';
   const top = d.movers.slice(0, 3)
