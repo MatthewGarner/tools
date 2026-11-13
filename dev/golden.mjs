@@ -273,6 +273,7 @@ if(selected('flow')){
 /* /fermi driver-tree fixtures (#73): seeded MC → deterministic sens → exact SVG */
 if(selected('fermi-driver')){
   const E = await import('../fermi/engine.js');
+  const {SEEDS, N} = await import('../fermi/seeds.js');   // the page's own constants: change one and these go red
   const {renderDriverTree} = await import('../fermi/render-driver.js');
   const {quantile} = await import('../assets/series.js');
   const build = (f, ranges) => {
@@ -281,9 +282,9 @@ if(selected('fermi-driver')){
     const dists = {};
     for(const n of varNames) dists[n] = 'auto';
     const m = {ast, varNames, ranges, dists};
-    const {sorted} = E.simulateModel(m, {seed: 0x5EED, n: 20000});
+    const {sorted} = E.simulateModel(m, {seed: SEEDS.A, n: N});
     const p10 = quantile(sorted, .1), p50 = quantile(sorted, .5), p90 = quantile(sorted, .9);
-    return {...m, p10, p50, p90, ...E.computeSensitivity(m, {seed: 0x5EED, p10, p90})};
+    return {...m, p10, p50, p90, ...E.computeSensitivity(m, {seed: SEEDS.A, p10, p90})};
   };
   variants['fermi-driver-meeting'] = renderDriverTree(
     build('attendees * hourly_cost * meeting_hours * weeks_per_year',
@@ -299,17 +300,18 @@ if(selected('fermi-driver')){
 /* /fermi cashflow fixtures (#13): seeded → deterministic */
 if(selected('fermi-cashflow')){
   const {simulateCashflow} = await import('../fermi/cashflow.js');
+  const {CF_SEED, CF_N} = await import('../fermi/seeds.js');
   const {renderCashflow} = await import('../fermi/render-cashflow.js');
   const R = (lo, hi) => ({lo, hi});
   const cctx = {...ctxBase, colors: {...ctxBase.colors, accent2: '#c62'}};
   const invest = {periods: [R(-250e3, -180e3), R(-40e3, 20e3), R(30e3, 90e3), R(60e3, 140e3)],
     horizon: 5, grain: 'year', rate: R(8, 12)};
-  variants['fermi-cashflow-invest'] = renderCashflow(simulateCashflow(invest, {seed: 0xCA5F, n: 10000}), invest, cctx);
+  variants['fermi-cashflow-invest'] = renderCashflow(simulateCashflow(invest, {seed: CF_SEED, n: CF_N}), invest, cctx);
   const runway = {periods: [R(400e3, 400e3), R(-45e3, -25e3)], horizon: 24, grain: 'month', rate: R(0, 0)};
-  variants['fermi-cashflow-runway'] = renderCashflow(simulateCashflow(runway, {seed: 0xCA5F, n: 10000}), runway, cctx);
+  variants['fermi-cashflow-runway'] = renderCashflow(simulateCashflow(runway, {seed: CF_SEED, n: CF_N}), runway, cctx);
   const geared = {periods: [R(-7.2e6, -6.8e6), ...Array(15).fill(R(880e3, 1.35e6))], horizon: 15,
     grain: 'year', rate: R(9, 11), debt: {dscr: 1.45, costOfDebt: 0.065, tenor: 9, sizingCase: 'central'}};
-  variants['fermi-cashflow-geared'] = renderCashflow(simulateCashflow(geared, {seed: 0xCA5F, n: 10000}), geared, cctx);
+  variants['fermi-cashflow-geared'] = renderCashflow(simulateCashflow(geared, {seed: CF_SEED, n: CF_N}), geared, cctx);
 }
 
 /* /timeline fixtures (today pinned in the doc → deterministic) */
