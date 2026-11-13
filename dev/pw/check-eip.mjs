@@ -3238,7 +3238,9 @@ if(scope.wants("bets")){
   check('bets authored: the board prints the payoff as written (19.4)', board.includes('>19.4<'));
   await ap.locator('[data-edit="stake"][data-line="5"]').click();
   check('bets authored: the stake field opens prefilled with the authored text', await until(async () => (await ap.locator('.eip-input').inputValue() === '0.5–2.5')));
-  await ap.locator('.eip-input').fill('0.5-4');
+  /* edit the way a person does: keep the prefilled bottom bound, change only the top */
+  const prefilled = await ap.locator('.eip-input').inputValue();
+  await ap.locator('.eip-input').fill(prefilled.split('–')[0] + '-4');
   await ap.keyboard.press('Enter');
   const edited = await untilValue(() => ap.evaluate(() => localStorage.getItem('bets-src')), v => v.includes('stake 0.5-4,'));
   check('bets authored: editing only the top bound keeps the authored bottom bound (0.5)', edited.includes('stake 0.5-4,') && !edited.includes('stake 1-4'));
@@ -3249,6 +3251,7 @@ if(scope.wants("bets")){
   await ap.evaluate(src => { localStorage.setItem('bets-src', src); localStorage.removeItem('bets-snaps'); }, KILO);
   await ap.goto(aurl, {waitUntil: 'networkidle'});
   await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('Bet'));
+  await ap.getByText('History', {exact: true}).click();
   await ap.locator('#snap').click();
   await until(async () => (await ap.locator('#snapsel option').count()) > 1);
   await ap.locator('#snapsel').selectOption({index: 1});
@@ -3256,10 +3259,11 @@ if(scope.wants("bets")){
     await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('SNAPSHOT P10–P90')));
   await ap.evaluate(src => localStorage.setItem('bets-src', src), KILO.replace('£k', '£m'));
   await ap.goto(aurl, {waitUntil: 'networkidle'});
+  await ap.getByText('History', {exact: true}).click();
   await until(async () => (await ap.locator('#snapsel option').count()) > 1);
   await ap.locator('#snapsel').selectOption({index: 1});
   check('bets unit: the comparison line says the snapshot was in another unit',
-    await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('The snapshot was in £k, so its outcome band is not drawn.')));
+    await until(async () => /The snapshot was in £k, so its outcome band is not\s+drawn\./.test((await ap.evaluate(() => [...document.querySelectorAll('#preview svg text')].map(t => t.textContent).join(' '))).replace(/\s+/g, ' '))));
   check('bets unit: no ghost band is drawn on the live ruler for a snapshot in another unit',
     !(await ap.locator('#preview svg').innerHTML()).includes('SNAPSHOT P10–P90'));
   await ap.evaluate(() => localStorage.removeItem('bets-snaps'));
