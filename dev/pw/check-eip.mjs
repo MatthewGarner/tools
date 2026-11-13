@@ -3751,9 +3751,9 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
    uses the evaluator-backed impact receipt while Tree retains its editable
    legacy receipt and source-rewrite behavior during the staged migration. ---- */
 if(scope.wants("paths")){
-  /* The Brief is drawn no narrower than 1100px, so a receipt rail beside it needs 1466px of stage: this fixture starts wide enough
-     for the rail. Narrower stages put the margin above the drawing, on a click (asserted at 1100px below). */
-  const pctx = await browser.newContext({viewport:{width:1700, height:900}, reducedMotion:'reduce'});
+  /* The Brief is laid out for the width beside the 350px margin and stays readable down to briefMinWidth (768px for three periods),
+     so the rail is open at laptop widths: 1440px here. A stage too narrow for that puts the margin above the drawing (asserted at 1100px below). */
+  const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
   // This fixture asserts the pre-deadline announcement. Freeze wall time so
   // its 15 September deadline cannot turn a valid 'due' claim into 'overdue'.
@@ -3924,7 +3924,7 @@ if(scope.wants("paths")){
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
-  await p.setViewportSize({width:1700, height:900});
+  await p.setViewportSize({width:1440, height:900});
   check('paths: resizing across the receipt boundary reflows overlay into the rail', await until(async () => (await p.evaluate(() => {
       const main = document.querySelector('.overview-main').getBoundingClientRect();
       const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
@@ -3934,6 +3934,12 @@ if(scope.wants("paths")){
     }))));
 
   await p.setViewportSize({width:1280, height:900});
+  check('paths: at 1280px the decision margin is a rail open on landing beside a Brief laid out for what is left, nothing under it', await until(async () => (await p.evaluate(() => {
+      const live = document.querySelector('#overview-live'), rc = document.querySelector('#overview-receipt');
+      const s = document.querySelector('#preview svg').getBoundingClientRect(), r = rc.getBoundingClientRect(), pane = document.querySelector('#preview').getBoundingClientRect();
+      return live.dataset.receiptLayout === 'rail' && !rc.hidden && s.right <= r.left && s.width < 1100 && s.right <= pane.right + 1 &&
+        Number(document.querySelector('#preview svg').getAttribute('width')) === Math.round(s.width);
+    }))));
 
   await p.getByRole('button', {name:'Question lens'}).click();
   check('paths: visible Question lens switch edits the source and makes two answer outcomes explicit', await until(async () => (/style: question/.test(await src()) &&

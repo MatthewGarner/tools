@@ -13,7 +13,7 @@ import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {decisionImpactProjection, overviewProjection} from './overview.js';
 import {learningAgendaNextAction, learningAgendaProjection} from './learning-agenda.js';
 import {projectLearningCloseOut} from './learning-closeout.js';
-import {renderOverview, renderOverviewNarrow} from './render-overview.js';
+import {renderOverview, renderOverviewNarrow, briefMinWidth} from './render-overview.js';
 import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
 import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
 import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
@@ -335,9 +335,10 @@ function overviewSurfaceMetrics(){
   const surface = host.clientWidth ? host : preview;
   const width = surface.clientWidth || 0;
   const narrow = narrowWidth(surface) !== undefined;
-  /* The Brief is drawn no narrower than 1100px (render-overview.js) and wider with more than three periods. A rail beside it is
-     used only where that much is left; otherwise the margin sits above the artefact, so nothing is drawn under it. */
-  const needs = Math.max(1100, 72 + 150 + 260 * (overview?.periods?.length || 0));
+  /* The decision margin is a 350px rail (and a 16px gap) beside the Brief, open on landing. The live Brief is laid out for the width
+     that is left (render-overview.js briefFit); it stays readable down to briefMinWidth, which grows with the number of periods.
+     Narrower than that the margin sits above the artefact, so nothing is ever drawn under it. */
+  const needs = briefMinWidth(overview?.periods?.length || 0);
   const receiptLayout = narrow ? 'sheet' : width - 366 >= needs ? 'rail' : width >= 900 ? 'inline' : 'overlay';
   return {width, narrow, receiptLayout,
     previewWidth:receiptLayout === 'rail' ? width - 366 : width,
@@ -1174,7 +1175,8 @@ function doRefresh(){
     } else {
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         expandedGroups:expandedOverviewGroups, impact:overviewImpact,
-        showReceipt:false};
+        showReceipt:false,
+        fit:overviewMetrics.receiptLayout === 'rail' || (overviewMetrics.receiptLayout === 'inline' && width < 1100)};
       svg = narrow
         ? renderOverviewNarrow(overview, context(model, {width, ...interactive}))
         : renderOverview(overview, context(model, {width:width || 1160, ...interactive}));
