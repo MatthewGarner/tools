@@ -50,20 +50,25 @@ export const PLAN = [
 ];
 export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-stall', 'btp-menu', 'btp-eip', 'btp-theme', 'bets-values', 'tree-slider', 'paths-select'];
 
-/* Defects confirmed by this audit (2026-11-13, Bets/Tree/Paths; findings FB-/FT-/FP- in the evidence folder): a fix turns
-   its known FAIL into a PASS and removes the tag. 'id@tool' tags that check on that tool only. */
+/* Defects confirmed by this audit (2026-11-13, Bets/Tree/Paths; findings FB-/FT-/FP- in the evidence folder) that are still open.
+   A fix turns its known FAIL into a PASS and removes the tag; 'id@tool' tags that check on that tool only. Each group says why it
+   is left. A tag names a check, never a condition, so a new failure of any other check is a plain FAIL. */
 export const KNOWN_BTP = [
-  "compare.edit@bets",
-  
-  "load.large.longtask@bets", "load.large.longtask@tree", "scroll.frames.vs.control@paths", 
-  "slider.large.drag.events@tree",
-  "slider.large.release.longtask@tree",
-  "slider.large.release@tree", "sliderkeys.large.longtask@tree", "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree",
-  "stall.large.live@bets",
-  "stall.large.live@paths", "stall.large.live@tree", "stall.large.longtask@tree",
+  /* the simulation's own cost (Bets 40,000 runs, Tree 60,000 runs on a large document): a later stage, not feel code */
+  "load.large.longtask@bets", "load.large.longtask@tree", "values.example.longtask@bets", "values.large.applied@bets", "values.large.longtask@bets",
+  "slider.large.drag.events@tree", "slider.large.release@tree", "slider.large.release.longtask@tree", "sliderkeys.large.longtask@tree",
+  "stall.large.longtask@tree", "compare.edit@bets",
+  /* the render waits for a 120ms pause in typing by design (the debounce); recorded, not a defect to fix here */
+  "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree", "stall.large.live@bets", "stall.large.live@paths", "stall.large.live@tree",
+  /* a decision for Matt: the touch Undo button is shown on a desktop too (earlier audit F44) */
   "undo.desktop@bets", "undo.desktop@paths", "undo.desktop@tree",
-  "values.example.applied@bets", "values.example.inputmode@bets",
-  "values.example.longtask@bets", "values.large.applied@bets", "values.large.inputmode@bets", "values.large.longtask@bets", "view.example.swap@bets", "view.example.swap@paths", "view.large.longtask@paths", "view.large.swap@bets", "view.large.swap@paths",
-  
+  /* a decision for Matt: a decimal keyboard has no '-' or '%', which odds and ranges need */
+  "values.example.inputmode@bets", "values.large.inputmode@bets",
+  /* a discrete swap/commit paints one frame plus the render itself (profiled: 3ms of script, ~20ms of style, SVG parse, ghost clone and paint) */
+  "values.example.applied@bets", "view.example.swap@bets", "view.large.swap@bets", "view.example.swap@paths", "view.large.swap@paths",
+  /* the Plans projection on the large plan: ~160ms of world enumeration in paths/evaluate.js + plans.js (profiled; uncached) */
+  "view.large.longtask@paths",
+  /* native raster of the large SVG while it scrolls: no script, style or layout work (profiled; not isolated further) */
+  "scroll.frames.vs.control@paths",
 ];
 for(const k of KNOWN_BTP) KNOWN.add(k);
