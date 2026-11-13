@@ -2,12 +2,16 @@
    Semantics (spec §2):
    - Ranges are 90% intervals (log-normal when lo>0, normal otherwise; probabilities
      clamped to [0,1] and sibling-normalised per simulation).
-   - The per-node distribution is the distribution of EXPECTED value under parameter
-     uncertainty (chance nodes weight children by sampled probabilities). Point-value
-     trees are therefore exact.
-   - Policy, not hindsight: each decision node picks the option with the highest mean
-     EV once; the policy is frozen across simulations. */
-import {mulberry32, gaussian, quantile} from '../assets/series.js';
+   - EXPECTED values are computed, not sampled: a leaf's mean is exact (a point is itself, a normal
+     range its midpoint, a log-normal range exp(mu + sigma^2/2)); a node adds its own; a chance node
+     is the sum of E[q_i] x E[V_i] (exact because probabilities are drawn independently of the
+     subtrees; E[q_i] is exact when every probability at the node is a point, otherwise its mean
+     over the simulated worlds, a bounded quantity with tiny noise).
+   - Policy, not hindsight: each decision node picks the child with the highest EXACT mean, once
+     (ties to the first); the policy is frozen across worlds and free of seed noise.
+   - Sampling stays for what is a spread: the per-node distribution is the distribution of expected
+     value under parameter uncertainty (chance nodes weight children by sampled probabilities),
+     over WORLDS (40,000 by default) — its P10/P90 and the head-to-head share. */
 import {isWideRange, wideRangeSentence} from './parse.js';
 
 const Z90 = 1.6448536;
@@ -16,13 +20,106 @@ const Z90 = 1.6448536;
    identical to 4dp down to ~24 steps); 30 is a safe margin. */
 const COARSE = 30;
 
-export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
+export const WORLDS = 60000;
+
+/* the exact mean of an authored range under the engine's law */
+export function rangeMean(range){
+  if(range.lo === range.hi) return range.lo;
+  if(range.lo > 0){
+    const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2;
+    const sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
+    return Math.exp(mu + sg * sg / 2);
+  }
+  return (range.lo + range.hi) / 2;
+}
+
+/* A leaf's own spread is a known law, so its P10/P50/P90 are exact too (no sampling noise for a lone range);
+   only mixtures — the nodes above leaves — are sampled. */
+const Z10 = 1.2815515655446004;
+function leafQuantiles(range){
+  if(range.lo === range.hi) return {p10: range.lo, p50: range.lo, p90: range.lo};
+  if(range.lo > 0){
+    const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2, sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
+    return {p10: Math.exp(mu - Z10 * sg), p50: Math.exp(mu), p90: Math.exp(mu + Z10 * sg)};
+  }
+  const mu = (range.lo + range.hi) / 2, sg = (range.hi - range.lo) / (2 * Z90);
+  return {p10: mu - Z10 * sg, p50: mu, p90: mu + Z10 * sg};
+}
+
+/* k-th smallest of a (reordered in place): quickselect, O(n), no sort */
+function selectK(a, k, from = 0){
+  let lo = from, hi = a.length - 1;
+  while(lo < hi){
+    const m = (lo + hi) >> 1;
+    const x = a[lo], y = a[m], z = a[hi];
+    const pivot = x < y ? (y < z ? y : (x < z ? z : x)) : (x < z ? x : (y < z ? z : y));
+    let i = lo, j = hi;
+    while(i <= j){
+      while(a[i] < pivot) i++;
+      while(a[j] > pivot) j--;
+      if(i <= j){ const t = a[i]; a[i] = a[j]; a[j] = t; i++; j--; }
+    }
+    if(k <= j) hi = j; else if(k >= i) lo = i; else return a[k];
+  }
+  return a[k];
+}
+/* linear-interpolated quantile, identical to series.js quantile() on the sorted array, by selection */
+function quantiles(arr, qs){
+  const a = Float64Array.from(arr), n = a.length;
+  let from = 0;   /* qs ascend: everything left of the last selected index is already below the rest */
+  return qs.map(q => {
+    const idx = q * (n - 1), lo = Math.floor(idx), hi = Math.ceil(idx);
+    const vLo = selectK(a, lo, from);
+    from = lo;
+    if(hi === lo) return vLo;
+    let vHi = Infinity;
+    for(let i = lo + 1; i < n; i++) if(a[i] < vHi) vHi = a[i];
+    return vLo + (vHi - vLo) * (idx - lo);
+  });
+}
+
+export function evaluate(model, {sims = WORLDS, seed = 0x5EED} = {}){
   const warnings = [], noOutcome = new Map(), effectiveProbability = new Map();
   const policy = new Map(), stats = new Map();
-  if(!model.root) return {policy, stats, headToHead: [], flips: [], warnings, noOutcome, effectiveProbability};
+  if(!model.root) return {policy, stats, headToHead: [], flips: [], warnings, noOutcome, effectiveProbability, worlds: sims};
 
-  const rand = mulberry32(seed);
-  const gauss = gaussian(rand);
+  /* The generator and the Marsaglia polar sampler of assets/series.js (mulberry32 + gaussian), inlined
+     so the hot loops make no closure-to-closure calls. Same arithmetic in the same order: the draws
+     are bit-identical to series.js's for the same seed. */
+  let ra = seed | 0, spare = 0, hasSpare = false, pu = 0, pv = 0, pf = 0;
+  /* one accepted polar pair: pu, pv and the scale pf (draw order: u then v, exactly series.js's) */
+  function pair(){
+    let u, v, s2;
+    do {
+      ra = (ra + 0x6D2B79F5) | 0;
+      let t = Math.imul(ra ^ (ra >>> 15), 1 | ra);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      u = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+      ra = (ra + 0x6D2B79F5) | 0;
+      t = Math.imul(ra ^ (ra >>> 15), 1 | ra);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      v = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+      s2 = u * u + v * v;
+    } while(s2 >= 1 || s2 === 0);
+    pu = u; pv = v; pf = Math.sqrt(-2 * Math.log(s2) / s2);
+  }
+
+  /* fills out[] with exp(mu + sg g) (lognormal) or mu + sg g (normal), g the next standard normals; a
+     spare carried between arrays (an odd world count) behaves exactly as series.js's gaussian() */
+  function fillNormals(out, lognormal, mu, sg){
+    let i = 0;
+    if(hasSpare){ hasSpare = false; out[0] = lognormal ? Math.exp(mu + sg * spare) : mu + sg * spare; i = 1; }
+    if(lognormal){
+      for(; i + 1 < sims; i += 2){ pair(); out[i] = Math.exp(mu + sg * (pu * pf)); out[i + 1] = Math.exp(mu + sg * (pv * pf)); }
+    } else {
+      for(; i + 1 < sims; i += 2){ pair(); out[i] = mu + sg * (pu * pf); out[i + 1] = mu + sg * (pv * pf); }
+    }
+    if(i < sims){
+      pair(); const g = pu * pf;
+      out[i] = lognormal ? Math.exp(mu + sg * g) : mu + sg * g;
+      spare = pv * pf; hasSpare = true;
+    }
+  }
 
   function sampleArr(range){
     const out = new Float64Array(sims);
@@ -30,21 +127,19 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     if(range.lo > 0){
       const mu = (Math.log(range.lo) + Math.log(range.hi)) / 2;
       const sg = (Math.log(range.hi) - Math.log(range.lo)) / (2 * Z90);
-      for(let s = 0; s < sims; s++) out[s] = Math.exp(mu + sg * gauss());
+      fillNormals(out, true, mu, sg);
     } else {
       const mu = (range.lo + range.hi) / 2, sg = (range.hi - range.lo) / (2 * Z90);
-      for(let s = 0; s < sims; s++) out[s] = mu + sg * gauss();
+      fillNormals(out, false, mu, sg);
     }
     return out;
   }
   /* the midpoint of an authored probability, clamped to [0,1] exactly as every simulated draw is */
   const mid = r => r === 'rest' ? null : Math.min(1, Math.max(0, (r.lo + r.hi) / 2));
-  const statsOf = arr => {
-    const sorted = Float64Array.from(arr).sort();
-    let sum = 0;
-    for(const v of arr) sum += v;
-    return {mean: sum / arr.length,
-      p10: quantile(sorted, .1), p50: quantile(sorted, .5), p90: quantile(sorted, .9)};
+  const exact = new Map();   // node -> exact expected value under the frozen policy
+  const statsOf = (arr, mean) => {
+    const [p10, p50, p90] = quantiles(arr, [.1, .5, .9]);
+    return {mean, p10, p50, p90};
   };
 
   (function warnSums(node){
@@ -64,31 +159,60 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
   /* recursive rollback: returns the node's per-sim EV array under the frozen policy */
   function evalArr(node){
     const own = node.value ? sampleArr(node.value) : new Float64Array(sims);
-    let arr;
+    const ownMean = node.value ? rangeMean(node.value) : 0;
+    let arr, mean;
     if(node.kind === 'leaf'){
-      arr = own;
+      arr = own; mean = ownMean;
     } else if(node.kind === 'decision'){
       const childArrs = node.children.map(evalArr);
       let best = 0, bestMean = -Infinity;
-      childArrs.forEach((a, i) => {
-        const m = stats.get(node.children[i]).mean;
+      node.children.forEach((c, i) => {
+        const m = exact.get(c);
         if(m > bestMean){ bestMean = m; best = i; }
       });
       policy.set(node, node.children[best]);
+      mean = ownMean + bestMean;
       arr = own;
       const chosen = childArrs[best];
       for(let s = 0; s < sims; s++) arr[s] += chosen[s];
     } else {   // chance
       const childArrs = node.children.map(evalArr);
-      const pArrs = node.children.map(c =>
-        c.p === 'rest' ? null : sampleArr(c.p));
-      arr = own;
       const restIdx = node.children.findIndex(c => c.p === 'rest');
       const nKids = node.children.length;
+      /* every probability at this node a point: each world has the same weights, so E[q_i] is exact */
+      const allPoints = node.children.every(c => c.p === 'rest' || c.p.lo === c.p.hi);
+      const pArrs = allPoints ? null : node.children.map(c => c.p === 'rest' ? null : sampleArr(c.p));
+      arr = own;
       const ps = new Float64Array(nKids);
-      const probabilityTotals = new Float64Array(nKids);
+      const probabilityTotals = new Float64Array(nKids), firstWorld = new Float64Array(nKids);
       let zeroTotal = 0;
-      for(let s = 0; s < sims; s++){
+      if(allPoints){
+        let sum = 0;
+        for(let i = 0; i < nKids; i++){
+          const c = node.children[i].p;
+          const v = c === 'rest' ? 0 : Math.min(1, Math.max(0, c.lo));
+          ps[i] = v; sum += v;
+        }
+        if(restIdx >= 0){
+          if(sum > 1){ for(let i = 0; i < nKids; i++) ps[i] /= sum; sum = 1; }
+          ps[restIdx] = 1 - sum;
+        } else if(sum > 0){
+          for(let i = 0; i < nKids; i++) ps[i] /= sum;
+        } else {
+          zeroTotal = sims;
+        }
+        for(let i = 0; i < nKids; i++) firstWorld[i] = ps[i];
+        if(nKids === 2){
+          const c0 = childArrs[0], c1 = childArrs[1], w0 = ps[0], w1 = ps[1];
+          for(let s = 0; s < sims; s++){ let total = 0; total += w0 * c0[s]; total += w1 * c1[s]; arr[s] += total; }
+        } else {
+          for(let s = 0; s < sims; s++){
+            let total = 0;
+            for(let i = 0; i < nKids; i++) total += ps[i] * childArrs[i][s];
+            arr[s] += total;
+          }
+        }
+      } else for(let s = 0; s < sims; s++){
         let sum = 0;
         for(let i = 0; i < nKids; i++){
           const a = pArrs[i];
@@ -105,13 +229,19 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
           zeroTotal++;
         }
         let total = 0;
+        if(s === 0) for(let i = 0; i < nKids; i++) firstWorld[i] = ps[i];
         for(let i = 0; i < nKids; i++){
           probabilityTotals[i] += ps[i];
           total += ps[i] * childArrs[i][s];
         }
         arr[s] += total;
       }
-      for(let i = 0; i < nKids; i++) effectiveProbability.set(node.children[i], probabilityTotals[i] / sims);
+      mean = ownMean;
+      for(let i = 0; i < nKids; i++){
+        const eq = allPoints ? firstWorld[i] : probabilityTotals[i] / sims;
+        effectiveProbability.set(node.children[i], eq);
+        mean += eq * exact.get(node.children[i]);
+      }
       if(zeroTotal){
         noOutcome.set(node, zeroTotal);
         const pct = (zeroTotal * 100 / sims).toFixed(1).replace(/\.0$/, '');
@@ -119,7 +249,8 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
           sims + ' sampled worlds (' + pct + '%) because effective probabilities totalled zero');
       }
     }
-    stats.set(node, statsOf(arr));
+    exact.set(node, mean);
+    stats.set(node, node.kind === 'leaf' && node.value ? {mean, ...leafQuantiles(node.value)} : statsOf(arr, mean));
     node._arr = arr;   // kept for head-to-head pairing at the root
     return arr;
   }
@@ -194,7 +325,7 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     })(model.root);
   }
 
-  return {policy, stats, headToHead, flips, warnings, noOutcome, effectiveProbability};
+  return {policy, stats, headToHead, flips, warnings, noOutcome, effectiveProbability, worlds: sims};
 }
 
 /* Deterministic midpoint rollback with optional per-node parameter OVERRIDES — the pure primitive

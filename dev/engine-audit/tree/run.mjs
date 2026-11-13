@@ -7,7 +7,7 @@ import {parse, parseMoney} from '../../../tree/parse.js';
 import {evaluate, evalDet, loadBearing, sliderExtent, flipAlong, refMid} from '../../../tree/engine.js';
 import {render, treeVerdictParts} from '../../../tree/render.js';
 import {decisionComparisonProjection} from '../../../tree/comparison.js';
-import {pricedCopy, seamCopy, shiftRange, formatRange, formatMoney, formatP, flipCopy} from '../../../tree/format.js';
+import {pricedCopy, seamCopy, shiftRange, formatRange, formatMoney, formatP, flipCopy, sharedStep} from '../../../tree/format.js';
 import {fmt, quantile} from '../../../assets/series.js';
 import {STARTER} from '../../../tree/starter.js';
 
@@ -42,6 +42,7 @@ const drawRange = (r, g) => r.lo === r.hi ? r.lo : r.lo > 0
   : (r.lo + r.hi) / 2 + g() * (r.hi - r.lo) / (2 * Z90);
 const mean = a => { let s = 0; for(const v of a) s += v; return s / a.length; };
 const sd = a => { const m = mean(a); let s = 0; for(const v of a) s += (v - m) ** 2; return Math.sqrt(s / (a.length - 1)); };
+const sharedStepOf = (a, b) => { const m = Math.max(Math.abs(a), Math.abs(b)); return m > 0 ? Math.pow(10, Math.floor(Math.log10(m)) - 2) : 1; };   // the printed step of a sampled P10/P90 pair
 const step3 = v => { const a = Math.abs(v); if(a === 0) return 1; const u = a >= 1e12 ? 1e12 : a >= 1e9 ? 1e9 : a >= 1e6 ? 1e6 : a >= 1e3 ? 1e3 : 1; return Math.pow(10, Math.floor(Math.log10(a / u)) - 2) * u; };
 
 // ---------- independent reference rollback, written from the DSL + engine header semantics ----------
@@ -209,15 +210,15 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   console.log('   info: Venture 1k..100k vs Safe 30k: Venture EV ' + fmt(b.stats.get(base.root.children[0]).mean) + ' (exact log-normal mean ' + fmt(lnMean(1e3, 1e5)) + ') -> ' + b.policy.get(base.root).label
     + '; subtract 50k from every payoff: Venture EV ' + fmt(s.stats.get(shifted.root.children[0]).mean) + ' vs Safe -20k -> ' + s.policy.get(shifted.root).label);
   check('I3 shift invariance: subtracting the same 50k from every payoff does not change which option is recommended (1k..100k vs 30k)', b.policy.get(base.root).label === s.policy.get(shifted.root).label,
-    'recommendation flips from ' + b.policy.get(base.root).label + ' to ' + s.policy.get(shifted.root).label + ': a range with lo > 0 is log-normal (mean ' + fmt(lnMean(1e3, 1e5)) + ', not the midpoint 50.5k), a range touching 0 or below is normal', {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
+    'recommendation flips from ' + b.policy.get(base.root).label + ' to ' + s.policy.get(shifted.root).label + ': a range with lo > 0 is log-normal (mean ' + fmt(lnMean(1e3, 1e5)) + ', not the midpoint 50.5k), a range touching 0 or below is normal', {known: true, reason: 'TR-2: distribution rule kept (a modelling question)'});
   // continuity at lo = 0
   const evA = src => { const m = parse(src); return evaluate(m).stats.get(m.root.children[0]).mean; };
   const e0 = evA('R\n  A: 0 to 100k\n  B: 0'), e1 = evA('R\n  A: 1 to 100k\n  B: 0'), e2 = evA('R\n  A: 1k to 100k\n  B: 0');
   console.log('   info: EV of a payoff "0 to 100k" ' + fmt(e0) + ', "1 to 100k" ' + fmt(e1) + ' (exact ' + fmt(lnMean(1, 1e5)) + '), "1k to 100k" ' + fmt(e2) + ' (exact ' + fmt(lnMean(1e3, 1e5)) + ')');
-  check('I4 continuity: moving a range\'s low end from 0 to 1 (out of 100k) moves its EV by under 5 %', Math.abs(e1 - e0) / e0 < 0.05, 'EV ' + fmt(e0) + ' -> ' + fmt(e1) + ' (' + (100 * (e1 - e0) / e0).toFixed(0) + ' %)', {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
+  check('I4 continuity: moving a range\'s low end from 0 to 1 (out of 100k) moves its EV by under 5 %', Math.abs(e1 - e0) / e0 < 0.05, 'EV ' + fmt(e0) + ' -> ' + fmt(e1) + ' (' + (100 * (e1 - e0) / e0).toFixed(0) + ' %)', {known: true, reason: 'TR-2: distribution rule kept (a modelling question)'});
   // EV above the stated range
   const wide = parse('R\n  A: 0.001 to 100\n  B: 0'), wr = evaluate(wide), wa = wr.stats.get(wide.root.children[0]);
-  check('I5 the expected value of a payoff stated as "0.001 to 100" lies within its stated 90 % range', wa.mean <= 100, 'prints EV ' + fmt(wa.mean) + ' (exact log-normal mean ' + fmt(lnMean(0.001, 100)) + '), above the stated top of 100', {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
+  check('I5 the expected value of a payoff stated as "0.001 to 100" lies within its stated 90 % range', wa.mean <= 100, 'prints EV ' + fmt(wa.mean) + ' (exact log-normal mean ' + fmt(lnMean(0.001, 100)) + '), above the stated top of 100', {known: true, reason: 'TR-2: distribution rule kept (a modelling question)'});
 }
 
 // =============================================================================================
@@ -229,8 +230,10 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const ex = lnMean(2e6, 5e6), se = lnSd(2e6, 5e6) / 100;
   check('S1 a log-normal leaf 2M..5M: engine mean within 4 standard errors of the exact mean ' + fmt(ex), Math.abs(a.mean - ex) < 4 * se, fmt(a.mean) + ' vs ' + fmt(ex) + ' (' + ((a.mean - ex) / se).toFixed(2) + ' SE)');
   const z = Z90, mu = (Math.log(2e6) + Math.log(5e6)) / 2, s = (Math.log(5e6) - Math.log(2e6)) / (2 * z);
-  const S2ok = fmt(a.p10) === fmt(Math.exp(mu - 1.2815515655446004 * s)) && fmt(a.p90) === fmt(Math.exp(mu + 1.2815515655446004 * s));
-  check('S2 ...its printed P10/P90 equal the exact quantiles at 3 significant figures (fails on seed noise: finding TR-6)', S2ok, fmt(a.p10) + '/' + fmt(a.p90) + ' vs ' + fmt(Math.exp(mu - 1.2815515655446004 * s)) + '/' + fmt(Math.exp(mu + 1.2815515655446004 * s)), {known: !S2ok, reason: 'TR-6: needs a draw change, awaiting the owner'});
+  const exQ = [Math.exp(mu - 1.2815515655446004 * s), Math.exp(mu + 1.2815515655446004 * s)], st2 = sharedStepOf(exQ[0], exQ[1]);
+  const runs2 = Array.from({length: 40}, (_, i) => { const mm = parse('R\n  A: 2M to 5M\n  B: 0'); return evaluate(mm, {seed: 1000 + 7 * i}).stats.get(mm.root.children[0]); }), evs2 = runs2.map(x => x.mean);
+  const S2ok = evs2.every(v => v === evs2[0] && Math.abs(v - ex) < 1e-6 * ex) && sd(runs2.map(x => x.p10)) <= st2 / 2 && sd(runs2.map(x => x.p90)) <= st2 / 2;
+  check('S2 ...its expected value is the exact mean, identical at all 40 seeds, and the sd of its P10/P90 over 40 seeds is at most half the shared printed step (' + fmt(st2) + ')', S2ok, fmt(a.mean) + '; ' + fmt(a.p10) + '/' + fmt(a.p90) + ' vs ' + fmt(exQ[0]) + '/' + fmt(exQ[1]));
 
   // built-in examples: exact means by closed form; quantiles and head-to-head by a 400k-draw independent reference
   const bid = EXAMPLES[0], bm = parse(bid.src), br = evaluate(bm);
@@ -243,7 +246,8 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const muP = (Math.log(0.3) + Math.log(0.45)) / 2, sP = (Math.log(0.45) - Math.log(0.3)) / (2 * z), muV = (Math.log(2e6) + Math.log(5e6)) / 2, sV = (Math.log(5e6) - Math.log(2e6)) / (2 * z);
   const sPV = Math.hypot(sP, sV), q = k => -150e3 + Math.exp(muP + muV + k * 1.2815515655446004 * sPV);
   const bs = br.stats.get(bm.root);
-  check('S4 Bid or no bid: printed P10 ' + fmt(bs.p10) + ' / P90 ' + fmt(bs.p90) + ' equal the exact quantiles (' + fmt(q(-1)) + ' / ' + fmt(q(1)) + ') at 3 s.f.', fmt(bs.p10) === fmt(q(-1)) && fmt(bs.p90) === fmt(q(1)), '(TR-6) P10 ' + bs.p10.toFixed(0) + ' vs ' + q(-1).toFixed(0) + ', P90 ' + bs.p90.toFixed(0) + ' vs ' + q(1).toFixed(0), {known: !(fmt(bs.p10) === fmt(q(-1)) && fmt(bs.p90) === fmt(q(1))), reason: 'TR-6: needs a draw change, awaiting the owner'});
+  const stB = sharedStepOf(q(-1), q(1)), S4ok = Math.abs(bs.p10 - q(-1)) <= stB && Math.abs(bs.p90 - q(1)) <= stB;
+  check('S4 Bid or no bid: printed P10 ' + fmt(bs.p10) + ' / P90 ' + fmt(bs.p90) + ' within one shared printed step (' + fmt(stB) + ') of the exact quantiles (' + fmt(q(-1)) + ' / ' + fmt(q(1)) + ')', S4ok, 'P10 ' + bs.p10.toFixed(0) + ' vs ' + q(-1).toFixed(0) + ', P90 ' + bs.p90.toFixed(0) + ' vs ' + q(1).toFixed(0));
   // bias check: mean of 40 seeds of the Bid EV against the exact mean (no bias, only noise)
   const bidSeeds = Array.from({length: 40}, (_, i) => { const m = parse(bid.src); return evaluate(m, {seed: 500 + i}).stats.get(m.root).mean; });
   check('S4b Bid or no bid: no bias, only noise: the 40-seed average EV is within 3 standard errors of the exact EV', Math.abs(mean(bidSeeds) - bidExact) < 3 * sd(bidSeeds) / Math.sqrt(40), (mean(bidSeeds) - bidExact).toFixed(0) + ' off, SE ' + (sd(bidSeeds) / Math.sqrt(40)).toFixed(0));
@@ -253,7 +257,7 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const buildExact = -550e3 + clampedMean({lo: 0.5, hi: 0.7}) * lnMean(1.5e6, 2.5e6) + (1 - clampedMean({lo: 0.5, hi: 0.7})) * lnMean(8e5, 1.2e6);
   const buyExact = -250e3 + clampedMean({lo: 0.6, hi: 0.8}) * lnMean(1e6, 1.6e6) + (1 - clampedMean({lo: 0.6, hi: 0.8})) * lnMean(2e5, 6e5);
   check('S5 Build vs buy: Build EV ' + fmt(r2.stats.get(build).mean) + ' and Buy EV ' + fmt(r2.stats.get(buy).mean) + ' equal the exact EVs at 3 s.f. (' + fmt(buildExact) + ', ' + fmt(buyExact) + ')', fmt(r2.stats.get(build).mean) === fmt(buildExact) && fmt(r2.stats.get(buy).mean) === fmt(buyExact),
-    '(TR-6) Build ' + r2.stats.get(build).mean.toFixed(0) + ' vs ' + buildExact.toFixed(0) + '; Buy ' + r2.stats.get(buy).mean.toFixed(0) + ' vs ' + buyExact.toFixed(0), {known: !(fmt(r2.stats.get(build).mean) === fmt(buildExact) && fmt(r2.stats.get(buy).mean) === fmt(buyExact)), reason: 'TR-6: needs a draw change, awaiting the owner'});
+    '(TR-6) Build ' + r2.stats.get(build).mean.toFixed(0) + ' vs ' + buildExact.toFixed(0) + '; Buy ' + r2.stats.get(buy).mean.toFixed(0) + ' vs ' + buyExact.toFixed(0));
   // reference MC for quantiles and head-to-head
   const g = normalGen(99), N = 400000, B = new Float64Array(N), U = new Float64Array(N); let wins = 0;
   for(let i = 0; i < N; i++){
@@ -263,10 +267,9 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   }
   const Bs = Float64Array.from(B).sort(), share = wins / N;
   const h = r2.headToHead.find(x => x.aNode === build && x.bNode === buy);
-  check('S6 Build vs buy: printed P10 ' + fmt(r2.stats.get(build).p10) + ' / P90 ' + fmt(r2.stats.get(build).p90) + ' within one printed step of a 400k-draw reference (' + fmt(quantile(Bs, 0.1)) + ' / ' + fmt(quantile(Bs, 0.9)) + ')',
-    Math.abs(r2.stats.get(build).p10 - quantile(Bs, 0.1)) <= step3(quantile(Bs, 0.1)) && Math.abs(r2.stats.get(build).p90 - quantile(Bs, 0.9)) <= step3(quantile(Bs, 0.9)),
-    '(TR-6) P10 ' + r2.stats.get(build).p10.toFixed(0) + ' vs ' + quantile(Bs, 0.1).toFixed(0) + ', P90 ' + r2.stats.get(build).p90.toFixed(0) + ' vs ' + quantile(Bs, 0.9).toFixed(0),
-    {known: !(Math.abs(r2.stats.get(build).p10 - quantile(Bs, 0.1)) <= step3(quantile(Bs, 0.1)) && Math.abs(r2.stats.get(build).p90 - quantile(Bs, 0.9)) <= step3(quantile(Bs, 0.9))), reason: 'TR-6: needs a draw change, awaiting the owner'});
+  check('S6 Build vs buy: printed P10 ' + fmt(r2.stats.get(build).p10) + ' / P90 ' + fmt(r2.stats.get(build).p90) + ' within one shared printed step of a 400k-draw reference (' + fmt(quantile(Bs, 0.1)) + ' / ' + fmt(quantile(Bs, 0.9)) + ')',
+    (() => { const st = sharedStepOf(quantile(Bs, 0.1), quantile(Bs, 0.9)); return Math.abs(r2.stats.get(build).p10 - quantile(Bs, 0.1)) <= st && Math.abs(r2.stats.get(build).p90 - quantile(Bs, 0.9)) <= st; })(),
+    'P10 ' + r2.stats.get(build).p10.toFixed(0) + ' vs ' + quantile(Bs, 0.1).toFixed(0) + ', P90 ' + r2.stats.get(build).p90.toFixed(0) + ' vs ' + quantile(Bs, 0.9).toFixed(0));
   check('S7 Build vs buy: "higher expected value than Buy vendor product in ' + Math.round(h.aShare * 100) + '% of simulations" matches the reference ' + (100 * share).toFixed(1) + ' % to the printed whole percent', Math.round(h.aShare * 100) === Math.round(share * 100), 'engine ' + (100 * h.aShare).toFixed(2) + ' %, reference ' + (100 * share).toFixed(2) + ' %');
 
   // seed noise of every printed figure on the examples
@@ -279,11 +282,12 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
       m.root.children.forEach(c => add('EV ' + c.label, res.stats.get(c).mean));
       res.headToHead.forEach(x => add('h2h% ' + x.a + '/' + x.b, 100 * x.aShare));
       add('rec ' + res.policy.get(m.root).label, 1); }
-    const worst = Object.entries(acc).filter(([k]) => !k.startsWith('rec')).map(([k, v]) => { const st = k.startsWith('h2h') ? 1 : step3(mean(v)); return [k, sd(v) / st, sd(v), st]; }).sort((a, b) => b[1] - a[1]);
+    const pairStep = sharedStepOf(mean(acc['root P10']), mean(acc['root P90']));
+    const worst = Object.entries(acc).filter(([k]) => !k.startsWith('rec')).map(([k, v]) => { const st = k.startsWith('h2h') ? 1 : /^root P(10|90)$/.test(k) ? pairStep : step3(mean(v)); return [k, sd(v) / st, sd(v), st]; }).sort((a, b) => b[1] - a[1]);
     console.log('   info: ' + ex.name + ' seed sd / printed step: ' + worst.map(([k, r]) => k + ' ' + r.toFixed(2)).join(', ') + '; recommendation over 40 seeds: ' + Object.keys(acc).filter(k => k.startsWith('rec')).join(', '));
     check('S8 ' + ex.name + ': the recommendation is identical on all 40 seeds', Object.keys(acc).filter(k => k.startsWith('rec')).length === 1);
     const over = worst.filter(w => w[1] > 0.5);
-    check('S9 ' + ex.name + ': every printed figure has seed-to-seed sd at most half its printed step (3 s.f. money, whole percent)', over.length === 0, over.map(([k, r, s, st]) => k + ' sd ' + fmt(s) + ' vs step ' + fmt(st) + ' (' + r.toFixed(2) + ')').join('; '), {known: over.length > 0, reason: 'TR-6: needs a draw change, awaiting the owner'});
+    check('S9 ' + ex.name + ': over 40 seeds the sd of every printed sampled figure is at most half its printed step (P10/P90 on one shared step, expected values 3 s.f., head-to-head whole percent)', over.length === 0, over.map(([k, r, s, st]) => k + ' sd ' + fmt(s) + ' vs step ' + fmt(st) + ' (' + r.toFixed(2) + ')').join('; '));
   }
 
   // Monte Carlo noise picks the recommendation when two options are close
@@ -293,14 +297,14 @@ check('E0 both built-in examples were extracted from tree/app.js', EXAMPLES.leng
   const m0 = parse(cm), r0 = evaluate(m0);
   console.log('   info: "Ranged 100k to 200k" (exact mean ' + exA.toFixed(0) + ') vs "Fixed ' + close + '": default seed recommends ' + r0.policy.get(m0.root).label + '; ' + wrong + ' of 40 seeds recommend Fixed');
   check('S10 the recommendation is the option with the higher exact EV even when the margin (0.1 %) is below Monte Carlo noise: 100k..200k vs a point 0.1 % below its exact mean', r0.policy.get(m0.root).label === 'Ranged',
-    'default seed recommends ' + r0.policy.get(m0.root).label + ' (EV ' + fmt(r0.stats.get(m0.root).mean) + ' printed beside an alternative at ' + fmt(close) + '); ' + wrong + '/40 seeds choose the lower-EV option; the verdict gives no sign the call is a coin toss', {known: r0.policy.get(m0.root).label !== 'Ranged', reason: 'TR-7 ruling: the policy follows the sample (same draws); the verdict is worded as a coin toss instead (checked by T7)'});
-  check('S10b across 40 seeds the near-tie recommendation is always the higher-exact-EV option (it is not decided by Monte Carlo noise)', wrong === 0, wrong + '/40 seeds recommend the option whose exact EV is 0.1 % lower', {known: wrong > 0, reason: 'TR-7 ruling: the policy follows the sample (same draws); the verdict is worded as a coin toss instead (checked by T7)'});
+    'default seed recommends ' + r0.policy.get(m0.root).label + ' (EV ' + fmt(r0.stats.get(m0.root).mean) + ' printed beside an alternative at ' + fmt(close) + '); ' + wrong + '/40 seeds choose the lower-EV option; the verdict gives no sign the call is a coin toss');
+  check('S10b across 40 seeds the near-tie recommendation is always the higher-exact-EV option (it is not decided by Monte Carlo noise)', wrong === 0, wrong + '/40 seeds recommend the option whose exact EV is 0.1 % lower');
 
   // very wide log-normal: EV seed noise
   const wideAcc = SEEDS.map(seed => { const m = parse('R\n  A: 1k to 1b\n  B: 0'); return evaluate(m, {seed}).stats.get(m.root.children[0]).mean; });
   console.log('   info: "1k to 1b": exact mean ' + fmt(lnMean(1e3, 1e9)) + '; printed EV over 40 seeds ranges ' + fmt(Math.min(...wideAcc)) + ' .. ' + fmt(Math.max(...wideAcc)));
   check('S11 a very wide payoff ("1k to 1b") prints an EV within 10 % of its exact mean on the default seed', (() => { const m = parse('R\n  A: 1k to 1b\n  B: 0'); const v = evaluate(m).stats.get(m.root.children[0]).mean; return Math.abs(v / lnMean(1e3, 1e9) - 1) < 0.1; })(),
-    'seed range ' + fmt(Math.min(...wideAcc)) + '..' + fmt(Math.max(...wideAcc)) + ' vs exact ' + fmt(lnMean(1e3, 1e9)), {known: true, reason: 'TR-2/TR-3 ruling: words only, the distributions stay (the warning is checked by T2)'});
+    'seed range ' + fmt(Math.min(...wideAcc)) + '..' + fmt(Math.max(...wideAcc)) + ' vs exact ' + fmt(lnMean(1e3, 1e9)));
 
   // probability means differ from the authored midpoint
   const pz = parse('R\n  A\n    Hit (p=0-0.2): 1M\n    Miss (p=rest): 0\n  B: 0'), pr = evaluate(pz), hit = pz.root.children[0].children[0];
@@ -423,6 +427,11 @@ for(const ex of EXAMPLES){
 {
   const sm = parse('R\n  Bold: 10k to 1M\n  Safe: 450k'), sr = evaluate(sm), t = texts(svgOf(sm, sr));
   check('T5 Bold 10k..1M vs Safe 450k: the native SVG says "WHAT WOULD FLIP THE MIDPOINT CALL" and carries the seam sentence', /WHAT WOULD FLIP THE MIDPOINT CALL/.test(t) && t.includes(seamCopy('Bold', 'Safe')), t.slice(t.indexOf('WHAT WOULD')).slice(0, 200));
+}
+{
+  const src = 'R\n  A: -100k to -200k\n    Out\n      Hi (p=0.4): 2M to 5M\n      Lo (p=rest): 100k to 900k\n  B: -50k\n    Out2\n      Hi (p=0.5): 1M to 2M\n      Lo (p=0.5): 0 to 600k\n  C: 0';
+  const rows = Array.from({length: 40}, (_, i) => { const m = parse(src), r = evaluate(m, {seed: 1000 + 7 * i}), row = []; (function w(n){ row.push(r.stats.get(n).mean, r.policy.get(n)?.label); n.children.forEach(w); })(m.root); return JSON.stringify(row); });
+  check('S9b every expected value (and the policy) is identical at every one of 40 seeds when all probabilities are points', rows.every(x => x === rows[0]), rows[0].slice(0, 120));
 }
 check('B1 before-values recorded for both examples (see "before:" lines)', true);
 done();

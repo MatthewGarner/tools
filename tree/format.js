@@ -124,3 +124,14 @@ export function sharePct(share, certain){
   if(n > 99) return '>99%';
   return Math.round(n) + '%';
 }
+
+/* A sampled P10/P90 pair printed on ONE shared step: one hundredth of the power of ten of the larger
+   magnitude (1.56M -> step 10k), so neither end claims more digits than the spread supports. A value
+   that rounds to zero is zero. Expected values are exact and keep the house three significant figures. */
+export function sharedStep(a, b){
+  const m = Math.max(Math.abs(a), Math.abs(b));
+  if(!(m > 0)) return [0, 0];
+  const step = Math.pow(10, Math.floor(Math.log10(m)) - 2);
+  const r = v => { const x = Math.round(v / step) * step; return x === 0 ? 0 : x; };
+  return [r(a), r(b)];
+}

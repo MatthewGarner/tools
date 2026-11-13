@@ -112,18 +112,13 @@ test('TR-2/3: ranges within 1,000x, ranges touching zero, and points stay quiet'
   }
 });
 
-test('TR-2/3: the simulated mean above a ranged leaf\'s own top fires the same warning', () => {
-  // one simulation draws one value, which lands above the top of a normal range in about 5% of seeds
-  let above = 0;
-  for(let seed = 1; seed <= 300; seed++){
+test('TR-2/3: the expected value is exact, so a normal range never warns from seed noise (the exact-mean case is in exact.test.mjs)', () => {
+  for(let seed = 1; seed <= 50; seed++){
     const m = parse('R\n  A: -10 to 10\n  B: 0');
     const r = evaluate(m, {sims: 1, seed});
-    const over = r.stats.get(m.root.children[0]).mean > 10;
-    const warned = r.warnings.some(x => /rare extremes/.test(x) && x.includes('"A"'));
-    assert.equal(warned, over, 'seed ' + seed);
-    if(over) above++;
+    assert.equal(r.stats.get(m.root.children[0]).mean, 0);
+    assert.ok(!r.warnings.some(x => /rare extremes/.test(x)), 'seed ' + seed);
   }
-  assert.ok(above > 0, 'the positive case was exercised');
 });
 
 /* ---------- TR-16 ---------- */
