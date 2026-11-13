@@ -72,7 +72,9 @@ test('valid legacy documents preserve the independent portfolio and EV bytes for
   B: stake 15, odds 60%, payoff 30`);
   const s = simulate(legacy, {seed: 48879, nsim: 128});
   const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(hash(s.portfolio), '187e3e1964cfac641d085d0e8278a5303364d263adb871f8b7d42125355991be');
+  /* the figures themselves; fields added for printing (counts, split) are not part of the saved-link contract */
+  const {p10, p50, p90, pLoss, histogram} = s.portfolio;
+  assert.equal(hash({p10, p50, p90, pLoss, histogram}), '187e3e1964cfac641d085d0e8278a5303364d263adb871f8b7d42125355991be');
   assert.equal(hash([...s.bets].map(([line, record]) => [line, record.ev])),
     'c56978e5c45ae973086ea3f6169c1e6b1aa16f4cfd865e13f9050c405e970c82');
   assert.strictEqual(s.scenarios.independent, s.portfolio, 'legacy portfolio is the independent scenario alias');
@@ -163,7 +165,9 @@ test('concentration identity ignores an invalid giant and survives duplicate vis
   Sound: stake 80, odds 50%, payoff 100
   Sound: stake 20, odds 50%, payoff 100`);
   const s = simulate(m);
-  assert.deepEqual(s.concentration, {name: 'Sound', srcLine: 3, share: 0.8});
+  const {all, ...largest} = s.concentration;
+  assert.deepEqual(largest, {name: 'Sound', srcLine: 3, share: 0.8});
+  assert.deepEqual(all, [largest]);
 });
 
 test('verdict copy quotes P(loses money) as a percentage', () => {

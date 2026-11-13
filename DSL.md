@@ -364,14 +364,20 @@ payoff and an optional kill criterion, and drives a Monte-Carlo "P(loses money)"
 - **Indent 0** — a **group heading** (any line that isn't a known config key; a trailing `:`
   is stripped).
 - **Indent 2** — a **bet**: `Name: stake N, odds N-N%, payoff N-N`. The three attributes are
-  comma-separated; each value is a point or a range (`odds` in `%`).
+  comma-separated; each value is a point or a range (`odds` in `%`). Numbers are plain digits
+  with at most one decimal point; commas are read only as thousands separators in groups of
+  three (`1,000` is 1000). **Payoff is gross**: it is what comes back on a win, before the
+  stake is taken off, so a win nets `payoff − stake` and a loss costs `stake`. Inputs print as
+  written (`0.5-2.5` stays `0.5–2.5`).
 - **Indent 4** — `kill: free text [by YYYY-MM-DD]` — the abandon criterion; a real ISO date
   after `by` is read as the deadline.
 
 **What it warns about:** an unknown config key; a config key after the first group; a bet
 before any group (filed under an implicit "Bets"); an indented line that isn't `kill:`; a
-bet missing its `: stake …, odds …, payoff …`; an unrecognised attribute or unreadable
-number; odds outside 0–100%.
+bet missing its `: stake …, odds …, payoff …`; an unrecognised attribute; an unreadable,
+malformed (`1.2.3`, `1,5`) or non-finite number (the bet is left out of the simulation);
+odds outside 0–100%; odds written at or below 1 with no `%` (read as percent, not
+fractions); a `%` sign on a stake or payoff; a `by` date that does not exist.
 
 ```dsl tool=bets
 title: Q3 portfolio

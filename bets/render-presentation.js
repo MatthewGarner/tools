@@ -2,19 +2,15 @@
    deterministic selection, not a compressed claim that all bets are shown. */
 import {esc, txt} from '../assets/svg.js';
 import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
+import {sgn, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const W = 1920, H = 1080;
 const TABLE_LIMIT_Y = 720;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-const MINUS = '−';
-const num = v => (v < 0 ? MINUS : '') + Math.round(Math.abs(v));
-const sgn = v => (v < 0 ? MINUS : '+') + Math.round(Math.abs(v));
-const rng = r => !r ? '—' : r[0] === r[1] ? num(r[0]) : num(r[0]) + '–' + num(r[1]);
-const pct = r => !r ? '—' : r[0] === r[1] ? r[0] + '%' : r[0] + '–' + r[1] + '%';
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 const reading = value => value ? {
-  loss: 'P(LOSES MONEY) ' + Math.round((value.pLoss || 0) * 100) + '%',
-  median: 'MEDIAN OUTCOME ' + sgn(value.p50),
+  loss: 'P(LOSES MONEY) ' + lossText(value),
+  median: value.split ? p50Alt(value) : 'MEDIAN OUTCOME ' + p50Text(value),
   range: 'P10 ' + sgn(value.p10) + ' · P90 ' + sgn(value.p90),
 } : {loss: 'Not available', median: 'Add a scoreable bet', range: 'Correct invalid terms'};
 
@@ -46,7 +42,12 @@ function concentrationCopy(selection, sim){
      prevents an invalid giant or a duplicate visible name from being blamed. */
   const record = selection.records.find(item => item.rec.scoreable !== false &&
     item.b.srcLine === concentration.srcLine);
-  return 'PORTFOLIO EXCEPTION · HIGH CONCENTRATION ' + (record ? record.id : concentration.name);
+  const all = concentration.all || [concentration];
+  const labels = all.map(item => {
+    const found = selection.records.find(r => r.rec.scoreable !== false && r.b.srcLine === item.srcLine);
+    return found ? found.id : item.name;
+  });
+  return 'PORTFOLIO EXCEPTION · HIGH CONCENTRATION ' + labels.join(', ');
 }
 
 const unscoredCopy = selection => selection.unscored.length
@@ -154,13 +155,12 @@ function conditionReceipt(readings, x0, y0, width, c){
   const gap = 28, receiptW = (width - gap) / 2, parts = [];
   [readings.baseline, readings.stress].forEach((item, i) => {
     const x = x0 + i * (receiptW + gap), pf = item.result;
-    const loss = pf ? Math.round((pf.pLoss || 0) * 100) : null;
     if(i) parts.push('<line x1="' + (x - gap / 2) + '" y1="' + y0 + '" x2="' + (x - gap / 2) + '" y2="' + (y0 + 68) + '" stroke="' + c.border + '"/>');
     parts.push('<g data-condition-receipt="" data-condition="' + item.key + '">');
     parts.push(txt(x, y0 + 13, item.label.toUpperCase(), 10.5, c.muted, {weight: 700, tracking: '0.07em'}));
-    parts.push(txt(x, y0 + 40, loss == null ? 'NOT AVAILABLE' : 'P(LOSES MONEY) ' + loss + '%', 20,
-      loss != null && loss >= 50 ? c.err : c.accentInk, {weight: 700, mono: true}));
-    parts.push(txt(x, y0 + 61, pf ? 'MEDIAN ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90) : 'Correct invalid terms',
+    parts.push(txt(x, y0 + 40, !pf ? 'NOT AVAILABLE' : 'P(LOSES MONEY) ' + lossText(pf), 20,
+      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, mono: true}));
+    parts.push(txt(x, y0 + 61, pf ? 'MEDIAN ' + p50Text(pf) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90) : 'Correct invalid terms',
       11.5, c.ink, {weight: 600, mono: true}));
     parts.push('</g>');
   });
@@ -179,10 +179,10 @@ function portfolioExposureRails(readings, x0, x1, y0, c){
   const out = [];
   [[readings.baseline.label.toUpperCase(), baseline, c.accent, c.accentInk],
     [readings.stress.label.toUpperCase(), stress, c.err, c.err]].forEach(([label, result, tone, ink], index) => {
-    const y = y0 + index * 58, loss = Math.round((result.pLoss || 0) * 100);
+    const y = y0 + index * 58;
     out.push('<g data-portfolio-exposure="" data-condition="' + (index ? 'shared' : 'independent') + '">');
     out.push(txt(x0, y + 10, label, 10, index ? c.err : c.muted, {weight: 700, tracking: '0.08em'}));
-    out.push(txt(x1, y + 10, loss + '% BELOW ZERO · MEDIAN ' + sgn(result.p50), 10, ink,
+    out.push(txt(x1, y + 10, lossText(result) + ' BELOW ZERO · MEDIAN ' + p50Text(result), 10, ink,
       {weight: 700, tracking: '0.05em', anchor: 'end'}));
     out.push('<line x1="' + x0 + '" y1="' + (y + 28) + '" x2="' + x1 + '" y2="' + (y + 28) +
       '" stroke="' + c.border + '" stroke-width="1"/>');
@@ -191,10 +191,14 @@ function portfolioExposureRails(readings, x0, x1, y0, c){
     out.push('<line x1="' + exRound(scale(result.p10)) + '" y1="' + (y + 28) + '" x2="' + exRound(scale(result.p90)) +
       '" y2="' + (y + 28) + '" stroke="' + tone + '" stroke-width="6" stroke-opacity="' + (index ? '0.34' : '0.62') +
       '"' + (index ? ' stroke-dasharray="3 2"' : '') + '/>');
-    out.push('<line x1="' + exRound(scale(result.p50)) + '" y1="' + (y + 19) + '" x2="' + exRound(scale(result.p50)) +
-      '" y2="' + (y + 37) + '" stroke="' + (index ? c.err : c.ink) + '" stroke-width="2"/>');
+    const notch = v => '<line x1="' + exRound(scale(v)) + '" y1="' + (y + 19) + '" x2="' + exRound(scale(v)) +
+      '" y2="' + (y + 37) + '" stroke="' + (index ? c.err : c.ink) + '" stroke-width="2"/>';
+    if(result.split) out.push('<line data-median-split="" x1="' + exRound(scale(result.split.lo)) + '" y1="' + (y + 28) + '" x2="' +
+      exRound(scale(result.split.hi)) + '" y2="' + (y + 28) + '" stroke="' + (index ? c.err : c.ink) + '" stroke-width="1"/>' +
+      notch(result.split.lo) + notch(result.split.hi));
+    else out.push(notch(result.p50));
     out.push(txt(scale(result.p10), y + 48, 'P10 ' + sgn(result.p10), 9.5, c.muted, {mono: true, anchor: 'middle'}));
-    out.push(txt(scale(result.p50), y + 48, 'P50 ' + sgn(result.p50), 9.5, index ? c.err : c.ink,
+    out.push(txt(scale(result.split ? (result.split.lo + result.split.hi) / 2 : result.p50), y + 48, 'P50 ' + p50Text(result), 9.5, index ? c.err : c.ink,
       {mono: true, weight: 700, anchor: 'middle'}));
     out.push(txt(scale(result.p90), y + 48, 'P90 ' + sgn(result.p90), 9.5, c.muted, {mono: true, anchor: 'middle'}));
     out.push('</g>');
@@ -248,7 +252,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   const parts = ['<rect width="1920" height="1080" fill="' + c.bg + '"/>'];
 
   title.lines.forEach((line, index) => parts.push(titleLine(96, 86 + index * title.leading, line, title.size, c)));
-  parts.push(txt(96, 116 + headerShift, 'TOTAL STAKE ' + num(totalStake) + ' ' + (model.unit || ''),
+  parts.push(txt(96, 116 + headerShift, 'TOTAL STAKE ' + amount(totalStake) + ' ' + (model.unit || ''),
     15, c.muted, {mono: true, tracking: '0.06em'}));
   parts.push(...conditionReceipt(conditions, 1110, 30, 714, c));
   parts.push('<line x1="96" y1="' + ruleY + '" x2="1824" y2="' + ruleY + '" stroke="' + c.ink + '" stroke-width="2"/>');
@@ -272,7 +276,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   }
 
   for(const [label, x, anchor] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
-    ['PAYOFF', C.payoff, 'end'], ['P10', C.p10, 'end'], ['P50', C.p50, 'end'], ['P90', C.p90, 'end']])
+    ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['EV P50', C.p50, 'end'], ['EV P90', C.p90, 'end']])
     parts.push(txt(x, headY, label, 10, c.muted, {weight: 700, tracking: '0.08em', anchor}));
   parts.push(txt((C.range0 + C.range1) / 2, headY, 'P10 ▸ P90', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
   parts.push(txt(C.audit, headY, 'AUDIT NOTE', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
@@ -285,7 +289,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
       group = record.group.name;
       const groupRows = displayed.filter(item => item.group.name === group);
       parts.push(txt(C.left, y + 13, group.toUpperCase(), 11, c.accentInk, {weight: 700, tracking: '0.11em'}));
-      parts.push(txt(C.right, y + 13, 'STAKE ' + num(groupRows.reduce((n, item) => n + stakeMid(item.b), 0)), 10, c.muted, {mono: true, anchor: 'end'}));
+      parts.push(txt(C.right, y + 13, 'STAKE ' + amount(groupRows.reduce((n, item) => n + stakeMid(item.b), 0)), 10, c.muted, {mono: true, anchor: 'end'}));
       y += 24;
     }
     const b = record.b, e = record.rec.ev;
@@ -294,7 +298,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     parts.push(txt(C.id, y + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
     names.forEach((line, i) => parts.push(txt(C.name, y + 20 + i * 19, line, 17, c.ink, {weight: 600})));
     kills.forEach((line, i) => parts.push(txt(C.name, y + 23 + names.length * 19 + i * 13, '↳ ' + line, 10, c.muted)));
-    for(const [x, value] of [[C.stake, rng(b.stake)], [C.odds, pct(b.odds)], [C.payoff, rng(b.payoff)]])
+    for(const [x, value] of [[C.stake, stakeOf(b)], [C.odds, oddsOf(b)], [C.payoff, payoffOf(b)]])
       parts.push(txt(x, y + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
     for(const [x, value] of [[C.p10, e.p10], [C.p50, e.p50], [C.p90, e.p90]])
       parts.push(txt(x, y + 21, sgn(value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));

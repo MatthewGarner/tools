@@ -3218,6 +3218,55 @@ if(scope.wants("bets")){
   await dp.close();
 }
 
+/* ---- bets: engine audit (BT-7, BT-23). Authored inputs print as written and the
+   edit field is prefilled with the authored text, so editing one end of
+   "stake 0.5-2.5" never rewrites the other; and a snapshot saved in another unit
+   draws no ghost band on the live ruler and says why. Both assert the positive
+   case first (the authored text is there; the ghost IS drawn for the same unit),
+   so the negative that follows cannot be a silent absence. ---- */
+if(scope.wants("bets")){
+  const ap = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const aerrs = trackErrors(ap);
+  const aurl = (process.env.BASE || 'http://localhost:8087') + '/bets/';
+  const FRACTION = 'title: Fractions\nunit: £m\n\nG\n  Small bet: stake 0.5-2.5, odds 40-60%, payoff 19.4\n    kill: stop when it stalls';
+  await ap.goto(aurl, {waitUntil: 'networkidle'});
+  await ap.evaluate(src => localStorage.setItem('bets-src', src), FRACTION);
+  await ap.goto(aurl, {waitUntil: 'networkidle'});
+  await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('Small bet'));
+  const board = await ap.locator('#preview svg').innerHTML();
+  check('bets authored: the board prints the stake as written (0.5–2.5), not rounded to 1–3', board.includes('>0.5–2.5<') && !board.includes('>1–3<'));
+  check('bets authored: the board prints the payoff as written (19.4)', board.includes('>19.4<'));
+  await ap.locator('[data-edit="stake"][data-line="5"]').click();
+  check('bets authored: the stake field opens prefilled with the authored text', await until(async () => (await ap.locator('.eip-input').inputValue() === '0.5–2.5')));
+  await ap.locator('.eip-input').fill('0.5-4');
+  await ap.keyboard.press('Enter');
+  const edited = await untilValue(() => ap.evaluate(() => localStorage.getItem('bets-src')), v => v.includes('stake 0.5-4,'));
+  check('bets authored: editing only the top bound keeps the authored bottom bound (0.5)', edited.includes('stake 0.5-4,') && !edited.includes('stake 1-4'));
+  check('bets authored: the other inputs on the line are untouched', edited.includes('odds 40-60%, payoff 19.4'));
+
+  // BT-23: a snapshot in the same unit draws the ghost; in a different unit it does not
+  const KILO = 'title: Units\nunit: £k\n\nG\n  Bet: stake 10, odds 50%, payoff 30\n    kill: stop';
+  await ap.evaluate(src => { localStorage.setItem('bets-src', src); localStorage.removeItem('bets-snaps'); }, KILO);
+  await ap.goto(aurl, {waitUntil: 'networkidle'});
+  await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('Bet'));
+  await ap.locator('#snap').click();
+  await until(async () => (await ap.locator('#snapsel option').count()) > 1);
+  await ap.locator('#snapsel').selectOption({index: 1});
+  check('bets unit: same-unit snapshot draws its ghost band (positive control)',
+    await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('SNAPSHOT P10–P90')));
+  await ap.evaluate(src => localStorage.setItem('bets-src', src), KILO.replace('£k', '£m'));
+  await ap.goto(aurl, {waitUntil: 'networkidle'});
+  await until(async () => (await ap.locator('#snapsel option').count()) > 1);
+  await ap.locator('#snapsel').selectOption({index: 1});
+  check('bets unit: the comparison line says the snapshot was in another unit',
+    await until(async () => (await ap.locator('#preview svg').innerHTML()).includes('The snapshot was in £k, so its outcome band is not drawn.')));
+  check('bets unit: no ghost band is drawn on the live ruler for a snapshot in another unit',
+    !(await ap.locator('#preview svg').innerHTML()).includes('SNAPSHOT P10–P90'));
+  await ap.evaluate(() => localStorage.removeItem('bets-snaps'));
+  check('bets authored/unit: no console/page errors', aerrs.length === 0);
+  await ap.close();
+}
+
 /* ---- PHONE gate (coarse pointer, mobile-input Stage 0). Rule 1: a bare tap
    on the diagram must NEVER commit a text change silently — a multi-value
    cycle opens a marked options popover, a ['×'] remove cycle opens a danger

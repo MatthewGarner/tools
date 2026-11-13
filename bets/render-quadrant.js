@@ -4,37 +4,35 @@
 import {esc, txt} from '../assets/svg.js';
 import {PALETTES, niceTicks} from '../assets/series.js';
 import {conditionReadings, measuredLines, quadrantDensity, sourceBets} from './layout.js';
+import {sgn, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const WIDE = 960;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-const MINUS = '−';
 const r2 = n => Math.round(n * 100) / 100;
-const num = v => (v < 0 ? MINUS : '') + Math.round(Math.abs(v));
-const sgn = v => (v < 0 ? MINUS : '+') + Math.round(Math.abs(v));
 const axisNum = v => Math.abs(v) < 1e-9 ? '0' : sgn(v);
-const rng = r => !r ? '—' : r[0] === r[1] ? num(r[0]) : num(r[0]) + '–' + num(r[1]);
-const pct = r => !r ? '—' : r[0] === r[1] ? r[0] + '%' : r[0] + '–' + r[1] + '%';
 const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: [], scoreable: false};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
-const oddsOf = b => b.odds || [0, 0];
-const payoffOf = b => b.payoff || [0, 0];
-const lossPct = pf => pf ? Math.round((pf.pLoss || 0) * 100) : null;
+const oddsRange = b => b.odds || [0, 0];
+const lossAlt = pf => lossText(pf) + ' lose money, ' + p50Alt(pf);
 
 function conditionReceipt(readings, x0, y0, width, c, narrow){
-  const gap = narrow ? 10 : 18, receiptW = (width - gap) / 2, h = narrow ? 72 : 58;
+  const gap = narrow ? 10 : 18, receiptW = (width - gap) / 2;
   const parts = [];
+  /* narrow: the whole condition, wrapped, so the stress is never described as more than it is */
+  const captionOf = item => measuredLines(item.condition, '8.5px ' + SANS, receiptW, s => String(s).length * 4.3);
+  const h = narrow ? 67 + 10 * Math.max(...[readings.baseline, readings.stress].map(item => captionOf(item).length)) : 58;
   [readings.baseline, readings.stress].forEach((item, i) => {
-    const x = x0 + i * (receiptW + gap), pf = item.result, pl = lossPct(pf);
+    const x = x0 + i * (receiptW + gap), pf = item.result;
     parts.push('<g data-condition-receipt="" data-condition="' + item.key + '">');
     if(i) parts.push('<line x1="' + r2(x - gap / 2) + '" y1="' + (y0 + 2) + '" x2="' + r2(x - gap / 2) +
       '" y2="' + (y0 + h - 2) + '" stroke="' + c.border + '"/>');
     parts.push(txt(x, y0 + 13, item.label.toUpperCase(), narrow ? 8.5 : 8.2, c.muted,
       {weight: 700, tracking: '0.035em'}));
-    parts.push(txt(x, y0 + 33, pl == null ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + pl + '%', narrow ? 11 : 12.5,
-      pl != null && pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true}));
-    parts.push(txt(x, y0 + 50, pf ? 'MEDIAN OUTCOME ' + sgn(pf.p50) + ' · ' + sgn(pf.p10) + '–' + sgn(pf.p90) : 'ADD SCOREABLE BETS',
+    parts.push(txt(x, y0 + 33, !pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + lossText(pf), narrow ? 11 : 12.5,
+      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, mono: true}));
+    parts.push(txt(x, y0 + 50, pf ? 'MEDIAN OUTCOME ' + p50Text(pf) + ' · ' + sgn(pf.p10) + '–' + sgn(pf.p90) : 'ADD SCOREABLE BETS',
       narrow ? 8.2 : 8.6, c.ink, {weight: 600, mono: true}));
-    if(narrow) parts.push(txt(x, y0 + 67, i ? 'Whole portfolio moves together' : 'Each bet resolves on its own', 8.5, c.muted));
+    if(narrow) captionOf(item).forEach((line, li) => parts.push(txt(x, y0 + 67 + li * 10, line, 8.5, c.muted)));
     parts.push('</g>');
   });
   return {parts, height: h};
@@ -69,7 +67,7 @@ export function prep(model, sim){
     pf: sim.portfolio, conditions: conditionReadings(sim)};
 }
 
-const microFor = b => num(stakeMid(b)) + ' @ ' + pct(oddsOf(b)) + ' → pays ' + rng(payoffOf(b));
+const microFor = b => stakeOf(b) + ' @ ' + oddsOf(b) + ' → pays ' + payoffOf(b);
 
 /* Measured labels try compass anchors from snug to escape rings. They never
    disappear: the least-overlap in-bounds candidate is the final fallback. */
@@ -202,7 +200,7 @@ export function layoutBubbles(P, sim, geo){
   const sy = v => innerY1 - (v - P.elo) / ((P.ehi - P.elo) || 1) * (innerY1 - innerY0);
   return P.flat.map(({b, gi, id, sourceOrder}) => {
     const rec = recOf(sim, b), e = rec.ev;
-    const [oLo, oHi] = oddsOf(b), oMid = (oLo + oHi) / 2;
+    const [oLo, oHi] = oddsRange(b), oMid = (oLo + oHi) / 2;
     const stake = stakeMid(b);
     const radius = rMin + (rMax - rMin) * Math.sqrt(Math.max(0, stake / P.maxStake));
     return {
@@ -387,7 +385,6 @@ function renderWide(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
   const dark = !!ctx.dark;
   const P = prep(model, sim);
-  const pl = lossPct(P.pf);
   const nameOnly = P.flat.length > NAME_ONLY_THRESHOLD;
   const parts = [];
   const right = 930;
@@ -397,7 +394,7 @@ function renderWide(model, sim, ctx){
     '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" font-weight="600" fill="' + c.ink + '">' +
     esc(line) + '</text>'));
   const strapY = Math.max(74, 52 + (titleLines.length - 1) * 26 + 22);
-  parts.push(txt(30, strapY, 'TOTAL STAKE ' + num(P.totalStake),
+  parts.push(txt(30, strapY, 'TOTAL STAKE ' + amount(P.totalStake),
     10, c.muted, {mono: true, tracking: '0.05em'}));
   const receipt = conditionReceipt(P.conditions, 460, 16, right - 460, c, false);
   parts.push(...receipt.parts);
@@ -425,14 +422,14 @@ function renderWide(model, sim, ctx){
   const panelBot = bottomY + 14;
   parts.push(...body);
   parts.push(txt(30, panelBot + 22, 'PER-BET P50 EV · P10–P90 RANGES · 4,000 SIMULATIONS', 9, c.muted, {tracking: '0.04em'}));
-  parts.push(txt(right, panelBot + 22, 'ALL FIGURES ' + (model.unit || '').toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
+  if(model.unit) parts.push(txt(right, panelBot + 22, 'ALL FIGURES ' + model.unit.toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
 
   const H = panelBot + 40;
   const stress = P.conditions.stress.result;
   return svgShell(WIDE, H, c, parts.join(''), false,
     model.title || 'Bets quadrant',
-    'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? pl + '% lose money, median outcome ' + sgn(P.pf.p50) : 'not available') + '. ' +
-      P.conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') +
+    'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? lossAlt(P.pf) : 'not available') + '. ' +
+      P.conditions.stress.label + ': ' + (stress ? lossAlt(stress) : 'not available') +
       '. The horizontal axis is odds of success; the vertical axis is per-bet P50 expected value. Probability threshold labels mark odds ranges at or below 10%, or at or above 90%.');
 }
 
@@ -442,7 +439,6 @@ function renderNarrow(model, sim, ctx){
   const dark = !!ctx.dark;
   const W = Math.max(300, Math.round(ctx.width)), pad = 16;
   const P = prep(model, sim);
-  const pl = lossPct(P.pf);
   const parts = [];
   let y = 30;
   const titleLines = measuredLines(model.title || 'Bets board', '600 21px ' + SANS, W - pad * 2, measure);
@@ -450,7 +446,7 @@ function renderNarrow(model, sim, ctx){
     '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" font-weight="600" fill="' + c.ink + '">' +
     esc(line) + '</text>'));
   y += titleLines.length * 24 - 2;
-  parts.push(txt(pad, y, P.flat.length + ' bets · ' + model.groups.length + ' lanes · stake ' + num(P.totalStake), 11, c.muted)); y += 12;
+  parts.push(txt(pad, y, (P.flat.length + P.unscored.length) + ' bets · ' + model.groups.filter(g => g.bets.length).length + ' lanes · stake ' + amount(P.totalStake), 11, c.muted)); y += 12;
   const receipt = conditionReceipt(P.conditions, pad, y, W - pad * 2, c, true);
   parts.push(...receipt.parts); y += receipt.height + 12;
   if(P.unscored.length){
@@ -477,8 +473,8 @@ function renderNarrow(model, sim, ctx){
   const stress = P.conditions.stress.result;
   return svgShell(W, bottomY + 20, c, parts.join(''), true,
     model.title || 'Bets quadrant',
-    'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? pl + '% lose money, median outcome ' + sgn(P.pf.p50) : 'not available') + '. ' +
-      P.conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') + '.');
+    'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? lossAlt(P.pf) : 'not available') + '. ' +
+      P.conditions.stress.label + ': ' + (stress ? lossAlt(stress) : 'not available') + '.');
 }
 
 function svgShell(W, H, c, inner, narrow, title = 'Bets quadrant', desc = 'A risk-return view of explicit portfolio bets.'){

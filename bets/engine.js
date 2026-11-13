@@ -1,6 +1,7 @@
 /* Seeded independent baseline plus paired maximum-positive-co-movement stress. */
-import {mulberry32, gaussian, rangeSampler, quantile, fmt} from '../assets/series.js';
-import {betKey} from './diff.js';
+import {mulberry32, gaussian, rangeSampler, quantile} from '../assets/series.js';
+import {betKey, comparisonHeadline} from './diff.js';
+import {sgn, lossText, rangeText, oddsText, stakeOf, payoffOf, oddsOf, togetherNote} from './format.js';
 
 const SEED = 0xBE75, NSIM = 4000, BINS = 40;
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -59,8 +60,12 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
     bets.set(s.bet.srcLine, {ev, audits: auditsFor(s.bet, ev), scoreable: s.ok});
   }
 
-  const independent = scoreableCount ? portfolioSummary(portfolio, nsim) : null;
-  const shared = scoreableCount ? portfolioSummary(sharedPortfolio, nsim) : null;
+  /* nothing is left to chance only when every scoreable bet is a point value and
+     its odds are exactly 0 or 100: then an all-or-none count is the truth */
+  const certain = sim.filter(record => record.ok).every(({bet: b}) =>
+    b.stake[0] === b.stake[1] && b.payoff[0] === b.payoff[1] && b.odds[0] === b.odds[1] && (b.odds[0] === 0 || b.odds[0] === 100));
+  const independent = scoreableCount ? portfolioSummary(portfolio, nsim, certain) : null;
+  const shared = scoreableCount ? portfolioSummary(sharedPortfolio, nsim, certain) : null;
   return {
     bets,
     scoreableCount,
@@ -70,13 +75,32 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
   };
 }
 
-function portfolioSummary(outcomes, nsim){
+function portfolioSummary(outcomes, nsim, certain){
   outcomes.sort((a, b) => a - b);
-  const pLoss = outcomes.filter(v => v < 0).length / nsim;
+  const lossRuns = outcomes.filter(v => v < 0).length, pLoss = lossRuns / nsim;
+  const p10 = quantile(outcomes, 0.1), p90 = quantile(outcomes, 0.9);
   return {
-    p10: quantile(outcomes, 0.1), p50: quantile(outcomes, 0.5), p90: quantile(outcomes, 0.9),
-    pLoss, histogram: histogram(outcomes, nsim),
+    p10, p50: quantile(outcomes, 0.5), p90,
+    pLoss, lossRuns, runs: nsim, certain, split: medianSplit(outcomes, p10, p90),
+    histogram: histogram(outcomes, nsim),
   };
+}
+
+/* A median that falls in an empty stretch of the outcome distribution is not a
+   stable figure: which side of the gap it lands on is an accident of the seed.
+   Among the sorted outcomes lying between the 45% and 55% levels, if the widest
+   gap between neighbours is more than 5% of P90 - P10, report the two values
+   either side of it. Detection only: no extra draw. */
+export function medianSplit(sorted, p10, p90){
+  const n = sorted.length, range = p90 - p10;
+  if(n < 3 || !(range > 0)) return null;
+  const from = Math.floor(0.45 * (n - 1)), to = Math.ceil(0.55 * (n - 1));
+  let widest = 0, at = -1;
+  for(let i = from; i < to; i++){
+    const gap = sorted[i + 1] - sorted[i];
+    if(gap > widest){ widest = gap; at = i; }
+  }
+  return widest > 0.05 * range ? {lo: sorted[at], hi: sorted[at + 1]} : null;
 }
 
 function auditsFor(bet, ev){
@@ -87,14 +111,18 @@ function auditsFor(bet, ev){
   return a;
 }
 
+/* Bets at or above the 40% line, largest first. One bet alone is no
+   concentration finding, so a single scoreable bet has none. The result keeps
+   the largest bet's name/srcLine/share and lists every bet over the line in `all`. */
 function concentrationOf(flat){
+  if(flat.length < 2) return null;
   const stakes = flat.map(b => mid(b.stake));
   const total = stakes.reduce((t, v) => t + v, 0);
   if(total <= 0) return null;
-  let bi = -1, best = 0;
-  stakes.forEach((v, i) => { if(v > best){ best = v; bi = i; } });
-  const share = best / total;
-  return share >= 0.40 ? {name: flat[bi].name, srcLine: flat[bi].srcLine, share} : null;
+  const all = flat.map((b, i) => ({name: b.name, srcLine: b.srcLine, share: stakes[i] / total}))
+    .filter(item => item.share >= 0.40)
+    .sort((a, b) => b.share - a.share || a.srcLine - b.srcLine);
+  return all.length ? {...all[0], all} : null;
 }
 
 function histogram(sorted, nsim){
@@ -132,28 +160,36 @@ export function markdown(model, sim, href, {comparison = null, sourceLabel = ''}
     for(const b of g.bets){
       const r = sim.bets.get(b.srcLine);
       const kill = b.kill ? b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '') : '—';
-      out.push('| ' + [g.name, b.name, rng(b.stake), pct(b.odds), rng(b.payoff),
-        r.scoreable ? fmt(r.ev.p10) + '–' + fmt(r.ev.p90) + ' (' + fmt(r.ev.p50) + ')' : 'NOT SCORED', kill,
+      out.push('| ' + [g.name, b.name, stakeOf(b), oddsOf(b), payoffOf(b),
+        r.scoreable ? sgn(r.ev.p10) + '–' + sgn(r.ev.p90) + ' (' + sgn(r.ev.p50) + ')' : 'NOT SCORED', kill,
         r.scoreable ? (r.audits.join('; ') || '—') : 'NOT SCORED — correct invalid or missing terms']
         .map(mdCell).join(' | ') + ' |');
     }
   }
   const baseline = scenarioReading(sim, 'independent');
   const shared = scenarioReading(sim, 'shared');
-  const line = reading => !reading.available ? reading.label + ': **Not available — no scoreable bets.**' :
-    reading.label + ': Median outcome **' + fmt(reading.medianOutcome) + u + '** [' +
-      fmt(reading.portfolio.p10) + '–' + fmt(reading.portfolio.p90) + '] · P(loses money) **' +
-      Math.round(reading.portfolio.pLoss * 100) + '%**.';
+  const line = reading => {
+    if(!reading.available) return reading.label + ': **Not available — no scoreable bets.**';
+    const pf = reading.portfolio, range = ' [' + sgn(pf.p10) + '–' + sgn(pf.p90) + ']';
+    return reading.label + ': ' + (pf.split
+      ? 'Median outcome split: about even odds of **' + sgn(pf.split.lo) + ' or ' + sgn(pf.split.hi) + u + '**'
+      : 'Median outcome **' + sgn(pf.p50) + u + '**') + range + ' · P(loses money) **' + lossText(pf) + '**.';
+  };
   out.push('', line(baseline), '', line(shared) +
     ' Only realised win/loss outcomes share one common draw; stake, odds and payoff ranges remain independently sampled. This is a stress, not a forecast.');
-  if(sim.concentration) out.push('', '**Concentration:** ' + mdCell(sim.concentration.name) + ' carries ' +
-    Math.round(sim.concentration.share * 100) + '% of total scored stake.');
+  const together = togetherNote(baseline.portfolio, shared.portfolio);
+  if(together) out.push('', together);
+  if(sim.concentration){
+    const all = sim.concentration.all || [sim.concentration], pc = s => Math.round(s.share * 100) + '%';
+    out.push('', '**Concentration:** ' + (all.length === 1
+      ? mdCell(all[0].name) + ' carries ' + pc(all[0]) + ' of total scored stake.'
+      : all.map(s => mdCell(s.name) + ' (' + pc(s) + ')').join(', ') + ' each carry 40% or more of total scored stake.'));
+  }
   out.push(...comparisonMarkdown(model, comparison));
   if(href) out.push('', '[Open in bets](' + mdHref(href) + ')');
   else if(sourceLabel) out.push('', '_' + mdInline(sourceLabel) + '_');
   return out.join('\n') + '\n';
 }
-const rng = r => !r ? '—' : r[0] === r[1] ? String(r[0]) : r[0] + '–' + r[1];
 const mdInline = value => String(value == null ? '—' : value).replace(/\\/g, '\\\\')
   .replace(/\r?\n/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([`*_[\]!])/g, '\\$1');
 const mdCell = value => mdInline(value).replace(/\|/g, '\\|');
@@ -162,7 +198,7 @@ const mdHref = value => String(value).replace(/\\/g, '%5C').replace(/</g, '%3C')
 
 function comparisonMarkdown(model, comparison){
   if(!comparison) return [];
-  const out = ['', '## Selected comparison', '', mdInline(comparison.headline), '',
+  const out = ['', '## Selected comparison', '', mdInline(comparisonHeadline(comparison, model)), '',
     '**Scope:** Current allocations versus the selected baseline; prior portfolio values use its Independent baseline.'];
   const bets = model.groups.flatMap(g => g.bets.map(b => ({...b, group:g.name})));
   const additions = bets.filter(bet => comparison.newKeys.has(betKey(bet)));
@@ -170,24 +206,25 @@ function comparisonMarkdown(model, comparison){
   if(additions.length) out.push('', '**New:** ' + additions.map(name).join('; '));
   const changes = bets.filter(b => comparison.movedFields.has(betKey(b))).map(b => {
     const old = comparison.movedFields.get(betKey(b)), facts = [];
-    if(old.stake) facts.push('stake ' + rng(old.stake) + ' → ' + rng(b.stake));
-    if(old.odds) facts.push('odds ' + pct(old.odds) + ' → ' + pct(b.odds));
-    if(old.payoff) facts.push('payoff ' + rng(old.payoff) + ' → ' + rng(b.payoff));
+    if(old.stake) facts.push('stake ' + rangeText(old.stake) + ' → ' + stakeOf(b));
+    if(old.odds) facts.push('odds ' + oddsText(old.odds) + ' → ' + oddsOf(b));
+    if(old.payoff) facts.push('payoff ' + rangeText(old.payoff) + ' → ' + payoffOf(b));
     return name(b) + (facts.length ? ' (' + facts.join(', ') + ')' : ' (kill criterion changed)');
   });
   if(changes.length) out.push('', '**Changed:** ' + changes.join('; '));
   const prior = comparison.prevSim && scenarioReading(comparison.prevSim, 'independent'), pu = comparison.previousUnit;
   if(prior?.available){
-    const n = value => fmt(value) + (pu ? ' ' + mdInline(pu) : '');
+    const n = value => sgn(value) + (pu ? ' ' + mdInline(pu) : '');
+    const unit = pu ? ' ' + mdInline(pu) : '';
     out.push('', '**Prior Independent baseline:** P10 **' + n(prior.portfolio.p10) + '** · P50 **' +
-      n(prior.portfolio.p50) + '** · P90 **' + n(prior.portfolio.p90) + '**.');
+      (prior.portfolio.split ? sgn(prior.portfolio.split.lo) + ' or ' + sgn(prior.portfolio.split.hi) + unit : n(prior.portfolio.p50)) +
+      '** · P90 **' + n(prior.portfolio.p90) + '**.');
   }
   if(comparison.killed.length) out.push('', '**Removed allocations:**', ...comparison.killed.map(b => {
     const bu = pu ? ' ' + mdInline(pu) : '', kill = b.kill ? b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '') : '—';
-    return '- ' + name(b) + ': stake ' + rng(b.stake) + bu + '; odds ' + pct(b.odds) +
-      '; payoff ' + rng(b.payoff) + bu + '; kill ' + mdInline(kill) + '.';
+    return '- ' + name(b) + ': stake ' + stakeOf(b) + bu + '; odds ' + oddsOf(b) +
+      '; payoff ' + payoffOf(b) + bu + '; kill ' + mdInline(kill) + '.';
   }));
   return out;
 }
 
-const pct = r => r ? rng(r) + '%' : '—';
