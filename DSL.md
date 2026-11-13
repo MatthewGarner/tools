@@ -120,8 +120,13 @@ states what result is sufficient to decide. Both are optional in Paths generally
 active unanswered question needs both to be ready in the Learning Agenda. `when:` makes a
 decision open only under another condition.
 `answer: yes|no [date] [target: value] [actual: value] [-- receipt]` records reality.
-`assume: yes|no YYYY-MM-DD` records a working assumption, which takes effect only after the
-due date (`answer-by:`) and never becomes a known answer.
+`assume: yes|no YYYY-MM-DD` records a working assumption. It takes effect only once both dates
+have passed: today is later than `answer-by:` (the due date is the last day to answer) and today is
+on or after the assumption's own date, which is the day it starts. Until then the question is
+simply overdue and unanswered. An assumption never becomes a known answer. An item that depends
+on an assumed question is read as if the assumption were the answer: it is *working to* the
+assumption if its condition would hold, *set aside* by it if it would fail, and *waiting* if it
+also depends on something else still unknown.
 
 **Counting plans:** a *possible plan* is a distinct set of work. The raw number of yes/no
 answer sets is called *combinations of answers*; several combinations can lead to the same
