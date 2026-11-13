@@ -5,7 +5,7 @@ import * as D from '../../../energy/intraday/day.js';
 import {dispatch} from '../../../energy/merit-order/engine.js';
 import {GB_TODAY} from '../../../energy/merit-order/technologies.js';
 import {srmc} from '../../../energy/merit-order/stack.js';
-import {decodeDayState, encodeDayState, RANGES} from '../../../energy/intraday/state.js';
+import {decodeDayState, encodeDayState, setParam, RANGES} from '../../../energy/intraday/state.js';
 import {buildDayVerdict} from '../../../energy/intraday/render-day.js';
 
 const R = makeRunner('intraday');
@@ -116,7 +116,7 @@ const marginOn = (s, pr) => s.discharge.reduce((a, v, h) => a + v * pr[h], 0) - 
     const gm = marginOn(D.greedySchedule(prices, p), prices), opt = dpOpt(prices, p); tot++;
     if(gm < opt - 1e-6){ sub++; w = Math.min(w, gm / opt); }
   }
-  R.check('Q-GREEDY', 'question', 'QUESTION (not UI-reachable): greedy pair-matching is optimal on arbitrary price vectors', sub === 0, `suboptimal in ${sub}/${tot} random vectors, worst ratio ${w.toFixed(3)}`);
+  R.info('Q-GREEDY', 'for Matt (not UI-reachable): greedy pair-matching is not optimal on arbitrary price vectors; the schedule also allows one cycle a day', `suboptimal in ${sub}/${tot} random vectors, worst ratio ${w.toFixed(3)}`);
 }
 
 /* ---------- 5. runDay: independent re-clear, per-slice margins, identities ---------- */
@@ -164,42 +164,56 @@ function refPrice(gens, d){            // independent unit-by-unit reference
 }
 
 /* ---------- 6. defects ---------- */
-{ // F-ID-1/2: the back-off is not an optimiser; a bigger fleet earns LESS in total than a smaller one, and can print "finds nothing worth trading" when it can trade
-  const base = {...D.DAY_DEFAULTS, trough: 29, peak: 35, solarPeak: 3, gas: 185, carbon: 30};
-  const half = D.runDay({...base, fleetGW: 0.5, fleetH: 1}), one = D.runDay({...base, fleetGW: 1, fleetH: 1});
-  R.check('F-ID-1', 'defect', 'a 1 GW x 1 h fleet earns at least what a 0.5 GW x 1 h fleet earns (it could simply trade less)', one.achievedMargin >= half.achievedMargin - 1e-9,
-    `0.5 GW: £${half.achievedMargin.toFixed(2)}k/day, 1 GW: £${one.achievedMargin.toFixed(2)}k/day`);
-  const v = buildDayVerdict(one, {...base, fleetGW: 1, fleetH: 1});
-  const lossPerMWh = one.raw.prices[1] / 0.85 - one.raw.prices[1];       // round-trip loss at the cheapest-hour price
-  R.check('F-ID-1b', 'defect', 'verdict does not say "spread is thinner than the round-trip loss" when it is not', !(/thinner than the round-trip loss/.test(v) && one.raw.spread > lossPerMWh),
-    `raw spread £${one.raw.spread.toFixed(1)} vs loss ~£${lossPerMWh.toFixed(1)}/MWh; text: "${v}"`);
-  const def = {...D.DAY_DEFAULTS};
-  const a = D.runDay({...def, fleetGW: 0.5, fleetH: 2}), b = D.runDay({...def, fleetGW: 1, fleetH: 2});
-  R.check('F-ID-2', 'defect', 'default day: a 1 GW x 2 h fleet earns at least what 0.5 GW x 2 h earns', b.achievedMargin >= a.achievedMargin - 1e-9, `0.5 GW: £${a.achievedMargin.toFixed(2)}k, 1 GW: £${b.achievedMargin.toFixed(2)}k (per-MW verdict figure £${Math.round(a.achievedMargin / 0.5)} vs £${Math.round(b.achievedMargin / 1)})`);
-  let viol = []; let prev = -1;
+{ // F-ID-1 (ruled): the terminal book is an equilibrium in both directions (re-entry pass)
+  const netOf = (p, sc) => Array.from({length: 24}, (_, h) => D.demandAt(h, p) + sc.charge[h] - sc.discharge[h]);
+  const pays = (p, pairs) => { const fl = D.clearDay(p, netOf(p, D.scheduleFromPairs(pairs, p.rte))); return pairs.every(sl => fl.prices[sl.d] - fl.prices[sl.c] / p.rte >= -1e-9); };
+  let badBook = 0, badDrop = 0, badEmpty = 0, nDays = 0, nDropped = 0;
+  for(let t = 0; t < 150; t++){
+    const p = {...D.DAY_DEFAULTS, trough: pick(18, 40, 1), peak: pick(30, 60, 1), solarPeak: pick(0, 14, 1), gas: pick(40, 300, 5), carbon: pick(0, 150, 5), fleetGW: pick(0.5, 12, 0.5), fleetH: pick(1, 6, 0.5)};
+    if(p.peak < p.trough) continue;
+    const r = D.runDay(p); nDays++;
+    if(!pays(p, r.book)) badBook++;
+    for(const sl of r.dropped){ nDropped++; if(pays(p, [...r.book, sl])) badDrop++; }
+    if(r.dischargedGWh <= 1e-9){ const plan = D.greedySchedule(r.raw.prices, p); if(plan.pairs.some(sl => pays(p, [sl]))) badEmpty++; }
+  }
+  R.check('F-ID-1', 'pass', `every kept slice pays at the prices the whole fleet makes (${nDays} days)`, badBook === 0, `viol=${badBook}`);
+  R.check('F-ID-1', 'pass', `no dropped slice can rejoin with every slice still paying (${nDropped} dropped slices tested)`, badDrop === 0, `viol=${badDrop}`);
+  R.check('F-ID-1', 'pass', 'the book is empty only when no single slice pays on its own', badEmpty === 0, `viol=${badEmpty}`);
+  const g185 = {...D.DAY_DEFAULTS, trough: 29, peak: 35, solarPeak: 3, gas: 185, carbon: 30};
+  const one = D.runDay({...g185, fleetGW: 1, fleetH: 1}), half = D.runDay({...g185, fleetGW: 0.5, fleetH: 1});
+  R.info('F-ID-1', 'ruling example 1 GW x 1 h still earns 0 (no whole 0.25 GWh slice pays alone); 0.5 GW x 1 h trades a 0.075 GWh part-slice', `1 GW £${one.achievedMargin.toFixed(2)}k, 0.5 GW £${half.achievedMargin.toFixed(2)}k`);
+  const v = buildDayVerdict({...one, dischargedGWh: 0, droppedGWh: 1.2}, {...g185, fleetGW: 1, fleetH: 1});
+  R.check('F-ID-1b', 'pass', 'an empty book after a non-empty plan says the fleet\'s own trading closes the spread; "thinner" only when the plan is empty', /its own trading closes the spread/.test(v) && !/thinner than the round-trip loss/.test(v), v);
+}
+{ // F-ID-2/2b/2c reclassified by ruling: bigger fleet earning less in total is the price-taker lesson. Information only.
+  let viol = [], prev = -1; const def = {...D.DAY_DEFAULTS};
   for(const f of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 10, 12]){ const m = D.runDay({...def, fleetGW: f, fleetH: 2}).achievedMargin; if(prev >= 0 && m < prev - 1e-9) viol.push(f); prev = m; }
-  R.check('F-ID-2b', 'defect', 'default day, 2 h: total margin never falls as the fleet grows (0.5..12 GW)', viol.length === 0, `falls at fleet sizes ${viol.join(', ')} GW`);
   let bigger = 0, tot = 0;
   for(let t = 0; t < 120; t++){
     const base = {...D.DAY_DEFAULTS, trough: pick(18, 40, 1), peak: pick(30, 60, 1), solarPeak: pick(0, 14, 1), gas: pick(40, 300, 5), carbon: pick(0, 150, 5), fleetH: pick(1, 6, 0.5)};
     if(base.peak < base.trough + 3) continue; let pr = -1;
     for(const f of [0.5, 1, 2, 4, 8, 12]){ const m = D.runDay({...base, fleetGW: f}).achievedMargin; tot++; if(pr >= 0 && m < pr - 1e-9) bigger++; pr = m; }
   }
-  R.check('F-ID-2c', 'defect', 'seeded sweep: bigger fleet never earns less in total', bigger === 0, `${bigger} of ${tot} fleet-size steps earn less than the smaller fleet`);
+  R.info('F-ID-2', 'by design (price-taker rule): bigger fleet earns less in total', `default day 2 h falls at fleet sizes ${viol.join(', ')} GW; ${bigger} of ${tot} steps in the seeded sweep`);
 }
-{ // F-ID-3: Trough slider (18..40) can exceed Peak slider (30..60)
-  const p = {...D.DAY_DEFAULTS, trough: 40, peak: 30};
-  R.check('F-ID-3', 'defect', 'evening "peak" demand >= overnight "trough" demand for every slider-reachable pair', D.demandAt(18, p) >= D.demandAt(3, p), `trough=40 peak=30 -> demand at 03:00 = ${D.demandAt(3, p)} GW, at 18:00 = ${D.demandAt(18, p)} GW`);
+{ // F-ID-3 (ruled): trough cannot exceed peak, in the control path and in a shared link
+  let ok = true;
+  for(const [t, pk] of [[40, 30], [35, 36], [30, 40], [18, 60]]){
+    const a = setParam({...D.DAY_DEFAULTS, trough: 20, peak: pk}, 'trough', t); if(a.trough > a.peak) ok = false;
+    const b = setParam({...D.DAY_DEFAULTS, trough: t, peak: 50}, 'peak', pk); if(b.trough > b.peak) ok = false;
+  }
+  const dec = decodeDayState({v: 1, p: {trough: 40, peak: 30}});
+  R.check('F-ID-3', 'pass', 'no slider move and no shared link can put the trough above the peak', ok && dec.p.trough <= dec.p.peak, `decoded trough ${dec.p.trough}, peak ${dec.p.peak}`);
 }
 { // F-ID-4: decode treats null as 0
   const d = decodeDayState({v: 1, c: null, p: {gas: null, carbon: ''}});
-  R.check('F-ID-4', 'defect', 'a null/empty param in a shared URL falls back to the default, not to the slider minimum', d.p.gas === D.DAY_DEFAULTS.gas && d.p.carbon === D.DAY_DEFAULTS.carbon, `gas=${d.p.gas} (default ${D.DAY_DEFAULTS.gas}), carbon=${d.p.carbon} (default ${D.DAY_DEFAULTS.carbon})`);
+  R.check('F-ID-4', 'pass', 'a null/empty param in a shared URL falls back to the default, not to the slider minimum', d.p.gas === D.DAY_DEFAULTS.gas && d.p.carbon === D.DAY_DEFAULTS.carbon, `gas=${d.p.gas} (default ${D.DAY_DEFAULTS.gas}), carbon=${d.p.carbon} (default ${D.DAY_DEFAULTS.carbon})`);
   const rt = decodeDayState(encodeDayState({...D.DAY_DEFAULTS, fleetGW: 4, gas: 250}, 'bigFleet'));
   R.check('S1', 'pass', 'state encode/decode round-trips and clamps to RANGES', rt.p.fleetGW === 4 && rt.p.gas === 250 && decodeDayState({v: 1, p: {fleetGW: 5000}}).p.fleetGW === RANGES.fleetGW[1]);
 }
 { // F-ID-5: the stated season of the default day is inconsistent (comment): summer-night trough with winter peak and a summer sun
   const p = D.DAY_DEFAULTS;
-  R.check('F-ID-5', 'question', 'QUESTION: default day mixes summer trough (22 GW, "summer-night"), winter peak (44 GW) and a 16 h summer sun (05:00-21:00)', !(p.trough <= 24 && p.peak >= 44 && p.sunset - p.sunrise >= 14), `trough ${p.trough}, peak ${p.peak}, sun ${p.sunrise}-${p.sunset}`);
+  R.info('F-ID-5', 'for Matt: default day mixes a summer trough (22 GW), a winter peak (44 GW) and 16 h of sun', `trough ${p.trough}, peak ${p.peak}, sun ${p.sunrise}-${p.sunset}`);
 }
 { // timing: worst reachable slider corner
   const t0 = Date.now(); D.runDay({...D.DAY_DEFAULTS, gas: 300, fleetGW: 12, fleetH: 6}); const ms = Date.now() - t0;

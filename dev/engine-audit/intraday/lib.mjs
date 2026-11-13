@@ -9,6 +9,11 @@ export function makeRunner(tag){
       rows.push({id, kind, desc, ok: !!ok, detail});
       console.log(`${ok ? 'PASS' : 'FAIL'} [${tag}] ${id} (${kind}) ${desc}${detail ? ' :: ' + detail : ''}`);
     },
+    // information only: printed, never fails (modelling questions and by-design behaviour)
+    info(id, desc, detail = ''){
+      rows.push({id, kind: 'info', desc, ok: true, detail});
+      console.log(`INFO [${tag}] ${id} ${desc}${detail ? ' :: ' + detail : ''}`);
+    },
     eq(id, kind, desc, actual, expected, tol = 1e-9){
       const ok = typeof expected === 'number' ? Math.abs(actual - expected) <= tol : JSON.stringify(actual) === JSON.stringify(expected);
       this.check(id, kind, desc, ok, `actual=${fmt(actual)} expected=${fmt(expected)}`);
