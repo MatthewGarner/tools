@@ -70,6 +70,8 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   let reading = false;
   let readingResolved = initialReading !== 'when-guarded';
   let readingOverride = false;
+  const dropFold = () => workspace.classList.remove('landing-fold');   // the HTML-declared landing fold: see workspace.css
+  if(workspace.classList.contains('landing-fold')) setTimeout(dropFold, 3000);   // never strand a rail behind it
   let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
   const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
   /* The rail's fade-in is for a reader's own toggle: nothing moves while the page lands (until the first artefact paints). */
@@ -164,6 +166,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       const declared=svg.getAttribute('data-min-readable-scale');
       const decision=fitReadabilityDecision({naturalWidth:naturalWidth(svg),fitWidth,declaredMinScale:declared});
       const guard=!matchMedia('(pointer: coarse)').matches&&decision.guard;
+      if(!initialReading && autoFold) dropFold();   // the landing fold was this decision, made on the first artefact
       if(!initialReading && autoFold && guard && !workspace.classList.contains('collapsed') && !reading && !editorFocused() && manualRail !== false){
         setCollapsed(true, {auto:true});
         return;
@@ -258,6 +261,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       declaredMinScale:svg.getAttribute('data-min-readable-scale')});
     readingResolved = true;
     workspace.classList.remove('reading-pending');
+    dropFold();
     const next = initialReadingState({pointerCoarse:matchMedia('(pointer: coarse)').matches,
       workspaceWide:gridWorkspace(), initialCollapsed:workspace.classList.contains('collapsed'),
       guarded:decision.guard, manualOverride:readingOverride});
@@ -267,6 +271,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   new MutationObserver(() => {
     if(!pendingPane && !readingResolved && workspace.classList.contains('reading-pending') && svgEl()) pendingPane = paneWidth();
     renderEpoch++;
+    if(!svgEl()) dropFold();   // an empty or invalid document keeps its visible source rail
     applyZoom();
     if(!booted && svgEl()) requestAnimationFrame(() => requestAnimationFrame(() => { booted = true; }));
     if(initialReading === 'when-guarded' && !readingResolved && !readingOverride){
@@ -278,7 +283,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   }).observe(preview, {childList: true});
 
   function setReading(open, {automatic = false} = {}){
-    if(!automatic){ readingOverride=true; readingResolved=true; }
+    if(!automatic){ readingOverride=true; readingResolved=true; dropFold(); }
     reading=!!open;
     workspace.classList.toggle('focus-artefact', reading);
     workspace.dataset.workspaceView = reading ? 'reading' : 'expanded';
@@ -293,7 +298,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
 
   /* collapse */
   function setCollapsed(c, {auto = false} = {}){
-    if(!auto){ manualRail = c; readingOverride=true; readingResolved=true; }
+    if(!auto){ manualRail = c; readingOverride=true; readingResolved=true; dropFold(); }
     reading=false;
     workspace.classList.remove('reading-pending');
     workspace.classList.remove('focus-artefact');

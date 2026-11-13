@@ -559,3 +559,6 @@ body.overview-sheet-open::before{
   .receipt-closeout-open,.focus-return,.closeout-edit-grid .inspector-value{min-height:44px}
   .closeout-edit-grid .inspector-value{font-size:16px}
 }
+/* the page lands in its final height: about 990px for the example on a desktop, 1440px on a phone */
+.overview-main .preview .placeholder[data-boot]{min-height:990px;align-items:flex-start}
+@media (max-width:539px){.overview-main .preview .placeholder[data-boot]{min-height:1439px}}

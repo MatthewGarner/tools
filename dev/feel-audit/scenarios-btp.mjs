@@ -292,7 +292,7 @@ export async function rail(env, tool){
   const w = where(tool, 'desktop', env.mode);
   const {ctx, page} = await fresh(env, tool, 'desktop');
   const tab = page.locator('#railtab');
-  const startCollapsed = await page.locator('#workspace').evaluate(w => w.classList.contains('collapsed'));
+  const startCollapsed = await page.locator('#workspace').evaluate(w => w.classList.contains('collapsed') || w.classList.contains('focus-artefact'));
   note('rail.landing', w, 'rail state on landing', {collapsed: startCollapsed, label: await tab.getAttribute('aria-label')});
   if(!startCollapsed){
     const c = await measure(page, () => tab.click(), {quiet: 400});
@@ -447,7 +447,7 @@ export async function keyboard(env, tool){
   const {ctx, page} = await fresh(env, tool, 'desktop');
   /* Tab inside the source editor: does it indent (trapped) or move on? */
   const before = await sourceText(page);
-  const collapsed = await page.locator('#workspace').evaluate(w => w.classList.contains('collapsed'));
+  const collapsed = await page.locator('#workspace').evaluate(w => w.classList.contains('collapsed') || w.classList.contains('focus-artefact'));
   if(!collapsed){
     await page.locator('.cm-content').click(); await page.keyboard.press('Tab'); await sleep(150);
     const trap = await page.evaluate(() => ({inEditor: !!document.activeElement.closest('.cm-editor')}));

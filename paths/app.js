@@ -38,6 +38,7 @@ import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHando
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
+import {mountMotion} from '../assets/motion.js';
 import {paintKicker} from '../assets/verdict.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 import {STARTER} from './starter.js';
@@ -292,6 +293,7 @@ function setStyleInSource(style){
   if(index >= 0) lines[index] = `style: ${next}`;
   else lines.unshift(`style: ${next}`, '');
   editor.setText(lines.join('\n'));
+  refreshNow();
 }
 
 function syncViewControls(){
@@ -1151,7 +1153,10 @@ function doRefresh(){
         ? renderOverviewNarrow(overview, context(model, {width, ...interactive}))
         : renderOverview(overview, context(model, {width:width || 1160, ...interactive}));
     }
-    if(svg !== lastSvg){ preview.innerHTML = svg; lastSvg = svg; }
+    if(svg !== lastSvg){
+      /* a view switch cross-fades (the shared ghost); every other repaint swaps in place. No reveal: the spec is empty. */
+      paint.reset(); paint(svg, {}, {onSwap: ws.applyZoom, mode: motionOverride}); lastSvg = svg; motionOverride = undefined;
+    }
   }
 
   renderOverviewSurface(roadmapView, overviewMetrics);
@@ -1187,11 +1192,16 @@ function doRefresh(){
   hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
+const typed = debounced(refresh, 120);
+/* a discrete edit (a commit, a menu pick, a view) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ typed.cancel(); refresh(); }
+let motionOverride;                 // 'fade' for a view switch
+const paint = mountMotion(preview);
 
 const editor = createEditor({
   parent:$('cmhost'),
   doc:'',
-  onChange:debounced(refresh, 120),
+  onChange:typed,
 });
 
 $('paths-projection-jump').addEventListener('click', () => {
@@ -1273,7 +1283,7 @@ attachEditInPlace($('decision-inspector'), {
   kinds:inspectorKinds,
   onCommit(kind, line, _raw, value){
     const ops = decisionOps(kind, line, value);
-    if(ops?.length) applyLineOps(editor, ops);
+    if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
   },
 });
 
@@ -1281,7 +1291,7 @@ attachEditInPlace($('overview-receipt'), {
   kinds:{...inspectorKinds, ...closeOutKinds},
   onCommit(kind, line, _raw, value){
     const ops = kind.startsWith('closeout-') ? closeOutOps(kind, line, value) : decisionOps(kind, line, value);
-    if(ops?.length) applyLineOps(editor, ops);
+    if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
   },
 });
 
@@ -1289,7 +1299,7 @@ attachEditInPlace($('focus-lens'), {
   kinds:closeOutKinds,
   onCommit(kind, line, _raw, value){
     const ops = closeOutOps(kind, line, value);
-    if(ops?.length) applyLineOps(editor, ops);
+    if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
   },
 });
 
@@ -1501,7 +1511,7 @@ $('decision-inspector').addEventListener('click', event => {
     return;
   }
   const ops = clearAnswer(editor.getText(), resolved.srcLine);
-  if(ops?.length) applyLineOps(editor, ops);
+  if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
 });
 
 function selectedTreeOpener(key = treeInspectorReturnKey){
@@ -1537,10 +1547,11 @@ function editDecisionSource(decision, {closeReceipt = false, closeInspector = fa
     setTimeout(() => editor.view.contentDOM.focus({preventScroll:true}), 180);
   });
 }
-mountTouchUndo(document.querySelector('.stage .actions'), editor);
+mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: refreshNow});
 const ws = initWorkspace({
   workspace:$('workspace'), tab:$('railtab'), preview, zoomHost:$('zoomctl'),
   autoFold:true,
+  focusEditor:() => editor.view.focus(),   // opening the rail moves focus into the editor
   collapsedLabel:'Edit plan source',
   collapsedAriaLabel:'Edit Paths plan source',
   expandedLabel:'Hide plan source',
@@ -1678,6 +1689,14 @@ document.querySelector('.paths-views').addEventListener('click', event => {
   const button = event.target.closest?.('[data-paths-view]');
   if(!button) return;
   event.preventDefault();
+  button.focus({preventScroll:true});   // Safari does not focus a button on click
+  const more = button.closest('details'); if(more) more.open = false;
+  /* pressed with the press, not a frame behind the view */
+  document.querySelectorAll('[data-paths-view]').forEach(b => {
+    const on = b === button;
+    b.setAttribute('aria-pressed', String(on)); b.classList.toggle('primary', on);
+  });
+  motionOverride = 'fade';
   setStyleInSource(button.dataset.pathsView);
 });
 
@@ -1713,8 +1732,10 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('paths-src') || ''; }catch(_){ }
   }
-  if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(LANTERN))) refresh();
+  /* the first plan is drawn in this task, from the source that is already known: one render */
+  if(text){ editor.setText(text); typed.cancel(); doRefresh(); }
+  else if(autoloadExample(() => editor.setText(LANTERN))){ typed.cancel(); doRefresh(); }
+  else refresh();
 })();
 
 export {LANTERN};

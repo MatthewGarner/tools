@@ -3,7 +3,7 @@ import {offer as provide} from '../assets/recent-ui.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
-import {evaluate, evalDet, findByLine, probabilityActionState, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
+import {evalDet, findByLine, probabilityActionState, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
 import {pricedCopy, seamCopy} from './format.js';
 import {render, treeVerdictParts} from './render.js';
 import {createEditor} from './editor.js';
@@ -22,6 +22,10 @@ import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, applies, subtreeRange, childLineFor, applyExplore, exploreProbOps, hasIncomingProb} from './edit-targets.js';
 import {STARTER} from './starter.js';
+import {createEvalMemo} from './eval-memo.js';
+import {createSliderCommit} from './slider-commit.js';
+
+const evalMemo = createEvalMemo();   // the evaluation is kept, keyed on the tree: a theme change, zoom or re-layout never re-runs it
 
 const $ = id => document.getElementById(id);
 const preview = $('preview');
@@ -73,7 +77,7 @@ function doRefresh(){
     paintMetrics($('metrics'), '', []);
     dismissFocus();
   } else {
-    results = evaluate(model);
+    results = evalMemo.get(model);
     rebindFocus();   // I-5: re-resolve/dismiss the focused ref before ctx.hot is built (I-8 needs it fresh)
     const hot = computeHotSet(model);
     if(focus) hot.add(focus.kind + ':' + focus.line);   // I-8: keep the focused mark whatever loadBearing now says
@@ -106,12 +110,14 @@ function scheduleRefresh(){
   clearTimeout(changeTimer);
   changeTimer = setTimeout(refresh, 120);
 }
+/* a discrete edit (a commit, a menu pick, Undo) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ clearTimeout(changeTimer); refresh(); }
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
   onChange: scheduleRefresh,
 });
-mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: () => undoRefresh()});   // phones have no ⌘Z (Rule 2)
 function modelLinkState(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
@@ -121,6 +127,7 @@ function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  focusEditor: () => editor.view.focus(),   // opening the rail moves focus into the editor
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 watchNarrowBucket(preview, () => { lastSvg = ''; paint.reset(); refresh(); });
@@ -137,6 +144,7 @@ const exploreBar = $('explorebar'), exploreLabel = $('exploreLabel'), exploreClo
   explorePriced = $('explorePriced'), seamEl = $('seam');
 
 let focus = null;             // {kind, line, label, raw, ext, focusValue} — the bound ref's fingerprint (I-5)
+let undoing = false;           // true only while an Undo/Redo's refresh runs: the slider stays on its node and shows the restored value
 let committingFocus = false;   // true only while OUR OWN commit's settle-refresh is running
 
 function computeHotSet(m){
@@ -158,7 +166,18 @@ function refFingerprint(m, ref){
   return {label: node.label, raw: node.valueRaw || ''};
 }
 
-function showExploreBar(on){ exploreBar.hidden = !on; }
+/* The bar is pinned inside the viewport: the bottom of the artefact pane on a desktop (placed from the stage's own rectangle),
+   the bottom of the screen on a phone (assets in tree/style.css). It overlays the page, so opening and closing it never moves
+   anything or scrolls the page. */
+function placeExploreBar(){
+  if(exploreBar.hidden) return;
+  if(matchMedia('(pointer: coarse)').matches){ exploreBar.style.left = exploreBar.style.width = ''; return; }
+  const r = $('preview').getBoundingClientRect();
+  exploreBar.style.left = Math.round(r.left) + 'px';
+  exploreBar.style.width = Math.round(r.width) + 'px';
+}
+addEventListener('resize', placeExploreBar);
+function showExploreBar(on){ exploreBar.hidden = !on; placeExploreBar(); }
 
 function clearLiveClasses(){
   const svgEl = preview.querySelector('svg');
@@ -295,7 +314,7 @@ function rebindFocus(){
   if(!focus) return;
   const fp = refFingerprint(model, {kind: focus.kind, line: focus.line});
   if(!fp){ dismissFocus(); return; }
-  if(committingFocus){ focus.raw = fp.raw; focus.label = fp.label; return; }
+  if(committingFocus || undoing){ focus.raw = fp.raw; focus.label = fp.label; return; }
   if(fp.label !== focus.label || fp.raw !== focus.raw) dismissFocus();
 }
 function resyncFocusUI(){
@@ -380,7 +399,17 @@ function commitFocus(x){
   }
   doRefresh();
   committingFocus = false;
+  /* WebKit drops focus from a control the pointer released on, and a repaint can too: the slider keeps it */
+  if(focus && document.activeElement !== exploreRange) exploreRange.focus({preventScroll: true});
 }
+/* An Undo: the slider stays open on the same node and shows the restored value (the node still exists), the tree repaints at once */
+function undoRefresh(){
+  sliderCommit.cancel();
+  undoing = true;
+  clearTimeout(changeTimer);
+  try{ doRefresh(); } finally { undoing = false; }
+}
+const sliderCommit = createSliderCommit(() => { if(focus) commitFocus(parseFloat(exploreRange.value)); });
 
 exploreRange.addEventListener('input', () => {
   if(!focus) return;
@@ -395,10 +424,17 @@ exploreRange.addEventListener('input', () => {
   updatePriced(focus.ext, x, {settle: false, det});
   exploreRange.setAttribute('aria-valuetext', formatValueText(focus.kind, x));
 });
+/* a pointer release commits at once; arrow keys commit once, 250ms after the last key or on blur (the readout moves with every key) */
+let pointerDown = false, lastPointerUp = -1e9;
 exploreRange.addEventListener('change', () => {
   if(!focus) return;
-  commitFocus(parseFloat(exploreRange.value));
+  if(pointerDown || performance.now() - lastPointerUp < 150) sliderCommit.now(); else sliderCommit.key();
 });
+exploreRange.addEventListener('blur', () => sliderCommit.flush());
+exploreRange.addEventListener('pointerdown', () => { pointerDown = true; });
+const pointerEnded = () => { pointerDown = false; lastPointerUp = performance.now(); };
+exploreRange.addEventListener('pointerup', pointerEnded);
+exploreRange.addEventListener('pointercancel', pointerEnded);
 /* strips the crossfade + un-fades the MC readouts + resets the priced readout to the settled
    (focusValue) text — the "nothing left mid-drag" reconcile shared by Escape, a release-with-
    no-net-change (I-2, below), and (about to be superseded by a real re-render) a commit. */
@@ -411,14 +447,27 @@ function settleUI(){
 function focusedTarget(){
   if(!focus) return null;
   const svgEl = preview.querySelector('svg');
-  return svgEl && svgEl.querySelector('[data-hot][data-line="' + focus.line + '"][data-edit="' + focus.kind + '"]');
+  if(!svgEl) return null;
+  /* the number that opened the slider; failing that (a phone draws no number marks, or the hot set moved on) the same mark
+     without the hot flag, then the node's own card menu */
+  return svgEl.querySelector('[data-hot][data-line="' + focus.line + '"][data-edit="' + focus.kind + '"]')
+    || svgEl.querySelector('[data-line="' + focus.line + '"][data-edit="' + focus.kind + '"][tabindex]')
+    || svgEl.querySelector('[data-line="' + focus.line + '"][data-edit^="cardmenu"]');
 }
 /* Escape reverts the uncommitted drag (never a text edit — nothing was committed), strips
    the crossfade + un-fades the MC readouts, and returns DOM focus to the number. Tab is never
    trapped — the slider is an ordinary tab stop, not inside a popover. */
 exploreRange.addEventListener('keydown', e => {
+  /* Cmd/Ctrl+Z works with focus on the slider: an uncommitted key adjustment is dropped first, else the last model edit is undone */
+  if((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z' && focus){
+    e.preventDefault();
+    if(sliderCommit.pending()){ sliderCommit.cancel(); resyncFocusUI(); }
+    else if(editor.undo()) undoRefresh();
+    return;
+  }
   if(e.key !== 'Escape' || !focus) return;
   e.preventDefault();
+  sliderCommit.cancel();
   exploreRange.value = focus.focusValue;
   settleUI();
   const t = focusedTarget();
@@ -446,6 +495,7 @@ exploreRange.addEventListener('pointercancel', reconcileIfUnchanged);
    focus to the bound number's own tspan (captured before dismissFocus() nulls `focus`), rather
    than dropping it to <body>. */
 exploreClose.addEventListener('click', () => {
+  sliderCommit.flush();
   const t = focusedTarget();
   dismissFocus();
   if(t) t.focus({preventScroll: true});
@@ -504,6 +554,11 @@ const treeEip = attachEditInPlace(preview, {
     'cardmenu-root-leaf': {menu: [{label: '＋ Add outcome', action: true}]},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    commitEdit(kind, lineNo, oldRaw, newValue, el);
+    if(kind !== 'explore' && !kind.startsWith('cardmenu-')) refreshNow();   // a menu row that opens a field changes nothing to repaint
+  },
+});
+function commitEdit(kind, lineNo, oldRaw, newValue, el){
     if(handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
       configRe: /^(title|currency|palette|accent|verdict)\s*:/i,
@@ -515,6 +570,9 @@ const treeEip = attachEditInPlace(preview, {
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
         const inserted = insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        /* the new node is drawn in this task, before its field is sought: otherwise the old drawing still has a node at that
+           line, and the name field opens on it instead */
+        clearTimeout(changeTimer); doRefresh();
         const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
         const menuOnly = matchMedia('(pointer: coarse)').matches;
         treeEip.openAt({kind: menuOnly ? 'cardmenu-leaf' : 'label', line: inserted.srcLine}, {
@@ -530,15 +588,14 @@ const treeEip = attachEditInPlace(preview, {
       } else if(newValue === '✖Remove branch' || newValue === '✖Remove'){
         if(lineNo < 0) return;   // implicit root has no line of its own
         const rr = subtreeRange(editor.getText(), lineNo);
-        if(rr) editor.removeLines(rr.from, rr.to);
+        if(rr){ editor.removeLines(rr.from, rr.to); refreshNow(); }
       }
       return;
     }
     const line = editor.getLine(lineNo);
     const newLine = applies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
-  },
-});
+}
 
 /* ---------- chips ---------- */
 provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
@@ -592,8 +649,10 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('tree-src') || ''; }catch(e){}
   }
-  if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
+  /* the first tree is drawn in this task, from the source that is already known: one render, nothing after it moves */
+  if(text){ editor.setText(text); clearTimeout(changeTimer); doRefresh(); }
+  else if(autoloadExample(() => editor.setText(EXAMPLES[0].src))){ clearTimeout(changeTimer); doRefresh(); }
+  else refresh();
 })();
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */

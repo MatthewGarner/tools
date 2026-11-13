@@ -24,3 +24,5 @@
 .preview svg [data-edit="odds"]:hover rect,
 .preview svg [data-edit="payoff"]:hover rect,
 .preview svg [data-edit="kill"]:hover rect{fill:var(--accent);fill-opacity:.1}
+/* a phone lays the board out tall (about 1440px for the example): reserve that while the first render is coming, so nothing below it moves */
+@media (max-width:539px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;min-height:1443px;max-height:none;align-items:flex-start}}

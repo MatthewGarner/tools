@@ -54,8 +54,11 @@
 /* the one persistent slider bar: hidden until a number is engaged, sits just
    below the diagram on desktop. (Sticky-bottom-bar-on-coarse-pointer is B4;
    this markup/CSS is deliberately clean for that to hook into.) */
-.explore-bar{margin:10px 0 2px;padding:12px 14px;background:var(--card);
-  border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow)}
+/* pinned inside the viewport, over the page, so it is always where the reader is and opening or closing it moves nothing
+   (left and width follow the artefact pane: tree/app.js placeExploreBar; a phone's block below pins it to the screen) */
+.explore-bar{position:fixed;bottom:0;z-index:50;box-sizing:border-box;margin:0;padding:12px 14px;background:var(--card);
+  border:1px solid var(--border);border-radius:0;box-shadow:0 -2px 10px rgba(0,0,0,.15)}
+@media (prefers-reduced-motion:no-preference){.explore-bar:not([hidden]){animation:menu-in var(--dur-fast) var(--ease-out)}}
 .explore-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .explore-label{font-size:13px;font-weight:600;color:var(--ink)}
 .explore-close{border:none;background:none;color:var(--muted);font-size:14px;line-height:1;
@@ -106,3 +109,5 @@
 /* the at-rest honesty seam (I-6): persistent, not just mid-drag — shown
    whenever the midpoint story's winner disagrees with the settled MC policy. */
 .seam{margin:2px 0 0;font-size:12.5px;color:var(--muted);font-style:italic}
+/* the same for a phone's outline (about 1040px for the example) */
+@media (max-width:539px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;min-height:1037px;max-height:none;align-items:flex-start}}
