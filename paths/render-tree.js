@@ -3,13 +3,13 @@
 import {btnAttrs, esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, SERIF, useFace} from './face.js';
 import {verdict} from './verdict.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
-const TITLE_FONT = '600 13px ' + SANS;
-const SMALL_FONT = '600 10px ' + SANS;
-const NOTE_FONT = '10px ' + SANS;
+/* fonts are read at call time (a face is chosen per render), so they are objects that stringify on use */
+const TITLE_FONT = {toString: () => '600 13px ' + SANS};
+const SMALL_FONT = {toString: () => '600 10px ' + SANS};
+const NOTE_FONT = {toString: () => '10px ' + SANS};
 const FRAME_PAD = 36;
 
 const r2 = value => (Math.round(Number(value) * 100) / 100).toString();
@@ -497,6 +497,7 @@ function renderCollapsedArmLabel(box, C){
 }
 
 export function renderTree(projection, layout, ctx){
+  useFace(ctx);
   const C = palette(ctx.colors || {});
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value ?? '').length * 7;
   const width = Math.max(1, Math.ceil(layout.contentWidth || layout.width || 1));
@@ -586,6 +587,7 @@ export function renderTree(projection, layout, ctx){
    indented beneath it. Exports stay pinned to the wide artefact (house rule),
    so this never becomes a second artefact of its own. */
 export function renderOutline(projection, ctx){
+  useFace(ctx);
   const {measure, colors} = ctx;
   const C = palette(colors);
   const W = Math.max(280, Math.min(520, ctx.width || 360));

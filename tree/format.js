@@ -107,7 +107,13 @@ export function seamCopy(detLabel, mcLabel){
    evaluate(); a lone boundary reads exactly as it always did. */
 export function flipCopy(f){
   const t = v => v.toFixed(2);
-  const parts = (f.regions || []).map(r => r.from <= 0 ? '< ' + t(r.to) : r.to >= 1 ? '> ' + t(r.from) : 'between ' + t(r.from) + ' and ' + t(r.to));
+  /* a probability above 1 or below 0 is not a flip: a region (or a lone threshold) outside [0, 1] is left out, and with
+     nothing left there is nothing to print */
+  const all = f.regions || [];
+  const regions = all.filter(r => r.to > 0 && r.from < 1);
+  if(all.length && !regions.length) return null;
+  const parts = regions.map(r => r.from <= 0 ? '< ' + t(r.to) : r.to >= 1 ? '> ' + t(r.from) : 'between ' + t(r.from) + ' and ' + t(r.to));
+  if(!parts.length && !(f.threshold > 0 && f.threshold < 1)) return null;
   const text = parts.length ? parts.join(' or ') : f.direction + ' ' + t(f.threshold);
   return 'flips if p(' + f.label + ') ' + text;
 }

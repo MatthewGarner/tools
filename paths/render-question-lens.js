@@ -5,10 +5,9 @@
 
 import {btnAttrs, esc, txt, wash} from '../assets/svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, SERIF, useFace} from './face.js';
 import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
 const PAD = 36;
 const NARROW_PAD = 14;
 const MIN_READABLE_SCALE = 0.93;
@@ -468,6 +467,7 @@ function emptyState(x, y, width, C){
 }
 
 export function renderQuestionLens(overview, ctx = {}){
+  useFace(ctx);
   if(Number(ctx.width) > 0 && Number(ctx.width) < 520) return renderQuestionLensNarrow(overview, ctx);
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value).length * 7;
   const C = palette(ctx.colors || {});

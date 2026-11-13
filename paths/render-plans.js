@@ -3,10 +3,9 @@
 import {esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, SERIF, useFace} from './face.js';
 import {verdict} from './verdict.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
 const PAD = 36;
 const NARROW_PAD = 14;
 
@@ -333,6 +332,7 @@ function wideMatrix(data, projection, x, y, minimumWidth, C, measure){
 }
 
 export function renderPlans(projection, ctx){
+  useFace(ctx);
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value).length * 7;
   const C = palette(ctx.colors || {});
   const data = artifactData(projection, ctx);

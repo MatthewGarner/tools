@@ -74,7 +74,7 @@ export function lightTheme(fn){
   finally{ if(had) root.setAttribute('data-theme', prev); else root.removeAttribute('data-theme'); }
 }
 
-/* `fitOne`: a diagram (a tree, a plan) is one picture, not rows: it is shrunk onto one sheet, however tall, never cut. */
+/* `fitOne` (a value or a function of the moment): a diagram (a tree, a plan) is one picture, not rows: it is shrunk onto one sheet, however tall, never cut. */
 export function printPages(svgText, doc = document, {fitOne = false} = {}){
   const holder = doc.createElement('div');
   holder.style.cssText = 'position:absolute;left:-99999px;top:0;width:1000px';
@@ -150,7 +150,7 @@ export function wirePrintArtefact({getSvg, fitOne = false}){
     holder = document.createElement('div');
     holder.id = 'print-artefact';
     // the page's own CSS already carries the faces; a data: font inside the page would be refused by its CSP
-    for(const page of printPages(stripEmbeddedFonts(svg), document, {fitOne})){
+    for(const page of printPages(stripEmbeddedFonts(svg), document, {fitOne: typeof fitOne === 'function' ? fitOne() : fitOne})){
       const sheet = document.createElement('div');
       sheet.className = 'print-page';
       sheet.appendChild(page);

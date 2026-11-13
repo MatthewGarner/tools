@@ -4,10 +4,9 @@
 
 import {esc, txt, wash} from '../assets/svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, useFace} from './face.js';
 import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
 
 const label = value => String(value || '—').replace(/-/g, ' ').replace(/^./, first => first.toUpperCase());
 const nameOf = decision => String(decision?.name || decision?.key || 'Decision').replace(/^./, first => first.toUpperCase());
@@ -116,7 +115,7 @@ function render(source, decision, receipt, ctx, narrow){
     `Record ${states.record}. Carry-forward ${states.carryForward}. ` +
     `Currency ${states.currency}. ${qualifier}`;
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${total}" viewBox="0 0 ${width} ${total}" ` +
-    `role="img" aria-labelledby="paths-closeout-name paths-closeout-description" data-kind="learning-closeout" ` +
+    `font-family="${SANS}" role="img" aria-labelledby="paths-closeout-name paths-closeout-description" data-kind="learning-closeout" ` +
     `data-scope="selected-decision" data-layout="${narrow ? 'narrow' : 'wide'}">` +
     `<title id="paths-closeout-name">${esc(title)}</title><desc id="paths-closeout-description">${esc(description)}</desc>` +
     rect(0, 0, width, total, C.bg);
@@ -154,6 +153,7 @@ function render(source, decision, receipt, ctx, narrow){
 }
 
 export function renderLearningCloseOut(source, decision, receipt, ctx = {}){
+  useFace(ctx);
   return render(source, decision, receipt, ctx, false);
 }
 

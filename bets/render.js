@@ -223,7 +223,7 @@ function renderWide(model, sim, ctx){
          it last (topmost) would swallow every click in the row, including
          ones meant for the smaller cells (roadmap's cardmenu row is the
          proven precedent for this ordering). */
-      body.push('<g data-row="bet" data-id="' + row.id + '">');
+      body.push('<g data-row="bet" data-field-item="' + row.id + '" data-id="' + row.id + '">');
       body.push(txt(C.id, y + row.nameTop, row.id, 9, plan.mode === 'ledger' ? c.accentInk : c.muted, {weight: 700, mono: true}));
       const nameY = y + row.nameTop;
       const nameTxt = row.nameLines.map((line, i) => txt(C.name, nameY + i * 16, line, 13, c.ink, {weight: 600})).join('');

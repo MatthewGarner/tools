@@ -9,39 +9,42 @@ const COLORS = {ink: '#141b21', muted: '#5b6670', accent: '#c05621', accentInk: 
 const measure = (s, font) => { const m = /(\d+(?:\.\d+)?)px/.exec(font || ''); return String(s).length * (m ? +m[1] : 12) * 0.55; };
 
 const src = `title: Portfolio presentation\nunit: £k\nG\n` +
-  Array.from({length: 9}, (_, i) => `  Bet ${i + 1}: stake ${10 + i * 10}, odds 30-50%, payoff ${100 + i * 20}-${180 + i * 20}`).join('\n');
+  Array.from({length: 24}, (_, i) => `  Bet ${i + 1}: stake ${10 + i * 10}, odds 30-50%, payoff ${100 + i * 20}-${180 + i * 20}`).join('\n');
 const model = parse(src), sim = simulate(model);
 
-test('Copy render is a fixed 1920×1080 summary with selection and remainder in-plane', () => {
+/* XB-11: the plate is filled by measurement; only what does not fit is left out, and the plate says so ("+N more") */
+test('Copy render is a fixed 1920×1080 summary; it is filled before anything is left out, and the rest is counted', () => {
   const svg = renderBetsPresentation(model, sim, {colors: COLORS, measure});
   assert.match(svg, /^<svg[^>]+viewBox="0 0 1920 1080"[^>]+width="1920" height="1080"/);
   assert.match(svg, /SELECTION/);
   assert.match(svg, /HIGHEST STAKE UPPER BOUND/);
-  assert.match(svg, /6 SHOWN · 3 FURTHER BETS IN FULL SVG/);
+  const [, shown, rest] = svg.match(/(\d+) SHOWN · (\d+) FURTHER BETS IN FULL SVG/);
+  assert.equal(+shown + +rest, 24);
+  assert.ok(+shown > 6, 'more than the old six-card limit are shown when they fit: ' + shown);
+  assert.ok(svg.includes('+' + rest + ' more bets not shown here'), 'the plate says what it left out');
   assert.match(svg, /INDEPENDENT BASELINE/);
   assert.match(svg, /SHARED-OUTCOME STRESS/);
   assert.match(svg, /MEDIAN OUTCOME/);
   assert.doesNotMatch(svg, /NET EV/);
-  assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B01–B03/);
+  assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B\d\d/);
   assert.match(svg, /ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG/);
   assert.match(svg, /outside the presentation selection/);
 });
 
 test('presentation carries only ranked selections, no edit chrome or model mutation', () => {
   const svg = renderBetsPresentation(model, sim, {colors: COLORS, measure});
-  for(const name of ['Bet 9', 'Bet 8', 'Bet 7', 'Bet 6', 'Bet 5', 'Bet 4']) assert.ok(svg.includes(name));
+  for(const name of ['Bet 24', 'Bet 23', 'Bet 22']) assert.ok(svg.includes(name));
   for(const name of ['Bet 1', 'Bet 2', 'Bet 3']) assert.ok(!svg.includes('>' + name + '<'));
   assert.ok(!svg.includes('data-edit='));
   assert.equal('id' in model.groups[0].bets[0], false);
 });
 
+const fillers = (n, tail) => Array.from({length: n}, (_, i) => `  Range ${i + 1}: stake 0-110, odds 60%, payoff 300\n    kill: stop range ${i + 1}`).join('\n') + tail;
+
 test('presentation names an omitted no-kill and P50-loss exception in-plane', () => {
-  const source = `title: Exceptions\nunit: £k\nG\n` +
-    Array.from({length: 6}, (_, i) => `  Range ${i + 1}: stake 0-110, odds 60%, payoff 300\n    kill: stop range ${i + 1}`).join('\n') +
-    '\n  Concentrated loss: stake 100, odds 0%, payoff 1';
-  const m = parse(source), s = simulate(m);
-  const svg = renderBetsPresentation(m, s, {colors: COLORS, measure});
-  assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B07 · P50 LOSS B07/);
+  const m = parse(`title: Exceptions\nunit: £k\nG\n` + fillers(20, '\n  Concentrated loss: stake 100, odds 0%, payoff 1'));
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B21 · P50 LOSS B21/);
 });
 
 test('presentation names a high-concentration portfolio exception even when its card is selected', () => {
@@ -106,13 +109,13 @@ test('a wrapped Copy-PNG title moves the table rule with its measured header', (
 test('Copy PNG admits only the ranked rows that fit above its portfolio-field reserve', () => {
   const long = 'A deliberately wordy position label that needs several measured lines in a projection-ready field';
   const kill = 'a deliberately wordy kill criterion that also needs enough room to prove the compact slide admission policy';
-  const m = parse(`title: Dense portfolio\nG\n${Array.from({length: 6}, (_, i) =>
+  const m = parse(`title: Dense portfolio\nG\n${Array.from({length: 14}, (_, i) =>
     `  ${long} ${i + 1}: stake ${100 - i}, odds 40-60%, payoff 80-160\n    kill: ${kill}`).join('\n')}`);
   const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
   const rows = [...svg.matchAll(/<g data-row="bet"[^>]*>([\s\S]*?)<\/g>/g)];
   const bodyBottom = Math.max(...rows.flatMap(row => [...row[1].matchAll(/ y="([\d.]+)"/g)].map(match => +match[1])));
-  assert.ok(rows.length < 6, 'the plate should stop before its dense rows displace the portfolio evidence');
-  assert.ok(bodyBottom <= 720, 'admitted rows reserve the lower portfolio field and factual footer');
+  assert.ok(rows.length < 14, 'the plate should stop before its dense rows displace the portfolio evidence');
+  assert.ok(bodyBottom <= 850, 'admitted rows reserve the lower portfolio field and factual footer');
   assert.match(svg, /FURTHER BETS IN FULL SVG/);
 });
 

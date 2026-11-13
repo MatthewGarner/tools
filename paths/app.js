@@ -31,8 +31,9 @@ import {applyLineOps, makeEditor, StreamLanguage, tags as t} from '../assets/edi
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
-import {download, measure, isDark, themeColors, onThemeChange, renderWarningList,
-  pngRasterPlan, slugify, svgToCanvas} from '../assets/app-common.js';
+import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -309,7 +310,7 @@ function syncViewControls(){
     if(scoped) scoped.hidden = !hasReceipt;
   });
   const decision = overviewImpact?.decision;
-  const hasCloseOut = !!decision && (!!decision.answer?.direction || !!decision.reading);
+  const hasCloseOut = !!decision && !!closeOutFor(decision);   // an authored close-out only: nothing to export otherwise
   ['closeout-receipt-svg', 'closeout-receipt-png'].forEach(id => {
     const scoped = $(id);
     if(scoped) scoped.hidden = !hasCloseOut;
@@ -1577,119 +1578,71 @@ const startFrom = example => editor.setText(example.src);
 provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 
+/* Everything that leaves the page is drawn in the house face and carries it embedded, and shows the view as it is on the page,
+   selection included; until the face has loaded there is nothing to export. */
 function wideSvg(){
   if(!model || (!model.items.length && !model.decisions.length)) return null;
-  if(model.style === 'plans') return renderPlans(projection, context(model, {width:1160}));
+  const ex = {width:1160, intent:'native'};
+  if(model.style === 'plans') return renderPlans(projection, context(model, ex));
   const style = canonicalRoadmapStyle(model.style);
-  if(style === 'brief') return renderOverview(overview,
-    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
-      impact:overviewImpact}));
-  if(style === 'question') return renderQuestionLens(overview,
-    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
-      impact:overviewImpact}));
-  if(style === 'conditions') return renderConditions(overview,
-    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
-      impact:overviewImpact}));
-  if(style === 'agenda') return renderLearningAgenda(overview,
-    context(model, {width:1160, selection:false}));
+  const overviewSelection = {...ex, selectedKey:selectedOverviewDecision?.key || null, impact:overviewImpact};
+  if(style === 'brief') return renderOverview(overview, context(model, overviewSelection));
+  if(style === 'question') return renderQuestionLens(overview, context(model, overviewSelection));
+  if(style === 'conditions') return renderConditions(overview, context(model, overviewSelection));
+  if(style === 'agenda') return renderLearningAgenda(overview, context(model, overviewSelection));
   if(!topology) return null;
   const layout = treeLayout(topology, {width:1160, measure});
-  return renderTree(topology, layout, context(model));
+  return renderTree(topology, layout, context(model, {intent:'native', selectedKey:selectedDecision?.key || null}));
 }
+const embedded = svg => svg && chapterFontsReady() ? embedChapterFonts(svg) : null;
+const exportSvg = () => embedded(wideSvg());
 
 function selectedAgendaReceiptSvg(){
   if(canonicalRoadmapStyle() !== 'agenda' || !overview || !selectedOverviewDecision) return null;
-  return renderLearningAgendaReceipt(overview,
-    context(model, {width:760, selectedKey:selectedOverviewDecision.key}));
+  return embedded(renderLearningAgendaReceipt(overview,
+    context(model, {width:760, intent:'native', selectedKey:selectedOverviewDecision.key})));
 }
 
 function selectedCloseOutReceiptSvg(){
   const decision = overviewImpact?.decision;
-  if(!closeOutEligible(decision)) return null;
-  return renderLearningCloseOut(model, decision, closeOutFor(decision),
-    context(model, {width:900}));
+  if(!closeOutEligible(decision) || !closeOutFor(decision)) return null;
+  return embedded(renderLearningCloseOut(model, decision, closeOutFor(decision),
+    context(model, {width:900, intent:'native'})));
 }
 
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
-  getSvg:wideSvg,
+  getSvg:exportSvg,
   slug:() => slugify(model?.title, 'paths'),
 });
 
-function selectedAgendaReceiptExport(){
-  const svg = selectedAgendaReceiptSvg();
-  if(!svg) return null;
-  const decision = overview?.entries?.find(entry => entry.key === selectedOverviewDecision?.key);
-  const receiptSlug = slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} receipt`,
-    'paths-decision-receipt');
-  return {svg, receiptSlug};
-}
-
-$('agenda-receipt-svg').addEventListener('click', () => {
-  const output = selectedAgendaReceiptExport();
-  if(output) download(`${output.receiptSlug}.svg`, new Blob([output.svg], {type:'image/svg+xml'}));
+/* the receipts go through the same wiring (status line, reduced-scale note, refusal) as the main exports */
+wireExports({
+  buttons:{dlpng:$('agenda-receipt-png'), dlsvg:$('agenda-receipt-svg')},
+  getSvg:selectedAgendaReceiptSvg,
+  descriptions:{dlpng:'Selected decision receipt · PNG', dlsvg:'Selected decision receipt · SVG'},
+  slug:() => {
+    const decision = overview?.entries?.find(entry => entry.key === selectedOverviewDecision?.key);
+    return slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} receipt`, 'paths-decision-receipt');
+  },
+});
+wireExports({
+  buttons:{dlpng:$('closeout-receipt-png'), dlsvg:$('closeout-receipt-svg')},
+  getSvg:selectedCloseOutReceiptSvg,
+  descriptions:{dlpng:'Selected learning close-out · PNG', dlsvg:'Selected learning close-out · SVG'},
+  slug:() => {
+    const decision = overviewImpact?.decision;
+    return slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} learning close-out`,
+      'paths-learning-close-out');
+  },
 });
 
-$('agenda-receipt-png').addEventListener('click', () => {
-  const output = selectedAgendaReceiptExport();
-  if(!output) return;
-  const button = $('agenda-receipt-png');
-  const label = 'Selected decision receipt · PNG';
-  const plan = pngRasterPlan(output.svg);
-  const flash = message => {
-    button.textContent = message;
-    button.setAttribute('aria-label', message);
-    setTimeout(() => {
-      button.textContent = label;
-      button.setAttribute('aria-label', label);
-    }, 2000);
-  };
-  if(!plan.ok) return flash('Receipt PNG unavailable — download SVG');
-  svgToCanvas(output.svg, canvas => {
-    try {
-      canvas.toBlob(blob => blob
-        ? download(`${output.receiptSlug}.png`, blob)
-        : flash('Receipt PNG unavailable — download SVG'), 'image/png');
-    }catch(_){ flash('Receipt PNG unavailable — download SVG'); }
-  }, () => flash('Receipt PNG unavailable — download SVG'));
-});
-
-function selectedCloseOutExport(){
-  const svg = selectedCloseOutReceiptSvg();
-  if(!svg) return null;
-  const decision = overviewImpact?.decision;
-  return {svg, receiptSlug:slugify(
-    `${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} learning close-out`,
-    'paths-learning-close-out')};
-}
-
-$('closeout-receipt-svg').addEventListener('click', () => {
-  const output = selectedCloseOutExport();
-  if(output) download(`${output.receiptSlug}.svg`, new Blob([output.svg], {type:'image/svg+xml'}));
-});
-
-$('closeout-receipt-png').addEventListener('click', () => {
-  const output = selectedCloseOutExport();
-  if(!output) return;
-  const button = $('closeout-receipt-png');
-  const label = 'Selected learning close-out · PNG';
-  const plan = pngRasterPlan(output.svg);
-  const flash = message => {
-    button.textContent = message;
-    button.setAttribute('aria-label', message);
-    setTimeout(() => {
-      button.textContent = label;
-      button.setAttribute('aria-label', label);
-    }, 2000);
-  };
-  if(!plan.ok) return flash('Close-out PNG unavailable — download SVG');
-  svgToCanvas(output.svg, canvas => {
-    try {
-      canvas.toBlob(blob => blob
-        ? download(`${output.receiptSlug}.png`, blob)
-        : flash('Close-out PNG unavailable — download SVG'), 'image/png');
-    }catch(_){ flash('Close-out PNG unavailable — download SVG'); }
-  }, () => flash('Close-out PNG unavailable — download SVG'));
+/* Print is the current view's artefact alone, light, whatever theme the page is in, shrunk onto one sheet (a plan is one
+   picture, not rows) */
+wirePrintArtefact({getSvg:() => lightTheme(exportSvg), fitOne:true});
+loadChapterFonts().then(() => { setActionsEnabled(!!lastSvg); }, () => {
+  const line = $('exportstatus');
+  if(line){ line.textContent = 'The typeface could not load, so exports are unavailable. Reload the page to try again.'; line.hidden = false; }
 });
 
 paintKicker($('kicker'), '16', 'The questions inside the plan');

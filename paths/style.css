@@ -562,3 +562,5 @@ body.overview-sheet-open::before{
 /* the page lands in its final height: about 990px for the example on a desktop, 1440px on a phone */
 .overview-main .preview .placeholder[data-boot]{min-height:990px;align-items:flex-start}
 @media (max-width:539px){.overview-main .preview .placeholder[data-boot]{min-height:1439px}}
+/* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
+.export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
