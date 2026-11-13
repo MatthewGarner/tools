@@ -6,6 +6,7 @@ import * as C from './scenarios-btp.mjs';
 import * as B from './scenarios-bets.mjs';
 import * as T from './scenarios-tree.mjs';
 import * as P from './scenarios-paths.mjs';
+import * as M from './scenarios-sim.mjs';
 import {KNOWN} from './checks.mjs';
 
 const BTP = ['bets', 'tree', 'paths'], CARDS = ['bets', 'tree'];
@@ -36,6 +37,10 @@ export const PLAN = [
   ['bets-snapshot', ['bets'], TM, async e => { await B.snapshot(e, 'desktop'); if(e.mode === 'normal') await B.snapshot(e, 'phone'); }],
   ['bets-quadrant', ['bets'], N, async e => B.quadrantGlide(e)],
   ['bets-narrow', ['bets'], N, async e => B.narrow(e)],
+  ['sim-edit', ['bets', 'tree'], TM, async (e, t) => M.simEdit(e, t)],
+  ['sim-export', ['bets', 'tree'], N, async (e, t) => M.simExport(e, t)],
+  ['sim-stale', ['bets', 'tree'], N, async (e, t) => M.simStale(e, t)],
+  ['sim-error', ['bets', 'tree'], N, async (e, t) => M.simError(e, t)],
   ['tree-slider', ['tree'], TM, async e => { for(const k of ['desktop', 'phone']) await T.slider(e, k); await T.slider(e, 'desktop', {source: T.large(), label: 'large'}); }],
   ['tree-sliderkeys', ['tree'], TM, async e => { await T.sliderKeys(e); await T.sliderKeys(e, {source: T.large(), label: 'large'}); }],
   ['tree-reading', ['tree'], N, async e => T.reading(e)],

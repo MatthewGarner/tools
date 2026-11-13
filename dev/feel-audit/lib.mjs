@@ -173,8 +173,8 @@ export async function measure(page, act, {quiet = 300, max = 5000, pre = 0} = {}
   return s;
 }
 
-export async function newPage(browser, kind, {throttle = 1, reducedMotion = 'no-preference', colorScheme = 'light', engine = 'chromium'} = {}){
-  const ctx = await browser.newContext({...VIEWPORTS[kind], reducedMotion, colorScheme,
+export async function newPage(browser, kind, {throttle = 1, reducedMotion = 'no-preference', colorScheme = 'light', engine = 'chromium', contextOptions = {}} = {}){
+  const ctx = await browser.newContext({...VIEWPORTS[kind], reducedMotion, colorScheme, ...contextOptions,
     ...(engine === 'chromium' ? {permissions: ['clipboard-read', 'clipboard-write']} : {})});
   await ctx.addInitScript(probe);
   const page = await ctx.newPage();
@@ -190,11 +190,12 @@ export async function newPage(browser, kind, {throttle = 1, reducedMotion = 'no-
   return {ctx, page, errors};
 }
 
-/* Ready = fonts loaded, an svg in the preview, and the page quiet. */
+/* Ready = fonts loaded, an svg in the preview, the figures final (Bets and Tree simulate off the main thread: #preview[data-sim]), and the page quiet. */
 export async function ready(page){
   await page.waitForFunction(() => {
     const fs = document.getElementById('fontstatus');
-    return document.querySelector('#preview svg') && (!fs || fs.hidden);
+    const pv = document.getElementById('preview');
+    return document.querySelector('#preview svg') && (!fs || fs.hidden) && pv.dataset.sim !== 'pending';
   }, null, {timeout: 15000});
   await waitQuiet(page, {quiet: 400, max: 6000});
 }

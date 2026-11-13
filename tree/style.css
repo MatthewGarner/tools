@@ -125,3 +125,7 @@ body:has(.stage .preview .placeholder[data-boot]) :is(.workspace > *, .workspace
 }
 /* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
 .export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
+
+/* a run is going (assets/sim-pending.js): the simulated figures and the verdict are the last result, dimmed once the wait is long enough to be seen */
+.preview[data-sim-dim] svg [data-mc],.preview[data-sim-dim] svg [data-verdict]{opacity:.6}
+.actions button[data-working]{opacity:.6;cursor:progress}
