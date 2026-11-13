@@ -64,8 +64,9 @@ export const KNOWN_BTP = [
   /* a large saved link is drawn twice by design: the structure at once with the last known figures pending, then the worker's figures
      (bets/sim-worker.js, tree/sim-worker.js). The picture does not move (layout shift stays under 0.05); the check counts both draws. */
   "load.large.replacements@bets", "load.large.replacements@tree",
-  /* the Tree slider drag on a large tree: two frames of 29ms (normal) over the 20ms line, down from two of 229ms. The simulation is gone from the
-     drag and the release; what is left is the first class toggle restyling the whole drawing (evalDet's own midpoint walk is under a frame). Recorded. */
+  /* the Tree slider drag on a large tree: 3 frames of at most 27ms over the 20ms line at normal speed (was 2 of 229ms), 8 of at most 83ms at 4x (was 6 of 860ms).
+     The evaluation is gone from the drag and the release; what is left is per-frame style work on the 57-node drawing (the live-winner class toggles and
+     evalDet's midpoint walk), not the simulation. Recorded, not tuned. */
   "slider.large.drag.frames@tree",
   /* the render waits for a 120ms pause in typing by design (the debounce); recorded, not a defect to fix here */
   "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree", "stall.large.live@bets", "stall.large.live@paths", "stall.large.live@tree",
