@@ -562,7 +562,12 @@ const PAGES = {
 
 // Fixed ceilings include shared host/transport, model graph and required fonts.
 // Current article payloads range roughly45–250KB; no editor/app shell is loaded.
-const ARTICLE_BUDGETS={roadmap:300000,timeline:240000,case:215000,paths:205000,bets:185000};
+/* 2026-11-14: bets 185000 -> 196000 and tree 165000 -> 167500 (the default) cover only the native drawing the round added; the
+   export typeface, its loader, the workers and the slide/print code are kept out of the bundles (no chapter-fonts, no woff2).
+   Bets v3 is 16.7k over v2: render-quadrant +9.1k (fanned bubbles, chip spread, strict label placement, wrapped readings),
+   labels.js +2.5k (the rule labels), face.js +1.5k (the system faces), format +1.5k, render +1.5k, parse +0.8k, layout -0.7k.
+   Tree v3 is 5.3k over v2: render-density +2.5k, face.js +1.1k, layout +0.7k, format +0.7k. */
+const ARTICLE_BUDGETS={roadmap:300000,timeline:240000,case:215000,paths:205000,bets:196000,tree:167500};
 for(const tool of ARTICLE_TOOLS)PAGES[tool.route.slice(1)+'index.html']=ARTICLE_BUDGETS[tool.id]??(tool.id.startsWith('lab-')?130000:165000);
 
 if(process.env.WEIGHT_DEBUG){
