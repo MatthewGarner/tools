@@ -137,3 +137,13 @@ test('too close to call still reads from the head-to-head share', () => {
   const m = parse('R\n  Ranged: 100k to 200k\n  Fixed: 144451'), r = evaluate(m);
   assert.match(treeVerdictParts(m, r).line, /too close to call/);
 });
+
+test('the page states the run count the engine uses, and says expected values are computed', async () => {
+  const {readFileSync} = await import('node:fs');
+  const {WORLDS} = await import('../engine.js');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const count = WORLDS.toLocaleString('en-GB');
+  assert.ok(html.includes(count + ' simulations'), 'method line names ' + count);
+  assert.ok(!/\b10,000\b/.test(html), 'no stale 10,000');
+  assert.match(html, /Expected values are computed exactly/);
+});

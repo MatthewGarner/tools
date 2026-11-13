@@ -11,7 +11,7 @@
      (ties to the first); the policy is frozen across worlds and free of seed noise.
    - Sampling stays for what is a spread: the per-node distribution is the distribution of expected
      value under parameter uncertainty (chance nodes weight children by sampled probabilities),
-     over WORLDS (40,000 by default) — its P10/P90 and the head-to-head share. */
+     over WORLDS simulated worlds — its P10/P90 and the head-to-head share. */
 import {isWideRange, wideRangeSentence} from './parse.js';
 
 const Z90 = 1.6448536;
