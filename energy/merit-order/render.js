@@ -17,8 +17,39 @@ import {dispatch} from './engine.js';
 
 const FONT = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss Phase 4
 const r2 = n => Math.round(n * 100) / 100;
-const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
+export const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
 const fmtPrice = v => Math.round(v).toString();
+/* Rent is (£/MWh) x GW, which is £k an hour (1 GW = 1,000 MW) — printed as that, never as a bare "£/h". */
+export const fmtRent = v => v > 0 && v < 0.5 ? '<£1k/h' : `£${Math.round(v).toLocaleString('en-GB')}k/h`;
+/* A shortfall under 0.1 GW reads in MW, so a real gap never prints as "0 GW". */
+export const fmtShort = v => v < 0.1 ? `${Math.max(1, Math.round(v * 1000))} MW` : `${fmtGW(v)} GW`;
+const SHORT_EPS = 5e-4;   // GW: below half a MW the shortfall is float residue, not a gap
+const isShort = result => result.unmet >= SHORT_EPS;
+const LOW_WIND = 0.2;      // availability below which "the wind has dropped" is true
+
+/* The aria-live one-liner under the controls. */
+export function outcomeLine(result, state){
+  if(isShort(result)){
+    return `No price clears · last offer ${result.marginalName} at £${fmtPrice(result.clearingPrice)}/MWh · ${fmtShort(result.unmet)} unmet`;
+  }
+  return `Clears £${fmtPrice(result.clearingPrice)}/MWh · ${result.marginalName || 'no marginal plant'} · demand ${fmtGW(state.demand)} GW`;
+}
+
+/* The receipt printed under an export: scenario line, then one line per offered block. */
+export function receiptLines(state, {worldLabel, gas, carbon}){
+  return [`${worldLabel} · demand ${fmtGW(state.demand)} GW · gas ${gas} p/th · carbon £${carbon}/t.`,
+    ...state.generators.map(g => `${g.name}: ${Math.round(g.capacity * 100) / 100} GW offered at £${Math.round(g.cost * 100) / 100}/MWh.`)];
+}
+
+/* The plant callout's arithmetic line. `installed` (GW, or null) is given for wind and solar. */
+export function calloutMath(gen, pp, installed){
+  const isVre = gen.family === 'wind' || gen.family === 'solar';
+  const availClause = (isVre && installed != null)
+    ? `${fmtGW(gen.capacity)} GW available now (of ${fmtGW(installed)} GW installed) — `
+    : `${fmtGW(gen.capacity)} GW at £${Math.round(gen.cost)}/MWh — `;
+  return availClause +
+    `${fmtGW(pp.dispatchedMW)} GW dispatched, ${fmtGW(pp.strandedMW)} GW stranded, rent ${fmtRent(pp.rent)}`;
+}
 
 /* Fuel-family palette — validated with the dataviz validate_palette.js against the
    card surface both themes (light #FFFFFF worst-adjacent ΔE 12.9; dark #1B242C ΔE
@@ -59,23 +90,28 @@ function famColour(g, palette){
    no marginal plant sets no price, and quotes no figure. */
 export function buildVerdictParts(result, state){
   return {line: buildVerdict(result, state),
-    fig: result.marginalName ? `£${fmtPrice(result.clearingPrice)}/MWh` : ''};
+    fig: result.marginalName && !isShort(result) ? `£${fmtPrice(result.clearingPrice)}/MWh` : ''};
 }
 
 export function buildVerdict(result, state){
   const cp = result.clearingPrice;
   const parts = [];
-  if(result.marginalName){
+  if(result.marginalName && isShort(result)){
+    const offered = result.sorted.reduce((t, g) => t + g.capacity, 0);
+    parts.push(`No price clears: ${fmtGW(state.demand)} GW of demand is more than the ${fmtGW(offered)} GW offered. ` +
+      `The last offer is ${result.marginalName} at £${fmtPrice(cp)}/MWh, and ${fmtShort(result.unmet)} goes unmet.`);
+  } else if(result.marginalName){
     parts.push(`${fmtGW(state.demand)} GW of demand clears at £${fmtPrice(cp)}/MWh — ` +
       `${result.marginalName} is the marginal plant and sets the price.`);
   } else {
     parts.push('No demand to clear — nothing dispatches, and no plant sets a price.');
   }
   if(result.marginalName === 'Hydrogen' || result.marginalName === 'Gas-CCS'){
-    parts.push('The wind has dropped and gas is scarce — a net-zero grid’s firm low-carbon backup (hydrogen or gas-CCS) sets the price, not cheap gas.');
+    parts.push(state.wind != null && state.wind < LOW_WIND
+      ? 'The wind has dropped and gas is scarce — a net-zero grid’s firm low-carbon backup (hydrogen or gas-CCS) sets the price, not cheap gas.'
+      : `Demand has outrun the cheaper plant, so ${result.marginalName} — a net-zero grid’s firm low-carbon backup — sets the price.`);
   }
   if(cp < 0) parts.push('The market is paying to generate: price runs negative until the must-run block clears.');
-  if(result.unmet > 0) parts.push(`${fmtGW(result.unmet)} GW of demand goes unmet — capacity runs out first.`);
   const storageRent = result.sorted.filter(g => g.storage)
     .reduce((s, g) => s + result.perPlant[g.name].rent, 0);
   if(storageRent > 0){
@@ -84,7 +120,7 @@ export function buildVerdict(result, state){
   const mustRunStranded = result.sorted.filter(g => g.mustRun)
     .reduce((s, g) => s + result.perPlant[g.name].strandedMW, 0);
   if(mustRunStranded > 0){
-    parts.push(`${fmtGW(mustRunStranded)} GW would generate anyway — curtailed or exported, simplified away here.`);
+    parts.push(`${fmtShort(mustRunStranded)} would generate anyway — curtailed or exported, simplified away here.`);
   }
   if(result.totalRent > 0){
     parts.push('Shaded plants earn above running cost on every MW they dispatch — that rent, not the price itself, is what the merit order redistributes.');
@@ -257,7 +293,9 @@ export function renderStack(state, ctx, opts = {}){
   const clearCol = cp < 0 ? C.err : C.accent;
   P.push(`<line class='clearing-line' x1='${r2(x0)}' y1='${r2(sy(cp))}' x2='${r2(x1)}' y2='${r2(sy(cp))}' ` +
     `stroke='${clearCol}' stroke-width='2' stroke-dasharray='6 4'/>`);
-  const clearLabel = isNarrow
+  const clearLabel = isShort(result)
+    ? (isNarrow ? `last offer £${fmtPrice(cp)}/MWh` : `no price clears — last offer £${fmtPrice(cp)}/MWh`)
+    : isNarrow
     ? `£${fmtPrice(cp)}/MWh` + (cp < 0 ? ' — paying' : '')
     : (cp < 0 ? `paying to generate — £${fmtPrice(cp)}/MWh clears` : `clears at £${fmtPrice(cp)}/MWh`);
   P.push(txt(isNarrow ? x0 : x1, sy(cp) - 8, clearLabel, 12.5, clearCol, {anchor: isNarrow ? 'start' : 'end', weight: 700}));
@@ -304,14 +342,16 @@ export function renderStack(state, ctx, opts = {}){
 
 export function toMarkdown(state, result){
   const verdictText = buildVerdict(result, state);
-  const lines = ['| Plant | Cost £/MWh | Dispatched GW | Stranded GW | Rent £/h |', '|---|---|---|---|---|'];
+  const lines = ['| Plant | Cost £/MWh | Dispatched GW | Stranded GW | Rent |', '|---|---|---|---|---|'];
   for(const g of result.sorted){
     if(g.capacity <= 0) continue;
     const pp = result.perPlant[g.name];
-    lines.push(`| ${g.name} | ${fmtPrice(g.cost)} | ${fmtGW(pp.dispatchedMW)} | ${fmtGW(pp.strandedMW)} | ${Math.round(pp.rent)} |`);
+    lines.push(`| ${g.name} | ${fmtPrice(g.cost)} | ${fmtGW(pp.dispatchedMW)} | ${fmtGW(pp.strandedMW)} | ${fmtRent(pp.rent)} |`);
   }
   return `**Merit order** — ${verdictText}\n\n` + lines.join('\n') +
-    `\n\nClears at £${fmtPrice(result.clearingPrice)}/MWh · demand ${fmtGW(state.demand)} GW` +
-    (result.marginalName ? ` · marginal ${result.marginalName}` : '') +
+    (isShort(result)
+      ? `\n\nNo price clears · demand ${fmtGW(state.demand)} GW · last offer ${result.marginalName} at £${fmtPrice(result.clearingPrice)}/MWh · ${fmtShort(result.unmet)} unmet`
+      : `\n\nClears at £${fmtPrice(result.clearingPrice)}/MWh · demand ${fmtGW(state.demand)} GW` +
+        (result.marginalName ? ` · marginal ${result.marginalName}` : '')) +
     `\n\nenergy.matthewgarner.me/merit-order`;
 }

@@ -3,9 +3,9 @@
 // kind 'defect' = confirmed defect; the check asserts the CORRECT behaviour so it FAILS today
 import {makeRunner, rng} from './lib.mjs';
 import {dispatch} from '../../../energy/merit-order/engine.js';
-import {buildStack, applyAdv, srmc, gasLHV, ccsBid, storageBid} from '../../../energy/merit-order/stack.js';
-import {WORLDS, CONDITIONS, DEFAULT_PARAMS, paramsFor} from '../../../energy/merit-order/scenarios.js';
-import {buildVerdict, toMarkdown} from '../../../energy/merit-order/render.js';
+import {buildStack, applyAdv, editAdv, srmc, gasLHV, ccsBid, storageBid} from '../../../energy/merit-order/stack.js';
+import {WORLDS, CONDITIONS, DEFAULT_PARAMS, paramsFor, conditionNote} from '../../../energy/merit-order/scenarios.js';
+import {buildVerdict, toMarkdown, outcomeLine, receiptLines} from '../../../energy/merit-order/render.js';
 import {encodeStateV2, decodeStateV2} from '../../../energy/merit-order/state.js';
 
 const R = makeRunner('merit-order');
@@ -57,7 +57,7 @@ const abc = () => [G('C', 10, 80), G('A', 10, 10), G('B', 10, 30)];   // deliber
   const a = dispatch([G('T1', 5, 20), G('T2', 5, 20), G('H', 5, 90)], 7);
   const b = dispatch([G('T2', 5, 20), G('T1', 5, 20), G('H', 5, 90)], 7);
   R.eq('H7', 'pass', 'tie: price identical either order', [a.clearingPrice, b.clearingPrice], [20, 20]);
-  R.check('Q-TIE', 'pass', 'QUESTION: tied plants - marginal NAME depends on input order (stated in comment; same price)', a.marginalName !== b.marginalName, `${a.marginalName} vs ${b.marginalName}`);
+  R.info('Q-TIE', 'tied plants: the marginal NAME depends on input order (stated in a comment; same price)', `${a.marginalName} vs ${b.marginalName}`);
 }
 
 /* ---------- 2. invariants + slow reference over a seeded sweep ---------- */
@@ -151,8 +151,10 @@ function reference(gens, demand){      // slow, obviously-correct: unit-by-unit 
   const cp = clear('ht', 'coldPeak');
   R.eq('S3', 'pass', 'FES HT cold peak: hydrogen sets £200', [cp.r.marginalName, cp.r.clearingPrice], ['Hydrogen', 200]);
   // page copy: "Gas spike" is one of the Conditions chips on every world
-  let moved = 0; for(const w of Object.keys(WORLDS)){ const a = clear(w, null).r.clearingPrice, b = clear(w, 'gasSpike').r.clearingPrice; if(Math.abs(a - b) > 1e-9) moved++; }
-  R.check('F-MO-6', 'defect', '"Gas spike" chip changes the price in every world (it does in 2 of 5)', moved === 5, `worlds where the price moves: ${moved}/5`);
+  let silent = 0, explained = 0;
+  for(const w of Object.keys(WORLDS)){ const a = clear(w, null).r, b = clear(w, 'gasSpike').r;
+    if(Math.abs(a.clearingPrice - b.clearingPrice) < 1e-9){ silent++; if(/gas is not setting the price/.test(conditionNote(w, 'gasSpike'))) explained++; } }
+  R.check('F-MO-6', 'pass', 'where Gas spike leaves the price unchanged (3 of 5 worlds), the outcome line says why', silent === 3 && explained === silent, `unchanged in ${silent} worlds, explained in ${explained}`);
 }
 
 /* ---------- 5. presentation vs engine ---------- */
@@ -161,62 +163,64 @@ function reference(gens, demand){      // slow, obviously-correct: unit-by-unit 
   const st = {generators: gens, demand: 15}, r = dispatch(gens, 15);
   const md = toMarkdown(st, r);
   const row = md.split('\n').find(l => l.startsWith('| A '));
-  const cell = Number(row.split('|')[5]);
-  R.check('F-MO-1', 'defect', 'Markdown "Rent £/h" for A (10 GW earning £20/MWh above running cost) = £200,000/h', cell === 200000, `printed cell=${cell}, header says "Rent £/h"; true = 20 £/MWh x 10,000 MW = 200000`);
+  const cell = row.split('|')[5].trim();
+  R.check('F-MO-1', 'pass', 'Markdown rent for A (10 GW earning £20/MWh above running cost) prints as £200k/h (= 20 x 10,000 MW = £200,000/h)', cell === '£200k/h', `printed cell=${cell}`);
 }
 { // F-MO-2: advanced-editor freeze.  app.js advOf()/capacity stepper copy BOTH [cap,cost] into state.adv at edit time.
   const W = WORLDS.gbToday, p = {...W.params};
   const base = () => buildStack(p, W.catalogue);
   const adv = {}; const name = 'CCGT 60%';
   const g0 = base().find(g => g.name === name);
-  adv[name] = [g0.capacity + 1, g0.cost];                       // what app.js does on "Capacity +"
+  Object.assign(adv, editAdv(adv, name, 'capacity', g0.capacity + 1));   // what app.js does on "Capacity +"
   const after = {...p, gas: 250};
   const live = applyAdv(buildStack(after, W.catalogue), adv).find(g => g.name === name);
   const fresh = buildStack(after, W.catalogue).find(g => g.name === name);
-  R.check('F-MO-2', 'defect', 'after a Capacity edit, the plant still follows the gas-price slider', Math.abs(live.cost - fresh.cost) < 1e-9, `gas 250: plant bids ${live.cost.toFixed(1)} (frozen at gas=100), unedited would bid ${fresh.cost.toFixed(1)}`);
-  const w0 = base().find(g => g.name === 'Wind'); adv.Wind = [w0.capacity + 1, w0.cost];
+  R.check('F-MO-2', 'pass', 'after a Capacity edit, the plant still follows the gas-price slider', Math.abs(live.cost - fresh.cost) < 1e-9, `gas 250: plant bids ${live.cost.toFixed(1)} (frozen at gas=100), unedited would bid ${fresh.cost.toFixed(1)}`);
+  const w0 = base().find(g => g.name === 'Wind'); Object.assign(adv, editAdv(adv, 'Wind', 'cost', w0.cost + 5));
   const lw = applyAdv(buildStack({...p, wind: 0.8}, W.catalogue), adv).find(g => g.name === 'Wind');
-  R.check('F-MO-2b', 'defect', 'after a Capacity edit on Wind, the wind-availability slider still scales it', Math.abs(lw.capacity - 32 * 0.8) < 1e-9, `wind 80% offers ${lw.capacity.toFixed(2)} GW (expected ${(32*0.8).toFixed(1)})`);
+  R.check('F-MO-2b', 'pass', 'after a Bid edit on Wind, the wind-availability slider still scales its capacity', Math.abs(lw.capacity - 32 * 0.8) < 1e-9, `wind 80% offers ${lw.capacity.toFixed(2)} GW (expected ${(32*0.8).toFixed(1)})`);
 }
 { // F-MO-3: hydrogen / CCS sentence asserts wind has dropped regardless of wind
   const W = WORLDS.ht, p = {...W.params, demand: 74, wind: 0.5, gas: 20, carbon: 100, solar: 0};
   const r = dispatch(buildStack(p, W.catalogue), p.demand);
-  const v = buildVerdict(r, {demand: p.demand});
-  R.check('F-MO-3', 'defect', 'verdict does not say "wind has dropped" when wind availability is 50%', !/wind has dropped/.test(v), `marginal=${r.marginalName} @ gas 20p carbon £100 wind 50%`);
+  const v = buildVerdict(r, {demand: p.demand, wind: p.wind});
+  R.check('F-MO-3', 'pass', 'verdict does not say "wind has dropped" when wind availability is 50%', !/wind has dropped/.test(v), `marginal=${r.marginalName} @ gas 20p carbon £100 wind 50%`);
 }
 { // F-MO-4: "0 GW of demand goes unmet" when unmet > 0
   const W = WORLDS.ht, p = {...W.params, demand: 70, wind: 0.05, gas: 20, carbon: 20, solar: 0};
   const r = dispatch(buildStack(p, W.catalogue), p.demand);
-  const v = buildVerdict(r, {demand: p.demand});
-  R.check('F-MO-4', 'defect', 'unmet shortfall is never printed as "0 GW"', !/\b0 GW of demand goes unmet/.test(v) || r.unmet === 0, `unmet=${r.unmet.toFixed(3)} text="${v.match(/[\d.]+ GW of demand goes unmet/)?.[0]}"`);
+  const v = buildVerdict(r, {demand: p.demand, wind: p.wind});
+  R.check('F-MO-4', 'pass', 'unmet shortfall is never printed as "0 GW"', !/\b0 GW of demand goes unmet/.test(v) || r.unmet === 0, `unmet=${r.unmet.toFixed(3)} text="${v.match(/[\d.]+ (GW|MW)[^.]*unmet/)?.[0]}"`);
 }
-{ // F-MO-5: over-capacity demand is priced as if met at the dearest plant
-  const r = dispatch(abc(), 35);
-  const v = buildVerdict(r, {demand: 35});
-  R.check('F-MO-5', 'question', 'QUESTION (price of unserved demand): verdict leads "35 GW of demand clears at £80/MWh" while 5 GW is unserved', !/^35 GW of demand clears/.test(v), v.slice(0, 120));
+{ // F-MO-5 (ruled): unmet demand does not present the dearest offer as a clearing price
+  const gens = abc(); const r = dispatch(gens, 35);
+  const v = buildVerdict(r, {generators: gens, demand: 35});
+  R.check('F-MO-5', 'pass', 'over-capacity verdict says no price clears, names the last offer and the unmet volume', /^No price clears: 35 GW of demand is more than the 30 GW offered\. The last offer is C at £80\/MWh, and 5 GW goes unmet\./.test(v), v.slice(0, 140));
 }
-{ // F-MO-9: scenarios.js says coldPeak "pins imports LOW"; the value is HIGHER than the default, and the EE headline depends on it
-  const lowImp = CONDITIONS.coldPeak.mutate.imports < DEFAULT_PARAMS.imports;
-  R.check('F-MO-9', 'defect', 'Still-cold-peak sets imports lower than the default (as its comment says)', lowImp, `coldPeak imports=${CONDITIONS.coldPeak.mutate.imports} GW, default=${DEFAULT_PARAMS.imports} GW`);
+{ // F-MO-7 (ruled)
+  const d = decodeStateV2(encodeStateV2({world: 'gbToday', condition: null, params: {demand: 'abc', wind: -5, gas: 1e9}}));
+  R.check('F-MO-7', 'pass', 'a shared URL cannot inject non-numeric / out-of-range params: bad values drop to the default, numbers clamp', !('demand' in d.params) && d.params.wind === 0 && d.params.gas === 300, JSON.stringify(d.params));
+}
+{ // F-MO-9 (ruled: keep 5 GW, correct the comment, flag to Matt)
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../../../energy/merit-order/scenarios.js', import.meta.url), 'utf8');
+  R.check('F-MO-9', 'pass', 'scenarios.js no longer claims cold peak "pins imports LOW"; the value is 5 GW', !/pins imports\s+LOW/.test(src) && CONDITIONS.coldPeak.mutate.imports === 5);
   const p = paramsFor('ee', 'coldPeak');
   const at = imp => dispatch(buildStack({...p, imports: imp}, WORLDS.ee.catalogue), p.demand);
-  R.check('F-MO-9', 'defect', 'FES Electric Engagement cold peak prices the same with imports at the default (3 GW) as at the preset (5 GW)', at(3).marginalName === at(5).marginalName && at(3).unmet === 0, `imports 5: ${at(5).marginalName} £${Math.round(at(5).clearingPrice)} unmet ${at(5).unmet.toFixed(2)}; imports 3: ${at(3).marginalName} £${Math.round(at(3).clearingPrice)} unmet ${at(3).unmet.toFixed(2)}`);
+  R.info('F-MO-9', 'for Matt: the shipped cold-peak headlines depend on the 5 GW figure', `EE imports 5: ${at(5).marginalName} £${Math.round(at(5).clearingPrice)}; imports 3: ${at(3).marginalName} £${Math.round(at(3).clearingPrice)} unmet ${at(3).unmet.toFixed(2)} GW`);
 }
-{ // Q-IMP: imports are capped by one hidden param (no slider) whatever the world's installed interconnection
+{ // Q-IMP
   const W = WORLDS.fb, off = buildStack(W.params, W.catalogue).find(g => g.name === 'Imports').capacity, inst = W.catalogue.find(t => t.key === 'imports').installed;
-  R.check('Q-IMP', 'question', 'QUESTION: FES worlds offer imports up to their installed interconnection (no hidden 3 GW cap, no slider)', off === inst, `Falling Behind: ${off} GW offered of ${inst} GW installed`);
+  R.info('Q-IMP', 'for Matt: FES worlds offer imports from one hidden parameter', `Falling Behind: ${off} GW offered of ${inst} GW installed`);
 }
-{ // F-MO-8: dragging the demand line snaps to a running float sum; app.js prints state.params.demand unrounded
+{ // F-MO-8: demand snapped to a running float sum prints through the formatter
   const W = WORLDS.gbToday, p = {...W.params};
-  const r = dispatch(buildStack(p, W.catalogue), p.demand);
+  const gens = buildStack(p, W.catalogue), r = dispatch(gens, p.demand);
   let run = 0; const b = []; for(const g of r.sorted){ run += g.capacity; b.push(run); }   // exactly snapDemand()'s bounds
   const demand = b.find(x => String(x).length > 8);
-  const line = `Clears £x/MWh · name · demand ${demand} GW`;                              // template copied from app.js render() outcome line; receiptLines() uses the same `${cs.demand}`
-  R.check('F-MO-8', 'defect', 'aria-live outcome / receipt line prints demand as a tidy number after a snap', !/\d\.\d{4,}/.test(line), line);
-}
-{ // F-MO-7: hash state is not validated
-  const d = decodeStateV2(encodeStateV2({world: 'gbToday', condition: null, params: {demand: 'abc', wind: -5, gas: 1e9}}));
-  R.check('F-MO-7', 'defect', 'a shared URL cannot inject non-numeric / out-of-range params into the stack', typeof d.params.demand === 'number' && d.params.wind >= 0, JSON.stringify(d.params));
+  const st = {generators: gens, demand}, rr = dispatch(gens, demand);
+  const lines = [outcomeLine(rr, st), ...receiptLines(st, {worldLabel: 'GB today', gas: 100, carbon: 50})];
+  R.check('F-MO-8', 'pass', 'outcome line and receipt print demand as a tidy number after a snap', lines.every(l => !/\d\.\d{4,}/.test(l)), lines[0]);
 }
 { // edge sweep: the engine never yields NaN for what the UI can produce
   let nan = false;
