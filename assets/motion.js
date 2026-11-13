@@ -257,22 +257,18 @@ export function mountMotion(container){
   return paint;
 }
 
-/* Scroll the page to `top` over the base duration (--dur-base, ease-out), or jump under reduced motion. A wheel,
-   touch or key from the reader cancels it. Returns the position it is heading to (clamped to the document). */
+/* Scroll the page to `top` over the base duration (200ms, --dur-base), a jump under reduced motion; a later wheel, touch or key cancels it. */
 let scrollRun = 0, scrollWatch = false, lastInput = 0;
 export function scrollPageTo(top){
-  const max = Math.max(0, document.documentElement.scrollHeight - innerHeight);
-  const to = Math.max(0, Math.min(max, Math.round(top))), from = scrollY, run = ++scrollRun;
+  const to = Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight, Math.round(top))), from = scrollY, run = ++scrollRun;
   if(Math.abs(to - from) < 2) return to;
-  const ms = reducedMotion.matches ? 0 : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dur-base')) || 200);
-  if(!ms){ scrollTo(scrollX, to); return to; }
+  if(reducedMotion.matches){ scrollTo(scrollX, to); return to; }
   const t0 = performance.now();
-  /* an input that arrived after this started cancels it (the keydown that triggered it, e.g. Escape, predates t0) */
   if(!scrollWatch){ scrollWatch = true; for(const ev of ['wheel', 'touchstart', 'keydown']) addEventListener(ev, e => { lastInput = e.timeStamp; }, {passive:true}); }
   const tick = now => {
     if(run !== scrollRun || lastInput > t0) return;
-    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);   // ease-out
-    scrollTo(scrollX, from + (to - from) * e);
+    const k = Math.min(1, (now - t0) / 200);
+    scrollTo(scrollX, from + (to - from) * (1 - Math.pow(1 - k, 3)));
     if(k < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
