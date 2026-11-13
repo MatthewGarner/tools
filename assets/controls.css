@@ -54,7 +54,7 @@
   .segmented button{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 }
 @media (prefers-reduced-motion: no-preference){
-  .segmented button{transition:color .15s,background-color .15s}
+  .segmented button{transition:color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out)}
   /* the pressed fill lands with the press (and the view it picks), not 150ms behind it; only hover and release ease */
   .segmented button.on,.segmented button[aria-pressed="true"],.segmented button[aria-selected="true"]{transition:none}
 }
@@ -77,7 +77,7 @@ button,summary,.btn,.chip,.segmented button{touch-action:manipulation}
   input[type="text"],input[type="number"],input:not([type]),textarea,.cm-content{font-size:16px!important}
 }
 @media (prefers-reduced-motion: no-preference){
-  .chip,.btn{transition:border-color .15s,color .15s,background-color .15s}
+  .chip,.btn{transition:border-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out),background-color var(--dur-fast) var(--ease-out)}
 }
 
 /* chip-row lead label, warning list, and saved-item chips — extracted

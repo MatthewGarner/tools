@@ -16,3 +16,7 @@ export const own = (object, key) => hasOwn(object, key) ? object[key] : undefine
 
 /* a copy that is still prototype-free (an object spread would hand back a plain object) */
 export const cloneNames = object => Object.assign(Object.create(null), object);
+
+/* Markdown: one escaping rule, identical in Bets, Tree and Paths (each keeps its own copy): a backslash before each of
+   \ | * _ ` [ ] < >, a newline as a space, and no HTML entities. */
+export const mdEscape = value => String(value == null ? '—' : value).replace(/\r?\n/g, ' ').replace(/[\\|*_`[\]<>]/g, '\\$&');

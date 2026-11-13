@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/assets/print-artefact.css" media="print">
 <link rel="stylesheet" href="../assets/mobile.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
@@ -72,7 +73,7 @@
 </div>
 
 <main id="main" tabindex="-1">
-<div class="workspace" id="workspace">
+<div class="workspace landing-fold" id="workspace">
     <aside class="rail">
       <div id="cmhost" aria-label="Bets source editor"></div>
       <ul id="warns"></ul>
@@ -107,7 +108,7 @@
         <button class="vtseg" data-view="quadrant" data-capability="views.plane" aria-pressed="false">Quadrant</button>
       </div>
       <div class="metrics" id="metrics" hidden></div>
-      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="preview" id="preview"><p class="placeholder" data-boot>Start typing — or load an example.</p></div>
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
@@ -115,9 +116,10 @@
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as markdown</button>
-            <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
-            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
+            <button class="btn" id="dlpng" data-capability="presentationExports.png">Download PNG</button>
+            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Download SVG</button>
+            <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as Markdown</button>
+            <button class="btn" id="copyslide" data-capability="presentationExports.png">Copy slide</button>
           </div>
         </details>
         <details class="action-disclosure history">
@@ -130,6 +132,7 @@
         </details>
         <details class="method"><summary>Method</summary><p><span data-runs>40,000</span> paired seeded simulations. Independent baseline and shared-outcome stress; only realised outcomes are coupled. Parameter ranges remain independently sampled.</p></details>
       </div>
+      <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
     </section>
 </div>
 

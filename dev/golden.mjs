@@ -71,6 +71,7 @@ if(selected('tree')){
   const {parse: tparse} = await import('../tree/parse.js');
   const {evaluate} = await import('../tree/engine.js');
   const {render: trender} = await import('../tree/render.js');
+  await import('../tree/face-house.js'); // the page's export path supplies the house face
   const bid = 'title: T\nRoot\n  Bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0';
   const m = tparse(bid);
   const r = evaluate(m);
@@ -587,6 +588,7 @@ if(selected('bets')){
   const {parse: bparse} = await import('../bets/parse.js');
   const {simulate} = await import('../bets/engine.js');
   const {renderBoard} = await import('../bets/render.js');
+  await import('../bets/face-house.js'); // the page's export path supplies the house face
   const bdoc = 'title: Q3 product portfolio\nunit: £k\n' +
     'Growth\n  Search revamp: stake 120, odds 30-50%, payoff 400-900\n    kill: CTR flat after 2 sprints by 2026-09-01\n' +
     '  Paid acq push: stake 80, odds 20-30%, payoff 90-140\n' +
@@ -647,6 +649,7 @@ if(selected('bets')){
    the explicit Tree boundary when plan enumeration exceeds its safe limit. */
 if(selected('paths')){
   const {parse: parsePaths} = await import('../paths/parse.js');
+  await import('../paths/face-house.js'); // the page's export path supplies the house face
   const {project: projectPaths} = await import('../paths/project.js');
   const {treeProjection} = await import('../paths/tree.js');
   const {treeLayout} = await import('../paths/layout-tree.js');
@@ -743,6 +746,8 @@ if(selected('paths')){
   const impact = decisionImpactProjection(pathsModel, pathsProjected, 'pricing');
   const pathsCtx = {...ctxBase, selectedKey:'pricing', impact};
   variants['paths-overview'] = renderOverview(pathsOverview, {...pathsCtx, width:1160});
+  /* the live Brief beside the 350px decision margin at a 1280px viewport: laid out for 830px, no receipt in the drawing */
+  variants['paths-overview-fit'] = renderOverview(pathsOverview, {...pathsCtx, width:830, fit:true, showReceipt:false});
   variants['paths-overview-narrow'] = renderOverviewNarrow(pathsOverview, {...pathsCtx, width:390});
   variants['paths-question'] = renderQuestionLens(pathsOverview, {...pathsCtx, width:1160});
   variants['paths-question-narrow'] = renderQuestionLensNarrow(pathsOverview, {...pathsCtx, width:390});

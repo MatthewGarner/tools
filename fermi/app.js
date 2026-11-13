@@ -14,7 +14,11 @@ import {stretchLabel, shapeLabel, leverHint, leverLine, verdictSentence, probTex
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
-import {wireExports} from '../assets/exports.js';
+import {wireExports, flashButton} from '../assets/exports.js';
+import {wirePrintArtefact} from '../assets/print-artefact.js';
+import {renderResultCard, RESULT_CW} from './result-card.js';
+import {estimateMarkdown} from './md.js';
+import {offer as provide} from '../assets/recent-ui.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
@@ -23,6 +27,9 @@ import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
   normalizeReceipt, receiptLabel} from './state.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {targetHashState, validHandoffMeta} from '../assets/handoff.js';
+
+/* the same gate assets/motion.js uses (reduced motion, or a hidden tab); that module is 14k and Fermi needs only the gate */
+const motionStill = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden;
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -91,12 +98,12 @@ function setAuthorOpen(open, {focus = false} = {}){
 
 function reviewDetail(){
   const title = $('resultreviewtitle'), body = $('resultreviewbody'), facts = $('resultreviewfacts');
-  facts.replaceChildren();
   if($('results').classList.contains('is-stale')){
-    title.textContent = timer ? 'Updating estimate' : 'Estimate needs attention';
-    body.textContent = $('estimate-status').textContent;
+    /* the facts stay while the estimate catches up: the panel keeps its height */
+    title.textContent = timer ? 'Updating estimate' : 'Estimate needs attention';   // the body and facts stay: the panel keeps its height, and the status line says the rest
     return;
   }
+  facts.replaceChildren();
   if(!last){
     title.textContent = 'Read the estimate';
     body.textContent = 'Choose P10, P50 or P90 to inspect that result. The estimate remains a distribution, not a single promise.';
@@ -173,39 +180,40 @@ function loadSnap(s){
   $('tin').value = threshStr;
   varRowsSig = '';
 }
-function renderTabs(){
+function renderTabs(focusKey){
   const holder = $('scentabs');
   holder.textContent = '';
+  const mk = (cls, text, key, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = cls; b.dataset.key = key;
+    if(text) b.textContent = text;
+    b.addEventListener('click', fn);
+    holder.appendChild(b);
+    return b;
+  };
   if(!compareOn){
-    const b = document.createElement('button');
-    b.className = 'tab';
-    b.textContent = '⇄ Compare variants';
-    b.addEventListener('click', enableCompare);
-    holder.appendChild(b);
-    return;
+    const b = mk('tab', '⇄ Compare variants', 'compare', enableCompare);
+    b.setAttribute('aria-pressed', 'false');
+  }else{
+    for(const s of ['A', 'B']){
+      const b = mk('tab' + (s === active ? ' on' : ''), '', s, () => switchTo(s));
+      b.dataset.s = s;
+      const dot = document.createElement('span'); dot.className = 'dot';
+      b.append(dot, document.createTextNode(s));
+      b.setAttribute('aria-label', 'Edit model variant ' + s);
+      b.setAttribute('aria-pressed', String(s === active));
+    }
+    mk('tab', '× stop comparing', 'stop', disableCompare);
   }
-  for(const s of ['A', 'B']){
-    const b = document.createElement('button');
-    b.className = 'tab' + (s === active ? ' on' : '');
-    b.dataset.s = s;
-    const dot = document.createElement('span'); dot.className = 'dot';
-    b.append(dot, document.createTextNode(s));
-    b.setAttribute('aria-label', 'Edit model variant ' + s);
-    b.addEventListener('click', () => switchTo(s));
-    holder.appendChild(b);
-  }
-  const x = document.createElement('button');
-  x.className = 'tab';
-  x.textContent = '× stop comparing';
-  x.addEventListener('click', disableCompare);
-  holder.appendChild(x);
+  /* a rebuilt tab is a new element: the control just used gets focus back (or its successor when it went away) */
+  if(focusKey) holder.querySelector('[data-key="' + focusKey + '"]')?.focus({preventScroll: true});
 }
 function switchTo(s){
   if(s === active) return;
   scenStore[active] = snapshot();
   active = s;
   loadSnap(scenStore[s]);
-  renderTabs();
+  renderTabs(s);
   lint();
 }
 function enableCompare(){
@@ -213,7 +221,7 @@ function enableCompare(){
   scenStore[active] = snapshot();
   if(!scenStore.B) scenStore.B = snapshot();   // B starts as a copy of A: change one assumption
   if(active === 'A'){ active = 'B'; loadSnap(scenStore.B); }
-  renderTabs();
+  renderTabs(active);
   lint();
 }
 function disableCompare(){
@@ -221,7 +229,7 @@ function disableCompare(){
   scenStore.B = null;
   lastBy.B = null;
   if(active === 'B'){ active = 'A'; loadSnap(scenStore.A); }
-  renderTabs();
+  renderTabs('compare');
   lint();
 }
 /* full pipeline for the scenario not being edited (no DOM side effects) */
@@ -514,7 +522,8 @@ function setEstimateStatus(message = ''){
   $('estimate-status').hidden = !stale;
   $('results').classList.toggle('is-stale', stale);
   $('results').inert = stale;
-  for(const control of $('results').querySelectorAll('#copy, #copydoc, #png, #treepng, #treesvg, .vcopy')) control.disabled = stale;
+  for(const control of $('results').querySelectorAll('#copy, #copydoc, #png, #distcopypng, #distsvg, #treepng, #treesvg, .vcopy')) control.disabled = stale;
+  syncLive();
 }
 function showPlaceholder(msg){
   $('ph').textContent = msg;
@@ -632,7 +641,36 @@ function lint(){
 let hashTimer = null;
 function writeHashSafe(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 400); }
 
+/* ---------- the phone readout ---------- */
+const liveEl = $('liveread'), liveBtn = liveEl.querySelector('button');
+const livePhone = matchMedia('(pointer: coarse) and (max-width: 700px)');
+let liveFocus = false, liveSeen = true;
+/* written once per settled result, and only when it differs, so a screen reader hears it once per settle */
+function paintLive(){
+  const r = last;
+  if(!r) return;
+  const unit = $('estimateunit').value.trim();
+  const text = 'P10 ' + fmt(r.p10) + ' · P50 ' + fmt(r.p50) + ' · P90 ' + fmt(r.p90) + (unit ? ' ' + unit : '');
+  if(liveBtn.textContent !== text) liveBtn.textContent = text;
+  syncLive();
+}
+function syncLive(){
+  const on = livePhone.matches && liveFocus && !liveSeen && pageMode === 'est' && !!last && !!liveBtn.textContent;
+  liveEl.classList.toggle('on', on);
+  liveEl.classList.toggle('stale', $('results').classList.contains('is-stale'));
+}
+const liveField = el => el === liveBtn || (!!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !!el.closest('.fermi-sheet'));
+document.addEventListener('focusin', e => { liveFocus = liveField(e.target); syncLive(); });
+document.addEventListener('focusout', () => setTimeout(() => { liveFocus = liveField(document.activeElement); syncLive(); }, 0));
+new IntersectionObserver(entries => { liveSeen = entries[entries.length - 1].isIntersecting; syncLive(); }).observe($('results'));
+livePhone.addEventListener?.('change', syncLive);
+liveBtn.addEventListener('click', () => {
+  document.activeElement?.blur?.();
+  $('results').scrollIntoView({behavior: motionStill() ? 'auto' : 'smooth', block: 'start'});
+});
+
 /* ---------- render results ---------- */
+let shown = null;      // the sentences the page printed for the current result (the exports quote them)
 let resultsSig = '';   // output-unchanged gate: skip the DOM rebuild when nothing shown would differ (batch 7)
 // The formula identifies the estimate; its result belongs in the answer.
 function formulaLabel(){
@@ -642,6 +680,7 @@ function formulaLabel(){
 
 function renderResults(){
   const r = last;
+  paintLive();
   const question = $('estimatequestion').value.trim(), unit = $('estimateunit').value.trim();
   $('resultcontext').hidden = !question && !unit;
   $('resultquestion').textContent = question;
@@ -674,6 +713,7 @@ function renderResults(){
     notes.push('Entered high-to-low: ' + inverted.map(n => n.replace(/_/g, ' ')).join(', ') + ' — read as a range either way.');
   }
   const warnText = notes.join(' ');
+  shown = {verdict: sayText, spread: spreadText, method: estimateMethod(r.varNames, r.ranges, r.dists, N, !!r.exact)};
 
   const sens = r.sens;
   const sensSig = sens.map(s => s.name + ':' + s.share.toFixed(4) + ':' + s.label).join(',');
@@ -722,7 +762,7 @@ function renderResults(){
       nm.className = 'sn mono'; nm.textContent = s.name; nm.title = s.name;
       const track = document.createElement('div'); track.className = 'track';
       const bar = document.createElement('div'); bar.className = 'bar';
-      bar.style.width = Math.max(2, Math.round(s.share * 100)) + '%';
+      bar.style.setProperty('--share', (Math.max(2, Math.round(s.share * 100)) / 100).toString());
       track.appendChild(bar);
       const pct = document.createElement('div');
       pct.className = 'sp';
@@ -765,28 +805,97 @@ function compactReceiptSummary(names = currentVarNames){
   }
   return [...groups].map(([label, count]) => label + (count > 1 ? ' (' + count + ')' : '')).join(' · ');
 }
-function applyView(){
+/* The tab state is pressed first; the content swaps two frames later, with the shared ghost dissolving the old view
+   (assets/motion.css .mo-ghost) over the new one. */
+function viewGhost(){
+  if(motionStill()) return null;
+  const old = view === 'tree' ? document.querySelector('.histwrap') : $('driverwrap');   // the view being left (view is already the new one)
+  const src = old.hidden ? null : (old.querySelector('svg') || old.querySelector('#hist'));
+  if(!src) return null;
+  const r = src.getBoundingClientRect();
+  if(r.width < 1 || r.height < 1) return null;
+  for(const g of document.querySelectorAll('.mo-ghost')) g.remove();
+  let ghost;
+  if(src.tagName === 'CANVAS'){
+    ghost = document.createElement('canvas'); ghost.width = src.width; ghost.height = src.height;
+    ghost.getContext('2d').drawImage(src, 0, 0);
+  }else{
+    ghost = src.cloneNode(true);
+    for(const n of [ghost, ...ghost.querySelectorAll('*')]){ n.removeAttribute('id'); n.removeAttribute('style'); }
+  }
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.classList.add('mo-ghost');
+  Object.assign(ghost.style, {left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', animationDuration: '140ms'});
+  return ghost;
+}
+function applyViewTabs(){
   const tree = view === 'tree';
   $('viewdist').classList.toggle('on', !tree);
   $('viewtree').classList.toggle('on', tree);
   $('viewdist').setAttribute('aria-selected', String(!tree));
   $('viewtree').setAttribute('aria-selected', String(tree));
+}
+function applyViewContent(){
+  const tree = view === 'tree';
   $('driverwrap').hidden = !tree;
   document.querySelector('.histwrap').hidden = tree;
   $('replay').hidden = tree;                    // the pour is dist-view only
   $('pourverdict').hidden = tree;
   if(tree){ pour.stop(); clearConfession(); }   // the confession is dist-view only too
   $('threshrow').hidden = tree;
-  $('png').hidden = tree;
+  $('png').hidden = tree; $('distcopypng').hidden = tree; $('distsvg').hidden = tree;
   $('treesvg').hidden = !tree;
   $('treepng').hidden = !tree;
   renderDriverView();
 }
-$('viewdist').addEventListener('click', () => { view = 'dist'; applyView(); });
-$('viewtree').addEventListener('click', () => { view = 'tree'; applyView(); });
+function applyView(){ applyViewTabs(); applyViewContent(); }
+let viewSwap = 0;
+function setView(next, btn){
+  btn.focus({preventScroll: true});   // WebKit does not focus a button on click
+  if(view === next) return;
+  view = next;
+  applyViewTabs();
+  const token = ++viewSwap;
+  const run = () => {
+    if(token !== viewSwap) return;
+    const ghost = (() => { const g = viewGhost(); return g; })();
+    applyViewContent();
+    if(ghost){
+      const done = () => ghost.remove();
+      ghost.addEventListener('animationend', done, {once: true});
+      setTimeout(done, 340);
+      document.body.appendChild(ghost);
+    }
+  };
+  if(motionStill()) run(); else requestAnimationFrame(() => requestAnimationFrame(run));
+}
+$('viewdist').addEventListener('click', () => setView('dist', $('viewdist')));
+$('viewtree').addEventListener('click', () => setView('tree', $('viewtree')));
 const treeSlug = () => 'drivers-' + ($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model');
-wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
-  getSvg: () => { ensureFreshEstimate(); return last ? lastTreeSvg || null : null; }, slug: treeSlug});
+/* ---------- exports: the same embedded fonts as Roadmap and Timeline ---------- */
+const EXPORT_FONTS = {sans: "'DM Sans',sans-serif"};
+const exportLine = $('exportstatus');
+/* The embedded faces (the same Roadmap and Timeline embed) load once the page is idle, or at the first sign of an export (a hover, a
+   touch, the export row scrolling into view): a Copy PNG press has to build its picture in the click itself. */
+let fontsApi = null, fontsLoading = null;
+const chapterFontsReady = () => !!fontsApi && fontsApi.chapterFontsReady();
+const embedChapterFonts = svg => fontsApi.embedChapterFonts(svg);
+function warmFonts(){
+  return fontsLoading ||= import('../assets/chapter-font-loader.js').then(async m => { await m.loadChapterFonts(); fontsApi = m; })
+    .catch(() => { fontsLoading = null; exportLine.textContent = 'Fonts for exports could not load, so Copy PNG, PNG and SVG are unavailable. Reload to try again.'; exportLine.hidden = false; });
+}
+(window.requestIdleCallback || (f => setTimeout(f, 1500)))(warmFonts, {timeout: 4000});
+for(const ev of ['pointerenter', 'touchstart', 'focusin']) document.querySelector('#results .actions').addEventListener(ev, warmFonts, {once: true, passive: true});
+const fontsReadyFor = fn => () => { if(!chapterFontsReady()){ warmFonts(); exportLine.textContent = 'Fonts for exports are still loading: try again in a moment.'; exportLine.hidden = false; return null; } exportLine.hidden = true; return fn(); };
+const lightly = fn => {   // a print sheet is light whatever the page is
+  const root = document.documentElement, was = root.dataset.theme;
+  root.dataset.theme = 'light';
+  try{ return fn(); }finally{ if(was === undefined) delete root.dataset.theme; else root.dataset.theme = was; }
+};
+const treeExport = (embed = true) => { ensureFreshEstimate(); if(!last) return null;
+  return (embed ? embedChapterFonts : svg => svg)(renderDriverTree({...last, scenLabel: compareOn ? active : null, title: $('estimatequestion').value.trim() || formulaLabel()},
+    {colors: themeColors(), measure, fonts: EXPORT_FONTS})); };
+wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')}, getSvg: fontsReadyFor(treeExport), slug: treeSlug});
 
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
@@ -896,14 +1005,15 @@ function drawHist(hoverIdx, output = null){
     ctx.lineTo(x + 0.5, padT + plotH);
     ctx.stroke();
     // the grab handle: a small rounded tab at the top of the line — the ONLY place the drag starts
-    const hw2 = 7, hh = 10, hy = padT - 4 - hh;
+    const hw2 = 9, hh = 15, hy = padT - 4 - hh;
     ctx.fillStyle = C.err;
     ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(x - hw2, hy, hw2 * 2, hh, 3); else ctx.rect(x - hw2, hy, hw2 * 2, hh);
+    if(ctx.roundRect) ctx.roundRect(x - hw2, hy, hw2 * 2, hh, 4); else ctx.rect(x - hw2, hy, hw2 * 2, hh);
     ctx.fill();
+    ctx.strokeStyle = C.card; ctx.lineWidth = 1.5; ctx.stroke();
     // grip lines
     ctx.strokeStyle = C.card; ctx.lineWidth = 1;
-    for(const dx of [-2.5, 0, 2.5]){ ctx.beginPath(); ctx.moveTo(x + dx, hy + 3); ctx.lineTo(x + dx, hy + hh - 3); ctx.stroke(); }
+    for(const dx of [-3.5, 0, 3.5]){ ctx.beginPath(); ctx.moveTo(x + dx, hy + 3.5); ctx.lineTo(x + dx, hy + hh - 3.5); ctx.stroke(); }
     if(!output) threshHandle = {x, y: hy + hh / 2};
   }
   /* axis end labels */
@@ -935,6 +1045,7 @@ function drawHist(hoverIdx, output = null){
     }
     if(!bins.length) return;
     const rect = canvas.getBoundingClientRect();
+    canvas.classList.toggle('grab', !!threshHandle && Math.abs(e.clientX - rect.left - threshHandle.x) <= HITPAD && Math.abs(e.clientY - rect.top - threshHandle.y) <= HITPAD);
     const x = e.clientX - rect.left;
     const idx = Math.max(0, Math.min(bins.length - 1, Math.floor(x / (rect.width / bins.length))));
     const b = bins[idx];
@@ -946,6 +1057,7 @@ function drawHist(hoverIdx, output = null){
   });
   canvas.addEventListener('pointerleave', () => {
     tip.style.display = 'none';
+    canvas.classList.remove('grab');
     lastHover = -1;
     drawHist();
   });
@@ -954,14 +1066,14 @@ function drawHist(hoverIdx, output = null){
     const rect = canvas.getBoundingClientRect();
     if(Math.abs(e.clientX - rect.left - threshHandle.x) > HITPAD ||
        Math.abs(e.clientY - rect.top - threshHandle.y) > HITPAD) return;
-    downOnHandle = true; draggingHandle = true;
+    downOnHandle = true; draggingHandle = true; canvas.classList.add('grabbing');
     try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
     tip.style.display = 'none';
     e.preventDefault();
   });
   const endDrag = e => {
     if(!draggingHandle) return;
-    draggingHandle = false;
+    draggingHandle = false; canvas.classList.remove('grabbing');
     try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
     writeHashSafe();
     runConfession();                                               // the solver runs on release
@@ -999,7 +1111,13 @@ $('tin').addEventListener('input', () => {
 });
 
 /* ---------- "Replay the maths" — the pour ---------- */
-const pour = mountPour($('hist'), document.querySelector('.histwrap'));
+const REPLAY_LABEL = $('replay').textContent, REPLAY_TITLE = $('replay').title;
+/* while a pour plays the control reads Skip (Escape does the same): it jumps to the end state, the histogram and the verdict */
+const pour = mountPour($('hist'), document.querySelector('.histwrap'), {onState: on => {
+  $('replay').textContent = on ? 'Skip' : REPLAY_LABEL;
+  $('replay').title = on ? 'Skip to the end state' : REPLAY_TITLE;
+}});
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && pour.active){ e.preventDefault(); pour.skip(); } });
 let pourVerdictText = '';
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 function replay(){
@@ -1025,7 +1143,11 @@ function replay(){
   $('pourverdict').textContent = v.text;
   pour.play(trace, layout, rows, colors, {reduced: reducedMotion(), dom: v.topName});
 }
-$('replay').addEventListener('click', () => { ensureFreshEstimate(); replay(); });
+$('replay').addEventListener('click', () => {
+  $('replay').focus({preventScroll: true});   // WebKit does not focus a button on click
+  if(pour.active){ pour.skip(); return; }
+  ensureFreshEstimate(); replay();
+});
 
 /* ---------- "What must be true" — the confession ---------- */
 let lastConfess = null;   // {c, T} cache so a theme flip repaints without re-solving
@@ -1054,23 +1176,33 @@ function drawGhostSpark(canvas, lo, hi, d, color){
   for(let i = 0; i <= N; i++){ const x = i / N * w, y = h - 2 - ys[i] / (pmax || 1) * (h - 6); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
   ctx.stroke(); ctx.setLineDash([]);
 }
-function renderGhost(r, primary){
-  const idx = currentVarNames.indexOf(r.varName);
-  const rows = $('vrows').querySelectorAll('.vrow');   // static, class-scoped ⇒ ignores inserted .cghost
-  if(idx < 0 || idx >= rows.length) return;
+function ghostRow(r, primary, named){
   const C = themeColors(), over = r.normCost > 1;
   const g = document.createElement('div'); g.className = 'cghost' + (over ? ' over' : '');
   const spark = document.createElement('canvas'); spark.className = 'cspark'; spark.setAttribute('aria-hidden', 'true');
   const txt = document.createElement('span'); txt.className = 'ctxt';
-  txt.textContent = '→ ' + fmt(r.range[0]) + ' – ' + fmt(r.range[1]) + ' (' + stretchLabel(r) + ')';
+  if(named){ const n = document.createElement('span'); n.className = 'cn'; n.textContent = nmOf(r.varName) + ' '; txt.appendChild(n); }
+  txt.append(document.createTextNode('→ ' + fmt(r.range[0]) + ' – ' + fmt(r.range[1]) + ' (' + stretchLabel(r) + ')'));
   g.append(spark, txt);
   if(primary){
     const adopt = document.createElement('button'); adopt.className = 'adopt'; adopt.type = 'button'; adopt.textContent = 'Adopt';
-    adopt.addEventListener('click', () => adoptConfession(r));
+    adopt.setAttribute('aria-label', 'Adopt ' + nmOf(r.varName) + ' ' + fmt(r.range[0]) + ' to ' + fmt(r.range[1]));
+    adopt.addEventListener('click', () => keepScroll(() => adoptConfession(r)));
     g.appendChild(adopt);
   }
-  rows[idx].after(g);
-  drawGhostSpark(spark, r.range[0], r.range[1], r.dist, over ? C.err : (active === 'A' ? C.accent : C.accent2));
+  return {g, spark, color: over ? C.err : (active === 'A' ? C.accent : C.accent2)};
+}
+/* the proposed ranges show beside the sentence in the result panel, and again beside their inputs in the authoring panel */
+function renderGhost(r, primary, inResults = true){
+  const idx = currentVarNames.indexOf(r.varName);
+  const rows = $('vrows').querySelectorAll('.vrow');   // static, class-scoped ⇒ ignores inserted .cghost
+  const placed = [];
+  if(inResults){ const card = ghostRow(r, primary, true); $('confesscards').appendChild(card.g); placed.push(card); }
+  if(idx >= 0 && idx < rows.length){
+    const row = ghostRow(r, primary, false);
+    rows[idx].after(row.g); placed.push(row);
+  }
+  for(const p of placed) drawGhostSpark(p.spark, r.range[0], r.range[1], r.dist, p.color);
 }
 function paintConfession(){
   document.querySelectorAll('.cghost').forEach(el => el.remove());
@@ -1079,7 +1211,7 @@ function paintConfession(){
   if(c === 'even'){ v.textContent = 'You’re already at even odds for ' + fmt(T) + '.'; return; }
   if(c.best){
     renderGhost(c.best, true);
-    for(const alt of c.alternates.slice(0, 3)) renderGhost(alt, false);
+    for(const alt of c.alternates.slice(0, 3)) renderGhost(alt, false, false);
     const lead = c.dir < 0 ? 'To keep this under ' + fmt(T) + ', you’d have to believe '
                            : 'For even odds at ' + fmt(T) + ', believe ';
     const tail = c.alternates.length
@@ -1120,11 +1252,14 @@ function adoptConfession(r){
   const tag = r.normCost > 1 ? ' (a ' + stretchLabel(r) + ' of what you believed)' : '';
   v.textContent = 'Adopted — ' + nmOf(r.varName) + ' is now ' + fmt(r.range[0]) + '–' + fmt(r.range[1]) + tag + '. ';
   const undo = document.createElement('button'); undo.className = 'adopt'; undo.type = 'button'; undo.textContent = 'Undo';
-  undo.addEventListener('click', () => {
+  undo.addEventListener('click', () => keepScroll(() => {
     varState.clear(); for(const [k, s] of snap) varState.set(k, s);
     varRowsSig = ''; lint();
-  });
+    runConfession();   // back to the state before the Adopt: the confession is offered again
+    $('tin').focus({preventScroll: true});   // the Undo is gone: focus goes to the goal line
+  }));
   v.appendChild(undo);
+  $('tin').focus({preventScroll: true});     // the Adopt button is gone: focus goes to the goal line
 }
 
 /* redraw on resize + theme change */
@@ -1134,21 +1269,39 @@ if(window.ResizeObserver) new ResizeObserver(rafBatched(() => { pour.stop(); dra
 onThemeChange(() => { pour.stop(); redrawAll(); if(lastConfess) paintConfession(); });
 
 /* ---------- chips / copy / boot ---------- */
+/* an edit that rebuilds the rows must not move the page under the finger */
+function keepScroll(fn){
+  const y = scrollY, x = scrollX;
+  fn();
+  if(scrollY !== y) scrollTo(x, y);
+}
+function loadExample(ex){
+  if(pageMode !== 'est') setMode('est');
+  syncExampleButtons(estimateExampleButtons, ex.name);
+  $('formula').value = ex.f;
+  $('estimatequestion').value = ex.q || '';
+  $('estimateunit').value = ex.u || '';
+  for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist:'auto'});
+  varRowsSig = '';
+  lint();
+}
+function startBlank(){
+  if(pageMode !== 'est') setMode('est');
+  if(compareOn){ compareOn = false; scenStore.B = null; lastBy.B = null; active = 'A'; renderTabs(); }
+  $('formula').value = ''; $('estimatequestion').value = ''; $('estimateunit').value = '';
+  varState.clear(); threshStr = ''; $('tin').value = ''; varRowsSig = '';
+  syncExampleButtons(estimateExampleButtons);
+  lint();
+  writeHashSafe();
+  setAuthorOpen(true, {focus: true});
+}
 for(const ex of EXAMPLES){
   const b = document.createElement('button');
   b.className = 'chip';
   b.textContent = ex.name;
   b.dataset.example = ex.name;
   b.setAttribute('aria-pressed', 'false');
-  b.addEventListener('click', () => {
-    syncExampleButtons(estimateExampleButtons, ex.name);
-    $('formula').value = ex.f;
-    $('estimatequestion').value = ex.q || '';
-    $('estimateunit').value = ex.u || '';
-    for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist:'auto'});
-    varRowsSig = '';
-    lint();
-  });
+  b.addEventListener('click', () => keepScroll(() => loadExample(ex)));
   estimateExampleButtons.push(b);
   $('chips').appendChild(b);
 }
@@ -1171,94 +1324,65 @@ $('copydoc').addEventListener('click', async () => {
   ensureFreshEstimate();
   if(!last) return;
   await flushEstimateHash();
-  const lines = [];
-  if($('estimatequestion').value.trim()) lines.push($('estimatequestion').value.trim(), '');
-  if($('estimateunit').value.trim()) lines.push('Results in ' + $('estimateunit').value.trim(), '');
-  lines.push('**Estimate — `' + $('formula').value.trim() + '`**');
-  lines.push('');
-  let head = 'P50 ≈ **' + fmt(last.p50) + '** · 80% range ' + fmt(last.p10) + ' – ' + fmt(last.p90);
-  if(last.p10 > 0) head += ' (spread ×' + ratioStr(last.p90 / last.p10) + ')';
-  lines.push(head);
-  const t = threshValue();
-  if(t !== null) lines.push('P(> ' + fmt(t) + ') = ' + $('tout').textContent);
-  lines.push('');
-  const anyUni = currentVarNames.some(n => varState.get(n)?.dist === 'uni');
-  lines.push('Assumptions (90% intervals' + (anyUni ? '; a uniform input is its full range' : '') + '):');
-  for(const name of currentVarNames){
-    const st = varState.get(name);
-    if(st) lines.push('- ' + name.replace(/_/g,' ') + ': ' + st.lo + ' – ' + st.hi + (st.dist === 'uni' ? ' (uniform, full range)' : '') + ' — ' + receiptLabel(st.base));
-  }
-  if(last.sens.length > 1){
-    const fullLabel = isFinite(last.fullRatio) ? '×' + ratioStr(last.fullRatio) : fmt(last.p10) + ' – ' + fmt(last.p90);
-    lines.push('');
-    lines.push(leverLine(last.sens, fullLabel));
-  }
-  if(pourVerdictText){ lines.push(''); lines.push(pourVerdictText); }
-  if(lastConfess){ const cv = $('confessverdict').textContent.replace(/\s*(Adopt|Undo)$/, '').trim(); if(cv){ lines.push(''); lines.push(cv); } }
-  const pcmp = compareOn ? pBeatsStr() : null;
-  if(pcmp !== null){
-    lines.push('');
-    lines.push('Model variant A P50 ' + fmt(lastBy.A.p50) + ' vs model variant B P50 ' + fmt(lastBy.B.p50) +
-      ' — independently sampled B outputs exceed A in ' + pcmp + '. This is sensitivity analysis, not a chance state.');
-  }
-  lines.push('');
-  lines.push('_' + estimateMethod(last.varNames, last.ranges, last.dists, N, !!last.exact) + ' · [live model](' + location.href + ')_');
-  const txt = lines.join('\n');
+  const t = threshValue(), pcmp = compareOn ? pBeatsStr() : null;
+  const txt = estimateMarkdown({
+    question: $('estimatequestion').value.trim(), unit: $('estimateunit').value.trim(), formula: $('formula').value.trim(),
+    p10: fmt(last.p10), p50: fmt(last.p50), p90: fmt(last.p90), ratio: last.p10 > 0 ? ratioStr(last.p90 / last.p10) : '',
+    threshold: t !== null ? {text: fmt(t), pct: $('tout').textContent} : null,
+    vars: currentVarNames.map(name => varState.get(name)).map((st, i) => st && ({name: currentVarNames[i], lo: st.lo, hi: st.hi, uniform: st.dist === 'uni', receipt: receiptLabel(st.base)})).filter(Boolean),
+    lever: last.sens.length > 1 ? leverLine(last.sens, isFinite(last.fullRatio) ? '×' + ratioStr(last.fullRatio) : fmt(last.p10) + ' – ' + fmt(last.p90)) : '',
+    pour: pourVerdictText,
+    confession: lastConfess ? $('confessverdict').textContent.replace(/\s*(Adopt|Undo)$/, '').trim() : '',
+    compare: pcmp !== null ? {a: fmt(lastBy.A.p50), b: fmt(lastBy.B.p50), pct: pcmp} : null,
+    method: estimateMethod(last.varNames, last.ranges, last.dists, N, !!last.exact), link: location.href});
   try{
     await navigator.clipboard.writeText(txt);
-    $('copydoc').textContent = 'Copied';
-    setTimeout(() => { $('copydoc').textContent = 'Copy as markdown'; }, 1500);
+    flashButton($('copydoc'), 'Copied — paste into your doc');
   }catch(e){
+    exportLine.textContent = 'Copy blocked by this browser. The Markdown is in the prompt that opened: copy it from there.'; exportLine.hidden = false;
     prompt('Copy this:', txt);
   }
 });
-$('png').addEventListener('click', async () => {
-  ensureFreshEstimate();
-  if(!last) return;
-  const result = last, snap = snapshot(), C = themeColors(), w = 760, pad = 28;
-  const chart = document.createElement('canvas');
-  drawHist(undefined, {canvas:chart, width:w});
-  // Capture everything before encoding: later edits must not change this receipt.
-  const model = compareOn
-    ? {a:packScen(active === 'A' ? snap : scenStore.A), b:packScen(active === 'B' ? snap : scenStore.B), on:active}
-    : packScen(snap);
-  const rows = [
-    {text:snap.question.trim() || snap.f, size:19, weight:600},
-    {text:'Conditional estimate' + (snap.unit.trim() ? ' · '+snap.unit.trim() : ''), size:12},
-    {text:'P10 '+fmt(result.p10)+' · P50 '+fmt(result.p50)+' · P90 '+fmt(result.p90), size:16, weight:600},
-    {text:'Formula: '+snap.f, size:13},
-    {text:'ASSUMPTIONS · 90% INPUT RANGES' + (result.varNames.some(n => snap.vars.get(n)?.dist === 'uni') ? ' (UNIFORM: FULL RANGE)' : ''), size:11, weight:600},
-    ...result.varNames.map(name => {
-      const st = snap.vars.get(name);
-      return {text:name+': '+st.lo+' – '+st.hi+' · '+shapeLabel(st.dist, Math.min(parseNum(st.lo), parseNum(st.hi)))+' · '+receiptLabel(st.base),size:12};
-    }),
-    {text:N.toLocaleString('en-GB') + ' seeded samples, independent inputs. These ranges are assumptions, not a guarantee of outcomes.', size:11},
-  ];
-  if(compareOn) rows.push({text:'Model variant '+active+' filled; '+(active === 'A' ? 'B' : 'A')+' outlined. Variant comparison is sensitivity analysis, not a chance state.',size:11});
-  const hash = await encodeHash(targetHashState(model, inboundHandoff));
-  rows.push({text:'Reopen this model: '+location.origin+location.pathname+'#'+hash, size:9});
-  const c = document.createElement('canvas'), ctx = c.getContext('2d'), lines = [];
-  let y = pad + 180 + 28;
-  for(const row of rows){
-    const font = (row.weight || 400)+' '+row.size+'px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.font = font;
-    let line = '';
-    for(const char of row.text){
-      if(ctx.measureText(line+char).width > w){lines.push({text:line,font,y});y+=row.size+6;line=char;}
-      else line+=char;
-    }
-    lines.push({text:line,font,y});y+=row.size+14;
+
+/* the distribution picture: the result card as the page shows it. The PNG is this SVG at 2x, the same for Copy PNG and Download PNG. */
+function outlineOf(other, L){
+  const counts = new Array(L.NB).fill(0);
+  for(const v of other.raw){
+    if(v < L.lo || v > L.hi || (L.useLog && v <= 0)) continue;
+    let b = Math.floor((L.tx(v) - L.tlo) / (L.thi - L.tlo) * L.NB);
+    if(b === L.NB) b = L.NB - 1;
+    if(b >= 0 && b < L.NB) counts[b]++;
   }
-  c.width=(w+pad*2)*2;c.height=(y+pad)*2;ctx.scale(2,2);
-  ctx.fillStyle=C.card;ctx.fillRect(0,0,w+pad*2,y+pad);
-  ctx.drawImage(chart,pad,pad,w,180);ctx.fillStyle=C.ink;
-  for(const line of lines){ctx.font=line.font;ctx.fillText(line.text,pad,line.y);}
-  c.toBlob(blob => {if(blob) download('estimate.png',blob);},'image/png');
-});
+  const max = Math.max(...counts);
+  return max > 0 ? counts.map(n => n / max) : null;
+}
+function distExport(embed = true){
+  ensureFreshEstimate();
+  const r = last;
+  if(!r || !shown) return null;
+  const C = themeColors(), tv = threshValue(), L = histLayout(r.sorted, {width: RESULT_CW, threshold: tv});
+  const own = active === 'A' ? C.accent : C.accent2, otherLetter = active === 'A' ? 'B' : 'A', other = compareOn ? lastBy[otherLetter] : null;
+  const variantOf = (name, res, snap) => ({name, formula: (snap?.f || '').trim(), p10: fmt(res.p10), p50: fmt(res.p50), p90: fmt(res.p90)});
+  const cmpP = compareOn ? pBeatsStr() : null;
+  return (embed ? embedChapterFonts : svg => svg)(renderResultCard({
+    question: $('estimatequestion').value.trim(), unit: $('estimateunit').value.trim(), formula: $('formula').value.trim(),
+    p10: r.p10, p50: r.p50, p90: r.p90, p10Text: fmt(r.p10), p50Text: fmt(r.p50), p90Text: fmt(r.p90),
+    verdict: shown.verdict, spread: shown.spread, method: shown.method,
+    layout: L, fill: own, threshold: tv, loText: L.ok ? fmt(L.lo) : '', hiText: L.ok ? fmt(L.hi) : '',
+    threshText: tv !== null ? 'Chance the answer exceeds ' + fmt(tv) + ' = ' + threshPctText() : '',
+    outline: other && L.ok ? outlineOf(other, L) : null, outlineColor: otherLetter === 'A' ? C.accent : C.accent2,
+    compare: compareOn ? {active, other: other ? otherLetter : ''} : null,
+    variants: compareOn && other ? [variantOf('A', lastBy.A, active === 'A' ? snapshot() : scenStore.A), variantOf('B', lastBy.B, active === 'B' ? snapshot() : scenStore.B)] : null,
+    compareText: cmpP ? 'B exceeds A in ' + cmpP + ' (independently sampled; sensitivity, not a chance state).' : '',
+  }, {colors: C, measure, fonts: EXPORT_FONTS}));
+}
+wireExports({buttons: {dlsvg: $('distsvg'), dlpng: $('png'), copypng: $('distcopypng')}, getSvg: fontsReadyFor(distExport),
+  slug: () => 'estimate-' + (($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model'))});
+/* print is the current view's artefact alone, light, as a picture */
+wirePrintArtefact({getSvg: () => lightly(() => pageMode === 'cf' ? cfExport(false) : view === 'tree' ? treeExport(false) : distExport(false))});
 
-
-$('formula').addEventListener('input', () => schedule(180));
-for(const id of ['estimatequestion','estimateunit']) $(id).addEventListener('input', () => schedule(180));
+$('formula').addEventListener('input', () => schedule(120));
+for(const id of ['estimatequestion','estimateunit']) $(id).addEventListener('input', () => schedule(120));
 $('editmodel').addEventListener('click', () => setAuthorOpen(true, {focus:true}));
 $('returntoreview').addEventListener('click', () => setAuthorOpen(false, {focus:true}));
 for(const key of ['p10', 'p50', 'p90']){
@@ -1303,6 +1427,7 @@ if(boot && boot.a && boot.b){
 }
 renderTabs();
 lint();
+document.querySelector('.analysis-stage').removeAttribute('data-boot');
 
 /* ---------- cashflow mode (#13, absorbs #57) ---------- */
 const cf = {grain: 'year', horizon: 5, rlo: '8', rhi: '12',
@@ -1317,7 +1442,7 @@ const CF_EXAMPLES = [
    debtOn: true, dscr: '1.45', rd: '6.5', tenor: '9', sizingCase: 'central',
    periods: [{lo: '-7.2M', hi: '-6.8M'}, ...Array(15).fill({lo: '880k', hi: '1.35M'})]},
 ];
-let cfResult = null, cfSpec = null, cfSig = '', cfSvg = '', cfTimer = null, cfHashTimer = null;
+let cfScrollHold = null, cfResult = null, cfSpec = null, cfSig = '', cfSvg = '', cfTimer = null, cfHashTimer = null;
 
 function setMode(m){
   pageMode = m;
@@ -1342,8 +1467,8 @@ function setMode(m){
   }
   updateModelTrace();
 }
-$('modeest').addEventListener('click', () => { if(pageMode !== 'est'){ setMode('est'); writeHashSafe(); } });
-$('modecf').addEventListener('click', () => { if(pageMode !== 'cf'){ setMode('cf'); cfWriteHashSafe(); } });
+$('modeest').addEventListener('click', () => { $('modeest').focus({preventScroll: true}); if(pageMode !== 'est'){ setMode('est'); writeHashSafe(); } });
+$('modecf').addEventListener('click', () => { $('modecf').focus({preventScroll: true}); if(pageMode !== 'cf'){ setMode('cf'); cfWriteHashSafe(); } });
 
 function renderCfRows(){
   cf.horizon = effectiveHorizon(cf.horizon, cf.periods.length);
@@ -1369,7 +1494,12 @@ function renderCfRows(){
       const del = document.createElement('button');
       del.className = 'del'; del.textContent = '×';
       del.setAttribute('aria-label', 'Remove period ' + i);
-      del.addEventListener('click', () => { cf.periods.pop(); renderCfRows(); cfSchedule(); });
+      del.addEventListener('click', () => {
+        cf.periods.pop(); renderCfRows(); cfSchedule();
+        /* the row went with its button: focus goes to the previous period (its remove control while it has one), else the add control */
+        const rows = [...$('cfrows').querySelectorAll('.cfrow')], prev = rows[rows.length - 1];
+        (prev?.querySelector('.del') || prev?.querySelectorAll('input')[1] || $('cfadd')).focus({preventScroll: true});
+      });
       row.appendChild(del);
     } else row.appendChild(document.createElement('div'));
     holder.appendChild(row);
@@ -1412,7 +1542,8 @@ $('cfhorizon').addEventListener('change', () => {
 });
 $('cfdebton').addEventListener('change', () => {
   cf.debtOn = $('cfdebton').checked;
-  $('cfdebtfields').hidden = !cf.debtOn;
+  keepScroll(() => { $('cfdebtfields').hidden = !cf.debtOn; });
+  cfScrollHold = scrollY;   // the repaint that follows (a moment later) may not move the page either
   cfSchedule();
 });
 for(const [id, key] of [['cfdscr', 'dscr'], ['cfrd', 'rd'], ['cften', 'tenor']])
@@ -1421,7 +1552,7 @@ $('cfcase').addEventListener('change', () => { cf.sizingCase = $('cfcase').value
 function cfSchedule(){
   syncExampleButtons(cashflowExampleButtons);
   clearTimeout(cfTimer);
-  cfTimer = setTimeout(() => { cfTimer = null; cfPaint(); }, 150);
+  cfTimer = setTimeout(() => { cfTimer = null; cfPaint(); }, 120);
 }
 function ensureFreshCashflow(){
   if(!cfTimer) return;
@@ -1469,6 +1600,7 @@ function cfPaint(){
   cfRenderThresh();
   clearTimeout(cfHashTimer);
   cfHashTimer = setTimeout(cfWriteHash, 400);
+  if(cfScrollHold !== null){ const y = cfScrollHold; cfScrollHold = null; if(scrollY !== y) scrollTo(scrollX, y); }
 }
 function cfRenderThresh(){
   const el = $('cftout');
@@ -1502,8 +1634,12 @@ for(const ex of CF_EXAMPLES){
   $('cfchips').appendChild(b);
 }
 
+function cfExport(embed = true){
+  ensureFreshCashflow();
+  return cfResult ? (embed ? embedChapterFonts : svg => svg)(renderCashflow(cfResult, cfSpec, {colors: themeColors(), measure, fonts: EXPORT_FONTS})) : null;
+}
 wireExports({buttons: {dlsvg: $('cfsvg'), dlpng: $('cfpng'), copypng: $('cfcopypng')},
-  getSvg: () => { ensureFreshCashflow(); return cfSvg || null; },
+  getSvg: fontsReadyFor(cfExport),
   slug: () => cfResult && cfResult.framing === 'runway' ? 'runway' : 'cashflow-npv'});
 $('cfcopydoc').addEventListener('click', async () => {
   ensureFreshCashflow();
@@ -1544,6 +1680,7 @@ if(boot && boot.m === 'cf'){
 }
 
 paintKicker($('kicker'), '11', 'A number built from its parts');
+provide({blank: startBlank, examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => loadExample(ex)}))});
 wireCopyVerdict($('verdict'), {canCopy: () => !!last && !$('results').classList.contains('is-stale')});
 
 mountModelLink({getState: () => {

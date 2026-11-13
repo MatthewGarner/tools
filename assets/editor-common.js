@@ -82,12 +82,22 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
      role=textbox). Lift it onto the content element via CM's native facet so a SR
      user hears "<Tool> source editor" instead of an unlabelled text box. */
   const ariaLabel = parent.getAttribute('aria-label') || undefined;
+  /* Tab indents, so the editor is a keyboard trap unless there is a way out: Escape, then Tab, moves focus on (the
+     standard CodeMirror convention). It is stated in the editor's accessible description, and works whatever the
+     vendored bundle's own tab-focus mode does: the flag is ours. */
+  let escaped = false;
+  const tabOut = EditorView.domEventHandlers({
+    keydown(e){ if(e.key === 'Escape') escaped = true; else if(e.key !== 'Tab' && !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) escaped = false; return false; },
+    blur(){ escaped = false; return false; },
+  });
   const view = new EditorView({
     parent,
     state: EditorState.create({
       doc,
       extensions: [
         ...(ariaLabel ? [EditorView.contentAttributes.of({'aria-label': ariaLabel})] : []),
+        EditorView.contentAttributes.of({'aria-description': 'Tab indents. To leave the editor, press Escape, then Tab.'}),
+        tabOut,
         langExtension,
         syntaxHighlighting(HighlightStyle.define([...BASE_HIGHLIGHTS, ...extraHighlights])),
         history(),
@@ -95,7 +105,7 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
         highlightActiveLine(),
         /* Tab/Shift-Tab own indentation (before defaultKeymap so nothing shadows
            them). Keyboard users escape the trap the standard CM way: Esc, then Tab. */
-        keymap.of([{key: 'Tab', run: indentMore, shift: indentLess},
+        keymap.of([{key: 'Tab', run: view => escaped ? false : indentMore(view), shift: view => escaped ? false : indentLess(view)},
           ...defaultKeymap, ...historyKeymap]),
         cmTheme,
         EditorView.lineWrapping,

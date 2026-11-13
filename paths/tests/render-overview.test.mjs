@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import {parse} from '../parse.js';
 import {project} from '../project.js';
 import {decisionImpactProjection, overviewProjection} from '../overview.js';
-import {renderOverview, renderOverviewNarrow} from '../render-overview.js';
+import {renderOverview, renderOverviewNarrow, briefFit, briefMinWidth, FIT_MIN_PERIOD} from '../render-overview.js';
 
 const measure = text => String(text).length * 7;
 const colors = {
@@ -169,4 +169,42 @@ test('wide and narrow overview are accessible, total and escape hostile projecte
     assert.match(svg, /&lt;script&gt;/);
     assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
   }
+});
+
+/* The Brief beside the decision margin: the live drawing is laid out for the width that is left, never drawn wider and covered. */
+const threePeriods = 'title: Fit\nverdict: Keep both routes open\n' + decision('pricing') + decision('groups') +
+  'NOW\n  Core: Shared work with a rather long title that must wrap\n  Growth: Price route [if pricing]\n' +
+  'NEXT\n  Core: Joint route [if pricing and groups]\n' +
+  'LATER\n  Growth: Alternative [unless pricing]';
+
+test('briefFit: columns scale to the width beside the margin and report the narrowest width that stays readable', () => {
+  const fit = briefFit(830, 3);
+  assert.equal(fit.width, 830);
+  const used = fit.pad * 2 + fit.laneW + fit.periodW * 3;
+  assert.ok(used <= 830 && 830 - used < 3, 'the columns use the width (floor rounding only)');
+  assert.ok(fit.periodW >= FIT_MIN_PERIOD && fit.periodW < 260, 'narrower than the wide 260px column, not below the readable floor');
+  assert.equal(briefFit(2000, 3).periodW, Math.floor((2000 - fit.pad * 2 - fit.laneW) / 3), 'more room is shared out, not wasted');
+  const floor = briefMinWidth(3);
+  assert.equal(briefFit(floor - 100, 3).width, floor, 'never below the floor');
+  assert.equal(briefFit(floor - 100, 3).periodW, FIT_MIN_PERIOD);
+  assert.ok(briefMinWidth(5) > briefMinWidth(3), 'each extra period needs its column');
+  assert.ok(Number.isFinite(briefFit(830, 0).periodW), 'no periods: no division by zero');
+});
+
+test('a fitted Brief is exactly the width given, with nothing drawn past its right edge', () => {
+  const overview = view(threePeriods);
+  for(const width of [briefMinWidth(3), 830, 914, 990]){
+    const svg = renderOverview(overview, {colors, measure, width, fit:true});
+    assert.equal(Number(/<svg[^>]* width="(\d+)"/.exec(svg)[1]), width, `fitted at ${width}`);
+    for(const m of svg.matchAll(/<rect x="([\d.-]+)" y="[\d.-]+" width="([\d.]+)"/g))
+      assert.ok(Number(m[1]) + Number(m[2]) <= width + 0.5, `rect ends at ${Number(m[1]) + Number(m[2])} within ${width}`);
+    assert.equal((svg.match(/data-kind="roadmap-item"/g) || []).length, 4);
+    assert.match(svg, /data-kind="roadmap-grid"/);
+  }
+});
+
+test('without fit the Brief keeps the wide drawing, whatever width is offered', () => {
+  const overview = view(threePeriods);
+  const svg = renderOverview(overview, {colors, measure, width:830});
+  assert.ok(Number(/<svg[^>]* width="(\d+)"/.exec(svg)[1]) >= 1100);
 });

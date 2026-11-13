@@ -382,7 +382,7 @@ payoff and an optional kill criterion, and drives a Monte-Carlo "P(loses money)"
   after `by` is read as the deadline.
 
 **What it warns about:** an unknown config key; a config key after the first group; a bet
-before any group (filed under an implicit "Bets"); an indented line that isn't `kill:`; a
+before any group, or written at indent 0 (filed under an implicit "Bets"); an indented line that isn't `kill:`; a
 bet missing its `: stake …, odds …, payoff …`; an unrecognised attribute; an unreadable,
 malformed (`1.2.3`, `1,5`) or non-finite number (the bet is left out of the simulation);
 odds outside 0–100%; odds written at or below 1 with no `%` (read as percent, not

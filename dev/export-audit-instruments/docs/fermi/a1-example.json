@@ -1,0 +1,30 @@
+{
+ "about": "built-in example: Weekly meeting, annual cost",
+ "state": {
+  "f": "attendees * hourly_cost * meeting_hours * weeks_per_year",
+  "q": "What does this weekly meeting cost per year?",
+  "u": "£ per year",
+  "v": {
+   "attendees": [
+    "6",
+    "10",
+    "auto"
+   ],
+   "hourly_cost": [
+    "60",
+    "120",
+    "auto"
+   ],
+   "meeting_hours": [
+    "0.75",
+    "1.5",
+    "auto"
+   ],
+   "weeks_per_year": [
+    "44",
+    "48",
+    "auto"
+   ]
+  }
+ }
+}

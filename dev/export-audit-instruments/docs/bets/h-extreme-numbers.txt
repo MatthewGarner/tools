@@ -1,0 +1,16 @@
+// huge, tiny, zero, certain and impossible odds, non-finite and negative inputs
+title: Extreme numbers
+unit: £
+
+Big
+  Moonshot: stake 1000000000000, odds 0.1-1%, payoff 999999999999999
+  Sure thing: stake 1, odds 100%, payoff 1.5
+  Impossible: stake 50, odds 0%, payoff 100
+  Zero stake: stake 0, odds 50%, payoff 10
+  Zero payoff: stake 10, odds 50%, payoff 0
+Small
+  Fraction: stake 0.1, odds 49.5-50.5%, payoff 0.2-0.3
+  Negative stake: stake -40, odds 50%, payoff 100
+  Not a number: stake abc, odds 50%, payoff 100
+  Infinity: stake 1e999, odds 50%, payoff 10
+  Odds as fraction: stake 10, odds 0.5, payoff 30

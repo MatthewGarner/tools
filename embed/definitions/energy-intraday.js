@@ -12,4 +12,5 @@ const v1=base('energy-intraday','Intraday storage','Explore how storage changes 
 v1.views['day'].defaultControls=['fleet', 'duration'];
 // Version 2 (2026-11-13 engine audit): the storage book is re-checked after the back-off, so a fleet is no longer stripped to an empty book when part of it would pay (default day at 8 and 12 GW changes); an empty book after a non-empty plan no longer says the spread is "thinner than the round-trip loss"; the trough cannot exceed the peak. Version 1 stays frozen as published.
 // Version 3: the default day is a summer weekday, the one-cycle rule is stated, and links carry a version so earlier ones keep their day.
-export const definition={...v1,version:3};
+// Version 4: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:4};

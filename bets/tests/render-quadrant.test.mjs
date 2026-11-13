@@ -41,7 +41,7 @@ test('every bet name rendered & escaped', () => {
 
 test('a bubble (<circle) per bet', () => {
   const svg = renderQuadrant(model, sim, CTX);
-  const circles = svg.match(/<circle/g) || [];
+  const circles = svg.match(/<circle(?![^>]*data-legend)/g) || [];
   // 3 bets, one of which (Billing rewrite) has no kill -> extra dashed ring circle
   assert.ok(circles.length >= 4, 'expected at least one circle per bet plus the no-kill ring');
 });
@@ -51,7 +51,7 @@ test('dashed ring for a no-kill bet, none for a bet with a kill', () => {
   const withKill = parse('G\n  A: stake 10, odds 20-40%, payoff 30-60\n    kill: watch this by 2026-01-01');
   const svgNo = renderQuadrant(noKill, simulate(noKill), CTX);
   const svgYes = renderQuadrant(withKill, simulate(withKill), CTX);
-  const dashedCircles = svg => (svg.match(/<circle[^>]*stroke-dasharray[^>]*>/g) || []).length;
+  const dashedCircles = svg => (svg.match(/<circle(?![^>]*data-legend)[^>]*stroke-dasharray[^>]*>/g) || []).length;
   assert.ok(dashedCircles(svgNo) >= 1, 'no-kill bet gets a dashed ring');
   assert.equal(dashedCircles(svgYes), 0, 'killed-guarded bet has no dashed ring');
 });
@@ -67,8 +67,8 @@ test('probability thresholds are quiet rules, not shaded zones', () => {
   const svg = renderQuadrant(model, sim, CTX);   // Billing rewrite is 90-100%
   assert.doesNotMatch(svg, /data-zone=/);
   assert.equal((svg.match(/data-allocation-guide=""/g) || []).length, 5);
-  assert.match(svg, /HIGH ODDS OF SUCCESS ≥ 90%/);
-  assert.match(svg, /LOW ODDS OF SUCCESS ≤ 10%/);
+  assert.match(svg, /HIGH ODDS OF SUCCESS: 90% OR MORE/);
+  assert.match(svg, /LOW ODDS OF SUCCESS: 10% OR LESS/);
 });
 
 test('a label near break-even reserves the zero-rule gutter', () => {
@@ -105,14 +105,14 @@ test('unscored bets are listed but never plotted or counted as stake', () => {
   const svg = renderQuadrant(m, simulate(m), CTX);
   assert.match(svg, /NOT SCORED · B01 Invalid/);
   assert.match(svg, /TOTAL STAKE 0/);
-  assert.equal((svg.match(/<circle/g) || []).length, 0);
+  assert.equal((svg.match(/<circle(?![^>]*data-legend)/g) || []).length, 0);
   assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
 });
 
 test('loss is carried by the affected allocation mark, not a washed-out region', () => {
   // "Sure loser" (odds 10-20%, payoff 50-80, stake 100) should EV-lose at p50.
   const svg = renderQuadrant(model, sim, CTX);
-  const loser = svg.match(/<g data-allocation-mark="" data-id="B02">([\s\S]*?)<\/g>/)?.[1] || '';
+  const loser = svg.match(/<g data-allocation-mark="" data-mc="" data-id="B02">([\s\S]*?)<\/g>/)?.[1] || '';
   assert.match(loser, new RegExp('stroke="' + COLORS.err + '"'));
 });
 
@@ -240,7 +240,7 @@ test('placeLabels: leader line only when the label is not snug against its bubbl
   // an escape-ring (leader) pick for at least one lower-priority bet.
   const items = Array.from({length: 8}, (_, i) => ({
     cx: 300 + i * 0.2, cy: 300 - i * 0.2, radius: 16,
-    name: 'Portfolio bet number ' + i, micro: (100 - i * 5) + ' @ 30–50% → pays 200–400',
+    name: 'Portfolio bet number ' + i, micro: (100 - i * 5) + ' @ 30–50% · pays 200–400',
     stake: 100 - i * 10, absEv: 50 - i * 5,
   }));
   const bounds = {x0: 0, y0: 0, x1: 900, y1: 900};
@@ -267,12 +267,13 @@ test('dense mode replaces direct labels with source-order IDs and a full in-plan
   assert.equal(NAME_ONLY_THRESHOLD, 9);
   const svgCrowded = renderQuadrant(crowdedModel, crowdedSim, CTX);   // 12 bets
   assert.match(svgCrowded, /data-quadrant-key=""/);
-  assert.match(svgCrowded, /FULL BET KEY · SOURCE ORDER/);
+  assert.match(svgCrowded, />KEY</, 'a key listing every bet is headed KEY');
+  assert.doesNotMatch(svgCrowded, /WITH A NUMBER/);
   for(const id of ['B01', 'B06', 'B12']) assert.ok(svgCrowded.includes(id));
-  assert.ok(svgCrowded.includes('→ pays'), 'the key retains stake/odds/payoff detail');
+  assert.ok(svgCrowded.includes('· pays'), 'the key retains stake/odds/payoff detail');
   const svgSmall = renderQuadrant(model, sim, CTX);   // 3 bets, well under threshold
   assert.ok(!svgSmall.includes('data-quadrant-key=""'), 'small portfolios keep direct labels');
-  assert.ok(svgSmall.includes('→ pays'), 'small portfolios keep the microcopy line');
+  assert.ok(svgSmall.includes('· pays'), 'small portfolios keep the microcopy line');
 });
 
 test('crowded portfolio narrow: no coordinate exceeds the 390 viewBox (escape-ring/fallback safety)', () => {
@@ -289,7 +290,7 @@ test('crowded portfolio golden-shape sanity: a bubble + label per bet, well-form
   assert.ok(!/NaN|undefined/.test(svg), 'no NaN/undefined');
   assert.match(svg, /^<svg /);
   assert.match(svg, /<\/svg>$/);
-  const circles = svg.match(/<circle/g) || [];
+  const circles = svg.match(/<circle(?![^>]*data-legend)/g) || [];
   assert.ok(circles.length >= 12, 'at least one bubble per bet');
   for(const name of ['Search revamp', 'Onboarding tweak', 'Referral loop', 'Paid acq test',
     'Billing rewrite', 'Infra migration', 'API v2', 'Cache layer',

@@ -176,7 +176,7 @@ test('RK-15 pair agreement that is not total prints >99%, never 100%', () => {
 test('RK-16 a | in a name is escaped in the Markdown table', () => {
   assert.equal(mdCell('Search | v2'), 'Search \\| v2');
   assert.equal(mdCell('two\nlines'), 'two lines');
-  assert.match(readFileSync(new URL('../app.js', import.meta.url), 'utf8'), /mdCell\(s\.name\)/);
+  assert.match(readFileSync(new URL('../md.js', import.meta.url), 'utf8'), /mdCell\(r\.name\)/);   // the Markdown builder escapes a name through the one rule (rank/md.js)
 });
 
 /* ---------- wording slips seen on the live page ---------- */

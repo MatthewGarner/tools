@@ -191,8 +191,16 @@ check('label rename lands in text and diagram', await until(async () => ((await 
     (await page.evaluate(() => document.querySelectorAll('#preview svg [data-edit^="node-"]').length)) === 0);
 
   const marker = line => page.locator('#preview svg g[data-edit^="cardmenu-"][data-line="' + line + '"] rect[data-hit]');
+  /* The figures arrive from the worker and repaint the picture a moment after the first paint, so a marker found in the pending
+     picture can be replaced before the tap (its box then reads null). Wait on the page's own signal, #preview[data-sim=final]
+     (assets/sim-pending.js), and take the box from the final picture. */
   const tapMarker = async line => {
-    const box = await marker(line).boundingBox();
+    let box = null;
+    for(let i = 0; i < 40 && !box; i++){
+      await page.locator('#preview[data-sim="final"]').waitFor();
+      box = await marker(line).boundingBox();
+      if(!box) await page.waitForTimeout(25);
+    }
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   };
   const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
@@ -3751,6 +3759,8 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
    uses the evaluator-backed impact receipt while Tree retains its editable
    legacy receipt and source-rewrite behavior during the staged migration. ---- */
 if(scope.wants("paths")){
+  /* The Brief is laid out for the width beside the 350px margin and stays readable down to briefMinWidth (768px for three periods),
+     so the rail is open at laptop widths: 1440px here. A stage too narrow for that puts the margin above the drawing (asserted at 1100px below). */
   const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
   // This fixture asserts the pre-deadline announcement. Freeze wall time so
@@ -3906,22 +3916,23 @@ if(scope.wants("paths")){
     await p.locator('#focus-lens').isHidden())));
 
   await p.setViewportSize({width:1100, height:900});
-  check('paths: constrained non-narrow desktop folds source and keeps the Brief plus decision margin readable', await until(async () => (await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
-    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'rail' &&
+  check('paths: constrained non-narrow desktop folds source and keeps the whole Brief drawn, the margin above it and over nothing', await until(async () => (await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'inline' &&
     await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
-    await p.locator('#overview-receipt').isVisible())));
+    await p.evaluate(() => { const r = document.querySelector('#overview-receipt'), s = document.querySelector('#preview svg').getBoundingClientRect(); return r.hidden || r.getBoundingClientRect().bottom <= s.top + 1; }))));
   await p.locator('[data-select-decision][data-decision-key="groups"]').click();
   await p.waitForTimeout(150);
-  check('paths: selecting a constrained-desktop decision updates the readable decision margin',
-    await p.locator('#overview-receipt[data-layout="rail"][data-decision-key="groups"]').isVisible() &&
-    await p.locator('#overview-receipt [data-receipt-close]').count() === 0);
+  check('paths: selecting a constrained-desktop decision shows the decision margin above the drawing, over nothing',
+    await p.locator('#overview-receipt[data-layout="inline"][data-decision-key="groups"]').isVisible() &&
+    await p.locator('#overview-receipt [data-receipt-close]').count() === 0 &&
+    await p.evaluate(() => { const r = document.querySelector('#overview-receipt').getBoundingClientRect(), s = document.querySelector('#preview svg').getBoundingClientRect(); return r.bottom <= s.top + 1; }));
   await p.locator('#overview-receipt [data-open-focus]').click();
   check('paths: Focus remains a deliberate local lens after review folding', await until(async () => (await p.locator('#focus-lens').isVisible() &&
     await p.locator('#focus-lens .focus-branch').count() === 2)));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
-  await p.setViewportSize({width:1700, height:900});
+  await p.setViewportSize({width:1440, height:900});
   check('paths: resizing across the receipt boundary reflows overlay into the rail', await until(async () => (await p.evaluate(() => {
       const main = document.querySelector('.overview-main').getBoundingClientRect();
       const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
@@ -3931,6 +3942,12 @@ if(scope.wants("paths")){
     }))));
 
   await p.setViewportSize({width:1280, height:900});
+  check('paths: at 1280px the decision margin is a rail open on landing beside a Brief laid out for what is left, nothing under it', await until(async () => (await p.evaluate(() => {
+      const live = document.querySelector('#overview-live'), rc = document.querySelector('#overview-receipt');
+      const s = document.querySelector('#preview svg').getBoundingClientRect(), r = rc.getBoundingClientRect(), pane = document.querySelector('#preview').getBoundingClientRect();
+      return live.dataset.receiptLayout === 'rail' && !rc.hidden && s.right <= r.left && s.width < 1100 && s.right <= pane.right + 1 &&
+        Number(document.querySelector('#preview svg').getAttribute('width')) === Math.round(s.width);
+    }))));
 
   await p.getByRole('button', {name:'Question lens'}).click();
   check('paths: visible Question lens switch edits the source and makes two answer outcomes explicit', await until(async () => (/style: question/.test(await src()) &&

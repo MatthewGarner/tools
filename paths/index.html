@@ -9,11 +9,13 @@
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/syntax.css">
+<link rel="stylesheet" href="/assets/motion.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="/assets/handoff.css">
 <link rel="stylesheet" href="../assets/mobile.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/assets/print-artefact.css" media="print">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#24212c">
@@ -70,7 +72,7 @@
 </div>
 
 <main id="main" tabindex="-1">
-<div class="workspace" id="workspace">
+<div class="workspace landing-fold" id="workspace">
   <aside class="rail">
     <div id="cmhost" aria-label="Paths source editor"></div>
     <ul id="warns"></ul>
@@ -168,7 +170,7 @@
         <button class="btn" type="button" data-paths-view="question" data-capability="views.question-lens" aria-pressed="false">Question lens</button>
         <button class="btn" type="button" data-paths-view="conditions" data-capability="views.conditions" aria-pressed="false">Conditions</button>
       </div>
-      <details class="paths-more-views">
+      <details class="paths-more-views" data-dismiss>
         <summary>More views</summary>
         <div>
           <button type="button" data-paths-view="tree" data-capability="views.tree">Tree</button>
@@ -176,11 +178,13 @@
         </div>
       </details>
     </nav>
+    <div class="selected-pin"><div class="selected-bar" id="selected-bar" hidden><p class="selected-words"><span>Selected:</span> <b id="selected-words"></b></p><button class="btn" id="selected-show" type="button">Show details</button></div></div>
+    <p class="sr-only" id="selected-live" role="status" aria-live="polite" aria-atomic="true"></p>
     <button class="paths-projection-jump" id="paths-projection-jump" type="button"
       aria-controls="roadmap-projection" hidden>Choose exact outcome</button>
     <div class="overview-live" id="overview-live">
       <div class="overview-main">
-        <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+        <div class="preview" id="preview"><p class="placeholder" data-boot>Start typing — or load an example.</p></div>
       </div>
       <aside class="overview-receipt" id="overview-receipt" aria-labelledby="overview-receipt-title" hidden></aside>
       <section class="focus-lens" id="focus-lens" aria-labelledby="focus-lens-title" hidden></section>
@@ -195,8 +199,8 @@
       <details class="action-disclosure">
         <summary class="btn">Export</summary>
         <div class="action-menu">
-          <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
-          <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
+          <button class="btn" id="dlpng" data-capability="presentationExports.png">Download PNG</button>
+          <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Download SVG</button>
           <button class="btn scoped-receipt-export" id="agenda-receipt-svg" data-capability="presentationExports.agenda-receipt" hidden>
             Selected decision receipt · SVG
           </button>
@@ -213,6 +217,7 @@
       </details>
       <span class="method" id="view-method">The phone view groups work by period; every export remains the full plan artefact.</span>
     </div>
+    <p class="export-status" id="exportstatus" role="status" aria-live="polite" hidden></p>
   </section>
 </div>
 </main>

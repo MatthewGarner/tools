@@ -444,7 +444,7 @@ if(scope.wants("rank")){
     sl.dispatchEvent(new PointerEvent('pointerup', {bubbles: true}));
     sl.dispatchEvent(new Event('change', {bubbles: true}));
     return {preMax, w: parseFloat(sl.value),
-      readout: sl.parentElement.querySelector('.wsval').textContent};
+      readout: sl.parentElement.querySelector('.wsnum').value};
   });
   ok(runaway.w <= runaway.preMax * 1.001,
     `rank: pinned-at-max drag tops out at the gesture ceiling (${runaway.w} <= ${runaway.preMax})`);

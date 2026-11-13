@@ -24,8 +24,8 @@ test('live wide views measure authored titles and use unambiguous probability ca
       'a wide title must be measured rather than emitted as one unbounded text node');
   }
   const plane = renderQuadrant(model, sim, ctx);
-  assert.match(plane, /LOW ODDS OF SUCCESS ≤ 10%/);
-  assert.match(plane, /HIGH ODDS OF SUCCESS ≥ 90%/);
+  assert.match(plane, /LOW ODDS OF SUCCESS: 10% OR LESS/);
+  assert.match(plane, /HIGH ODDS OF SUCCESS: 90% OR MORE/);
 });
 
 test('phone Board preserves long unbroken source and routes coarse editing through one menu plane', () => {

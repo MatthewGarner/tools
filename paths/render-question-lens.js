@@ -5,10 +5,9 @@
 
 import {btnAttrs, esc, txt, wash} from '../assets/svg.js';
 import {line, rect} from '../assets/svg-shapes.js';
+import {SANS, SERIF, useFace} from './face.js';
 import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
-const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
-const SERIF = "Charter,'Bitstream Charter',Georgia,serif";
 const PAD = 36;
 const NARROW_PAD = 14;
 const MIN_READABLE_SCALE = 0.93;
@@ -468,6 +467,7 @@ function emptyState(x, y, width, C){
 }
 
 export function renderQuestionLens(overview, ctx = {}){
+  useFace(ctx);
   if(Number(ctx.width) > 0 && Number(ctx.width) < 520) return renderQuestionLensNarrow(overview, ctx);
   const measure = typeof ctx.measure === 'function' ? ctx.measure : value => String(value).length * 7;
   const C = palette(ctx.colors || {});
@@ -475,7 +475,7 @@ export function renderQuestionLens(overview, ctx = {}){
   const decision = selectedDecision(overview, ctx);
   const impact = selectedImpact(decision, ctx);
   const head = header(overview, width, C, measure, false);
-  let y = head.height;
+  let y = head.height, trail = 0;
   let body = '';
   if(!decision){
     body = emptyState(PAD, y, width - PAD * 2, C);
@@ -502,11 +502,13 @@ export function renderQuestionLens(overview, ctx = {}){
     const history = historyBlock(impact, PAD, y, width - PAD * 2, C, measure);
     body += history.svg;
     y += history.height ? history.height + 18 : 0;
+    if(history.height) trail += 18;
     const health = healthBlock(overview, impact, PAD, y, width - PAD * 2, C, measure);
     body += health.svg;
     y += health.height;
+    if(health.height) trail += 8;   // the health block's own bottom padding is not ink
   }
-  const height = Math.ceil(y + PAD);
+  const height = Math.ceil(y + PAD - 11 - trail);   // the trailing gap is not ink: the bottom margin is the house margin
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" data-kind="question-lens" data-layout="paired" data-min-readable-scale="' + MIN_READABLE_SCALE + '" font-family="' + SANS +

@@ -9,6 +9,7 @@ const v1=base('energy-frequency','Frequency & inertia','Explore a loss of genera
 
 // Version 2 (2026-11-12 engine audit): one Hz formatter, the verdict names the inertia its RoCoF used, the grid-forming basis is labelled as a minimum. Version 1 stays frozen as published.
 // Version 3: the shed-load simplification is stated in the assumptions.
-export const definition={...v1,version:3};
+// Version 4: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:4};
 
 definition.views['trace'].defaultControls=['inertia', 'containment'];

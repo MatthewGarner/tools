@@ -174,3 +174,17 @@ test('occurrence identity ignores case, whitespace and unrelated source-line mov
   assert.equal(before.occurrenceKey, after.occurrenceKey);
   assert.notEqual(before.srcLine, after.srcLine);
 });
+
+test('XB-16: a bet written at indent 0 goes into an implicit "Bets" group, with a warning, before or after a group', () => {
+  const before = parse('Orphan bet: stake 10, odds 50%, payoff 30');
+  assert.equal(before.groups.length, 1);
+  assert.equal(before.groups[0].name, 'Bets');
+  assert.equal(before.groups[0].bets[0].name, 'Orphan bet');
+  assert.deepEqual(before.groups[0].bets[0].stake, [10, 10]);
+  assert.ok(before.warnings.some(w => w.line === 1 && /group/i.test(w.msg)));
+  const after = parse('Growth\n  A: stake 1, odds 2-3%, payoff 4-5\nOrphan bet: stake 10, odds 50%, payoff 30\n    kill: stop');
+  assert.deepEqual(after.groups.map(g => g.name), ['Growth', 'Bets']);
+  assert.equal(after.groups[1].bets[0].name, 'Orphan bet');
+  assert.equal(after.groups[1].bets[0].kill.text, 'stop');
+  assert.ok(after.warnings.some(w => w.line === 3));
+});

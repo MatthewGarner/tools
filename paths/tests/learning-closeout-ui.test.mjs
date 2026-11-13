@@ -34,13 +34,15 @@ test('full exports retain their established selected-decision context while Clos
   assert.match(html, /Selected learning close-out · SVG/);
   assert.match(html, /Selected learning close-out · PNG/);
   /* Decision: Brief, Question lens and Conditions stay complete whole-plan
-     exports with their existing selected context; no semantic change here.
-     Learning Agenda deliberately omits transient selection, and Close-out is
-     the only selected-decision scoped export. */
-  assert.match(app, /if\(style === 'brief'\) return renderOverview\(overview,[\s\S]*selectedKey:selectedOverviewDecision\?\.key/);
-  assert.match(app, /if\(style === 'question'\) return renderQuestionLens\(overview,[\s\S]*selectedKey:selectedOverviewDecision\?\.key/);
-  assert.match(app, /if\(style === 'conditions'\) return renderConditions\(overview,[\s\S]*selectedKey:selectedOverviewDecision\?\.key/);
-  assert.match(app, /renderLearningAgenda\(overview,[\s\S]*selection:false/);
+     exports with the selected context the view shows. The Learning Agenda
+     export now shows its focus dossier too (an export mirrors the view);
+     Close-out is the only selected-decision scoped export. */
+  assert.match(app, /if\(style === 'brief'\) return renderOverview\(overview, context\(model, overviewSelection\)\)/);
+  assert.match(app, /if\(style === 'question'\) return renderQuestionLens\(overview, context\(model, overviewSelection\)\)/);
+  assert.match(app, /if\(style === 'conditions'\) return renderConditions\(overview, context\(model, overviewSelection\)\)/);
+  assert.match(app, /if\(style === 'agenda'\) return renderLearningAgenda\(overview, context\(model, overviewSelection\)\)/);
+  assert.match(app, /overviewSelection = \{\.\.\.ex, selectedKey:selectedOverviewDecision\?\.key/);
+  assert.doesNotMatch(app, /selection:false/);
   assert.match(app, /selectedCloseOutReceiptSvg/);
 });
 

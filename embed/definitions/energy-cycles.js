@@ -10,7 +10,8 @@ const v1=sourceDefinition({id:'energy-cycles',title:'Cycle budget',description:'
 
 // The native 10,000-draw projection costs about a second; the host runs it off-thread.
 // Version 2 (2026-11-12 engine audit): "a year later forgoes" is the search's own value of waiting, year-1 wording, nothing-binds verdict, unit-aware parse, refused inputs. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:3};
 
 definition.worker=true;
 definition.project=s=>{const m=parse(s.t);return {m,out:simulate(m)};};

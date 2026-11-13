@@ -2,10 +2,13 @@
 import {esc, wrapText} from '../assets/svg.js';
 import {chapterColors} from '../assets/chapter-colors.js';
 import {project} from './review-model.js';
+import {TYPOGRAPHIES} from '../assets/chapter-fonts.js';
 
 const e=v=>esc(String(v??''));
 const fallback=(s,f)=>String(s).length*(Number(f.match(/([\d.]+)px/)?.[1])||16)*.51;
-export function reviewTypography(model){return {body:'DM Sans',display:/^(dm-sans|DM Sans)$/.test(model.font)?'DM Sans':'Instrument Serif',weight:/^(dm-sans|DM Sans)$/.test(model.font)?600:400};}
+/* The review is typeset in the registered Chapter faces, so it imports the registry that names them: the embed bundle then
+   carries the fonts because this module reaches them, not because a string in it happens to match. */
+export function reviewTypography(model){const dm=/^(dm-sans|DM Sans)$/.test(model.font);return {body:TYPOGRAPHIES.Chapter.body,display:dm?TYPOGRAPHIES['DM Sans'].display:TYPOGRAPHIES.Chapter.display,weight:dm?600:400};}
 export function reviewColors(model,ctx={}){return chapterColors({...model,accent:model.accent||(!model.palette?'#526F65':null)},ctx);}
 export function renderReview(input,ctx={},opts={}){
   const m=project(input),W=Math.max(280,ctx.width||960),phone=W<600,P=phone?16:28,I=W-P*2;

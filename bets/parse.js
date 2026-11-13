@@ -11,6 +11,7 @@
    durable authored id. */
 
 const CONFIG = new Set(['title', 'unit', 'palette', 'accent']);
+const BET_SHAPE = /^[^:]+:\s*(?:stake|odds|payoff)\s/i;   // "Name: stake …": a bet line, wherever it is indented
 /* One number reader for stake, payoff and odds. The loose pattern only finds
    the shape ("30-50", "30–50%", "120", "1,000-2,500"); readNumber then insists
    each end is a real number: digits with at most one decimal point, and commas
@@ -58,7 +59,7 @@ export function parse(text){
 
   lines.forEach((raw, i) => {
     const srcLine = i + 1;
-    const noComment = raw.replace(/\s*\/\/.*$/, '');
+    const noComment = raw.replace(/(^|\s+)\/\/.*$/, '');   // a // is a comment only at the start of a line or after whitespace: https://… survives
     if(!noComment.trim()) return;                       // blank or comment-only
     const indent = noComment.match(/^ */)[0].length;
     const body = noComment.trim();
@@ -78,6 +79,20 @@ export function parse(text){
         model.groups.push(curGroup);
         seenGroup = true;
       }
+      curBet = parseBet(body, srcLine, warn);
+      curGroup.bets.push(curBet);
+      return;
+    }
+
+    /* A bet written at indent 0 ("Name: stake …") is a bet, not a group named after the whole line: it goes into an
+       implicit "Bets" group, as a bet before any group does. */
+    if(BET_SHAPE.test(body)){
+      warn(srcLine, 'Bet at the left margin — indent it under a group heading; filed under "Bets".');
+      if(!(curGroup && curGroup.implicit)){
+        curGroup = {name: 'Bets', srcLine, bets: [], implicit: true};
+        model.groups.push(curGroup);
+      }
+      seenGroup = true;
       curBet = parseBet(body, srcLine, warn);
       curGroup.bets.push(curBet);
       return;

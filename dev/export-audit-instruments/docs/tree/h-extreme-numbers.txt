@@ -1,0 +1,12 @@
+// huge, tiny, zero, negative and absurdly wide ranges
+title: Extreme numbers
+currency: $
+Pick
+  Huge : 999b
+  Tiny : 0.01
+  Zero : 0
+  Negative huge : -500b to -1b
+  Wide range : 1 to 10m
+  Gamble
+    Win (p=0.0001) : 1000b
+    Lose (p=rest) : -1

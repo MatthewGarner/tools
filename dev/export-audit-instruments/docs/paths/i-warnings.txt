@@ -1,0 +1,12 @@
+// warnings: unknown decision, bad status, bad date, mixed and/or
+title: Warnings
+today: 2026-11-12
+
+decision a:
+  question: A?
+  answer-by: 2026-13-45
+
+NOW
+  Core: Uses unknown [if nosuch]
+  Core: Bad status [wibble]
+  Core: Mixed [if a and b or c]

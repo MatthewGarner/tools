@@ -1,0 +1,20 @@
+{
+ "about": "cashflow: Runway example (months)",
+ "state": {
+  "m": "cf",
+  "g": "month",
+  "h": 24,
+  "rl": "0",
+  "rh": "0",
+  "p": [
+   [
+    "400k",
+    "400k"
+   ],
+   [
+    "-45k",
+    "-25k"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,3 @@
+// one bet, no title, no unit
+Bets
+  Only bet: stake 10, odds 50%, payoff 25

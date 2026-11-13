@@ -1,0 +1,30 @@
+{
+ "about": "built-in example: Availability chain",
+ "state": {
+  "f": "app_up * db_up * network_up * api_up",
+  "q": "What fraction of time is the whole service available?",
+  "u": "fraction of time (0–1)",
+  "v": {
+   "app_up": [
+    "0.97",
+    "0.999",
+    "auto"
+   ],
+   "db_up": [
+    "0.98",
+    "0.9995",
+    "auto"
+   ],
+   "network_up": [
+    "0.99",
+    "0.9999",
+    "auto"
+   ],
+   "api_up": [
+    "0.95",
+    "0.999",
+    "auto"
+   ]
+  }
+ }
+}

@@ -448,6 +448,11 @@ body.overview-sheet-open::before{
   border:0; border-top:3px solid var(--accent); box-shadow:none;
 }
 .overview-receipt[data-sheet="true"] .receipt-identity{max-width:calc(100% - 60px)}
+/* the phone decision sheet enters with the shared entrance (opacity + a short rise, fast); closing is immediate */
+@keyframes sheet-in{from{opacity:0; transform:translateY(16px)}}
+@media (prefers-reduced-motion: no-preference){
+  .overview-receipt[data-sheet="true"]{animation:sheet-in var(--dur-fast) var(--ease-out)}
+}
 
 .overview-live[data-view="overview"][data-mode="overview"][data-receipt-layout="rail"]{
   display:grid; grid-template-columns:minmax(520px,1fr) 350px;
@@ -559,3 +564,21 @@ body.overview-sheet-open::before{
   .receipt-closeout-open,.focus-return,.closeout-edit-grid .inspector-value{min-height:44px}
   .closeout-edit-grid .inspector-value{font-size:16px}
 }
+/* the page lands in its final height: about 990px for the example on a desktop, 1440px on a phone */
+.overview-main .preview .placeholder[data-boot]{min-height:990px;align-items:flex-start}
+@media (max-width:539px){.overview-main .preview .placeholder[data-boot]{min-height:1439px}}
+
+/* A zero-height sticky anchor holds the bar, so it takes no room in the flow: selecting a question never moves what is under the
+   pointer. The bar overlays the top of the artefact pane and never the view buttons above it. */
+.selected-pin{position:sticky; top:0; z-index:9; height:0}
+.selected-bar{position:absolute; left:0; right:0; top:0; box-sizing:border-box; display:flex; align-items:center; gap:12px; min-height:44px;
+  padding:0 8px 0 12px; background:var(--card); border:1px solid var(--border); border-top:2px solid var(--accent); box-shadow:0 2px 10px rgb(0 0 0 / .14)}
+.selected-bar[hidden]{display:none}
+.selected-words{flex:1 1 auto; min-width:0; margin:0; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.selected-words span{color:var(--muted)}
+.selected-bar .btn{flex:none; min-height:36px}
+@media (pointer:coarse),(max-width:520px){.selected-bar .btn{min-height:44px}}
+.receipt-back{margin-left:auto; min-height:32px; font-size:12px}
+.overview-live[data-receipt-layout="rail"] .receipt-back{display:none}
+/* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
+.export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}

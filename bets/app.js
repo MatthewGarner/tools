@@ -5,7 +5,7 @@ import {mountModelLink} from '../assets/model-link.js';
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
    with edit-in-place + the coarse-pointer card menu. */
 import {parse} from './parse.js';
-import {simulate, markdown} from './engine.js';
+import {markdown} from './engine.js';
 import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
 import {renderBetsPresentation} from './render-presentation.js';
@@ -17,7 +17,13 @@ import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import './face-house.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
+import {createSimMemo, carrySim, runSimulations, isSmall} from './sim-memo.js';
+import {createSimSequencer} from '../assets/sim-sequencer.js';
+import {createSimPending, holdWhilePending, keepFocus, afterFieldCloses} from '../assets/sim-pending.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -28,11 +34,16 @@ import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {STARTER} from './starter.js';
-import {NSIM_TEXT} from './format.js';
+import {NSIM_TEXT, lossText, outcomeText} from './format.js';
 for(const el of document.querySelectorAll('[data-runs]')) el.textContent = NSIM_TEXT;   // the count on the page is the engine's constant
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
+/* the page's own signal for "the figures are final" (#preview[data-sim]), and the polite announcement that goes with it */
+const simLive = document.createElement('p');
+simLive.className = 'sr-only'; simLive.setAttribute('role', 'status'); simLive.setAttribute('aria-live', 'polite');
+$('preview').after(simLive);
+const pending = createSimPending({host: $('preview'), live: simLive});
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -70,15 +81,17 @@ let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-f
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 const nBets = m => m.groups.reduce((t, g) => t + g.bets.length, 0);
 const isCoarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-/* Keep snapshot simulation memoised without putting state in renderers. */
-const prevSimCache = new WeakMap();
+/* The simulation is kept, keyed on what it reads (bets/sim-memo.js): a view switch, theme, zoom or snapshot pick never runs it again.
+   The snapshot's own model goes through the same memo, so the current model and the snapshot alternate without re-simulating. */
+const simMemo = createSimMemo();
 function currentCompare(){
   const cur = snaps && snaps.current();
   if(!cur || !hasBets(model)) return null;
   if(!comparisonSafety(cur.model, model).safe) return null;
-  if(!prevSimCache.has(cur.model)) prevSimCache.set(cur.model, simulate(cur.model));
   const diffView = betsDiffView(betsDiff(cur.model, model), cur.label);
-  return {...diffView, prevSim: prevSimCache.get(cur.model), previousUnit: cur.model.unit};
+  const prevSim = simMemo.peek(cur.model);   // the snapshot's own result: never drawn until it is final
+  if(!prevSim) return null;
+  return {...diffView, prevSim, previousUnit: cur.model.unit};
 }
 function findBet(m, srcLine){
   if(!m) return null;
@@ -98,24 +111,111 @@ function activeRender(intent = 'live'){
   }
   return view === 'quadrant' ? renderQuadrant(model, sim, c) : renderBoard(model, sim, c);
 }
+/* ---------- the simulation, off the main thread (bets/sim-worker.js) ----------
+   An edit paints at once from what is already known (the structure and every figure that is not simulated are the new document's;
+   the simulated figures are the last result, carried onto the bets that were there), the worker runs the engine's own function, and
+   the page repaints with the final figures. The memo is the single place a result is looked up: a document it already holds is
+   drawn final in the same task. */
+let lastGood = null;      // {model, sim}: the last picture drawn from final figures
+let asked = null;         // the models the run in flight was asked for, in order
+let simError = '';        // the engine's message when it could not simulate this document; '' otherwise
+let lastText = '';
+let fromResult = false;   // this repaint is the final figures arriving over a pending one: the reveal already playing is not played again
+let inlineNow = false;   // the first picture of a small portfolio is drawn from the simulation in the boot task
+const seqr = createSimSequencer({
+  spawn({message, failure}){
+    try{
+      const w = new Worker(new URL('./sim-worker.js', import.meta.url), {type: 'module'});
+      w.onmessage = ({data}) => message(data);
+      w.onerror = failure; w.onmessageerror = failure;
+      return w;
+    }catch(e){ return null; }
+  },
+  runSync: runSimulations,
+  onResult(key, results){
+    const models = asked; asked = null;
+    if(!models) return;
+    models.forEach((m, i) => simMemo.put(m, results[i]));
+    drawFinal();
+  },
+  onError(key, message){ asked = null; modelError(message); },
+});
+/* the figures have arrived: draw them over the pending picture (not under an open edit field: see afterFieldCloses) */
+function drawFinal(){
+  if(afterFieldCloses(drawFinal)) return;
+  fromResult = true;
+  try{ paintModel(); }finally{ fromResult = false; }
+}
+globalThis.__betsWorkerAlive = () => seqr.workerAlive();   // test hook: a model error must not retire the worker
+/* what the page needs a result for: this portfolio, and the selected snapshot's when its comparison would be drawn */
+function neededModels(){
+  const models = [model];
+  const cur = snaps && snaps.current();
+  if(cur && hasBets(cur.model) && comparisonSafety(cur.model, model).safe) models.push(cur.model);
+  return models;
+}
+/* what a screen reader hears when the final figures arrive: the portfolio's own two lines, worded as the board words them */
+const announcement = () => (sim && sim.portfolio)
+  ? lossText(sim.portfolio) + ' chance of losing money; ' + outcomeText(sim.portfolio).toLowerCase() : '';
+/* the engine could not solve this document: the structure is the document's, the figures are the last that worked, and nothing is
+   exported from them */
+function modelError(message){
+  simError = message;
+  drawPicture();
+  pending.fail();
+}
+function paintModel(){
+  if(!hasBets(model)){
+    seqr.cancel(); asked = null; sim = null; simError = '';
+    drawPicture();
+    pending.end();
+    return;
+  }
+  const missing = [], seen = new Set();
+  for(const m of neededModels()){
+    const key = simMemo.key(m);
+    if(!seen.has(key) && !simMemo.peek(m)){ missing.push(m); seen.add(key); }
+  }
+  if(missing.length && (inlineNow || !seqr.workerAlive())) for(const m of missing) simMemo.get(m);   // no worker: the same function, here, drawn once
+  const final = missing.length ? missing.every(m => simMemo.peek(m)) : true;
+  if(final) simError = '';
+  sim = simMemo.peek(model) || carrySim(lastGood, model);
+  drawPicture();
+  if(final){
+    lastGood = {model, sim};
+    seqr.cancel(); asked = null;
+    pending.end(announcement());
+    return;
+  }
+  pending.begin();
+  asked = missing;
+  seqr.request(missing.map(m => simMemo.key(m)).join('|'), {models: missing});
+}
 function doRefresh(){
-  const text = editor.getText();
-  model = parse(text);
+  lastText = editor.getText();
+  model = parse(lastText);
+  simError = '';
+  paintModel();
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'bets-src', lastText); }catch(e){}
+  clearTimeout(hashTimer);
+  // Suppressed autoload never gets a deferred URL write.
+  if(shouldPersist()) hashTimer = setTimeout(writeHash, 400);
+}
+/* draw `model` with `sim`, whatever state the figures are in */
+function drawPicture(){
   const pv = $('preview');
   if(!hasBets(model)){
-    sim = null;
     lastSvg = ''; paint.reset();
-    pv.innerHTML = '<p class="placeholder">' + (text.trim()
+    pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
       ? 'No bets yet — add one under a group heading, e.g. “Search revamp: stake 120, odds 30-50%, payoff 400-900”.'
       : 'Start typing — or load an example.') + '</p>';
     paintVerdict($('verdict'), '', '');
     paintMetrics($('metrics'), '', []);
   } else {
-    sim = simulate(model);
     const svg = activeRender('live');
     // quadrant dots glide to new positions as you tune a bet (data-key=bet name);
     // board view has no data-key marks so FLIP is a no-op there.
-    paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
+    keepFocus(document.getElementById('preview'), () => paint(svg, fromResult ? {} : REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode}));
     lastSvg = svg; flipMode = undefined;
     paintVerdict($('verdict'), '', '');
     // The board owns the portfolio reading; avoid a second summary above it.
@@ -127,20 +227,20 @@ function doRefresh(){
     const safety = comparisonSafety(selectedSnapshot.model, model);
     if(!safety.safe) warnings.push({line: safety.line, msg: safety.warning});
   }
+  if(simError) warnings.push('the simulation could not solve these numbers (' + simError + ') — the figures are the last that worked');
   renderWarningList($('warns'), warnings);
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) saveTrackedWork(localStorage,'bets-src', text); }catch(e){}
-  clearTimeout(hashTimer);
-  // Suppressed autoload never gets a deferred URL write.
-  if(shouldPersist()) hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
+const typed = debounced(refresh, 120);
+/* a discrete edit (a commit, a menu pick, Undo, a view or a snapshot) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ typed.cancel(); refresh(); }
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange: debounced(refresh, 120),
+  onChange: typed,
 });
-mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: refreshNow});   // phones have no ⌘Z (Rule 2)
 function modelLinkState(){
   const state = {t: editor.getText()};
   if(view !== 'board') state.v = view;
@@ -156,11 +256,12 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => hasBets(model),
-  onChange(){ flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); },
+  onChange(){ flipMode = 'none'; lastSvg = ''; paint.reset(); refreshNow(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  initialReading: 'when-guarded',   // a Board too wide for the stage beside the editor lands in the reading view, decided at the first render
   /* Reader is a temporary presentation state. Returning to source is an editing
      action, so place the caret back in the actual CodeMirror surface. */
   focusEditor: () => editor.view.focus(),
@@ -169,7 +270,7 @@ const ws = initWorkspace({
 
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
-watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); });   // resize → new layout, don't glide
+watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); }, {skipFirst: true});   // resize → new layout, don't glide
 
 /* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
    scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
@@ -186,9 +287,10 @@ $('viewtoggle').addEventListener('click', e => {
   const b = e.target.closest('[data-view]');
   if(!b || b.dataset.view === view) return;
   view = b.dataset.view;
-  syncViewToggle();
-  flipMode = 'none'; lastSvg = ''; paint.reset();   // board<->quadrant: different layout, no glide
-  refresh();
+  b.focus({preventScroll: true});   // Safari does not focus a button on click
+  syncViewToggle();                  // pressed with the press, not a frame behind the view
+  flipMode = 'fade'; lastSvg = ''; paint.reset();   // board<->quadrant: the shared cross-fade
+  refreshNow();
 });
 
 /* Source-line rewrites; coarse rows resolve through their full-row menu. */
@@ -208,6 +310,7 @@ function openOrAddKill(lineNo, origin){
   const indent = (betLine.match(/^ */) || [''])[0].length;
   const killIndent = ' '.repeat(indent + 2);
   editor.insertLinesAfter(idx, [killIndent + 'kill: reason']);
+  refreshNow();   // the fresh kill line has its field at once
   const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
   const coarse = isCoarsePointer();
   const target = coarse ? {kind: 'cardmenu', line: lineNo} : addedKillTarget(lineNo);
@@ -249,6 +352,11 @@ const eip = attachEditInPlace($('preview'), {
     cardmenu: {menu: el => betMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    commitEdit(kind, lineNo, oldRaw, newValue, el);
+    if(kind !== 'cardmenu' || /Remove bet/.test(newValue)) refreshNow();   // a menu row that opens a field changes nothing to repaint
+  },
+});
+function commitEdit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'cardmenu'){
       if(newValue === '✖Edit kill criterion…' || newValue === '✖Add kill criterion…') openOrAddKill(lineNo, el);
       else if(newValue === '✖Remove bet'){
@@ -260,10 +368,11 @@ const eip = attachEditInPlace($('preview'), {
     if(kind === 'addbet' || kind === 'addgroup'){
       const r = kind === 'addbet' ? addBetLine(editor.getText(), lineNo) : addGroupLine(editor.getText());
       if(!r) return;
-      const typed = newValue.replace(/^✖/, '').trim();
+      const named = newValue.replace(/^✖/, '').trim();
       const placeholder = kind === 'addbet' ? 'New bet' : 'New group';
-      const name = typed || placeholder;
-      editor.insertLinesAfter(r.afterLine, [typed ? r.newLine.replace(placeholder, typed) : r.newLine]);
+      const name = named || placeholder;
+      editor.insertLinesAfter(r.afterLine, [named ? r.newLine.replace(placeholder, named) : r.newLine]);
+      refreshNow();   // the new bet is drawn before its field or menu is sought
       /* Coarse Board editing is deliberately menu-first. A newly inserted
          bet therefore returns focus to its one 44px row control; a fine
          pointer still lands on the exact rename field for immediate typing. */
@@ -282,35 +391,57 @@ const eip = attachEditInPlace($('preview'), {
     const ops = rewrite(editor.getText(), kill ? kill.srcLine : lineNo,
       kill ? kill.text + (kill.by ? ' by ' + kill.by : '') : oldRaw, newValue);
     if(ops) applyLineOps(editor, ops);
-  },
-});
+}
 
 /* ---------- example chips ---------- */
 provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
 
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
+/* Everything that leaves the page is drawn in the house face and carries it embedded; until the face has loaded there is nothing
+   to export (the live picture does not wait: it uses the page's own font). */
+/* Nothing leaves the page with pending figures: a held press (below) replays on the final figures, and a document the engine could not
+   solve exports nothing. Print cannot wait for a worker, so it runs the same function here. */
+const exportable = () => hasBets(model) && sim && chapterFontsReady() && pending.isFinal() && !simError;
 function nativeSvgString(){
-  return (hasBets(model) && sim) ? activeRender('native') : null;
+  if(!exportable()) return null;
+  return embedChapterFonts(activeRender('native'));
 }
-function presentationSvgString(){
-  if(!hasBets(model) || !sim) return null;
+function printSvgString(){
+  if(!pending.isFinal() && hasBets(model) && !simError && chapterFontsReady()){
+    const final = simMemo.get(model);
+    return embedChapterFonts(view === 'quadrant' ? renderQuadrant(model, final, {colors: themeColors(), measure, intent: 'native', dark: isDark()})
+      : renderBoard(model, final, {colors: themeColors(), measure, intent: 'native', dark: isDark()}));
+  }
+  return nativeSvgString();
+}
+function slideSvgString(){
+  if(!exportable()) return null;
   const svg = renderBetsPresentation(model, sim, {colors: themeColors(), measure, intent: 'presentation'});
-  /* A refusal is deliberate Copy-PNG unavailability, never a rasterised
-     apology. The exhaustive native SVG remains the truthful handoff. */
-  return /data-bets-(?:title|density)-refusal=""/.test(svg) ? null : svg;
+  /* A refusal is deliberate Copy-slide unavailability, never a rasterised apology. The exhaustive native SVG remains the
+     truthful handoff. */
+  return /data-bets-(?:title|density)-refusal=""/.test(svg) ? null : embedChapterFonts(svg);
 }
 function slug(){
   return slugify(model && model.title, 'bets');
 }
+/* Copy PNG and Download PNG are the picture of the view on the page; "Copy slide" is the 16:9 summary */
+const exportButtons = {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copyslide: $('copyslide'), copymd: $('copymd')};
+holdWhilePending(Object.values(exportButtons), pending, {say: text => { const line = $('exportstatus'); if(line){ line.textContent = text; line.hidden = !text; } }});
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
+  buttons: exportButtons,
   getSvg: nativeSvgString,
-  getCopy: presentationSvgString,
-  getMarkdown: () => (hasBets(model) && sim)
+  getSlide: slideSvgString,
+  getMarkdown: () => (hasBets(model) && sim && pending.isFinal() && !simError)
     ? markdown(model, sim, location.href, {comparison: currentCompare()})
     : null,
   slug,
+});
+/* Print is the current view's artefact alone, light, whatever theme the page is in; the quadrant is one picture, shrunk onto the sheet */
+wirePrintArtefact({getSvg: () => lightTheme(printSvgString), fitOne: () => view === 'quadrant'});
+loadChapterFonts().then(() => { setActionsEnabled(!!lastSvg); }, () => {
+  const line = $('exportstatus');
+  if(line){ line.textContent = 'The typeface could not load, so exports are unavailable. Reload the page to try again.'; line.hidden = false; }
 });
 
 /* ---------- theme ---------- */
@@ -328,8 +459,11 @@ wireCopyVerdict($('verdict'));
     try{ text = localStorage.getItem('bets-src') || ''; }catch(e){}
   }
   syncViewToggle();
-  if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
+  /* the first artefact is drawn in this task, from the source that is already known: one render, nothing after it moves */
+  const first = () => { typed.cancel(); inlineNow = isSmall(parse(editor.getText())); try{ doRefresh(); }finally{ inlineNow = false; } };
+  if(text){ editor.setText(text); first(); }
+  else if(autoloadExample(() => editor.setText(EXAMPLES[0].src))){ first(); }
+  else refresh();
 })();
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */

@@ -63,7 +63,7 @@ const TOOLS = [
      reader route. That route must release the hidden editor's layout height; a
      zero-width CodeMirror otherwise rewraps into a many-thousand-pixel phantom
      row behind the Field. */
-  {path: '/bets/', chip: 'Lantern portfolio', reader: 'manual'},
+  {path: '/bets/', chip: 'Lantern portfolio', source: 'Show source editor', narrowTab: false, reader: 'auto'},   /* lands in the reading view at 1280px (feel pass: decided before first paint), like the energy tools */
   {path: '/energy/risk/', chip: 'Route to market', source: 'Show source editor', narrowTab: false, reader: true},
   {path: '/energy/cycles/', chip: 'Wexcombe base case', source: 'Show source editor', narrowTab: false, reader: true},
   /* Added 2026-08-16. All three import assets/workspace.js and have done since they
@@ -93,7 +93,7 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
   if(!scope.wants(path)) continue;
   /* Bets exposes its reader through the Fit advisory at its normal authoring
      width, so exercise that named route where the guard honestly appears. */
-  const page = await browser.newPage({viewport: reader === 'manual' ? {width:1280, height:900} : {width:1440, height:900}, reducedMotion:'reduce'});
+  const page = await browser.newPage({viewport: reader === 'manual' || reader === 'auto' ? {width:1280, height:900} : {width:1440, height:900}, reducedMotion:'reduce'});
   const errors = trackErrors(page);
   await page.addInitScript(() => {
     window.__readerArrivalStates = [];

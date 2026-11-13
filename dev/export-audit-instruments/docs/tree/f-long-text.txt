@@ -1,0 +1,9 @@
+// very long labels and title, authored verdict
+title: A deliberately long decision title that keeps going well past the width a slide title would normally allow on one line
+verdict: We should take the slower but safer route because the downside of the faster route is a cost we cannot carry this year, at roughly 120k
+currency: £
+Which route do we take for the platform migration given the constraints we have this year
+  Migrate everything in one big weekend cutover with the whole team on call and a rollback plan
+    The cutover goes cleanly and nobody notices anything other than faster pages (p=0.55) : 400k to 700k
+    The cutover fails part way and we spend a fortnight rolling back while customers complain loudly (p=rest) : -600k to -200k
+  Migrate service by service over two quarters with dual running costs for the whole period : 120k to 300k
