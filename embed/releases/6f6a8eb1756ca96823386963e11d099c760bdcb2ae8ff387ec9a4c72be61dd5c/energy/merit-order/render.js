@@ -199,7 +199,8 @@ export function renderStack(state, ctx, opts = {}){
           const lx = Math.max(x0 + halfW, Math.min(x1 - halfW, midX));
           rows.push(txt(lx, labelY, g.name, 11, C.accent, {weight: 700, anchor: 'middle'}));
         } else {
-          rows.push(txt(midX, labelY, 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle', halo: C.card}));
+          // when demand is unmet no price clears, so the last plant is the last offer, not the price-setter
+          rows.push(txt(midX, labelY, isShort(result) ? 'LAST OFFER' : 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle', halo: C.card}));
         }
       }
       rows.push('</g>');

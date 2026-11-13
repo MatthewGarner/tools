@@ -1,3 +1,3 @@
-import {definition} from '../../releases/828c4562488c3a20e3966f8e1122b749570caa6f4c7709c9cb1ddf4f36214667/embed/definitions/energy-intraday.js';
+import {definition} from '../../releases/6f6a8eb1756ca96823386963e11d099c760bdcb2ae8ff387ec9a4c72be61dd5c/embed/definitions/energy-intraday.js';
 import {mount} from '../../runtime/mount.js';
-mount(definition,undefined,{moduleURL:new URL('../../releases/828c4562488c3a20e3966f8e1122b749570caa6f4c7709c9cb1ddf4f36214667/embed/definitions/energy-intraday.js',import.meta.url).href});
+mount(definition,undefined,{moduleURL:new URL('../../releases/6f6a8eb1756ca96823386963e11d099c760bdcb2ae8ff387ec9a4c72be61dd5c/embed/definitions/energy-intraday.js',import.meta.url).href});
