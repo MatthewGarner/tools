@@ -35,7 +35,8 @@ export function lossText(pf){
 }
 /* the printed figure's rank, for tone and for comparing two scenarios */
 export const lossWhole = pf => pf ? Math.round((pf.pLoss || 0) * 100) : null;
-export const lossIsHigh = pf => !!pf && (pf.pLoss || 0) >= 0.5;
+/* tone follows the printed whole percent, as it always has */
+export const lossIsHigh = pf => !!pf && lossWhole(pf) >= 50;
 
 /* ---------- the portfolio median, or the two values it splits between ---------- */
 export const isSplit = pf => !!(pf && pf.split);
