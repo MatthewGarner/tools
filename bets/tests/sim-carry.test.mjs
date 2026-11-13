@@ -2,9 +2,14 @@
    and the memo's peek/put (the single place a result is looked up) answering without ever simulating. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {parse} from '../parse.js';
 import {simulate} from '../engine.js';
-import {carrySim, createSimMemo} from '../sim-memo.js';
+import {carrySim, createSimMemo, isSmall} from '../sim-memo.js';
+import {betsLarge} from '../../dev/feel-audit/stress-btp.mjs';
+
+/* the built-in examples, read from the page that offers them (the tests hold no second copy) */
+const EXAMPLES = [...readFileSync(new URL('../app.js', import.meta.url), 'utf8').matchAll(/\{name: '([^']+)', src:\n`([\s\S]*?)`\}/g)].map(m => ({name: m[1], src: m[2]}));
 
 const SRC = `title: T
 unit: £k
@@ -60,4 +65,10 @@ test('peek answers from the kept result and never simulates; put keeps a result 
   assert.equal(memo.peek(parse(SRC.replace('stake 100', 'stake 101'))), null, 'an input changed: not kept');
   memo.get(model);
   assert.equal(runs, 0, 'get finds what was put');
+});
+
+test('the built-in examples are drawn from the simulation at load; a large portfolio is drawn pending and filled in', () => {
+  assert.equal(isSmall(parse(SRC)), true);
+  for(const e of EXAMPLES) assert.equal(isSmall(parse(e.src)), true, e.name);
+  assert.equal(isSmall(parse(betsLarge())), false);
 });

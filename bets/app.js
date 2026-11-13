@@ -22,7 +22,7 @@ import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {createSimMemo, carrySim, runSimulations, isSmall} from './sim-memo.js';
 import {createSimSequencer} from '../assets/sim-sequencer.js';
-import {createSimPending, holdWhilePending} from '../assets/sim-pending.js';
+import {createSimPending, holdWhilePending, keepFocus} from '../assets/sim-pending.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -120,6 +120,7 @@ let lastGood = null;      // {model, sim}: the last picture drawn from final fig
 let asked = null;         // the models the run in flight was asked for, in order
 let simError = '';        // the engine's message when it could not simulate this document; '' otherwise
 let lastText = '';
+let fromResult = false;   // this repaint is the final figures arriving over a pending one: the reveal already playing is not played again
 let inlineNow = false;   // the first picture of a small portfolio is drawn from the simulation in the boot task
 const seqr = createSimSequencer({
   spawn({message, failure}){
@@ -135,7 +136,8 @@ const seqr = createSimSequencer({
     const models = asked; asked = null;
     if(!models) return;
     models.forEach((m, i) => simMemo.put(m, results[i]));
-    paintModel();
+    fromResult = true;
+    try{ paintModel(); }finally{ fromResult = false; }
   },
   onError(key, message){ asked = null; modelError(message); },
 });
@@ -207,7 +209,7 @@ function drawPicture(){
     const svg = activeRender('live');
     // quadrant dots glide to new positions as you tune a bet (data-key=bet name);
     // board view has no data-key marks so FLIP is a no-op there.
-    paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
+    keepFocus(document.getElementById('preview'), () => paint(svg, fromResult ? {} : REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode}));
     lastSvg = svg; flipMode = undefined;
     paintVerdict($('verdict'), '', '');
     // The board owns the portfolio reading; avoid a second summary above it.

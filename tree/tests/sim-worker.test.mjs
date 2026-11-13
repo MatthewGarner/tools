@@ -4,12 +4,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {evaluate} from '../engine.js';
+import {evaluate, loadBearing} from '../engine.js';
 import {readFileSync} from 'node:fs';
 /* the built-in examples, read from the page that offers them (the tests hold no second copy) */
 const EXAMPLES = [...readFileSync(new URL('../app.js', import.meta.url), 'utf8').matchAll(/\{name: '([^']+)', src:\n`([\s\S]*?)`\}/g)].map(m => ({name: m[1], src: m[2]}));
 import {decodeResults, preorder} from '../eval-wire.js';
-import {carryResults, pendingResults} from '../eval-memo.js';
+import {carryResults, pendingResults, isSmall} from '../eval-memo.js';
 import {treeLarge} from '../../dev/feel-audit/stress-btp.mjs';
 
 const posted = [];
@@ -45,6 +45,7 @@ for(const [name, src] of docs){
     const inline = evaluate(inlineModel);
     assert.ok(inline.stats.size > 0);
     assertSame(decoded, page.root, inline, inlineModel.root);
+    assert.deepStrictEqual(decoded.hot, loadBearing(inlineModel).map(({ref}) => ref.kind + ':' + ref.line), 'the load-bearing numbers travel with it');
   });
 }
 
@@ -87,4 +88,9 @@ test('pending results are complete: a new node and a tree with no last result ar
   const first = pendingResults(null, edited, rough);
   assert.equal(coarse, 2);
   for(const n of preorder(edited.root)) assert.ok(first.stats.has(n));
+});
+
+test('the built-in examples are drawn from the evaluation at load; a large tree is drawn pending and filled in', () => {
+  for(const e of EXAMPLES) assert.equal(isSmall(parse(e.src)), true, e.name);
+  assert.equal(isSmall(parse(treeLarge())), false);
 });

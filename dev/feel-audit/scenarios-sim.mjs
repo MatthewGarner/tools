@@ -13,8 +13,8 @@ export const FINAL_MS = {normal: 700, cpu4x: 2800};
 
 /* one number in the source, changed to a value no other edit uses: a Bets stake, or a Tree payoff */
 const EDIT = {
-  bets: n => [/stake 20,/, `stake ${20 + n},`],
-  tree: n => [/: 1M to 3M/, `: 1M to ${3 + n}M`],
+  bets: n => [/stake \d+,/, `stake ${20 + n},`],
+  tree: n => [/: 1M to \d+M/, `: 1M to ${3 + n}M`],
 };
 export async function setSource(page, tool, n){
   await page.evaluate(async ([tool, n, from, to]) => {
@@ -93,6 +93,7 @@ export async function simExport(env, tool){
   const {ctx, page} = await openLarge(env, tool, LARGE[tool]());
   await logSim(page);
   await page.waitForFunction(() => document.querySelector('#dlsvg') && !document.querySelector('#dlsvg').disabled, null, {timeout: 10000});
+  await page.evaluate(() => { const d = document.getElementById('dlsvg').closest('details'); if(d) d.open = true; });
   const dir = mkdtempSync(join(tmpdir(), 'sim-export-'));
   const downloads = [];
   page.on('download', d => downloads.push({at: Date.now(), d}));
@@ -126,7 +127,7 @@ export async function simExport(env, tool){
 export async function simStale(env, tool){
   const {check, note} = env.R, w = where(tool, 'desktop', env.mode);
   const base = LARGE[tool]();
-  const change = n => { const [re, to] = EDIT[tool](n); return base.replace(re, to); };
+  const change = n => { const [re, to] = EDIT[tool](n); return base.replace(re, to); };   // the first match, as setSource edits
   const refA = await reference(env, tool, change(7)), refB = await reference(env, tool, change(8));
   const {ctx, page} = await openLarge(env, tool, base);
   await logSim(page);
@@ -151,7 +152,7 @@ export async function simStale(env, tool){
 export async function simError(env, tool){
   const {check, note} = env.R, w = where(tool, 'desktop', env.mode);
   const actual = tool === 'bets' ? 'bets/sim-memo.js' : 'tree/eval-wire.js', fn = tool === 'bets' ? 'runSimulations' : 'runEvaluation';
-  const marker = tool === 'bets' ? 'stake 33,' : '1M to 33M';
+  const marker = tool === 'bets' ? '[7777,7777]' : '33000000';   // the parsed form of the document the stand-in refuses
   const stand = `import {${fn}} from './${actual.split('/')[1]}';
 self.onmessage = ({data: {payload, reqId}}) => {
   try{
@@ -175,7 +176,7 @@ self.onmessage = ({data: {payload, reqId}}) => {
     view.dispatch({changes: {from: m.index, to: m.index + m[0].length, insert: to}});
   }, [re.source, to]);
   const alive = () => page.evaluate(t => window['__' + t + 'WorkerAlive'](), tool);
-  const [re, to] = [EDIT[tool](0)[0], tool === 'bets' ? 'stake 33,' : ': 1M to 33M'];
+  const [re, to] = [EDIT[tool](0)[0], tool === 'bets' ? 'stake 7777,' : ': 1M to 33M'];
   await bad(re, to);
   await page.waitForFunction(() => document.getElementById('preview').dataset.sim === 'error', null, {timeout: 8000}).catch(() => {});
   await sleep(300);
@@ -184,7 +185,7 @@ self.onmessage = ({data: {payload, reqId}}) => {
   const dl = await page.evaluate(() => { const b = document.getElementById('dlsvg'); b.click(); return b.dataset.working === undefined; });
   await sleep(200);
   /* an ordinary edit afterwards: the same worker answers it */
-  await bad(/stake 33,|: 1M to 33M/, tool === 'bets' ? 'stake 21,' : ': 1M to 4M');
+  await bad(EDIT[tool](0)[0], tool === 'bets' ? 'stake 21,' : ': 1M to 4M');
   await waitFinal(page);
   const aliveAfter = await alive();
   const swapped = await page.evaluate(() => document.getElementById('warns').textContent);

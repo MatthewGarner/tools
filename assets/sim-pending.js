@@ -72,3 +72,20 @@ export function holdWhilePending(buttons, pending, {say} = {}){
     }, true);
   }
 }
+
+/* The figures arriving repaints the artefact, and a repaint drops the focus the reader (or the shared edit-in-place) had put on a
+   figure: hand it back to the same item, by what the item is (its kind of edit, its source line, its key), never from a reader who
+   has since moved on. `swap` is the synchronous repaint. */
+export function keepFocus(host, swap){
+  const a = document.activeElement;
+  const snap = a && a !== host && host.contains(a) && a.dataset && a.dataset.edit != null && a.dataset.line != null
+    ? {edit: a.dataset.edit, line: a.dataset.line, key: a.closest('[data-key]')?.dataset.key} : null;
+  swap();
+  if(!snap || a.isConnected) return;
+  const now = document.activeElement;
+  if(now && now !== document.body && now.isConnected) return;
+  const same = [...host.querySelectorAll('[data-edit="' + snap.edit + '"]')].filter(e => e.dataset.line === snap.line && e.hasAttribute('tabindex'));
+  const byKey = snap.key ? same.filter(e => e.closest('[data-key]')?.dataset.key === snap.key) : same;
+  const hit = byKey.length === 1 ? byKey[0] : same.length === 1 ? same[0] : null;
+  if(hit) hit.focus({preventScroll: true});
+}

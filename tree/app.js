@@ -27,7 +27,7 @@ import {STARTER} from './starter.js';
 import {createEvalMemo, pendingResults, isSmall} from './eval-memo.js';
 import {runEvaluation, decodeResults} from './eval-wire.js';
 import {createSimSequencer} from '../assets/sim-sequencer.js';
-import {createSimPending, holdWhilePending} from '../assets/sim-pending.js';
+import {createSimPending, holdWhilePending, keepFocus} from '../assets/sim-pending.js';
 import {createSliderCommit} from './slider-commit.js';
 
 const evalMemo = createEvalMemo();   // the evaluation is kept, keyed on the tree: a theme change, zoom or re-layout never re-runs it
@@ -84,6 +84,7 @@ let lastGood = null;      // {root, results}: the last picture drawn from final 
 let asked = null;         // the model the run in flight was asked for
 let simError = '';        // the engine's message when it could not evaluate this tree; '' otherwise
 let lastText = '';
+let fromResult = false;   // this repaint is the final figures arriving over a pending one: the reveal already playing is not played again
 let inlineNow = false;   // the first picture of a small tree is drawn from the evaluation in the boot task
 const seqr = createSimSequencer({
   spawn({message, failure}){
@@ -99,7 +100,8 @@ const seqr = createSimSequencer({
     const sent = asked; asked = null;
     if(!sent) return;
     evalMemo.put(sent, decodeResults(sent.root, wire));
-    paintModel();
+    fromResult = true;
+    try{ paintModel(); }finally{ fromResult = false; }
   },
   onError(key, message){ asked = null; modelError(message); },
 });
@@ -163,7 +165,7 @@ function drawPicture(){
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot,
       intent: width ? 'live-narrow' : 'live-wide', width,
       coarse: matchMedia('(pointer: coarse)').matches});
-    paint(svg, REVEAL, {onSwap: reapplyActiveMark}); lastSvg = svg;
+    keepFocus(pv, () => paint(svg, fromResult ? {} : REVEAL, {onSwap: reapplyActiveMark})); lastSvg = svg;
     paintMetrics($('metrics'), model.title || 'Untitled tree', metricCounts());
     if(focus) resyncFocusUI();   // repaint the slider's own extent/value + clear any mid-drag classes
   }
@@ -222,10 +224,11 @@ let focus = null;             // {kind, line, label, raw, ext, focusValue} — t
 let undoing = false;           // true only while an Undo/Redo's refresh runs: the slider stays on its node and shows the restored value
 let committingFocus = false;   // true only while OUR OWN commit's settle-refresh is running
 
+/* the load-bearing numbers come with the evaluation (the worker works them out beside it); a picture whose results carry none (an inline
+   run, a coarse fill) works them out here once and keeps them on the results */
 function computeHotSet(m){
-  const set = new Set();
-  for(const {ref} of loadBearing(m)) set.add(ref.kind + ':' + ref.line);
-  return set;
+  if(!results.hot) results.hot = loadBearing(m).map(({ref}) => ref.kind + ':' + ref.line);
+  return new Set(results.hot);
 }
 /* identifies the bound ref by kind+line+label+raw, NEVER node identity — parse() rebuilds fresh
    node objects every call, and duplicate labels exist (the perf fixture carries twins), so a

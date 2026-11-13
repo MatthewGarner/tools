@@ -80,7 +80,7 @@ export function carryResults(lastRoot, last, root){
     policy, stats: lift(last.stats), noOutcome: lift(last.noOutcome), effectiveProbability: lift(last.effectiveProbability),
     headToHead: last.headToHead.filter(h => back.has(h.aNode) && back.has(h.bNode))
       .map(h => ({...h, a: back.get(h.aNode).label, b: back.get(h.bNode).label, aNode: back.get(h.aNode), bNode: back.get(h.bNode)})),
-    flips: last.flips, warnings: last.warnings, worlds: last.worlds,
+    flips: last.flips, warnings: last.warnings, worlds: last.worlds, hot: last.hot,
   };
 }
 
