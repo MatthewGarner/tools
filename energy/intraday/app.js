@@ -15,7 +15,7 @@ import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.
      (900 only as pre-layout/export fallback) instead of the old 520px bucket-flip
      pinned-900 pattern, so the band fills its real width; a debounced ResizeObserver
      re-renders on any >8px change, not just the <520 flip. */
-import {runDay, hourStack, DAY_DEFAULTS} from './day.js';
+import {runDay, hourStack, DAY_DEFAULTS, dayLabel} from './day.js';
 import {renderDay, buildDayVerdictParts, DAY_LIMITATION} from './render-day.js';
 import {renderDayStackExport} from './render-export.js';
 import {renderStack, MERIT_PALETTE} from '../merit-order/diagram.js';
@@ -127,7 +127,7 @@ async function boot(){
     }
     /* metrics: the day's shape in three honest counts — the hours the engine
        runs, the fleet the sliders describe, and the raw spread it trades. */
-    paintMetrics($('metrics'), preset ? PRESETS[preset].label : 'Custom day', [
+    paintMetrics($('metrics'), preset ? PRESETS[preset].label : dayLabel(p), [
       '24 hours',
       p.fleetGW > 0 ? `${fmtGW(p.fleetGW)} GW × ${fmtGW(p.fleetH)} h fleet` : 'no storage fleet',
       `raw spread £${Math.round(result.raw.spread)}`,
