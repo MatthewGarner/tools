@@ -16,7 +16,7 @@ import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.
      pinned-900 pattern, so the band fills its real width; a debounced ResizeObserver
      re-renders on any >8px change, not just the <520 flip. */
 import {runDay, hourStack, DAY_DEFAULTS} from './day.js';
-import {renderDay, buildDayVerdictParts} from './render-day.js';
+import {renderDay, buildDayVerdictParts, DAY_LIMITATION} from './render-day.js';
 import {renderDayStackExport} from './render-export.js';
 import {renderStack, MERIT_PALETTE} from '../merit-order/diagram.js';
 import {GB_TODAY} from '../merit-order/model.js';
@@ -313,7 +313,7 @@ async function boot(){
     lines: [
       `Demand trough ${p.trough} / peak ${p.peak} GW · solar peak ${p.solarPeak} GW, sunrise ${p.sunrise}:00 / sunset ${p.sunset}:00 · wind ${Math.round(p.wind*100)}%.`,
       `Gas ${p.gas} p/th · carbon £${p.carbon}/t · fleet ${p.fleetGW} GW × ${p.fleetH} h · round-trip efficiency ${Math.round(p.rte*100)}%.`,
-    ], limitation: 'Illustrative fixed day shape and GB fleet; perfect foresight, no network constraints. Generated date is not a market observation.',
+    ], limitation: DAY_LIMITATION,
     link: shareLink(), colors: themeColors(), measure,
   });
   wireExports({
