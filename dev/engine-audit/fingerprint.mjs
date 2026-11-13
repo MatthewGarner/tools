@@ -30,12 +30,13 @@ const out = {};
   out['merit-order verdict/outcome/markdown text'] = sha(texts);
 }
 
-{ // Intraday: default day, fleets 0..12 x durations
+{ // Intraday: the EARLIER default day (trough 22, peak 44, solar 6 GW) held by name, fleets 0..12 x durations
   const D = await load('energy/intraday/day.js');
+  const OLD_DAY = {...D.DAY_DEFAULTS, trough: 22, peak: 44, solarPeak: 6};
   const V = await load('energy/intraday/render-day.js');
   const figs = [], texts = [];
   for(const fleetH of [1, 2, 4, 6]) for(let g = 0; g <= 12; g += 0.5){
-    const p = {...D.DAY_DEFAULTS, fleetGW: g, fleetH}, r = D.runDay(p);
+    const p = {...OLD_DAY, fleetGW: g, fleetH}, r = D.runDay(p);
     figs.push([g, fleetH, r.raw.prices, r.flat.prices, r.sched, r.plannedMargin, r.achievedMargin, r.dischargedGWh, r.droppedGWh, r.book]);
     const parts = V.buildDayVerdictParts(r, p);
     figs.push(parts.fig);

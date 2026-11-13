@@ -5,7 +5,7 @@ import {makeRunner, rng} from './lib.mjs';
 import {dispatch} from '../../../energy/merit-order/engine.js';
 import {buildStack, applyAdv, editAdv, srmc, gasLHV, ccsBid, storageBid} from '../../../energy/merit-order/stack.js';
 import {WORLDS, CONDITIONS, DEFAULT_PARAMS, paramsFor, conditionNote} from '../../../energy/merit-order/scenarios.js';
-import {buildVerdict, toMarkdown, outcomeLine, receiptLines} from '../../../energy/merit-order/render.js';
+import {buildVerdict, toMarkdown, outcomeLine, receiptLines, importLine} from '../../../energy/merit-order/render.js';
 import {encodeStateV2, decodeStateV2} from '../../../energy/merit-order/state.js';
 
 const R = makeRunner('merit-order');
@@ -224,11 +224,15 @@ function reference(gens, demand){      // slow, obviously-correct: unit-by-unit 
   R.check('F-MO-9', 'pass', 'scenarios.js no longer claims cold peak "pins imports LOW"; the value is 5 GW', !/pins imports\s+LOW/.test(src) && CONDITIONS.coldPeak.mutate.imports === 5);
   const p = paramsFor('ee', 'coldPeak');
   const at = imp => dispatch(buildStack({...p, imports: imp}, WORLDS.ee.catalogue), p.demand);
-  R.info('F-MO-9', 'for Matt: the shipped cold-peak headlines depend on the 5 GW figure', `EE imports 5: ${at(5).marginalName} £${Math.round(at(5).clearingPrice)}; imports 3: ${at(3).marginalName} £${Math.round(at(3).clearingPrice)} unmet ${at(3).unmet.toFixed(2)} GW`);
+  R.info('F-MO-9', 'the shipped cold-peak headlines depend on the 5 GW figure (stated on the page, see Q-IMP below)', `EE imports 5: ${at(5).marginalName} £${Math.round(at(5).clearingPrice)}; imports 3: ${at(3).marginalName} £${Math.round(at(3).clearingPrice)} unmet ${at(3).unmet.toFixed(2)} GW`);
 }
-{ // Q-IMP
-  const W = WORLDS.fb, off = buildStack(W.params, W.catalogue).find(g => g.name === 'Imports').capacity, inst = W.catalogue.find(t => t.key === 'imports').installed;
-  R.info('Q-IMP', 'for Matt: FES worlds offer imports from one hidden parameter', `Falling Behind: ${off} GW offered of ${inst} GW installed`);
+{ // Q-IMP (ruled): every world's import offer is stated on the page
+  const W = WORLDS.fb, gens = buildStack(W.params, W.catalogue), inst = W.catalogue.find(t => t.key === 'imports').installed;
+  const txt = importLine(gens, inst);
+  R.check('Q-IMP', 'pass', 'Falling Behind states "3 GW of 13 GW installed" at an assumed neighbour price', txt.includes('3 GW of 13 GW installed') && /assumed neighbour price of £80\/MWh/.test(txt), txt);
+  const cp = paramsFor('fb', 'coldPeak');
+  R.check('Q-IMP', 'pass', 'the line follows the condition (cold peak: 5 GW)', importLine(buildStack(cp, W.catalogue), inst).includes('5 GW of 13 GW installed'));
+  R.check('Q-IMP', 'pass', 'the receipt says imports once', receiptLines({generators: gens, demand: 70}, {worldLabel: 'x', gas: 100, carbon: 50, importsInstalled: inst}).filter(l => /^Imports\b/.test(l)).length === 1);
 }
 { // F-MO-8: demand snapped to a running float sum prints through the formatter
   const W = WORLDS.gbToday, p = {...W.params};

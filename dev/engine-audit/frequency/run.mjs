@@ -255,4 +255,5 @@ function refSim(c, dt){          // slow reference: RK4, fresh implementation of
   for(let i = 0; i < 400; i++){ const c = randControls(), r = simulate(P(c)); const m = Math.max(...r.f); if(m > mx){ mx = m; ex = c; } }
   console.log(`   info: highest frequency over UI grid: ${mx.toFixed(3)} Hz at ${JSON.stringify(ex)}`);
 }
+check('A8 shed-load simplification (FREQ-Q1, ruled) is stated in the assumptions', assumptionLines(P({inertia: 90, trip: 1.8, dr: 0, dm: 0, dc: 1, gfm: 0})).includes('Load that is shed stays off for the 30 seconds shown, and damping uses demand as it was before shedding.'));
 done();
