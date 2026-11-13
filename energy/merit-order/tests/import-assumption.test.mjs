@@ -3,7 +3,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../render.js';
-import {buildStack, importsOffer} from '../stack.js';
+import {buildStack, applyAdv, importsOffer} from '../stack.js';
 import {WORLDS, paramsFor} from '../scenarios.js';
 
 const line = (world, cond) => {
@@ -38,4 +38,23 @@ test('Q-IMP: the receipt carries the line; no imports block, no line', () => {
   const lines = R.receiptLines({generators: gens, demand: 60}, {worldLabel: 'x', gas: 100, carbon: 50, importsInstalled: 21});
   assert.ok(lines.some(l => /3 GW of 21 GW installed.*assumed neighbour price/.test(l)), lines.join('|'));
   assert.equal(R.importLine(gens.filter(g => g.family !== 'imports'), 21), '');
+});
+
+test('review fix: the receipt says imports once — the new sentence replaces the per-block line', () => {
+  const {gens} = line('ee', null);
+  const lines = R.receiptLines({generators: gens, demand: 60}, {worldLabel: 'x', gas: 100, carbon: 50, importsInstalled: 21});
+  assert.equal(lines.filter(l => /^Imports\b/.test(l)).length, 1, lines.join('|'));
+  assert.ok(lines.some(l => /^Wind: /.test(l)), 'other blocks keep their lines');
+});
+
+test('review fix: a hand-edited imports block is called edited, not assumed', () => {
+  const {gens} = line('fb', null);
+  const ed = adv => R.importLine(applyAdv(gens, adv), 13, adv);
+  const cap = ed({Imports: [2, null]});
+  assert.ok(cap.includes('2 GW offered (edited)') && /assumed neighbour price of £80\/MWh/.test(cap), cap);
+  const bid = ed({Imports: [null, 95]});
+  assert.ok(bid.includes('£95/MWh (edited)') && !/assumed/.test(bid) && bid.includes('3 GW of 13 GW installed'), bid);
+  const both = ed({Imports: [2, 95]});
+  assert.ok(both.includes('2 GW offered (edited)') && both.includes('£95/MWh (edited)'), both);
+  assert.equal(ed({Wind: [1, 1]}), R.importLine(gens, 13), 'editing another block changes nothing');
 });
