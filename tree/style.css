@@ -111,3 +111,4 @@
 .seam{margin:2px 0 0;font-size:12.5px;color:var(--muted);font-style:italic}
 /* the same for a phone's outline (about 1040px for the example) */
 @media (max-width:539px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;min-height:1037px;max-height:none;align-items:flex-start}}
+@media (min-width:540px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;max-height:none;min-height:407px;align-items:flex-start}}

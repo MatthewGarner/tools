@@ -130,7 +130,7 @@ const ws = initWorkspace({
   focusEditor: () => editor.view.focus(),   // opening the rail moves focus into the editor
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
-watchNarrowBucket(preview, () => { lastSvg = ''; paint.reset(); refresh(); });
+watchNarrowBucket(preview, () => { lastSvg = ''; paint.reset(); refresh(); }, {skipFirst: true});
 
 /* ---------- priced-insistence walk (B3) ----------
    Tap (or Enter/Space) a load-bearing number → the ONE persistent slider (outside #preview,

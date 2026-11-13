@@ -1701,7 +1701,7 @@ document.querySelector('.paths-views').addEventListener('click', event => {
 });
 
 function rerender(){ lastSvg = ''; refresh(); }
-watchNarrowBucket(preview, rerender);
+watchNarrowBucket(preview, rerender, {skipFirst: true});
 /* Overview has two more responsive boundaries than the shared narrow renderer:
    the counterfactual focus changes shape at 760px and the receipt moves into a
    rail at 900px. Observe the stable outer surface and include its effective
@@ -1714,7 +1714,9 @@ new ResizeObserver(() => {
   const key = [metrics.receiptLayout, metrics.focusLayout,
     Math.round(metrics.previewWidth)].join(':');
   if(key === lastOverviewSurfaceKey) return;
+  const firstSight = lastOverviewSurfaceKey === '';
   lastOverviewSurfaceKey = key;
+  if(firstSight && lastSvg) return;   // already drawn at this width in the boot render
   if(isRoadmapStyle()) rerender();
 }).observe($('overview-live'), {box:'content-box'});
 onThemeChange(rerender);

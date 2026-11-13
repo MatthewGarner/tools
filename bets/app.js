@@ -174,7 +174,7 @@ const ws = initWorkspace({
 
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
-watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); });   // resize → new layout, don't glide
+watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); }, {skipFirst: true});   // resize → new layout, don't glide
 
 /* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
    scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
