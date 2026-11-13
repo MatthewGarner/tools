@@ -1,6 +1,7 @@
 /* Pure decision-tree layout. No DOM and no model mutation.
    The renderer adds theme and edit chrome after these rectangles are fixed. */
 import {wrapText} from '../assets/svg.js';
+import {SANS} from './face.js';
 
 export const TREE_GEOM = {
   pad: 32,
@@ -21,7 +22,7 @@ export const TREE_GEOM = {
   narrowGap: 12,
 };
 
-const font = size => '600 ' + size + 'px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+const font = size => '600 ' + size + 'px ' + SANS;
 
 function allNodes(root){
   const out = [];
@@ -81,18 +82,31 @@ function rawRange(node){
   return node.value.lo === node.value.hi ? String(node.value.lo) : node.value.lo + ' … ' + node.value.hi;
 }
 
-function cardFor(node, measure, {maxLines = 2} = {}){
-  const g = TREE_GEOM;
-  const full = wrapText(node.label, font(g.labelSize), g.cardW - g.cardPad * 2, measure);
-  const clipped = full.length > maxLines;
-  const lines = full.slice(0, maxLines);
+/* Lines clipped to `maxLines`: the last kept line ends at a word boundary and carries an ellipsis (a word is cut only when
+   one word is wider than the line). Returns the lines and whether anything was left out. */
+export function clipLines(full, maxLines, fontStr, width, measure){
+  const clipped = full.length > maxLines, lines = full.slice(0, maxLines);
   if(clipped){
     const last = lines.length - 1;
     let s = lines[last];
-    while(s.length > 1 && measure(s + '…', font(g.labelSize)) > g.cardW - g.cardPad * 2) s = s.slice(0, -1);
+    const fits = t => measure(t + '…', fontStr) <= width;
+    if(!fits(s)){
+      const words = s.split(' ');
+      while(words.length > 1 && !fits(words.join(' '))) words.pop();
+      s = words.join(' ');
+      while(s.length > 1 && !fits(s)) s = s.slice(0, -1);
+    }
     lines[last] = s.replace(/[\s,.;:]+$/, '') + '…';
   }
-  const detailRows = (node.p !== null && node.p !== undefined ? 1 : 0) + (node.value ? 1 : 0) + 1;
+  return {lines, clipped};
+}
+
+/* `evRows(node)`: how many detail rows the expected-value block of this card takes (the renderer owns that text) */
+function cardFor(node, measure, {maxLines = 2, evRows} = {}){
+  const g = TREE_GEOM;
+  const full = wrapText(node.label, font(g.labelSize), g.cardW - g.cardPad * 2, measure);
+  const {lines, clipped} = clipLines(full, maxLines, font(g.labelSize), g.cardW - g.cardPad * 2, measure);
+  const detailRows = (node.p !== null && node.p !== undefined ? 1 : 0) + (node.value ? 1 : 0) + (evRows ? evRows(node) : 1);
   return {
     lines,
     clipped,
@@ -102,7 +116,7 @@ function cardFor(node, measure, {maxLines = 2} = {}){
   };
 }
 
-function layoutBranch(root, included, measure){
+function layoutBranch(root, included, measure, evRows){
   const g = TREE_GEOM;
   const items = [];
   const edges = [];
@@ -110,7 +124,7 @@ function layoutBranch(root, included, measure){
 
   function place(node, depth, top){
     deepest = Math.max(deepest, depth);
-    const card = cardFor(node, measure);
+    const card = cardFor(node, measure, {evRows});
     const children = node.children.filter(c => included.has(c));
     if(!children.length){
       const item = {node, depth, x: depth * (g.cardW + g.colGap), y: top, ...card};
@@ -185,14 +199,14 @@ function narrowRows(entries, measure, width, policy){
 
 /* Returns renderer-neutral rectangles and deterministic composition metadata.
    intent: live-wide | native | live-narrow | presentation. */
-export function layoutTree(model, results, {measure, intent = 'native', width = 480} = {}){
+export function layoutTree(model, results, {measure, intent = 'native', width = 480, evRows} = {}){
   if(!model || !model.root) return null;
   const entries = allNodes(model.root);
   const policy = onPolicySet(model.root, results);
   const selected = policySelection(model.root, results);
   const depth = maxDepth(model.root);
   const leaves = leafCount(model.root);
-  const hasLong = entries.some(({node}) => cardFor(node, measure).clipped);
+  const hasLong = entries.some(({node}) => cardFor(node, measure, {evRows}).clipped);
   const dense = depth > 3 || leaves > 8 || hasLong;
 
   if(intent === 'live-narrow'){
@@ -207,7 +221,7 @@ export function layoutTree(model, results, {measure, intent = 'native', width = 
   }
 
   const included = intent === 'presentation' || dense ? selected : new Set(entries.map(e => e.node));
-  const branch = layoutBranch(model.root, included, measure);
+  const branch = layoutBranch(model.root, included, measure, evRows);
   const shownSourceLines = new Set(branch.items.filter(i => !i.node.implicit).map(i => i.node.srcLine));
   const continuation = entries.filter(e => !e.node.implicit && !shownSourceLines.has(e.node.srcLine)).length;
   const registerNeeded = dense && intent !== 'presentation';

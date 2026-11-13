@@ -10,4 +10,5 @@ const v1=sourceDefinition({id:'paths',title:'Paths',description:'An editable, au
 });
 // Version 2: authored names are only names, the inspector agrees with the evaluator, one vocabulary for plans. Version 1 stays frozen as published.
 // Version 3: an assumption takes effect once both dates have passed; items it rules out are set aside.
-export const definition={...v1,version:3};
+// Version 4: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:4};

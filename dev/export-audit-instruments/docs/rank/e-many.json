@@ -1,0 +1,378 @@
+{
+ "about": "50 initiatives, top 10",
+ "state": {
+  "c": [
+   [
+    "Value",
+    3
+   ],
+   [
+    "Time criticality",
+    2
+   ],
+   [
+    "Risk reduction",
+    1
+   ]
+  ],
+  "e": [
+   "Effort",
+   1
+  ],
+  "i": [
+   [
+    "Initiative 1",
+    1,
+    1,
+    1,
+    1
+   ],
+   [
+    "Initiative 2",
+    8,
+    4,
+    6,
+    2
+   ],
+   [
+    "Initiative 3",
+    5,
+    7,
+    1,
+    3
+   ],
+   [
+    "Initiative 4",
+    2,
+    10,
+    6,
+    4
+   ],
+   [
+    "Initiative 5",
+    9,
+    3,
+    1,
+    5
+   ],
+   [
+    "Initiative 6",
+    6,
+    6,
+    6,
+    6
+   ],
+   [
+    "Initiative 7",
+    3,
+    9,
+    1,
+    7
+   ],
+   [
+    "Initiative 8",
+    10,
+    2,
+    6,
+    8
+   ],
+   [
+    "Initiative 9",
+    7,
+    5,
+    1,
+    9
+   ],
+   [
+    "Initiative 10",
+    4,
+    8,
+    6,
+    10
+   ],
+   [
+    "Initiative 11",
+    1,
+    1,
+    1,
+    1
+   ],
+   [
+    "Initiative 12",
+    8,
+    4,
+    6,
+    2
+   ],
+   [
+    "Initiative 13",
+    5,
+    7,
+    1,
+    3
+   ],
+   [
+    "Initiative 14",
+    2,
+    10,
+    6,
+    4
+   ],
+   [
+    "Initiative 15",
+    9,
+    3,
+    1,
+    5
+   ],
+   [
+    "Initiative 16",
+    6,
+    6,
+    6,
+    6
+   ],
+   [
+    "Initiative 17",
+    3,
+    9,
+    1,
+    7
+   ],
+   [
+    "Initiative 18",
+    10,
+    2,
+    6,
+    8
+   ],
+   [
+    "Initiative 19",
+    7,
+    5,
+    1,
+    9
+   ],
+   [
+    "Initiative 20",
+    4,
+    8,
+    6,
+    10
+   ],
+   [
+    "Initiative 21",
+    1,
+    1,
+    1,
+    1
+   ],
+   [
+    "Initiative 22",
+    8,
+    4,
+    6,
+    2
+   ],
+   [
+    "Initiative 23",
+    5,
+    7,
+    1,
+    3
+   ],
+   [
+    "Initiative 24",
+    2,
+    10,
+    6,
+    4
+   ],
+   [
+    "Initiative 25",
+    9,
+    3,
+    1,
+    5
+   ],
+   [
+    "Initiative 26",
+    6,
+    6,
+    6,
+    6
+   ],
+   [
+    "Initiative 27",
+    3,
+    9,
+    1,
+    7
+   ],
+   [
+    "Initiative 28",
+    10,
+    2,
+    6,
+    8
+   ],
+   [
+    "Initiative 29",
+    7,
+    5,
+    1,
+    9
+   ],
+   [
+    "Initiative 30",
+    4,
+    8,
+    6,
+    10
+   ],
+   [
+    "Initiative 31",
+    1,
+    1,
+    1,
+    1
+   ],
+   [
+    "Initiative 32",
+    8,
+    4,
+    6,
+    2
+   ],
+   [
+    "Initiative 33",
+    5,
+    7,
+    1,
+    3
+   ],
+   [
+    "Initiative 34",
+    2,
+    10,
+    6,
+    4
+   ],
+   [
+    "Initiative 35",
+    9,
+    3,
+    1,
+    5
+   ],
+   [
+    "Initiative 36",
+    6,
+    6,
+    6,
+    6
+   ],
+   [
+    "Initiative 37",
+    3,
+    9,
+    1,
+    7
+   ],
+   [
+    "Initiative 38",
+    10,
+    2,
+    6,
+    8
+   ],
+   [
+    "Initiative 39",
+    7,
+    5,
+    1,
+    9
+   ],
+   [
+    "Initiative 40",
+    4,
+    8,
+    6,
+    10
+   ],
+   [
+    "Initiative 41",
+    1,
+    1,
+    1,
+    1
+   ],
+   [
+    "Initiative 42",
+    8,
+    4,
+    6,
+    2
+   ],
+   [
+    "Initiative 43",
+    5,
+    7,
+    1,
+    3
+   ],
+   [
+    "Initiative 44",
+    2,
+    10,
+    6,
+    4
+   ],
+   [
+    "Initiative 45",
+    9,
+    3,
+    1,
+    5
+   ],
+   [
+    "Initiative 46",
+    6,
+    6,
+    6,
+    6
+   ],
+   [
+    "Initiative 47",
+    3,
+    9,
+    1,
+    7
+   ],
+   [
+    "Initiative 48",
+    10,
+    2,
+    6,
+    8
+   ],
+   [
+    "Initiative 49",
+    7,
+    5,
+    1,
+    9
+   ],
+   [
+    "Initiative 50",
+    4,
+    8,
+    6,
+    10
+   ]
+  ],
+  "k": 10,
+  "w": 50,
+  "s": 1
+ }
+}

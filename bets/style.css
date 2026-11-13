@@ -24,3 +24,14 @@
 .preview svg [data-edit="odds"]:hover rect,
 .preview svg [data-edit="payoff"]:hover rect,
 .preview svg [data-edit="kill"]:hover rect{fill:var(--accent);fill-opacity:.1}
+/* a phone lays the board out tall (about 1440px for the example): reserve that while the first render is coming, so nothing below it moves */
+@media (max-width:539px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;min-height:1443px;max-height:none;align-items:flex-start}}
+@media (min-width:540px){.stage .preview .placeholder[data-boot]{aspect-ratio:auto;max-height:none;min-height:681px;align-items:flex-start}}   /* the example's height beside a folded editor at 1280px */
+/* the export status line: what happened to the last export (a reduced scale, a refusal) stays until the next one */
+.export-status{margin:8px 0 0;font-size:13px;color:var(--ink)}.export-status[hidden]{display:none}
+
+/* a run is going (assets/sim-pending.js): the simulated figures (data-mc in the drawing) are the last result, dimmed once the wait is long enough to be seen;
+   everything else is the current document at full strength */
+.preview[data-sim-dim] svg [data-mc]{opacity:.6;transition:opacity var(--dur-fast) var(--ease-out)}   /* the transition sits on the dimmed state only */
+.actions button[data-working]{opacity:.6;cursor:progress}
+@media (prefers-reduced-motion:reduce){.preview[data-sim-dim] svg [data-mc]{transition:none}}

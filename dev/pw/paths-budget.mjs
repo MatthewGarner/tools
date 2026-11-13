@@ -79,7 +79,7 @@ async function activatePng(target = page){
     .then(async file => ({kind:'download', path:await file.path()})).catch(() => null);
   const status = target.waitForFunction(() => {
     const button = document.querySelector('#dlpng');
-    return button?.textContent !== 'PNG' ? button?.textContent : null;
+    return button?.textContent !== 'Download PNG' ? button?.textContent : null;
   }, {timeout:7000}).then(async handle => ({kind:'status', text:await handle.jsonValue()})).catch(() => null);
   const timeout = target.waitForTimeout(7000).then(() => ({kind:'timeout'}));
   const started = Date.now();
@@ -167,7 +167,7 @@ await load(PATHS_INTERACTION_CASES[0].text);
 await openExportMenu(page);
 const svgExport = await sampleInteraction(SAMPLES, async () => {
   const elapsed = await downloadSvg();
-  await page.waitForFunction(() => document.querySelector('#dlsvg')?.textContent === 'SVG');
+  await page.waitForFunction(() => document.querySelector('#dlsvg')?.textContent === 'Download SVG');
   return elapsed;
 });
 checkBudget('paths full-detail SVG export → download', svgExport, {median:800, p95:1400});

@@ -59,6 +59,7 @@ test('motion browser rollout covers every mountMotion app or explicitly deep-tes
     flow: 'The draw-showcase and below-fold blocks above ROLLOUT deeply exercise flow.',
     'merit-order': 'The dedicated merit-order block exercises reveal plus FLIP settle.',
     timeline: 'The dedicated timeline block exercises reveal and no replay on theme change.',
+    paths: 'mountMotion carries only the view cross-fade (an empty reveal spec, no trace, no FLIP); dev/feel-audit paths view.transition drives it.',
   };
   assert.ok(body, 'could not locate motion.mjs ROLLOUT');
   assert.equal(new Set(covered).size, covered.length, 'motion ROLLOUT contains duplicate tools');

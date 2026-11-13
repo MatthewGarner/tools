@@ -8,4 +8,5 @@ const v1=sourceDefinition({id:'tree',title:'Tree',description:'An editable, auth
   views:{model:{title:'Model',description:'The complete authored model in its native reading view.',controls:['source'],render(s,ctx){const m=parse(s.t),c=context(ctx);const r=evaluate(m);return {svg:render(m,r,{...c,intent:c.width<520?'live-narrow':'live-wide'}),summary:sourceSummary('Tree',m,treeVerdictParts(m,r).line+' Values follow the supplied probabilities and payoffs, not observed outcomes.')} ;}}}
 });
 // Version 2: expected values computed exactly, percent probabilities read, 60,000 worlds for the spread, flips in effective probability. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:3};

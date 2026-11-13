@@ -1,0 +1,53 @@
+// built-in example: Lantern (verbatim)
+title: Lantern
+
+decision reminders:
+  question: Do adaptive reminders improve week-four retention?
+  signal: week-four retention in the reminder experiment
+  reading: +6 percentage points
+  learn: Compare week-four retention for adaptive and fixed reminder cohorts
+  enough: Yes at +5 percentage points or more; no at +1 or less; otherwise keep the question open
+  owner: Core
+  answer-by: 2026-07-24
+  answer: yes 2026-07-22 -- experiment LTN-42
+  close-out:
+    basis-kind: experiment
+    carry-forward: scoped-finding
+    decision-use: keep adaptive reminders for the tested cohort while the broader rollout stays open
+    claim: adaptive reminders improved week-four retention in the tested cohort
+    scope: opted-in solo users in the four-week reminder experiment
+    review-by: 2026-10-31
+    reconsider-if: a replicated cohort no longer shows the retention lift
+    next-check: compare the next opted-in cohort before widening rollout
+
+decision groups:
+  question: Will people invite three friends without prompting?
+  signal: invites per active user
+  reading: 2.4 invites per active user
+  learn: Run an unprompted invitation pilot with 100 newly active people
+  enough: Yes at 3 invites per active user or more; no below 1; otherwise keep the question open
+  owner: Growth
+  answer-by: 2026-09-15
+
+decision pricing:
+  question: Will publishers accept a revenue share?
+  signal: accepted offers in the publisher pilot
+  reading: 3 of 10 accepted
+  learn: Put the revenue-share offer to 20 publishers using the same script
+  enough: Yes at 12 acceptances or more; no at 6 or fewer; otherwise keep the question open
+  owner: Storefront
+  answer-by: 2026-08-01
+  assume: no 2026-08-02
+
+NOW
+  Core: Resume position fix [done]
+  Core: Adaptive reminder rollout [doing] [if reminders]
+  Growth: Friend invite prompt [risk] [if groups]
+
+NEXT
+  Platform: Group moderation [blocked] [if groups and not pricing]
+  Storefront: Fixed-fee publisher pilot [if not pricing]
+
+LATER
+  Core: Weekly digest [unless reminders]
+  Growth: Club challenges [if groups]

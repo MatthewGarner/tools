@@ -1,0 +1,35 @@
+{
+ "about": "one initiative",
+ "state": {
+  "c": [
+   [
+    "Value",
+    3
+   ],
+   [
+    "Time criticality",
+    2
+   ],
+   [
+    "Risk reduction",
+    1
+   ]
+  ],
+  "e": [
+   "Effort",
+   1
+  ],
+  "i": [
+   [
+    "Only one",
+    5,
+    5,
+    5,
+    5
+   ]
+  ],
+  "k": 1,
+  "w": 50,
+  "s": 1
+ }
+}

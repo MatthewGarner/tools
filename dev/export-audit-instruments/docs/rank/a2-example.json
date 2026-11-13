@@ -1,0 +1,70 @@
+{
+ "about": "built-in example: Classic product backlog",
+ "state": {
+  "c": [
+   [
+    "Value",
+    3
+   ],
+   [
+    "Time criticality",
+    2
+   ],
+   [
+    "Risk reduction",
+    1
+   ]
+  ],
+  "e": [
+   "Effort",
+   1
+  ],
+  "i": [
+   [
+    "Onboarding revamp",
+    8,
+    5,
+    3,
+    5
+   ],
+   [
+    "Enterprise SSO",
+    6,
+    8,
+    4,
+    4
+   ],
+   [
+    "Mobile app parity",
+    7,
+    4,
+    3,
+    9
+   ],
+   [
+    "Billing self-serve",
+    5,
+    6,
+    5,
+    4
+   ],
+   [
+    "Analytics dashboard",
+    6,
+    3,
+    4,
+    6
+   ],
+   [
+    "API rate-limit tier",
+    4,
+    7,
+    6,
+    3
+   ]
+  ],
+  "k": 3,
+  "w": 50,
+  "s": 1
+ }
+}

@@ -13,7 +13,7 @@ import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {decisionImpactProjection, overviewProjection} from './overview.js';
 import {learningAgendaNextAction, learningAgendaProjection} from './learning-agenda.js';
 import {projectLearningCloseOut} from './learning-closeout.js';
-import {renderOverview, renderOverviewNarrow} from './render-overview.js';
+import {renderOverview, renderOverviewNarrow, briefMinWidth} from './render-overview.js';
 import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
 import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
 import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
@@ -31,13 +31,16 @@ import {applyLineOps, makeEditor, StreamLanguage, tags as t} from '../assets/edi
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
-import {download, measure, isDark, themeColors, onThemeChange, renderWarningList,
-  pngRasterPlan, slugify, svgToCanvas} from '../assets/app-common.js';
+import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import './face-house.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
+import {mountMotion, scrollPageTo} from '../assets/motion.js';
 import {paintKicker} from '../assets/verdict.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 import {STARTER} from './starter.js';
@@ -225,10 +228,17 @@ function projectionLedger(title, entries, empty, renderEntry){
 function renderProjectionPanel(){
   const host = $('roadmap-projection');
   if(model?.style !== 'plans'){ host.hidden = true; host.replaceChildren(); return; }
+  /* the panel is rebuilt wholesale: remember which control the reader was on (by identity) and put focus back on its
+     replacement without moving the page */
+  const held = host.contains(document.activeElement) ? document.activeElement : null;
+  const heldKey = !held ? null : held.matches?.('input[type="radio"]') ? 'radio:' + held.value
+    : held.matches?.('.projection-assumption input') ? 'assume:' + held.value
+    : held.id === 'createroadmap' ? 'create' : null;
+  const y0 = scrollY;
   host.hidden = false; host.replaceChildren();
   const head = node('header', 'projection-head');
   head.appendChild(node('p', 'projection-kicker', 'Delivery projection'));
-  const title = node('h2', '', 'Choose one exact outcome'); title.id = 'roadmap-projection-title'; head.appendChild(title);
+  const title = node('h2', '', 'Choose one exact outcome'); title.id = 'roadmap-projection-title'; title.tabIndex = -1; head.appendChild(title);
   head.appendChild(node('p', 'projection-intro', 'Possible Plans groups matching work shapes. A Roadmap needs one exact set of answers.'));
   host.appendChild(head);
   const body = node('div', 'projection-body');
@@ -271,6 +281,12 @@ function renderProjectionPanel(){
     create.disabled = !receipt.assumed.every(entry => acceptedProjectionAssumptions.has(entry.key)); foot.appendChild(create); confirmation.appendChild(foot); body.appendChild(confirmation);
   }
   host.appendChild(body);
+  if(heldKey){
+    const again = heldKey === 'create' ? $('createroadmap')
+      : [...host.querySelectorAll(heldKey.startsWith('radio:') ? 'input[type="radio"]' : '.projection-assumption input')].find(i => i.value === heldKey.slice(heldKey.indexOf(':') + 1));
+    if(again && !again.disabled) again.focus({preventScroll:true});
+  }
+  if(Math.abs(scrollY - y0) > 1) scrollTo(scrollX, y0);
 }
 
 function isRoadmapStyle(style = model?.style){
@@ -292,6 +308,7 @@ function setStyleInSource(style){
   if(index >= 0) lines[index] = `style: ${next}`;
   else lines.unshift(`style: ${next}`, '');
   editor.setText(lines.join('\n'));
+  refreshNow();
 }
 
 function syncViewControls(){
@@ -307,7 +324,7 @@ function syncViewControls(){
     if(scoped) scoped.hidden = !hasReceipt;
   });
   const decision = overviewImpact?.decision;
-  const hasCloseOut = !!decision && (!!decision.answer?.direction || !!decision.reading);
+  const hasCloseOut = !!decision && !!closeOutFor(decision);   // an authored close-out only: nothing to export otherwise
   ['closeout-receipt-svg', 'closeout-receipt-png'].forEach(id => {
     const scoped = $(id);
     if(scoped) scoped.hidden = !hasCloseOut;
@@ -319,9 +336,13 @@ function overviewSurfaceMetrics(){
   const surface = host.clientWidth ? host : preview;
   const width = surface.clientWidth || 0;
   const narrow = narrowWidth(surface) !== undefined;
-  const receiptLayout = narrow ? 'sheet' : width >= 900 ? 'rail' : 'overlay';
+  /* The decision margin is a 350px rail (and a 16px gap) beside the Brief, open on landing. The live Brief is laid out for the width
+     that is left (render-overview.js briefFit); it stays readable down to briefMinWidth, which grows with the number of periods.
+     Narrower than that the margin sits above the artefact, so nothing is ever drawn under it. */
+  const needs = briefMinWidth(overview?.periods?.length || 0);
+  const receiptLayout = narrow ? 'sheet' : width - 366 >= needs ? 'rail' : width >= 900 ? 'inline' : 'overlay';
   return {width, narrow, receiptLayout,
-    previewWidth:receiptLayout === 'rail' ? Math.max(520, width - 366) : width,
+    previewWidth:receiptLayout === 'rail' ? width - 366 : width,
     focusLayout:width >= 760 ? 'split' : 'stacked'};
 }
 
@@ -677,7 +698,8 @@ function renderOverviewReceipt(){
     overviewReceiptSheetOpen = false;
   }
   if(!receiptEligible || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
-      (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
+      (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen) ||
+      (style === 'brief' && metrics.receiptLayout === 'inline' && !(selectedKey && selectedKey === selectedOverviewDecision?.key))){   // no rail beside the Brief: the margin appears on a click
     if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
       overviewReceiptReturnKey = null;
@@ -713,6 +735,11 @@ function renderOverviewReceipt(){
   identity.appendChild(node('p', 'receipt-state',
     (agendaEntry?.currentState || impact.currentState).sentence));
   head.appendChild(identity);
+  if(!sheet && !overlay){
+    const toQ = node('button', 'btn receipt-back', 'Back to question');
+    toQ.type = 'button'; toQ.dataset.backToQuestion = '';
+    head.appendChild(toQ);
+  }
   if(sheet || overlay){
     const close = node('button', 'receipt-close', 'Close');
     close.type = 'button';
@@ -949,6 +976,9 @@ function renderInspector(){
   title.tabIndex = -1;
   identity.appendChild(title);
   head.appendChild(identity);
+  const toQ = node('button', 'btn receipt-back', 'Back to question');
+  toQ.type = 'button'; toQ.dataset.backToQuestion = '';
+  head.appendChild(toQ);
   const close = node('button', 'inspector-close', 'Close');
   close.type = 'button';
   close.dataset.inspectorClose = '';
@@ -1035,7 +1065,7 @@ function renderInspector(){
   host.appendChild(answer);
   if(focusInspectorAfterRender){
     focusInspectorAfterRender = false;
-    title.focus({preventScroll:false});
+    title.focus({preventScroll:true});
   }
 }
 
@@ -1146,12 +1176,16 @@ function doRefresh(){
     } else {
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         expandedGroups:expandedOverviewGroups, impact:overviewImpact,
-        showReceipt:false};
+        showReceipt:false,
+        fit:overviewMetrics.receiptLayout === 'rail' || (overviewMetrics.receiptLayout === 'inline' && width < 1100)};
       svg = narrow
         ? renderOverviewNarrow(overview, context(model, {width, ...interactive}))
         : renderOverview(overview, context(model, {width:width || 1160, ...interactive}));
     }
-    if(svg !== lastSvg){ preview.innerHTML = svg; lastSvg = svg; }
+    if(svg !== lastSvg){
+      /* a view switch cross-fades (the shared ghost); every other repaint swaps in place. No reveal: the spec is empty. */
+      paint.reset(); paint(svg, {}, {onSwap: ws.applyZoom, mode: motionOverride}); lastSvg = svg; motionOverride = undefined;
+    }
   }
 
   renderOverviewSurface(roadmapView, overviewMetrics);
@@ -1181,23 +1215,84 @@ function doRefresh(){
       ? 'The phone view becomes an outline; every export remains the wide tree.'
       : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
+  updateSelectedBar();
+  if(pendingFocus){
+    const want = pendingFocus; pendingFocus = null;
+    const ae = document.activeElement;
+    if(!ae || ae === document.body || !ae.isConnected) want()?.focus({preventScroll:true});   // never from a reader who moved on
+  }
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) saveTrackedWork(localStorage,'paths-src', text); }catch(_){ }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
+const typed = debounced(refresh, 120);
+/* a discrete edit (a commit, a menu pick, a view) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ typed.cancel(); refresh(); }
+let motionOverride;                 // 'fade' for a view switch
+let detailReturn = null;            // {y, style}: where the page was before "Show details" took the reader to the detail
+let selectedWords = '', selectedKey = null, selectedShown = false, barFrame = 0;
+/* The detail of the selected question (the Tree view's inspector, or the inline receipt) can be off screen. Selecting never moves
+   the page; instead a one-line bar pinned over the artefact says what is selected and offers to go to the detail. A rail or a
+   phone sheet is on screen by construction. */
+function detailElement(){
+  const ins = $('decision-inspector'), rec = $('overview-receipt');
+  if(!ins.hidden) return ins;
+  if(!rec.hidden && rec.dataset.sheet !== 'true' && rec.dataset.layout === 'inline') return rec;
+  return null;
+}
+function detailOutOfSight(el){
+  const b = el.getBoundingClientRect();
+  return !(b.top >= -10 && b.top <= innerHeight - 160);
+}
+function updateSelectedBar(){
+  const bar = $('selected-bar'), el = selectedKey ? detailElement() : null;
+  const show = !!el && detailOutOfSight(el);
+  if(show) $('selected-words').textContent = selectedWords;
+  if(show === selectedShown) return;
+  selectedShown = show; bar.hidden = !show;
+  $('selected-live').textContent = show ? `Selected: ${selectedWords}. Its details are out of view. Show details is available.` : '';
+}
+function scheduleBar(){ if(!barFrame) barFrame = requestAnimationFrame(() => { barFrame = 0; updateSelectedBar(); }); }
+addEventListener('scroll', scheduleBar, {passive:true});
+addEventListener('resize', scheduleBar);
+function backToQuestion(){
+  const back = detailReturn; detailReturn = null;
+  const opener = selectedOpener(selectedKey);
+  if(back && back.style === model?.style) scrollPageTo(back.y);
+  else if(opener) scrollPageTo(scrollY + opener.getBoundingClientRect().top - innerHeight * 0.35);
+  opener?.focus({preventScroll:true});
+}
+function showDetails(){
+  const el = detailElement();
+  if(!el) return;
+  if(!detailReturn || detailReturn.style !== model?.style) detailReturn = {y:scrollY, style:model?.style};
+  scrollPageTo(scrollY + el.getBoundingClientRect().top - 72);
+  el.querySelector('h2')?.focus({preventScroll:true});
+}
+function returnFromDetail(){
+  const back = detailReturn; detailReturn = null;
+  if(back && back.style === model?.style) scrollPageTo(back.y);
+}
+document.addEventListener('click', event => {
+  if(event.target.closest?.('#selected-show')) showDetails();
+  else if(event.target.closest?.('[data-back-to-question]')) backToQuestion();
+});
+let pendingFocus = null;            // what to focus once the next render lands (by identity): a selected question, a group toggle, a view button
+const paint = mountMotion(preview);
 
 const editor = createEditor({
   parent:$('cmhost'),
   doc:'',
-  onChange:debounced(refresh, 120),
+  onChange:typed,
 });
 
 $('paths-projection-jump').addEventListener('click', () => {
   const panel = $('roadmap-projection');
   panel.scrollIntoView({block:'start', behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
-  panel.querySelector('.projection-choice[data-available="true"] input, #roadmap-projection-title')?.focus({preventScroll:true});
+  /* an input first (querySelector with a list returns the heading, which comes first in the document and cannot take focus) */
+  (panel.querySelector('.projection-choice[data-available="true"] input') || $('roadmap-projection-title'))?.focus({preventScroll:true});
 });
 
 $('roadmap-projection').addEventListener('change', event => {
@@ -1210,7 +1305,6 @@ $('roadmap-projection').addEventListener('change', event => {
     selectedProjectionFingerprint = choice.inspected.fingerprint;
     acceptedProjectionAssumptions = new Set(); projectionPanelMessage = '';
     renderProjectionPanel();
-    queueMicrotask(() => $('roadmap-projection').querySelector(`input[name="roadmap-projection-world"][value="${CSS.escape(choice.key)}"]`)?.focus());
     return;
   }
   const check = event.target.closest?.('.projection-assumption input[type="checkbox"]');
@@ -1273,7 +1367,7 @@ attachEditInPlace($('decision-inspector'), {
   kinds:inspectorKinds,
   onCommit(kind, line, _raw, value){
     const ops = decisionOps(kind, line, value);
-    if(ops?.length) applyLineOps(editor, ops);
+    if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
   },
 });
 
@@ -1281,7 +1375,7 @@ attachEditInPlace($('overview-receipt'), {
   kinds:{...inspectorKinds, ...closeOutKinds},
   onCommit(kind, line, _raw, value){
     const ops = kind.startsWith('closeout-') ? closeOutOps(kind, line, value) : decisionOps(kind, line, value);
-    if(ops?.length) applyLineOps(editor, ops);
+    if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
   },
 });
 
@@ -1289,10 +1383,11 @@ attachEditInPlace($('focus-lens'), {
   kinds:closeOutKinds,
   onCommit(kind, line, _raw, value){
     const ops = closeOutOps(kind, line, value);
-    if(ops?.length) applyLineOps(editor, ops);
+    if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
   },
 });
 
+const selectedOpener = key => [...preview.querySelectorAll('[data-select-decision]')].find(e => e.dataset.decisionKey === key) || null;
 function chooseDecision(target, focusInspector = false){
   const choice = {key:target.dataset.decisionKey, srcLine:Number(target.dataset.line)};
   if(isRoadmapStyle()){
@@ -1306,6 +1401,8 @@ function chooseDecision(target, focusInspector = false){
     overviewReceiptReturnKey = sheet || overviewSurfaceMetrics().receiptLayout === 'overlay'
       ? resolved.key : null;
     focusOverviewReceiptAfterRender = focusInspector || sheet;
+    selectedKey = resolved.key; selectedWords = resolved.question || resolved.name || '';
+    pendingFocus = () => selectedOpener(resolved.key);
     lastSvg = '';
     refresh();
     return;
@@ -1315,6 +1412,8 @@ function chooseDecision(target, focusInspector = false){
   selectedDecision = {key:resolved.key, srcLine:resolved.srcLine};
   treeInspectorReturnKey = resolved.key;
   focusInspectorAfterRender = focusInspector;
+  selectedKey = resolved.key; selectedWords = resolved.question || resolved.name || '';
+  pendingFocus = () => selectedOpener(resolved.key);
   lastSvg = '';
   refresh();
 }
@@ -1325,6 +1424,7 @@ function toggleOverviewGroup(target){
   if(!key) return false;
   if(expandedOverviewGroups.has(key)) expandedOverviewGroups.delete(key);
   else expandedOverviewGroups.add(key);
+  pendingFocus = () => [...preview.querySelectorAll('[data-toggle-decision-group]')].find(e => e.dataset.stateGroup === key);
   lastSvg = '';
   refresh();
   return true;
@@ -1402,6 +1502,7 @@ function closeOverviewReceiptSheet(){
     selectedOverviewOpener()?.focus({preventScroll:true});
     overviewReceiptReturnKey = null;
   });
+  returnFromDetail();
   return true;
 }
 
@@ -1451,6 +1552,9 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     return;
   }
+  if(detailReturn && $('decision-inspector').hidden && detailElement()){
+    event.preventDefault(); backToQuestion(); return;   // an inline receipt the reader went to: back to the question and where they were
+  }
   if(overviewMode === 'focus'){
     event.preventDefault();
     overviewMode = 'overview';
@@ -1466,6 +1570,7 @@ document.addEventListener('keydown', event => {
     lastSvg = '';
     refresh();
     requestAnimationFrame(() => selectedTreeOpener(returnKey)?.focus({preventScroll:true}));
+    returnFromDetail();
   }
 });
 
@@ -1481,6 +1586,7 @@ $('decision-inspector').addEventListener('click', event => {
     lastSvg = '';
     refresh();
     requestAnimationFrame(() => selectedTreeOpener(returnKey)?.focus({preventScroll:true}));
+    returnFromDetail();
     return;
   }
   const direction = event.target.closest?.('[data-answer-direction]')?.dataset.answerDirection;
@@ -1501,7 +1607,7 @@ $('decision-inspector').addEventListener('click', event => {
     return;
   }
   const ops = clearAnswer(editor.getText(), resolved.srcLine);
-  if(ops?.length) applyLineOps(editor, ops);
+  if(ops?.length){ applyLineOps(editor, ops); refreshNow(); }
 });
 
 function selectedTreeOpener(key = treeInspectorReturnKey){
@@ -1511,6 +1617,8 @@ function selectedTreeOpener(key = treeInspectorReturnKey){
 
 function editDecisionSource(decision, {closeReceipt = false, closeInspector = false} = {}){
   if(!decision || !ws) return;
+  /* the page behind the editor stays where the reader had it unless the decision's line is out of sight (below) */
+  const y = scrollY, hold = () => { if(Math.abs(scrollY - y) > 1) scrollTo(scrollX, y); };
   if(closeReceipt){
     overviewReceiptSheetOpen = false;
     overviewReceiptOverlayOpen = false;
@@ -1530,17 +1638,27 @@ function editDecisionSource(decision, {closeReceipt = false, closeInspector = fa
   requestAnimationFrame(() => {
     const lineNumber = Math.min(editor.view.state.doc.lines, Math.max(1, Number(decision.srcLine) + 1));
     const line = editor.view.state.doc.line(lineNumber);
-    editor.view.dispatch({selection:{anchor:line.from}, scrollIntoView:true});
+    /* no scrollIntoView: the editor sits in the page's flow, so CodeMirror would scroll the page. The caret is on the decision's
+       line; whether the page then moves is decided once the rail has opened. */
+    editor.view.dispatch({selection:{anchor:line.from}});
+    hold();
     /* Opening the rail changes its width over a short CSS transition. Defer the
        focus until the reveal is usable: otherwise WebKit can keep focus on the
        vanished review control even though the source line was selected. */
-    setTimeout(() => editor.view.contentDOM.focus({preventScroll:true}), 180);
+    setTimeout(() => {
+editor.view.contentDOM.focus({preventScroll:true}); hold();
+      /* the rail has finished opening, so the line is where it will stay: the page moves only if the line is out of sight */
+      const lineY = editor.view.documentTop + editor.view.lineBlockAt(line.from).top;
+      if(lineY < 72 || lineY > innerHeight - 96) scrollPageTo(scrollY + lineY - innerHeight * 0.35);
+    }, 180);
   });
+  hold();
 }
-mountTouchUndo(document.querySelector('.stage .actions'), editor);
+mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: refreshNow});
 const ws = initWorkspace({
   workspace:$('workspace'), tab:$('railtab'), preview, zoomHost:$('zoomctl'),
   autoFold:true,
+  focusEditor:() => editor.view.focus(),   // opening the rail moves focus into the editor
   collapsedLabel:'Edit plan source',
   collapsedAriaLabel:'Edit Paths plan source',
   expandedLabel:'Hide plan source',
@@ -1556,119 +1674,71 @@ const startFrom = example => editor.setText(example.src);
 provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 
+/* Everything that leaves the page is drawn in the house face and carries it embedded, and shows the view as it is on the page,
+   selection included; until the face has loaded there is nothing to export. */
 function wideSvg(){
   if(!model || (!model.items.length && !model.decisions.length)) return null;
-  if(model.style === 'plans') return renderPlans(projection, context(model, {width:1160}));
+  const ex = {width:1160, intent:'native'};
+  if(model.style === 'plans') return renderPlans(projection, context(model, ex));
   const style = canonicalRoadmapStyle(model.style);
-  if(style === 'brief') return renderOverview(overview,
-    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
-      impact:overviewImpact}));
-  if(style === 'question') return renderQuestionLens(overview,
-    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
-      impact:overviewImpact}));
-  if(style === 'conditions') return renderConditions(overview,
-    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
-      impact:overviewImpact}));
-  if(style === 'agenda') return renderLearningAgenda(overview,
-    context(model, {width:1160, selection:false}));
+  const overviewSelection = {...ex, selectedKey:selectedOverviewDecision?.key || null, impact:overviewImpact};
+  if(style === 'brief') return renderOverview(overview, context(model, overviewSelection));
+  if(style === 'question') return renderQuestionLens(overview, context(model, overviewSelection));
+  if(style === 'conditions') return renderConditions(overview, context(model, overviewSelection));
+  if(style === 'agenda') return renderLearningAgenda(overview, context(model, overviewSelection));
   if(!topology) return null;
   const layout = treeLayout(topology, {width:1160, measure});
-  return renderTree(topology, layout, context(model));
+  return renderTree(topology, layout, context(model, {intent:'native', selectedKey:selectedDecision?.key || null}));
 }
+const embedded = svg => svg && chapterFontsReady() ? embedChapterFonts(svg) : null;
+const exportSvg = () => embedded(wideSvg());
 
 function selectedAgendaReceiptSvg(){
   if(canonicalRoadmapStyle() !== 'agenda' || !overview || !selectedOverviewDecision) return null;
-  return renderLearningAgendaReceipt(overview,
-    context(model, {width:760, selectedKey:selectedOverviewDecision.key}));
+  return embedded(renderLearningAgendaReceipt(overview,
+    context(model, {width:760, intent:'native', selectedKey:selectedOverviewDecision.key})));
 }
 
 function selectedCloseOutReceiptSvg(){
   const decision = overviewImpact?.decision;
-  if(!closeOutEligible(decision)) return null;
-  return renderLearningCloseOut(model, decision, closeOutFor(decision),
-    context(model, {width:900}));
+  if(!closeOutEligible(decision) || !closeOutFor(decision)) return null;
+  return embedded(renderLearningCloseOut(model, decision, closeOutFor(decision),
+    context(model, {width:900, intent:'native'})));
 }
 
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
-  getSvg:wideSvg,
+  getSvg:exportSvg,
   slug:() => slugify(model?.title, 'paths'),
 });
 
-function selectedAgendaReceiptExport(){
-  const svg = selectedAgendaReceiptSvg();
-  if(!svg) return null;
-  const decision = overview?.entries?.find(entry => entry.key === selectedOverviewDecision?.key);
-  const receiptSlug = slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} receipt`,
-    'paths-decision-receipt');
-  return {svg, receiptSlug};
-}
-
-$('agenda-receipt-svg').addEventListener('click', () => {
-  const output = selectedAgendaReceiptExport();
-  if(output) download(`${output.receiptSlug}.svg`, new Blob([output.svg], {type:'image/svg+xml'}));
+/* the receipts go through the same wiring (status line, reduced-scale note, refusal) as the main exports */
+wireExports({
+  buttons:{dlpng:$('agenda-receipt-png'), dlsvg:$('agenda-receipt-svg')},
+  getSvg:selectedAgendaReceiptSvg,
+  descriptions:{dlpng:'Selected decision receipt · PNG', dlsvg:'Selected decision receipt · SVG'},
+  slug:() => {
+    const decision = overview?.entries?.find(entry => entry.key === selectedOverviewDecision?.key);
+    return slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} receipt`, 'paths-decision-receipt');
+  },
+});
+wireExports({
+  buttons:{dlpng:$('closeout-receipt-png'), dlsvg:$('closeout-receipt-svg')},
+  getSvg:selectedCloseOutReceiptSvg,
+  descriptions:{dlpng:'Selected learning close-out · PNG', dlsvg:'Selected learning close-out · SVG'},
+  slug:() => {
+    const decision = overviewImpact?.decision;
+    return slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} learning close-out`,
+      'paths-learning-close-out');
+  },
 });
 
-$('agenda-receipt-png').addEventListener('click', () => {
-  const output = selectedAgendaReceiptExport();
-  if(!output) return;
-  const button = $('agenda-receipt-png');
-  const label = 'Selected decision receipt · PNG';
-  const plan = pngRasterPlan(output.svg);
-  const flash = message => {
-    button.textContent = message;
-    button.setAttribute('aria-label', message);
-    setTimeout(() => {
-      button.textContent = label;
-      button.setAttribute('aria-label', label);
-    }, 2000);
-  };
-  if(!plan.ok) return flash('Receipt PNG unavailable — download SVG');
-  svgToCanvas(output.svg, canvas => {
-    try {
-      canvas.toBlob(blob => blob
-        ? download(`${output.receiptSlug}.png`, blob)
-        : flash('Receipt PNG unavailable — download SVG'), 'image/png');
-    }catch(_){ flash('Receipt PNG unavailable — download SVG'); }
-  }, () => flash('Receipt PNG unavailable — download SVG'));
-});
-
-function selectedCloseOutExport(){
-  const svg = selectedCloseOutReceiptSvg();
-  if(!svg) return null;
-  const decision = overviewImpact?.decision;
-  return {svg, receiptSlug:slugify(
-    `${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} learning close-out`,
-    'paths-learning-close-out')};
-}
-
-$('closeout-receipt-svg').addEventListener('click', () => {
-  const output = selectedCloseOutExport();
-  if(output) download(`${output.receiptSlug}.svg`, new Blob([output.svg], {type:'image/svg+xml'}));
-});
-
-$('closeout-receipt-png').addEventListener('click', () => {
-  const output = selectedCloseOutExport();
-  if(!output) return;
-  const button = $('closeout-receipt-png');
-  const label = 'Selected learning close-out · PNG';
-  const plan = pngRasterPlan(output.svg);
-  const flash = message => {
-    button.textContent = message;
-    button.setAttribute('aria-label', message);
-    setTimeout(() => {
-      button.textContent = label;
-      button.setAttribute('aria-label', label);
-    }, 2000);
-  };
-  if(!plan.ok) return flash('Close-out PNG unavailable — download SVG');
-  svgToCanvas(output.svg, canvas => {
-    try {
-      canvas.toBlob(blob => blob
-        ? download(`${output.receiptSlug}.png`, blob)
-        : flash('Close-out PNG unavailable — download SVG'), 'image/png');
-    }catch(_){ flash('Close-out PNG unavailable — download SVG'); }
-  }, () => flash('Close-out PNG unavailable — download SVG'));
+/* Print is the current view's artefact alone, light, whatever theme the page is in, shrunk onto one sheet (a plan is one
+   picture, not rows) */
+wirePrintArtefact({getSvg:() => lightTheme(exportSvg), fitOne:true});
+loadChapterFonts().then(() => { setActionsEnabled(!!lastSvg); }, () => {
+  const line = $('exportstatus');
+  if(line){ line.textContent = 'The typeface could not load, so exports are unavailable. Reload the page to try again.'; line.hidden = false; }
 });
 
 paintKicker($('kicker'), '16', 'The questions inside the plan');
@@ -1678,11 +1748,20 @@ document.querySelector('.paths-views').addEventListener('click', event => {
   const button = event.target.closest?.('[data-paths-view]');
   if(!button) return;
   event.preventDefault();
+  const more = button.closest('details');
+  if(more){ more.open = false; more.querySelector(':scope > summary')?.focus({preventScroll:true}); }   // the picked button leaves with the menu
+  else button.focus({preventScroll:true});   // Safari does not focus a button on click
+  /* pressed with the press, not a frame behind the view */
+  document.querySelectorAll('[data-paths-view]').forEach(b => {
+    const on = b === button;
+    b.setAttribute('aria-pressed', String(on)); b.classList.toggle('primary', on);
+  });
+  motionOverride = 'fade';
   setStyleInSource(button.dataset.pathsView);
 });
 
 function rerender(){ lastSvg = ''; refresh(); }
-watchNarrowBucket(preview, rerender);
+watchNarrowBucket(preview, rerender, {skipFirst: true});
 /* Overview has two more responsive boundaries than the shared narrow renderer:
    the counterfactual focus changes shape at 760px and the receipt moves into a
    rail at 900px. Observe the stable outer surface and include its effective
@@ -1695,7 +1774,9 @@ new ResizeObserver(() => {
   const key = [metrics.receiptLayout, metrics.focusLayout,
     Math.round(metrics.previewWidth)].join(':');
   if(key === lastOverviewSurfaceKey) return;
+  const firstSight = lastOverviewSurfaceKey === '';
   lastOverviewSurfaceKey = key;
+  if(firstSight && lastSvg) return;   // already drawn at this width in the boot render
   if(isRoadmapStyle()) rerender();
 }).observe($('overview-live'), {box:'content-box'});
 onThemeChange(rerender);
@@ -1713,8 +1794,10 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('paths-src') || ''; }catch(_){ }
   }
-  if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(LANTERN))) refresh();
+  /* the first plan is drawn in this task, from the source that is already known: one render */
+  if(text){ editor.setText(text); typed.cancel(); doRefresh(); }
+  else if(autoloadExample(() => editor.setText(LANTERN))){ typed.cancel(); doRefresh(); }
+  else refresh();
 })();
 
 export {LANTERN};

@@ -1,0 +1,7 @@
+// the Start your own skeleton (verbatim)
+title: Your bets
+unit: £k
+
+Bets
+  Your first bet: stake 50, odds 40-60%, payoff 150-300
+    kill: What would tell you to stop, and by when

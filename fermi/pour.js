@@ -37,26 +37,30 @@ export function rowKicks(xsList, k){
    sized per play(); removed on settle. Reduced-motion → the settled end-state instantly.
    Honesty: each grain's x after row i is layout.px(trace.draws[j].steps[i]) — the telescoped
    truth; the ≤0-under-log / off-axis drop is handled here (the caller re-layouts forceLinear). */
-export function mountPour(histCanvas, wrapEl){
-  let raf = 0, overlay = null, octx = null, timers = [];
+export function mountPour(histCanvas, wrapEl, {onState} = {}){
+  let raf = 0, overlay = null, octx = null, timers = [], live = false;
+  const setLive = v => { if(live !== v){ live = v; if(onState) onState(v); } };
   function teardown(){
     for(const t of timers) clearTimeout(t); timers = [];
     if(raf){ cancelAnimationFrame(raf); raf = 0; }
     if(overlay){ overlay.remove(); overlay = null; octx = null; }
+    setLive(false);
   }
   function play(trace, layout, rows, colors, {reduced = false, dom = null} = {}){
     teardown();
+    /* reduced motion: no pour at all; the end state (the histogram and the verdict line) is already on the page */
+    if(reduced) return;
     const cw = histCanvas.clientWidth, histH = histCanvas.clientHeight || 180;
     const padT = 26, padB = 20, plotH = histH - padT - padB;
     const H = 360;                                   // the pour panel is taller than #hist
     const dpr = window.devicePixelRatio || 1;
     overlay = document.createElement('canvas');
-    // extend UPWARD so the pour's histogram is pixel-aligned with #hist (bottom edges match)
-    // → "the pile IS the histogram" literally, and the settle-fade is seamless (no jump).
-    overlay.style.cssText = 'position:absolute;left:0;top:' + (-(H - histH)) + 'px;pointer-events:none;z-index:6;';
+    // the panel grows DOWNWARD from the histogram's top edge: it never paints over the view buttons or the Replay control above
+    overlay.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:6;';
     const tip = wrapEl.querySelector('#tip');
     if(tip) wrapEl.insertBefore(overlay, tip); else wrapEl.appendChild(overlay);
     octx = overlay.getContext('2d');
+    setLive(true);
     overlay.width = Math.round(cw * dpr); overlay.height = Math.round(H * dpr);
     overlay.style.width = cw + 'px'; overlay.style.height = H + 'px';
     octx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -132,16 +136,6 @@ export function mountPour(histCanvas, wrapEl){
       octx.globalAlpha = 1;
     }
 
-    if(reduced){                                    // end-state instantly: pile + the full residue strips
-      const ks = rowKicks(grains.map(g => g.xs), k);   // the TESTED per-row kick (frame() inlines the same quantity)
-      for(const g of grains) settled[binOf(g.fin)]++;
-      for(let r = 0; r < k; r++) for(const kick of ks[r]) stampTick(r, kick);   // source-over same-colour ⇒ order-independent
-      backdrop(1);
-      // The settled explanation may remain briefly, but reduced-motion must not
-      // sneak an opacity animation back in through the common fade path.
-      timers.push(setTimeout(teardown, 4000));
-      return;
-    }
     // animate — timestamp-driven so the pace is identical at 30 / 60 / 120Hz (rAF passes ts).
     // Wall-clock targets (Matt's feel notes): the descent is DELIBERATELY slow so the eye can
     // watch a grain kick sideways as it crosses each driver row — the cascade steps must be
@@ -165,8 +159,7 @@ export function mountPour(histCanvas, wrapEl){
         const yy = spoutY + (baseline - spoutY) * Math.min(1, g.t);
         // leave a residue tick in each row's strip the moment this grain crosses it (a landing
         // grain at yy=baseline deposits any rows it still owes). The kick `xs[r+1]-xs[r]` is
-        // rowKicks' per-row quantity, inlined here for the incremental per-frame deposit; the
-        // reduced-motion path calls rowKicks directly, so the two paths can't drift.
+        // rowKicks' per-row quantity, inlined here for the incremental per-frame deposit.
         while(g.dep < k && yy >= rowY(g.dep)){ stampTick(g.dep, g.xs[g.dep + 1] - g.xs[g.dep]); g.dep++; }
         // x: interpolate through the row stations as y crosses each rowY
         let x = g.xs[0];
@@ -191,5 +184,5 @@ export function mountPour(histCanvas, wrapEl){
       raf = requestAnimationFrame(step);
     }
   }
-  return {play, stop: teardown};
+  return {play, stop: teardown, skip: teardown, get active(){ return live; }};
 }

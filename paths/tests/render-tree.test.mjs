@@ -16,7 +16,8 @@ import {treeProjection} from '../tree.js';
 import {treeLayout} from '../layout-tree.js';
 import {renderTree, renderOutline} from '../render-tree.js';
 
-const measure = text => String(text).length * 7;
+/* seven pixels a character at 12px, scaled by the size in the font, as a real face is */
+const measure = (text, font) => String(text).length * 7 * ((/(\d+(?:\.\d+)?)px/.exec(font || '') || [0, 12])[1] / 12);
 const colors = {
   bg:'#FBFBFA', card:'#F4F4F1', ink:'#111111', muted:'#6B6B68', border:'#D9D9D5',
   accent:'#1F4FD8', accentInk:'#1A44C2', err:'#B3403A', track:'#EDF0EE',
@@ -415,7 +416,7 @@ test('the Unplaced wash ends at the tree body and cannot cover the verdict canva
   const topology = treeProjection(projection);
   const layout = treeLayout(topology, {width:700, measure});
   const svg = renderTree(topology, layout, {colors, measure, dark:false, today:'2026-12-01', projection});
-  const match = /<g data-kind="unplaced"><rect x="0" y="([^"]+)" width="[^"]+" height="([^"]+)"/.exec(svg);
+  const match = /<g data-kind="unplaced"><rect x="36" y="([^"]+)" width="[^"]+" height="([^"]+)"/.exec(svg);
   assert.ok(match, 'unplaced wash geometry is emitted');
   assert.ok(Number(match[1]) + Number(match[2]) <= layout.totalHeight,
     'translated wash stays inside bodyHeight');

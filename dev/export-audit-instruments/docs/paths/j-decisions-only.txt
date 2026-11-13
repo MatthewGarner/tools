@@ -1,0 +1,11 @@
+// decisions and no items
+title: Decisions only
+today: 2026-11-12
+
+decision a:
+  question: Is A true?
+  signal: a
+  owner: team
+  answer-by: 2026-12-01
+  learn: test a
+  enough: yes at 5

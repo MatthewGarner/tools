@@ -7,7 +7,7 @@ const read = path => readFileSync(new URL(path, ROOT), 'utf8');
 
 const STANDARD = {
   'alarm/index.html': ['copypng', 'copydoc', 'dlpng', 'dlsvg'],
-  'bets/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
+  'bets/index.html': ['copypng', 'copymd', 'copyslide', 'dlpng', 'dlsvg'],
 
   'energy/cycles/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'energy/frequency/index.html': ['copypng', 'copydoc', 'dlpng', 'dlsvg'],
@@ -25,7 +25,7 @@ const STANDARD = {
   'roadmap/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'signal-vs-noise/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'timeline/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
-  'tree/index.html': ['copypng', 'dlpng', 'dlsvg'],
+  'tree/index.html': ['copypng', 'copyslide', 'dlpng', 'dlsvg'],
   'wardley/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'why/index.html': ['copypng', 'dlpng', 'dlsvg'],
 };

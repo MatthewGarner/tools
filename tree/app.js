@@ -3,7 +3,7 @@ import {offer as provide} from '../assets/recent-ui.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
-import {evaluate, evalDet, findByLine, probabilityActionState, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
+import {evalDet, findByLine, probabilityActionState, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
 import {pricedCopy, seamCopy} from './format.js';
 import {render, treeVerdictParts} from './render.js';
 import {createEditor} from './editor.js';
@@ -12,21 +12,35 @@ import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {wirePrintArtefact, lightTheme} from '../assets/print-artefact.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import './face-house.js';
 import {rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
-import {mountMotion} from "../assets/motion.js";
+import {mountMotion, scrollPageTo} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, applies, subtreeRange, childLineFor, applyExplore, exploreProbOps, hasIncomingProb} from './edit-targets.js';
 import {STARTER} from './starter.js';
+import {createEvalMemo, pendingResults, isSmall} from './eval-memo.js';
+import {runEvaluation, decodeResults} from './eval-wire.js';
+import {createSimSequencer} from '../assets/sim-sequencer.js';
+import {createSimPending, holdWhilePending, keepFocus, afterFieldCloses} from '../assets/sim-pending.js';
+import {createSliderCommit} from './slider-commit.js';
+
+const evalMemo = createEvalMemo();   // the evaluation is kept, keyed on the tree: a theme change, zoom or re-layout never re-runs it
 
 const $ = id => document.getElementById(id);
 const preview = $('preview');
 const paint = mountMotion(preview);
-
+/* the page's own signal for "the figures are final" (#preview[data-sim]), and the polite announcement that goes with it */
+const simLive = document.createElement('p');
+simLive.className = 'sr-only'; simLive.setAttribute('role', 'status'); simLive.setAttribute('aria-live', 'polite');
+preview.after(simLive);
+const pending = createSimPending({host: preview, live: simLive});
 
 const EXAMPLES = [
   {name: 'Bid or no bid', src:
@@ -55,25 +69,101 @@ Approach
   Do nothing: 0`},
 ];
 
+
+
 /* ---------- refresh loop ---------- */
 let model = null, results = null, lastSvg = '', hashTimer = null;
-function renderWarnings(){
-  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(results ? results.warnings : [])]);
+function renderWarnings(error = ''){
+  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(results ? results.warnings : []),
+    ...(error ? ['the evaluation could not solve this tree (' + error + ') — the figures are the last that worked'] : [])]);
+}
+/* ---------- the evaluation, off the main thread (tree/sim-worker.js) ----------
+   An edit paints at once from what is already known (the tree as edited, and the last evaluation carried onto the nodes that were
+   there), the worker runs the engine's own function, and the page repaints with the final figures. The memo is the single place a
+   result is looked up: a tree it already holds is drawn final in the same task. */
+let lastGood = null;      // {root, results}: the last picture drawn from final figures
+let asked = null;         // the model the run in flight was asked for
+let simError = '';        // the engine's message when it could not evaluate this tree; '' otherwise
+let lastText = '';
+let fromResult = false;   // this repaint is the final figures arriving over a pending one: the reveal already playing is not played again
+let inlineNow = false;   // the first picture of a small tree is drawn from the evaluation in the boot task
+const seqr = createSimSequencer({
+  spawn({message, failure}){
+    try{
+      const w = new Worker(new URL('./sim-worker.js', import.meta.url), {type: 'module'});
+      w.onmessage = ({data}) => message(data);
+      w.onerror = failure; w.onmessageerror = failure;
+      return w;
+    }catch(e){ return null; }
+  },
+  runSync: runEvaluation,
+  onResult(key, wire){
+    const sent = asked; asked = null;
+    if(!sent) return;
+    evalMemo.put(sent, decodeResults(sent.root, wire));
+    drawFinal();
+  },
+  onError(key, message){ asked = null; modelError(message); },
+});
+/* the figures have arrived: draw them over the pending picture (not under an open edit field: see afterFieldCloses) */
+function drawFinal(){
+  if(afterFieldCloses(drawFinal)) return;
+  fromResult = true;
+  try{ paintModel(); }finally{ fromResult = false; }
+}
+globalThis.__treeWorkerAlive = () => seqr.workerAlive();   // test hook: a model error must not retire the worker
+const announcement = () => (model && results) ? treeVerdictParts(model, results).line : '';
+/* the engine could not evaluate this tree: the structure is the tree's, the figures are the last that worked, and nothing is
+   exported from them */
+function modelError(message){
+  simError = message;
+  drawPicture();
+  pending.fail();
+}
+function paintModel(){
+  if(!model.root){
+    seqr.cancel(); asked = null; results = null; simError = '';
+    drawPicture();
+    pending.end();
+    return;
+  }
+  let kept = evalMemo.peek(model);
+  if(!kept && (inlineNow || !seqr.workerAlive())) kept = evalMemo.get(model);   // no worker: the same function, here, drawn once
+  if(kept) simError = '';
+  results = kept || pendingResults(lastGood, model);
+  drawPicture();
+  if(kept){
+    lastGood = {root: model.root, results};
+    seqr.cancel(); asked = null;
+    pending.end(announcement());
+    return;
+  }
+  /* a slider release is waiting on the worker: the drawing keeps the call the slider was showing until the figures arrive */
+  if(committingFocus && focus){ applyLiveWinner(evalDet(model).rec); setPending(true); }
+  pending.begin();
+  asked = model;
+  seqr.request(evalMemo.key(model), {root: model.root});
 }
 function doRefresh(){
-  const text = editor.getText();
-  model = parse(text);
+  lastText = editor.getText();
+  model = parse(lastText);
+  simError = '';
+  paintModel();
+  try{ if(shouldPersist()) saveTrackedWork(localStorage,'tree-src', lastText); }catch(e){}
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(writeHash, 400);
+}
+/* draw `model` with `results`, whatever state the figures are in */
+function drawPicture(){
   const pv = $('preview');
   if(!model.root){
-    results = null;
     lastSvg = ''; paint.reset();
-    pv.innerHTML = '<p class="placeholder">' + (text.trim()
+    pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
       ? 'No tree yet — add an indented option or two.'
       : 'Start typing — or load an example.') + '</p>';
     paintMetrics($('metrics'), '', []);
     dismissFocus();
   } else {
-    results = evaluate(model);
     rebindFocus();   // I-5: re-resolve/dismiss the focused ref before ctx.hot is built (I-8 needs it fresh)
     const hot = computeHotSet(model);
     if(focus) hot.add(focus.kind + ':' + focus.line);   // I-8: keep the focused mark whatever loadBearing now says
@@ -81,16 +171,13 @@ function doRefresh(){
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot,
       intent: width ? 'live-narrow' : 'live-wide', width,
       coarse: matchMedia('(pointer: coarse)').matches});
-    paint(svg, REVEAL, {onSwap: reapplyActiveMark}); lastSvg = svg;
+    keepFocus(pv, () => paint(svg, fromResult ? {} : REVEAL, {onSwap: reapplyActiveMark})); lastSvg = svg;
     paintMetrics($('metrics'), model.title || 'Untitled tree', metricCounts());
     if(focus) resyncFocusUI();   // repaint the slider's own extent/value + clear any mid-drag classes
   }
   updateSeam();
-  renderWarnings();
+  renderWarnings(simError);
   setActionsEnabled(!!lastSvg);
-  try{ if(shouldPersist()) saveTrackedWork(localStorage,'tree-src', text); }catch(e){}
-  clearTimeout(hashTimer);
-  hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
 /* onChange's debounce is inlined here (rather than assets/schedule.js's shared
@@ -106,12 +193,14 @@ function scheduleRefresh(){
   clearTimeout(changeTimer);
   changeTimer = setTimeout(refresh, 120);
 }
+/* a discrete edit (a commit, a menu pick, Undo) paints at once; the debounce is for typing in the source only */
+function refreshNow(){ clearTimeout(changeTimer); refresh(); }
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
   onChange: scheduleRefresh,
 });
-mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: () => undoRefresh()});   // phones have no ⌘Z (Rule 2)
 function modelLinkState(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
@@ -121,9 +210,10 @@ function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  focusEditor: () => editor.view.focus(),   // opening the rail moves focus into the editor
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
-watchNarrowBucket(preview, () => { lastSvg = ''; paint.reset(); refresh(); });
+watchNarrowBucket(preview, () => { lastSvg = ''; paint.reset(); refresh(); }, {skipFirst: true});
 
 /* ---------- priced-insistence walk (B3) ----------
    Tap (or Enter/Space) a load-bearing number → the ONE persistent slider (outside #preview,
@@ -137,12 +227,14 @@ const exploreBar = $('explorebar'), exploreLabel = $('exploreLabel'), exploreClo
   explorePriced = $('explorePriced'), seamEl = $('seam');
 
 let focus = null;             // {kind, line, label, raw, ext, focusValue} — the bound ref's fingerprint (I-5)
+let undoing = false;           // true only while an Undo/Redo's refresh runs: the slider stays on its node and shows the restored value
 let committingFocus = false;   // true only while OUR OWN commit's settle-refresh is running
 
+/* the load-bearing numbers come with the evaluation (the worker works them out beside it); a picture whose results carry none (an inline
+   run, a coarse fill) works them out here once and keeps them on the results */
 function computeHotSet(m){
-  const set = new Set();
-  for(const {ref} of loadBearing(m)) set.add(ref.kind + ':' + ref.line);
-  return set;
+  if(!results.hot) results.hot = loadBearing(m).map(({ref}) => ref.kind + ':' + ref.line);
+  return new Set(results.hot);
 }
 /* identifies the bound ref by kind+line+label+raw, NEVER node identity — parse() rebuilds fresh
    node objects every call, and duplicate labels exist (the perf fixture carries twins), so a
@@ -158,7 +250,18 @@ function refFingerprint(m, ref){
   return {label: node.label, raw: node.valueRaw || ''};
 }
 
-function showExploreBar(on){ exploreBar.hidden = !on; }
+/* The bar is pinned inside the viewport: the bottom of the artefact pane on a desktop (placed from the stage's own rectangle),
+   the bottom of the screen on a phone (assets in tree/style.css). It overlays the page, so opening and closing it never moves
+   anything or scrolls the page. */
+function placeExploreBar(){
+  if(exploreBar.hidden) return;
+  if(matchMedia('(pointer: coarse)').matches){ exploreBar.style.left = exploreBar.style.width = ''; return; }
+  const r = $('preview').getBoundingClientRect();
+  exploreBar.style.left = Math.round(r.left) + 'px';
+  exploreBar.style.width = Math.round(r.width) + 'px';
+}
+addEventListener('resize', placeExploreBar);
+function showExploreBar(on){ exploreBar.hidden = !on; placeExploreBar(); }
 
 function clearLiveClasses(){
   const svgEl = preview.querySelector('svg');
@@ -280,6 +383,16 @@ function engageSlider(ref){
   updatePriced(ext, cur, {settle: true});
   reapplyActiveMark();
   exploreRange.focus({preventScroll: true});
+  keepNumberClear();
+}
+/* the bar is pinned over the bottom of the viewport: a number that would sit under it scrolls up by just enough to stay
+   in sight (over the base duration, a jump under reduced motion). Nothing else moves the page: opening and closing do not. */
+function keepNumberClear(){
+  const t = focusedTarget();
+  if(!t) return;
+  const r = t.getBoundingClientRect(), bar = exploreBar.getBoundingClientRect();
+  const need = r.bottom + 16 - bar.top;
+  if(need > 0) scrollPageTo(scrollY + Math.min(need, Math.max(0, r.top - 8)));
 }
 function dismissFocus(){
   if(!focus) return;
@@ -295,7 +408,7 @@ function rebindFocus(){
   if(!focus) return;
   const fp = refFingerprint(model, {kind: focus.kind, line: focus.line});
   if(!fp){ dismissFocus(); return; }
-  if(committingFocus){ focus.raw = fp.raw; focus.label = fp.label; return; }
+  if(committingFocus || undoing){ focus.raw = fp.raw; focus.label = fp.label; return; }
   if(fp.label !== focus.label || fp.raw !== focus.raw) dismissFocus();
 }
 function resyncFocusUI(){
@@ -380,7 +493,17 @@ function commitFocus(x){
   }
   doRefresh();
   committingFocus = false;
+  /* WebKit drops focus from a control the pointer released on, and a repaint can too: the slider keeps it */
+  if(focus && document.activeElement !== exploreRange) exploreRange.focus({preventScroll: true});
 }
+/* An Undo: the slider stays open on the same node and shows the restored value (the node still exists), the tree repaints at once */
+function undoRefresh(){
+  sliderCommit.cancel();
+  undoing = true;
+  clearTimeout(changeTimer);
+  try{ doRefresh(); } finally { undoing = false; }
+}
+const sliderCommit = createSliderCommit(() => { if(focus) commitFocus(parseFloat(exploreRange.value)); });
 
 exploreRange.addEventListener('input', () => {
   if(!focus) return;
@@ -395,10 +518,17 @@ exploreRange.addEventListener('input', () => {
   updatePriced(focus.ext, x, {settle: false, det});
   exploreRange.setAttribute('aria-valuetext', formatValueText(focus.kind, x));
 });
+/* a pointer release commits at once; arrow keys commit once, 250ms after the last key or on blur (the readout moves with every key) */
+let pointerDown = false, lastPointerUp = -1e9;
 exploreRange.addEventListener('change', () => {
   if(!focus) return;
-  commitFocus(parseFloat(exploreRange.value));
+  if(pointerDown || performance.now() - lastPointerUp < 150) sliderCommit.now(); else sliderCommit.key();
 });
+exploreRange.addEventListener('blur', () => sliderCommit.flush());
+exploreRange.addEventListener('pointerdown', () => { pointerDown = true; });
+const pointerEnded = () => { pointerDown = false; lastPointerUp = performance.now(); };
+exploreRange.addEventListener('pointerup', pointerEnded);
+exploreRange.addEventListener('pointercancel', pointerEnded);
 /* strips the crossfade + un-fades the MC readouts + resets the priced readout to the settled
    (focusValue) text — the "nothing left mid-drag" reconcile shared by Escape, a release-with-
    no-net-change (I-2, below), and (about to be superseded by a real re-render) a commit. */
@@ -411,14 +541,27 @@ function settleUI(){
 function focusedTarget(){
   if(!focus) return null;
   const svgEl = preview.querySelector('svg');
-  return svgEl && svgEl.querySelector('[data-hot][data-line="' + focus.line + '"][data-edit="' + focus.kind + '"]');
+  if(!svgEl) return null;
+  /* the number that opened the slider; failing that (a phone draws no number marks, or the hot set moved on) the same mark
+     without the hot flag, then the node's own card menu */
+  return svgEl.querySelector('[data-hot][data-line="' + focus.line + '"][data-edit="' + focus.kind + '"]')
+    || svgEl.querySelector('[data-line="' + focus.line + '"][data-edit="' + focus.kind + '"][tabindex]')
+    || svgEl.querySelector('[data-line="' + focus.line + '"][data-edit^="cardmenu"]');
 }
 /* Escape reverts the uncommitted drag (never a text edit — nothing was committed), strips
    the crossfade + un-fades the MC readouts, and returns DOM focus to the number. Tab is never
    trapped — the slider is an ordinary tab stop, not inside a popover. */
 exploreRange.addEventListener('keydown', e => {
+  /* Cmd/Ctrl+Z works with focus on the slider: an uncommitted key adjustment is dropped first, else the last model edit is undone */
+  if((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z' && focus){
+    e.preventDefault();
+    if(sliderCommit.pending()){ sliderCommit.cancel(); resyncFocusUI(); }
+    else if(editor.undo()) undoRefresh();
+    return;
+  }
   if(e.key !== 'Escape' || !focus) return;
   e.preventDefault();
+  sliderCommit.cancel();
   exploreRange.value = focus.focusValue;
   settleUI();
   const t = focusedTarget();
@@ -446,12 +589,14 @@ exploreRange.addEventListener('pointercancel', reconcileIfUnchanged);
    focus to the bound number's own tspan (captured before dismissFocus() nulls `focus`), rather
    than dropping it to <body>. */
 exploreClose.addEventListener('click', () => {
+  sliderCommit.flush();
   const t = focusedTarget();
   dismissFocus();
   if(t) t.focus({preventScroll: true});
 });
 
 const treeEip = attachEditInPlace(preview, {
+  hitSlop: 12,   // a mouse reaches a 9-11px number or label from 12px above or below it
   kinds: {
     /* custom (I-2): a hot (load-bearing) number's tap/Enter binds the slider instead of opening
        the text popover; a plain number keeps the popover untouched (checked via data-hot, which
@@ -504,6 +649,11 @@ const treeEip = attachEditInPlace(preview, {
     'cardmenu-root-leaf': {menu: [{label: '＋ Add outcome', action: true}]},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    commitEdit(kind, lineNo, oldRaw, newValue, el);
+    if(kind !== 'explore' && !kind.startsWith('cardmenu-')) refreshNow();   // a menu row that opens a field changes nothing to repaint
+  },
+});
+function commitEdit(kind, lineNo, oldRaw, newValue, el){
     if(handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
       configRe: /^(title|currency|palette|accent|verdict)\s*:/i,
@@ -515,6 +665,9 @@ const treeEip = attachEditInPlace(preview, {
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
         const inserted = insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        /* the new node is drawn in this task, before its field is sought: otherwise the old drawing still has a node at that
+           line, and the name field opens on it instead */
+        clearTimeout(changeTimer); doRefresh();
         const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
         const menuOnly = matchMedia('(pointer: coarse)').matches;
         treeEip.openAt({kind: menuOnly ? 'cardmenu-leaf' : 'label', line: inserted.srcLine}, {
@@ -530,15 +683,14 @@ const treeEip = attachEditInPlace(preview, {
       } else if(newValue === '✖Remove branch' || newValue === '✖Remove'){
         if(lineNo < 0) return;   // implicit root has no line of its own
         const rr = subtreeRange(editor.getText(), lineNo);
-        if(rr) editor.removeLines(rr.from, rr.to);
+        if(rr){ editor.removeLines(rr.from, rr.to); refreshNow(); }
       }
       return;
     }
     const line = editor.getLine(lineNo);
     const newLine = applies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
-  },
-});
+}
 
 /* ---------- chips ---------- */
 provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => editor.setText(ex.src)}))});
@@ -566,18 +718,35 @@ function metricCounts(){
 }
 
 /* ---------- exports ---------- */
+/* Everything that leaves the page is drawn in the house face and carries it embedded; until the face has loaded there is nothing
+   to export (the live picture does not wait: it uses the page's own font). */
 function svgString(intent){
-  if(!model || !model.root || !results) return null;
-  return render(model, results, {colors: themeColors(), measure, intent, dark: isDark()});
+  if(!model || !model.root || !results || !chapterFontsReady() || !pending.isFinal() || simError) return null;   // nothing leaves with pending figures
+  return embedChapterFonts(render(model, results, {colors: themeColors(), measure, intent, dark: isDark()}));
+}
+/* Print cannot wait for a worker, so a print asked for while the figures are pending runs the same function here */
+function printSvgString(){
+  if(!pending.isFinal() && model && model.root && !simError && chapterFontsReady())
+    return embedChapterFonts(render(model, evalMemo.get(model), {colors: themeColors(), measure, intent: 'native', dark: isDark()}));
+  return svgString('native');
 }
 function slug(){
   return slugify(model.title, 'decision-tree');
 }
+/* Copy PNG and Download PNG are the picture of the tree on the page; "Copy slide" is the 16:9 comparison of the options */
+const exportButtons = {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copyslide: $('copyslide')};
+holdWhilePending(Object.values(exportButtons), pending, {say: text => { const line = $('exportstatus'); if(line){ line.textContent = text; line.hidden = !text; } }});
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
+  buttons: exportButtons,
   getSvg: () => svgString('native'),
-  getCopy: () => svgString('presentation'),
+  getSlide: () => svgString('presentation'),
   slug,
+});
+/* Print is the tree alone, light, whatever theme the page is in, shrunk onto one sheet (a tree is one picture, not rows) */
+wirePrintArtefact({getSvg: () => lightTheme(printSvgString), fitOne: true});
+loadChapterFonts().then(() => { setActionsEnabled(!!lastSvg); }, () => {
+  const line = $('exportstatus');
+  if(line){ line.textContent = 'The typeface could not load, so exports are unavailable. Reload the page to try again.'; line.hidden = false; }
 });
 
 /* ---------- theme change ---------- */
@@ -592,8 +761,11 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('tree-src') || ''; }catch(e){}
   }
-  if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
+  /* the first tree is drawn in this task, from the source that is already known: one render, nothing after it moves */
+  const first = () => { clearTimeout(changeTimer); inlineNow = isSmall(parse(editor.getText())); try{ doRefresh(); }finally{ inlineNow = false; } };
+  if(text){ editor.setText(text); first(); }
+  else if(autoloadExample(() => editor.setText(EXAMPLES[0].src))){ first(); }
+  else refresh();
 })();
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */

@@ -18,8 +18,9 @@ test('TR-5: when the midpoint story and the simulation differ, the exported flip
   for(const intent of ['native']){
     const t = texts(render(m, r, {...CTX, intent}));
     assert.match(t, /WHAT WOULD FLIP THE MIDPOINT CALL/);
-    assert.ok(t.includes(SEAM), intent + ': ' + t.slice(t.indexOf('WHAT WOULD')));
-    assert.ok(t.indexOf(SEAM) < t.indexOf('Bold matters'), 'the explanation comes before the list it explains');
+    const flat = t.replace(/ \| /g, ' ');   // the picture is sized to its content, so a long sentence may wrap
+    assert.ok(flat.includes(SEAM), intent + ': ' + t.slice(t.indexOf('WHAT WOULD')));
+    assert.ok(flat.indexOf(SEAM) < flat.indexOf('Bold matters'), 'the explanation comes before the list it explains');
   }
   const narrow = texts(render(m, r, {...CTX, intent: 'live-narrow', width: 390}));
   assert.ok(narrow.replace(/ \| /g, ' ').includes(SEAM) && /WHAT WOULD FLIP THE MIDPOINT CALL/.test(narrow), 'the export-shaped narrow picture too');
@@ -109,11 +110,11 @@ test('TR-10: sharePct is whole percent from 1% to 99%, "<1%" and ">99%" outside,
 test('TR-10: the verdict evidence and the slide win rate print the honest share', () => {
   const m = parse('R\n  A: 1050 to 1250\n  B: 800 to 1000'), r = evaluate(m);
   const native = texts(render(m, r, {...CTX, intent: 'native'}));
-  assert.match(native, /higher expected value than B in >99% of simulations/);
+  assert.match(native.replace(/ \| /g, ' '), /higher expected value than B in >99% of simulations/);
   assert.ok(!/in 100% of simulations/.test(native));
   const slide = texts(render(m, r, {...CTX, intent: 'presentation'}));
   assert.ok(/\| <1% \|/.test(slide) || /<1%/.test(slide), 'B wins a fraction of a percent: ' + slide);
   assert.ok(!/\| 0% \|/.test(slide));
   const flat = parse('R\n  A: 10\n  B: 5'), fr = evaluate(flat);
-  assert.match(texts(render(flat, fr, {...CTX, intent: 'native'})), /in 100% of simulations/, 'with nothing uncertain, all of them is all of them');
+  assert.match(texts(render(flat, fr, {...CTX, intent: 'native'})).replace(/ \| /g, ' '), /in 100% of simulations/, 'with nothing uncertain, all of them is all of them');
 });

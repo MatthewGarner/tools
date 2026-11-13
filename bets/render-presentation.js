@@ -1,12 +1,15 @@
 /* Fixed 16:9 portfolio-summary render for Copy PNG. It is intentionally a
    deterministic selection, not a compressed claim that all bets are shown. */
-import {esc, txt} from '../assets/svg.js';
-import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
+import {esc} from '../assets/svg.js';
+import {SANS, MONO_FONT, txt, useFace} from './face.js';
+import {railLabels} from './labels.js';
+import {conditionReadings, measuredLines} from './layout.js'
+import {omittedMaterialExceptions, presentationSelection} from './presentation-selection.js';
 import {NSIM_TEXT, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const W = 1920, H = 1080;
-const TABLE_LIMIT_Y = 720;
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+const MORE_LINE = 26;
+const TABLE_LIMIT_Y = 850;   // the table fills the plate down to here; the portfolio rules, then the footer, sit below
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 const reading = value => value ? {
   loss: 'P(LOSES MONEY) ' + lossText(value),
@@ -58,7 +61,7 @@ const unscoredCopy = selection => selection.unscored.length
    authored titles whole while they fit; an exceptional title earns a clear
    refusal rather than silently becoming an inaccurate crop. */
 function presentationTitle(text, measure){
-  const width = 970;
+  const width = 940;
   for(const size of [42, 38, 34, 30, 26, 22]){
     const lines = measuredLines(text, '600 ' + size + 'px ' + SANS, width, measure);
     if(lines.length <= 2) return {lines, size, leading: Math.round(size * 1.1), refused: false};
@@ -69,7 +72,7 @@ function presentationTitle(text, measure){
 
 function titleLine(x, y, line, size, c){
   return '<text data-bets-title-line="" x="' + x + '" y="' + y +
-    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="' + size +
+    '" font-family="' + SANS + '" font-size="' + size +
     '" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>';
 }
 
@@ -100,7 +103,8 @@ function rowPlan(record, C, measure){
   const names = measuredLines(b.name, '600 17px ' + SANS, C.nameEnd - C.name, measure);
   const killText = b.kill && ('fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''));
   const kills = killText ? measuredLines(killText, '10px ' + SANS, C.nameEnd - C.name, measure) : [];
-  const audits = record.rec.audits.length ? record.rec.audits : ['—'];
+  /* the audit note lives in the column between the range bar and the right edge: it wraps there and ends at the edge */
+  const audits = (record.rec.audits.length ? record.rec.audits : ['—']).flatMap(a => measuredLines(a, '700 9.5px ' + SANS, C.right - C.audit0, measure));
   const height = Math.max(58, 20 + names.length * 19 + kills.length * 13, 18 + audits.length * 14);
   return {names, kills, audits, height};
 }
@@ -122,13 +126,17 @@ function bodyEnd(records, C, startY, measure){
    stops at the first ranked position that would displace that evidence, then
    names the remainder in the existing full-SVG handoff. */
 function admittedSelection(selection, C, startY, measure){
-  const selected = [];
-  for(const record of selection.selected){
-    const next = selected.concat(record).sort((a, b) => a.sourceOrder - b.sourceOrder);
-    const end = bodyEnd(next, C, startY, measure);
-    if(end <= TABLE_LIMIT_Y) selected.push(record);
-    else break;
-  }
+  const fill = limit => {
+    const taken = [];
+    for(const record of selection.selected){
+      const next = taken.concat(record).sort((a, b) => a.sourceOrder - b.sourceOrder);
+      if(bodyEnd(next, C, startY, measure) <= limit) taken.push(record);
+      else break;
+    }
+    return taken;
+  };
+  let selected = fill(TABLE_LIMIT_Y);
+  if(selected.length < selection.selected.length) selected = fill(TABLE_LIMIT_Y - MORE_LINE);   // room for the "+N more" line
   const omitted = selection.selected.length - selected.length;
   return {...selection, selected, remainder: selection.remainder + omitted, refused: selection.selected.length > 0 && selected.length === 0};
 }
@@ -170,16 +178,17 @@ function conditionReceipt(readings, x0, y0, width, c){
 /* The plate ends on the portfolio's two actual outcome ranges. They occupy the
    quiet lower field with evidence—not decoration—and share one scale so the
    stress reading can be compared at a glance. */
-function portfolioExposureRails(readings, x0, x1, y0, c){
+function portfolioExposureRails(readings, x0, x1, y0, c, measure){
   const baseline = readings.baseline.result, stress = readings.stress.result;
   if(!baseline || !stress) return [];
   const lo = Math.min(0, baseline.p10, stress.p10);
   const hi = Math.max(1, baseline.p90, stress.p90);
   const scale = value => x0 + (value - lo) / (hi - lo || 1) * (x1 - x0);
   const out = [];
+  let rows = 1, y = y0 - 58;
   [[readings.baseline.label.toUpperCase(), baseline, c.accent, c.accentInk],
     [readings.stress.label.toUpperCase(), stress, c.err, c.err]].forEach(([label, result, tone, ink], index) => {
-    const y = y0 + index * 58;
+    y += 58 + (index ? (rows - 1) * 12 : 0);
     out.push('<g data-portfolio-exposure="" data-condition="' + (index ? 'shared' : 'independent') + '">');
     out.push(txt(x0, y + 10, label, 10, index ? c.err : c.muted, {weight: 700, tracking: '0.08em'}));
     out.push(txt(x1, y + 10, lossText(result) + ' BELOW ZERO · MEDIAN ' + p50Text(result), 10, ink,
@@ -197,10 +206,16 @@ function portfolioExposureRails(readings, x0, x1, y0, c){
       exRound(scale(result.split.hi)) + '" y2="' + (y + 28) + '" stroke="' + (index ? c.err : c.ink) + '" stroke-width="1"/>' +
       notch(result.split.lo) + notch(result.split.hi));
     else out.push(notch(result.p50));
-    out.push(txt(scale(result.p10), y + 48, 'P10 ' + pv(result, result.p10), 9.5, c.muted, {mono: true, anchor: 'middle'}));
-    out.push(txt(scale(result.split ? (result.split.lo + result.split.hi) / 2 : result.p50), y + 48, 'P50 ' + p50Text(result), 9.5, index ? c.err : c.ink,
-      {mono: true, weight: 700, anchor: 'middle'}));
-    out.push(txt(scale(result.p90), y + 48, 'P90 ' + pv(result, result.p90), 9.5, c.muted, {mono: true, anchor: 'middle'}));
+    const labels = railLabels([
+      {key: 'P10', valueText: pv(result, result.p10), x: scale(result.p10)},
+      {key: 'P50', valueText: p50Text(result), x: scale(result.split ? (result.split.lo + result.split.hi) / 2 : result.p50)},
+      {key: 'P90', valueText: pv(result, result.p90), x: scale(result.p90)}],
+      {x0, x1, measure, font: '9.5px ' + MONO_FONT, zero: lo < 0 ? {x: scale(0)} : null});
+    rows = labels.rows;
+    for(const l of labels.labels){
+      const mid = /P50/.test(l.key);
+      out.push(txt(l.x, y + 48 + l.row * 12, l.text, 9.5, mid ? (index ? c.err : c.ink) : c.muted, {mono: true, weight: mid ? 700 : undefined, anchor: l.anchor}));
+    }
     out.push('</g>');
   });
   return out;
@@ -209,17 +224,20 @@ function portfolioExposureRails(readings, x0, x1, y0, c){
 const exRound = value => Math.round(value * 100) / 100;
 
 export function renderBetsPresentation(model, sim, ctx = {}){
+  useFace({...ctx, intent: 'presentation'});
   const c = ctx.colors, measure = ctx.measure || (s => String(s).length * 14);
   const authoredTitle = model.title || 'Bets board';
   const title = presentationTitle(authoredTitle, measure);
   if(title.refused) return titleRefusal(authoredTitle, c);
   const conditions = conditionReadings(sim);
   const C = {left: 96, id: 98, name: 168, nameEnd: 650, stake: 790, odds: 920, payoff: 1060,
-    p10: 1210, p50: 1320, p90: 1430, range0: 1482, range1: 1710, audit: 1780, right: 1824};
-  const titleBottom = 86 + (title.lines.length - 1) * title.leading + title.size * 0.25;
-  const headerShift = Math.max(0, Math.ceil(titleBottom - 116));
+    p10: 1210, p50: 1320, p90: 1430, range0: 1482, range1: 1676, audit0: 1692, right: 1824};
+  /* the strap sits a clear 30 below the title's last baseline, so a wrapped title pushes everything below it down */
+  const lastBase = 86 + (title.lines.length - 1) * title.leading;
+  const headerShift = Math.max(0, Math.ceil(lastBase + 30 - 116));
   const ruleY = 142 + headerShift;
-  const initial = presentationSelection(model, sim);
+  /* every ranked bet is a candidate: the plate is filled by measurement, and only what does not fit is left out (and said) */
+  const initial = presentationSelection(model, sim, Infinity);
   let selection = initial, receipts, headY;
   /* Selection and exceptions inform one another: when a row cannot be
      admitted, its audit joins the receipt. Iterate to a stable measured
@@ -278,10 +296,13 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   for(const [label, x, anchor] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['EV P50', C.p50, 'end'], ['EV P90', C.p90, 'end']])
     parts.push(txt(x, headY, label, 10, c.muted, {weight: 700, tracking: '0.08em', anchor}));
-  parts.push(txt((C.range0 + C.range1) / 2, headY, 'P10 ▸ P90', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
-  parts.push(txt(C.audit, headY, 'AUDIT NOTE', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  parts.push(txt((C.range0 + C.range1) / 2, headY, 'P10 to P90', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  parts.push(txt(C.right, headY, 'AUDIT NOTE', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'end'}));
   parts.push('<line x1="96" y1="' + (headY + 14) + '" x2="1824" y2="' + (headY + 14) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
 
+  /* a short plan spreads over the plate instead of leaving a band of empty paper under its table */
+  const natural = bodyEnd(displayed, C, headY + 30, measure);
+  const rowPad = Math.max(0, Math.min(64, Math.floor((TABLE_LIMIT_Y - (selection.remainder ? MORE_LINE : 0) - natural) / Math.max(1, displayed.length))));
   let y = headY + 30, group = null;
   for(const record of displayed){
     if(record.group.name !== group){
@@ -293,27 +314,32 @@ export function renderBetsPresentation(model, sim, ctx = {}){
       y += 24;
     }
     const b = record.b, e = record.rec.ev;
-    const {names, kills, audits, height: rowH} = rowPlan(record, C, measure);
+    const {names, kills, audits, height: planned} = rowPlan(record, C, measure);
+    const rowH = planned + rowPad;
+    const ry = y + rowPad / 2;   // the row's content sits in the middle of its band
     parts.push('<g data-row="bet" data-id="' + record.id + '">');
-    parts.push(txt(C.id, y + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
-    names.forEach((line, i) => parts.push(txt(C.name, y + 20 + i * 19, line, 17, c.ink, {weight: 600})));
-    kills.forEach((line, i) => parts.push(txt(C.name, y + 23 + names.length * 19 + i * 13, '↳ ' + line, 10, c.muted)));
+    parts.push(txt(C.id, ry + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
+    names.forEach((line, i) => parts.push(txt(C.name, ry + 20 + i * 19, line, 17, c.ink, {weight: 600})));
+    kills.forEach((line, i) => parts.push(txt(C.name, ry + 23 + names.length * 19 + i * 13, line, 10, c.muted)));
     for(const [x, value] of [[C.stake, stakeOf(b)], [C.odds, oddsOf(b)], [C.payoff, payoffOf(b)]])
-      parts.push(txt(x, y + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
+      parts.push(txt(x, ry + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
     for(const [x, value] of [[C.p10, e.p10], [C.p50, e.p50], [C.p90, e.p90]])
-      parts.push(txt(x, y + 21, evv(e, value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
-    parts.push('<line x1="' + C.range0 + '" y1="' + (y + 18) + '" x2="' + C.range1 + '" y2="' + (y + 18) + '" stroke="' + c.border + '"/>');
-    parts.push('<line data-exposure-range="" x1="' + ex(e.p10) + '" y1="' + (y + 18) + '" x2="' + ex(e.p90) + '" y2="' + (y + 18) + '" stroke="' + (e.p50 < 0 ? c.err : c.accent) + '" stroke-width="5" stroke-opacity="0.72"/>');
-    parts.push('<line data-exposure-median="" x1="' + ex(e.p50) + '" y1="' + (y + 10) + '" x2="' + ex(e.p50) + '" y2="' + (y + 26) + '" stroke="' + c.ink + '" stroke-width="2"/>');
-    audits.forEach((audit, i) => parts.push(txt(C.audit, y + 21 + i * 14, audit, 9.5, record.rec.audits.length ? c.err : c.muted,
-      {weight: 700, anchor: 'middle', tracking: '0.035em'})));
+      parts.push(txt(x, ry + 21, evv(e, value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
+    parts.push('<line x1="' + C.range0 + '" y1="' + (ry + 18) + '" x2="' + C.range1 + '" y2="' + (ry + 18) + '" stroke="' + c.border + '"/>');
+    parts.push('<line data-exposure-range="" x1="' + ex(e.p10) + '" y1="' + (ry + 18) + '" x2="' + ex(e.p90) + '" y2="' + (ry + 18) + '" stroke="' + (e.p50 < 0 ? c.err : c.accent) + '" stroke-width="5" stroke-opacity="0.72"/>');
+    parts.push('<line data-exposure-median="" x1="' + ex(e.p50) + '" y1="' + (ry + 10) + '" x2="' + ex(e.p50) + '" y2="' + (ry + 26) + '" stroke="' + c.ink + '" stroke-width="2"/>');
+    audits.forEach((audit, i) => parts.push(txt(C.right, ry + 21 + i * 14, audit, 9.5, record.rec.audits.length ? c.err : c.muted,
+      {weight: 700, anchor: 'end'})));
     parts.push('</g>');
     y += rowH;
     parts.push('<line x1="96" y1="' + y + '" x2="1824" y2="' + y + '" stroke="' + c.border + '"/>');
   }
 
-  const railY = Math.max(y + 34, 760);
-  parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c));
+  if(selection.remainder) parts.push(txt(96, y + 22, '+' + selection.remainder + ' more ' + (selection.remainder === 1 ? 'bet' : 'bets') +
+    ' not shown here · all of them are in Download SVG', 12, c.accentInk, {weight: 700, tracking: '0.04em'}));
+  /* the two outcome rails sit at the foot of the plate, so a short plan has no empty band under them */
+  const railY = Math.max(y + (selection.remainder ? MORE_LINE : 0) + 34, 880);
+  parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c, measure));
 
   if(partial) parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
     {weight: 700, tracking: '0.1em'}));

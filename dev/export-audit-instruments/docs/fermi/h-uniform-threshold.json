@@ -1,0 +1,21 @@
+{
+ "about": "a uniform input and a threshold (P(> t) line in exports)",
+ "state": {
+  "f": "a + b",
+  "q": "Uniform and threshold",
+  "u": "days",
+  "t": "30",
+  "v": {
+   "a": [
+    "10",
+    "20",
+    "uni"
+   ],
+   "b": [
+    "5",
+    "25",
+    "auto"
+   ]
+  }
+ }
+}

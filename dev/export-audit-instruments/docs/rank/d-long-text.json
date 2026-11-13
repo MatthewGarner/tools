@@ -1,0 +1,49 @@
+{
+ "about": "very long initiative names",
+ "state": {
+  "c": [
+   [
+    "Value",
+    3
+   ],
+   [
+    "Time criticality",
+    2
+   ],
+   [
+    "Risk reduction",
+    1
+   ]
+  ],
+  "e": [
+   "Effort",
+   1
+  ],
+  "i": [
+   [
+    "Rebuild the onboarding journey for small teams who arrive from the marketing site and need to invite colleagues before their trial ends",
+    8,
+    8,
+    6,
+    4
+   ],
+   [
+    "Rebuild the onboarding journey for small teams who arrive from the marketing site and need to invite colleagues before their trial ends (variant)",
+    7,
+    6,
+    5,
+    4
+   ],
+   [
+    "Short",
+    9,
+    3,
+    5,
+    5
+   ]
+  ],
+  "k": 2,
+  "w": 50,
+  "s": 1
+ }
+}

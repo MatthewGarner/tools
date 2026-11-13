@@ -1,27 +1,29 @@
 /* Pure model + sim → Allocation Field. Wide is a shared exposure ledger;
    narrow is a menu-first register. Compare data is precomputed in app.js. */
-import {esc, txt, tint, editTarget, btnAttrs} from '../assets/svg.js';
+import {esc, tint, editTarget, btnAttrs} from '../assets/svg.js';
+import {SANS, MONO_FONT, txt, useFace} from './face.js';
+import {railLabels} from './labels.js';
 import {betKey, comparisonHeadline, sameUnit} from './diff.js';
 import {boardPlan, conditionReadings, measuredLines} from './layout.js';
-import {NSIM_TEXT, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, rangeText, oddsText, stakeOf, payoffOf, oddsOf,
+import {NSIM_TEXT, outcomeText, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, rangeText, oddsText, stakeOf, payoffOf, oddsOf,
   concentrationLine, togetherNote} from './format.js';
 
 const WIDE = 1240;
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+/* an element whose value comes from the simulation carries data-mc: the page dims exactly these while a run is pending (attribute only) */
+const mc = s => s.replace(/^<([a-z]+)/, '<$1 data-mc=""');
 const r2 = n => Math.round(n * 100) / 100;
 const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: [], scoreable: false};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 /* concentration (a null when no bet reaches the ≥40%-of-total-stake line, so callers
    reserve no gap for it) and the shared-scenario note come from format.js */
-const outcomeText = pf => pf ? 'MEDIAN OUTCOME ' + p50Text(pf) + ' · P10 ' + pv(pf, pf.p10) + ' · P90 ' + pv(pf, pf.p90) : 'NOT AVAILABLE';
 const lossAlt = pf => lossText(pf) + ' lose money, ' + p50Alt(pf);
 /* the portfolio median notch: one tick, or two ticks joined by a hairline when the
    median is split across an empty stretch of outcomes */
 function medianNotches(pf, xOf, y1, y2, stroke, width){
-  const tick = v => '<line x1="' + r2(xOf(v)) + '" y1="' + y1 + '" x2="' + r2(xOf(v)) + '" y2="' + y2 + '" stroke="' + stroke + '" stroke-width="' + width + '"/>';
+  const tick = v => '<line data-mc="" x1="' + r2(xOf(v)) + '" y1="' + y1 + '" x2="' + r2(xOf(v)) + '" y2="' + y2 + '" stroke="' + stroke + '" stroke-width="' + width + '"/>';
   if(!pf.split) return tick(pf.p50);
   const ym = (y1 + y2) / 2;
-  return '<line data-median-split="" x1="' + r2(xOf(pf.split.lo)) + '" y1="' + ym + '" x2="' + r2(xOf(pf.split.hi)) + '" y2="' + ym +
+  return '<line data-median-split="" data-mc="" x1="' + r2(xOf(pf.split.lo)) + '" y1="' + ym + '" x2="' + r2(xOf(pf.split.hi)) + '" y2="' + ym +
     '" stroke="' + stroke + '" stroke-width="1"/>' + tick(pf.split.lo) + tick(pf.split.hi);
 }
 const menuFacts = b => ' data-name-raw="' + esc(b.name) + '" data-stake-raw="' + esc(stakeOf(b)) +
@@ -36,9 +38,9 @@ function conditionCards(readings, x0, y0, width, c, narrow){
       const pf = item.result, tone = lossIsHigh(pf) ? c.err : c.accentInk;
       parts.push('<g data-condition-receipt="" data-condition="'+item.key+'">');
       parts.push(txt(x0,y+16,item.label.toUpperCase(),11,c.muted,{weight:700}));
-      parts.push(txt(x0,y+40,!pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) '+lossText(pf),16,tone,{weight:700,mono:true}));
-      parts.push(txt(x0,y+60,pf ? 'Median outcome '+p50Text(pf) : 'Outcome not available',12,c.ink,{weight:600,mono:true}));
-      if(pf) parts.push(txt(x0,y+79,'P10 '+pv(pf, pf.p10)+' · P90 '+pv(pf, pf.p90),11,c.ink,{mono:true}));
+      parts.push(mc(txt(x0,y+40,!pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) '+lossText(pf),16,tone,{weight:700,mono:true})));
+      parts.push(mc(txt(x0,y+60,pf ? 'Median outcome '+p50Text(pf) : 'Outcome not available',12,c.ink,{weight:600,mono:true})));
+      if(pf) parts.push(mc(txt(x0,y+79,'P10 '+pv(pf, pf.p10)+' · P90 '+pv(pf, pf.p90),11,c.ink,{mono:true})));
       y+=98;
       const lines=measuredLines(item.condition,'11px '+SANS,width,t=>String(t).length*6);
       for(const line of lines){parts.push(txt(x0,y,line,11,c.muted));y+=15;}
@@ -63,9 +65,9 @@ function conditionCards(readings, x0, y0, width, c, narrow){
       '" y2="' + r2(y0 + h - 2) + '" stroke="' + c.border + '" stroke-width="1"/>');
     out.push(txt(x + px, y0 + 14, item.label.toUpperCase(), narrow ? 8.2 : 9, c.muted,
       {weight: 700, tracking: narrow ? '0.035em' : '0.07em'}));
-    out.push(txt(x + px, y0 + (narrow ? 35 : 37), !pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + lossText(pf),
-      narrow ? 13 : 15, tone, {weight: 700, mono: true}));
-    out.push(txt(x + px, y0 + (narrow ? 53 : 55), outcomeText(pf), narrow ? 8.6 : 9.2, c.ink, {weight: 600, mono: true}));
+    out.push(mc(txt(x + px, y0 + (narrow ? 35 : 37), !pf ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + lossText(pf),
+      narrow ? 13 : 15, tone, {weight: 700, mono: true})));
+    out.push(mc(txt(x + px, y0 + (narrow ? 53 : 55), outcomeText(pf), narrow ? 8.6 : 9.2, c.ink, {weight: 600, mono: true})));
     copyOf(item).forEach((line, li) => out.push(txt(x + px,
       y0 + (narrow ? 71 : 68) + li * (narrow ? 11 : 10), line, narrow ? 8.5 : 8.8, c.muted)));
     out.push('</g>');
@@ -74,6 +76,7 @@ function conditionCards(readings, x0, y0, width, c, narrow){
 }
 
 export function renderBoard(model, sim, ctx = {}){
+  useFace(ctx);
   return (!!ctx.width && ctx.width < 520) ? renderNarrow(model, sim, ctx) : renderWide(model, sim, ctx);
 }
 
@@ -85,7 +88,7 @@ function prep(model, sim){
   const flagged = scoreable.filter(b => recOf(sim, b).audits.length).length;
   const totalStake = scoreable.reduce((t, b) => t + stakeMid(b), 0);
   let elo = 0, ehi = 1;
-  for(const b of scoreable){ const e = recOf(sim, b).ev; elo = Math.min(elo, e.p10); ehi = Math.max(ehi, e.p90); }
+  for(const b of scoreable){ if(recOf(sim, b).pending) continue; const e = recOf(sim, b).ev; elo = Math.min(elo, e.p10); ehi = Math.max(ehi, e.p90); }
   const epad = (ehi - elo) * 0.05 || 1;
   return {flat, scoreable, flagged, totalStake, elo: elo - epad, ehi: ehi + epad, pf: sim.portfolio, conc: sim.concentration};
 }
@@ -109,8 +112,8 @@ function killedByGroup(compare){
 
 /* Audits remain urgent through wording and one semantic colour—not badges. */
 function stampRow(parts, audits, xRight, cy, c){
-  audits.forEach((audit, i) => parts.push(txt(xRight, cy + i * 14, audit, 8.5, c.err,
-    {weight: 700, anchor: 'end', tracking: '0.045em'})));
+  audits.forEach((audit, i) => parts.push(mc(txt(xRight, cy + i * 14, audit, 8.5, c.err,
+    {weight: 700, anchor: 'end', tracking: '0.045em'}))));
 }
 
 /* compare markers (NEW/KILLED): a small tinted, ruled tag — quieter than the
@@ -131,6 +134,7 @@ function renderWide(model, sim, ctx){
   const compare = ctx.compare || null, edit = !!ctx.edit;
   const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
   const conditions = conditionReadings(sim);
+  conditions.pending = !!sim.pendingAll;
   const plan = boardPlan(model, sim, {measure});
   const concLine = concentrationLine(conc);
   const togetherLine = togetherNote(conditions.baseline.result, conditions.stress.result);
@@ -148,7 +152,7 @@ function renderWide(model, sim, ctx){
      separate right reading, so neither truncates authored source. */
   const titleLines = measuredLines(model.title || 'Bets board', '600 24px ' + SANS, 540, measure);
   titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="40" y="' + (48 + i * 26) +
-    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
+    '" font-family="' + SANS + '" font-size="24" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
   const strapY = Math.max(70, 48 + (titleLines.length - 1) * 26 + 22);
   parts.push(txt(40, strapY, 'TOTAL STAKE ' + amount(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
   const receipt = conditionCards(conditions, 610, 16, C.right - 610, c, false);
@@ -165,7 +169,7 @@ function renderWide(model, sim, ctx){
   for(const [s, x, a] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['EV P50', C.p50, 'end'], ['EV P90', C.p90, 'end']])
     body.push(txt(x, colHeadY, s, 9, c.muted, {weight: 700, tracking: '0.08em', anchor: a}));
-  body.push(txt((C.bar0 + C.bar1) / 2, colHeadY, 'P10 ▸ P90', 9, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  body.push(txt((C.bar0 + C.bar1) / 2, colHeadY, 'P10 to P90', 9, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
   body.push(txt((C.audit0 + C.audit1) / 2, colHeadY, 'AUDIT NOTE', 9, c.muted,
     {weight: 700, tracking: '0.08em', anchor: 'middle'}));
   body.push('<line x1="' + C.left + '" y1="' + (colHeadY + 9) + '" x2="' + C.right + '" y2="' + (colHeadY + 9) + '" stroke="' + c.ink + '" stroke-width="1.5" stroke-opacity="0.8"/>');
@@ -192,21 +196,24 @@ function renderWide(model, sim, ctx){
   if(plan.mode === 'ledger'){
     body.push('<rect x="' + C.left + '" y="' + y + '" width="' + (C.right - C.left) + '" height="58" fill="' + c.accent + '" fill-opacity="0.07"/>');
     body.push(txt(C.left + 14, y + 23, 'PORTFOLIO LEDGER', 12, c.accentInk, {weight: 700, tracking: '0.12em'}));
-    body.push(txt(C.left + 14, y + 45, 'TOTAL STAKE ' + amount(totalStake) + ' · P50 ' + p50Text(pf) + ' · ' + flagged + ' FLAGGED',
-      12, c.ink, {mono: true, weight: 700}));
+    body.push(mc(txt(C.left + 14, y + 45, 'TOTAL STAKE ' + amount(totalStake) + ' · P50 ' + (pf ? p50Text(pf) : '…') + ' · ' + flagged + ' FLAGGED',
+      12, c.ink, {mono: true, weight: 700})));
     y += 72;
     body.push(txt(C.left, y, 'FULL BET REGISTER · SOURCE ORDER', 10, c.muted, {weight: 700, tracking: '0.1em'}));
     y += 14;
   }
   for(const g of model.groups){
+    /* a long group heading wraps inside the ledger (tracking widens it, so it is measured wider) and pushes the rows down */
+    const headSize = plan.mode === 'board' ? 10 : 9.5, headTrack = plan.mode === 'board' ? '0.14em' : '0.12em';
+    const headLines = measuredLines(g.name.toUpperCase(), '700 ' + headSize + 'px ' + SANS, (C.right - C.left - 110) / 1.16, measure);
+    const headBase = plan.mode === 'board' ? 17 : 14;
+    headLines.forEach((ln, i) => body.push(txt(C.left, y + headBase + i * 13, ln, headSize, c.accentInk, {weight: 700, tracking: headTrack})));
     if(plan.mode === 'board'){
-      body.push(txt(C.left, y + 17, g.name.toUpperCase(), 10, c.accentInk, {weight: 700, tracking: '0.14em'}));
       const gStake = g.bets.reduce((t, b) => t + stakeMid(b), 0);
       body.push(txt(C.right, y + 17, 'STAKE ' + amount(gStake), 9, c.muted, {mono: true, anchor: 'end'}));
-      y += 25;
+      y += 25 + (headLines.length - 1) * 13;
     } else {
-      body.push(txt(C.left, y + 14, g.name.toUpperCase(), 9.5, c.accentInk, {weight: 700, tracking: '0.12em'}));
-      y += 20;
+      y += 20 + (headLines.length - 1) * 13;
     }
     for(const b of g.bets){
       const rec = recOf(sim, b), e = rec.ev;
@@ -222,7 +229,7 @@ function renderWide(model, sim, ctx){
          it last (topmost) would swallow every click in the row, including
          ones meant for the smaller cells (roadmap's cardmenu row is the
          proven precedent for this ordering). */
-      body.push('<g data-row="bet" data-id="' + row.id + '">');
+      body.push('<g data-row="bet" data-field-item="' + row.id + '" data-id="' + row.id + '">');
       body.push(txt(C.id, y + row.nameTop, row.id, 9, plan.mode === 'ledger' ? c.accentInk : c.muted, {weight: 700, mono: true}));
       const nameY = y + row.nameTop;
       const nameTxt = row.nameLines.map((line, i) => txt(C.name, nameY + i * 16, line, 13, c.ink, {weight: 600})).join('');
@@ -243,16 +250,18 @@ function renderWide(model, sim, ctx){
       if(rec.scoreable === false){
         body.push(txt(C.p50, y + 23, 'NOT SCORED', 11, c.err, {mono: true, anchor: 'end', weight: 700}));
         body.push(txt((C.bar0 + C.bar1) / 2, y + 23, 'Correct invalid or missing terms', 9, c.muted, {anchor: 'middle'}));
+      } else if(rec.pending){
+        for(const x of [C.p10, C.p50, C.p90]) body.push(mc(txt(x, y + 23, '…', 12, c.muted, {mono: true, anchor: 'end'})));
       } else {
-      body.push(txt(C.p10, y + 23, evv(e, e.p10), 12, e.p10 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'}));
-      body.push(txt(C.p50, y + 23, evv(e, e.p50), 12, e.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-      body.push(txt(C.p90, y + 23, evv(e, e.p90), 12, e.p90 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'}));
+      body.push(mc(txt(C.p10, y + 23, evv(e, e.p10), 12, e.p10 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'})));
+      body.push(mc(txt(C.p50, y + 23, evv(e, e.p50), 12, e.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700})));
+      body.push(mc(txt(C.p90, y + 23, evv(e, e.p90), 12, e.p90 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'})));
       // one shared exposure scale: P10–P90 is a rule, P50 its precise notch
       const neg = e.p50 < 0;
       body.push('<line x1="' + C.bar0 + '" y1="' + (y + 18.5) + '" x2="' + C.bar1 + '" y2="' + (y + 18.5) + '" stroke="' + c.border + '" stroke-width="1"/>');
-      body.push('<line data-exposure-range="" x1="' + r2(ex(e.p10)) + '" y1="' + (y + 18.5) + '" x2="' + r2(ex(e.p90)) + '" y2="' + (y + 18.5) + '" stroke="' + (neg ? c.err : c.accent) + '" stroke-width="4" stroke-opacity="0.7"/>');
+      body.push('<line data-exposure-range="" data-mc="" x1="' + r2(ex(e.p10)) + '" y1="' + (y + 18.5) + '" x2="' + r2(ex(e.p90)) + '" y2="' + (y + 18.5) + '" stroke="' + (neg ? c.err : c.accent) + '" stroke-width="4" stroke-opacity="0.7"/>');
       body.push('<line x1="' + r2(ex(0)) + '" y1="' + (y + 12) + '" x2="' + r2(ex(0)) + '" y2="' + (y + 25) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
-      body.push('<line data-exposure-median="" x1="' + r2(ex(e.p50)) + '" y1="' + (y + 12) + '" x2="' + r2(ex(e.p50)) + '" y2="' + (y + 25) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
+      body.push('<line data-exposure-median="" data-mc="" x1="' + r2(ex(e.p50)) + '" y1="' + (y + 12) + '" x2="' + r2(ex(e.p50)) + '" y2="' + (y + 25) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
       }
       // sub-line: kill "fold if" on the left (editable), moved values on the right
       if(b.kill){
@@ -300,14 +309,15 @@ function renderWide(model, sim, ctx){
   body.push(txt(C.left, y + 24, 'PORTFOLIO OUTCOME', 10.5, c.ink, {weight: 700, tracking: '0.05em'}));
   body.push(txt(C.stake, y + 24, amount(totalStake), 13, c.ink, {mono: true, anchor: 'end', weight: 700}));
   if(pf){
-    body.push(txt(C.p10, y + 24, pv(pf, pf.p10), 13, pf.p10 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
+    body.push(mc(txt(C.p10, y + 24, pv(pf, pf.p10), 13, pf.p10 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700})));
     if(pf.split){      // two stacked values: "−230" over "or −127"
-      body.push(txt(C.p50, y + 17, pv(pf, pf.split.lo), 12, pf.split.lo < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-      body.push(txt(C.p50, y + 31, 'or ' + pv(pf, pf.split.hi), 12, pf.split.hi < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-    } else body.push(txt(C.p50, y + 24, pv(pf, pf.p50), 13, pf.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-    body.push(txt(C.p90, y + 24, pv(pf, pf.p90), 13, pf.p90 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-  } else body.push(txt(C.p50, y + 24, 'NOT AVAILABLE · NO SCOREABLE BETS', 10, c.err, {mono: true, anchor: 'end', weight: 700}));
-  body.push(txt(C.right, y + 24, flagged + ' FLAGGED', 9.5, flagged ? c.err : c.muted, {weight: 700, anchor: 'end', tracking: '0.05em'}));
+      body.push(mc(txt(C.p50, y + 17, pv(pf, pf.split.lo), 12, pf.split.lo < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700})));
+      body.push(mc(txt(C.p50, y + 31, 'or ' + pv(pf, pf.split.hi), 12, pf.split.hi < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700})));
+    } else body.push(mc(txt(C.p50, y + 24, pv(pf, pf.p50), 13, pf.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700})));
+    body.push(mc(txt(C.p90, y + 24, pv(pf, pf.p90), 13, pf.p90 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700})));
+  } else if(conditions.pending) body.push(mc(txt(C.p50, y + 24, '…', 13, c.muted, {mono: true, anchor: 'end'})));
+  else body.push(txt(C.p50, y + 24, 'NOT AVAILABLE · NO SCOREABLE BETS', 10, c.err, {mono: true, anchor: 'end', weight: 700}));
+  body.push(mc(txt(C.right, y + 24, flagged + ' FLAGGED', 9.5, flagged ? c.err : c.muted, {weight: 700, anchor: 'end', tracking: '0.05em'})));
   y += 40;
 
   // concentration honesty note — one line, only when the engine flags a bet
@@ -316,12 +326,12 @@ function renderWide(model, sim, ctx){
     y += 22;
   }
   if(togetherLine){
-    body.push(txt(C.left, y + 12, togetherLine, 11, c.muted));
+    body.push(mc(txt(C.left, y + 12, togetherLine, 11, c.muted)));
     y += 22;
   }
 
   // outcome rail
-  y = outcomeRail(body, conditions, C.left, C.right, y, c, false, compare, sameUnit(compare, model));
+  y = outcomeRail(body, conditions, C.left, C.right, y, c, false, compare, sameUnit(compare, model), measure);
   const panelBot = y + 8;
   parts.push(...body);
   parts.push(txt(C.left, panelBot + 22, 'P10–P90 RANGES · ' + NSIM_TEXT + ' SIMULATIONS', 9, c.muted, {tracking: '0.04em'}));
@@ -344,9 +354,13 @@ function cell(body, x, y, str, e, c, hooks, tone, edit){
   else body.push(inner);
 }
 
-function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare, ghostOk = true){
+function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare, ghostOk = true, measure = s => String(s).length * 6){
   const pf = conditions.baseline.result;
   const stress = conditions.stress.result;
+  if(!pf && conditions.pending){
+    body.push(mc(txt(x0, y + 10, 'SIMULATED OUTCOMES · …', 9, c.muted, {weight: 700, tracking: '0.06em'})));
+    return y + 38;
+  }
   if(!pf){
     body.push(txt(x0, y + 10, 'SIMULATED OUTCOMES · NOT AVAILABLE', 9, c.err,
       {weight: 700, tracking: '0.06em'}));
@@ -369,33 +383,36 @@ function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare, ghostOk = 
   const rx = v => x0 + (v - hlo) / (hhi - hlo || 1) * (x1 - x0);
   if(narrow){                                              // stack — the two captions collide on a phone
     body.push(txt(x0, y + 6, 'INDEPENDENT OUTCOMES — ' + NSIM_TEXT + ' RUNS', 9, c.muted, {weight: 700, tracking: '0.06em'}));
-    body.push(txt(x0, y + 20, pl + ' BELOW ZERO · MEDIAN ' + p50Text(pf), 9.5,
-      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, tracking: '0.04em'}));
+    body.push(mc(txt(x0, y + 20, pl + ' BELOW ZERO · MEDIAN ' + p50Text(pf), 9.5,
+      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, tracking: '0.04em'})));
     y += 18;
   } else {
     body.push(txt(x0, y + 10, 'INDEPENDENT BASELINE', 9, c.muted, {weight: 700, tracking: '0.08em'}));
-    body.push(txt(x1, y + 10, pl + ' BELOW ZERO · MEDIAN ' + p50Text(pf), 9,
-      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, tracking: '0.05em', anchor: 'end'}));
+    body.push(mc(txt(x1, y + 10, pl + ' BELOW ZERO · MEDIAN ' + p50Text(pf), 9,
+      lossIsHigh(pf) ? c.err : c.accentInk, {weight: 700, tracking: '0.05em', anchor: 'end'})));
   }
   const ry = y + 18;
   body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + (x1 - x0) + '" height="8" rx="0" fill="' + c.track + '"/>');
   if(hlo < 0) body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + r2(rx(0) - x0) + '" height="8" rx="0" fill="' + c.err + '" fill-opacity="0.14"/>');
-  body.push('<rect x="' + r2(rx(pf.p10)) + '" y="' + ry + '" width="' + r2(Math.max(1, rx(pf.p90) - rx(pf.p10))) + '" height="8" rx="0" fill="' + c.accent + '" fill-opacity="0.5"/>');
+  body.push('<rect data-mc="" x="' + r2(rx(pf.p10)) + '" y="' + ry + '" width="' + r2(Math.max(1, rx(pf.p90) - rx(pf.p10))) + '" height="8" rx="0" fill="' + c.accent + '" fill-opacity="0.5"/>');
   if(hlo < 0) body.push('<line x1="' + r2(rx(0)) + '" y1="' + (ry - 3) + '" x2="' + r2(rx(0)) + '" y2="' + (ry + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
   body.push(medianNotches(pf, rx, ry - 4, ry + 12, c.ink, 2));
-  body.push(txt(rx(pf.p10), ry + 26, 'P10 ' + pv(pf, pf.p10), 9.5, c.muted, {anchor: 'middle', mono: true}));
-  body.push(txt(rx(pf.split ? (pf.split.lo + pf.split.hi) / 2 : pf.p50), ry + 26, 'P50 ' + p50Text(pf), 9.5, c.ink, {anchor: 'middle', mono: true, weight: 700}));
-  body.push(txt(rx(pf.p90), ry + 26, 'P90 ' + pv(pf, pf.p90), 9.5, c.muted, {anchor: 'middle', mono: true}));
-  if(hlo < 0) body.push(txt(rx(0), ry + 26, '0', 9.5, c.muted, {anchor: 'middle', mono: true}));
-  let bottom = ry + 34;
+  const labels = railLabels([
+    {key: 'P10', valueText: pv(pf, pf.p10), x: rx(pf.p10)},
+    {key: 'P50', valueText: p50Text(pf), x: rx(pf.split ? (pf.split.lo + pf.split.hi) / 2 : pf.p50)},
+    {key: 'P90', valueText: pv(pf, pf.p90), x: rx(pf.p90)}],
+    {x0, x1, measure, font: '9.5px ' + MONO_FONT, zero: hlo < 0 ? {x: rx(0)} : null});
+  for(const l of labels.labels)
+    body.push(mc(txt(l.x, ry + 26 + l.row * 12, l.text, 9.5, /P50/.test(l.key) ? c.ink : c.muted, {anchor: l.anchor, mono: true, weight: /P50/.test(l.key) ? 700 : undefined})));
+  let bottom = ry + 34 + (labels.rows - 1) * 12;
   if(stress){
     const sy = bottom + 6;
-    body.push(txt(x0, sy + 6, 'SHARED-OUTCOME STRESS', 8, lossIsHigh(stress) ? c.err : c.accentInk,
-      {weight: 700, tracking: '0.05em'}));
-    body.push(txt(x1, sy + 6, lossText(stress) + ' BELOW ZERO · MEDIAN ' + p50Text(stress), 8,
-      lossIsHigh(stress) ? c.err : c.muted, {weight: 700, anchor: 'end'}));
+    body.push(mc(txt(x0, sy + 6, 'SHARED-OUTCOME STRESS', 8, lossIsHigh(stress) ? c.err : c.accentInk,
+      {weight: 700, tracking: '0.05em'})));
+    body.push(mc(txt(x1, sy + 6, lossText(stress) + ' BELOW ZERO · MEDIAN ' + p50Text(stress), 8,
+      lossIsHigh(stress) ? c.err : c.muted, {weight: 700, anchor: 'end'})));
     const s0 = rx(stress.p10), s1 = rx(stress.p90);
-    body.push('<rect x="' + r2(Math.min(s0, s1)) + '" y="' + (sy + 12) + '" width="' +
+    body.push('<rect data-mc="" x="' + r2(Math.min(s0, s1)) + '" y="' + (sy + 12) + '" width="' +
       r2(Math.max(1, Math.abs(s1 - s0))) + '" height="6" fill="' + c.err +
       '" fill-opacity="0.28" stroke="' + c.err + '" stroke-width="1" stroke-dasharray="3 2"/>');
     body.push(medianNotches(stress, rx, sy + 9, sy + 21, c.err, 1.5));
@@ -434,6 +451,7 @@ function renderNarrow(model, sim, ctx){
     {kind, line, raw: '', label: aria});
   const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
   const conditions = conditionReadings(sim);
+  conditions.pending = !!sim.pendingAll;
   const plan = boardPlan(model, sim, {measure, nameWidth: inner - 24, killWidth: inner - 24});
   const concLine = concentrationLine(conc);
   const togetherLine = togetherNote(conditions.baseline.result, conditions.stress.result);
@@ -442,9 +460,9 @@ function renderNarrow(model, sim, ctx){
   let y = 30;
   const titleLines = measuredLines(model.title || 'Bets board', '600 21px ' + SANS, inner, measure);
   titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="' + pad + '" y="' + (y + i * 24) +
-    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
+    '" font-family="' + SANS + '" font-size="21" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
   y += titleLines.length * 24 - 2;
-  parts.push(txt(pad, y, 'Stake ' + amount(totalStake) + (flagged ? ' · ' + flagged + ' flagged' : ''), 11, c.muted)); y += 12;
+  parts.push(mc(txt(pad, y, 'Stake ' + amount(totalStake) + (flagged ? ' · ' + flagged + ' flagged' : ''), 11, c.muted))); y += 12;
   const receipt = conditionCards(conditions, pad, y, inner, c, true);
   parts.push(...receipt.parts); y += receipt.height + 12;
   if(compare){
@@ -462,7 +480,7 @@ function renderNarrow(model, sim, ctx){
   }
   if(togetherLine){
     for(const ln of measuredLines(togetherLine, '10.5px ' + SANS, inner, measure)){
-      parts.push(txt(pad, y, ln, 10.5, c.muted)); y += 14;
+      parts.push(mc(txt(pad, y, ln, 10.5, c.muted))); y += 14;
     }
     y += 6;
   }
@@ -531,17 +549,20 @@ function renderNarrow(model, sim, ctx){
         card.push(txt(bx, y + 8, 'NOT SCORED', 12, c.err, {mono: true, weight: 700}));
         card.push(txt(bx, y + 24, 'Correct invalid or missing terms', 10, c.muted));
         y += 36;
+      } else if(rec.pending){
+        card.push(mc(txt(bx, y + 20, 'EV …', 11, c.muted, {mono: true})));
+        y += 36;
       } else {
       card.push('<line x1="' + bx + '" y1="' + (y + 4) + '" x2="' + (bx + bw) + '" y2="' + (y + 4) + '" stroke="' + c.border + '"/>');
       if(elo < 0) card.push('<line x1="' + r2(ex(0, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(0, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
-      card.push('<line data-exposure-range="" x1="' + r2(ex(e.p10, bx, bw)) + '" y1="' + (y + 4) + '" x2="' + r2(ex(e.p90, bx, bw)) + '" y2="' + (y + 4) + '" stroke="' + (neg ? c.err : c.accent) + '" stroke-width="4" stroke-opacity="0.7"/>');
-      card.push('<line data-exposure-median="" x1="' + r2(ex(e.p50, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(e.p50, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
+      card.push('<line data-exposure-range="" data-mc="" x1="' + r2(ex(e.p10, bx, bw)) + '" y1="' + (y + 4) + '" x2="' + r2(ex(e.p90, bx, bw)) + '" y2="' + (y + 4) + '" stroke="' + (neg ? c.err : c.accent) + '" stroke-width="4" stroke-opacity="0.7"/>');
+      card.push('<line data-exposure-median="" data-mc="" x1="' + r2(ex(e.p50, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(e.p50, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
       y += 20;
-      card.push(txt(pad + 12, y, 'EV ' + evv(e, e.p50) + ' [' + evv(e, e.p10) + ' – ' + evv(e, e.p90) + ']', 11, neg ? c.err : c.muted, {mono: true, weight: neg ? 700 : 400}));
+      card.push(mc(txt(pad + 12, y, 'EV ' + evv(e, e.p50) + ' [' + evv(e, e.p10) + ' – ' + evv(e, e.p90) + ']', 11, neg ? c.err : c.muted, {mono: true, weight: neg ? 700 : 400})));
       y += 16;
       }
       if(b.kill){
-        const killLines = measuredLines('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure);
+        const killLines = measuredLines('fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure);
         const kinner = killLines.map((line, i) => txt(pad + 12, y + 8 + i * 14, line, 10.5, c.muted)).join('');
         if(edit && !coarse) card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: killLines.length * 14 + 8, bg: c.bg},
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
@@ -582,7 +603,7 @@ function renderNarrow(model, sim, ctx){
   if(edit){ parts.push(addCapsule('＋ Add group', 'Add group', 'addgroup', -1, y)); y += 56; }
   // portfolio outcome rail
   parts.push(txt(pad, y + 10, 'PORTFOLIO', 10, c.ink, {weight: 700, tracking: '0.05em'})); y += 22;
-  y = outcomeRail(parts, conditions, pad, W - pad, y, c, true, compare, sameUnit(compare, model));
+  y = outcomeRail(parts, conditions, pad, W - pad, y, c, true, compare, sameUnit(compare, model), measure);
   parts.push('<rect data-narrow="" width="0" height="0" fill="none"/>');
   const stress = conditions.stress.result;
   return svgShell(W, y + 20, c, parts.join(''), true,

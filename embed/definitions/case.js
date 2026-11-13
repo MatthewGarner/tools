@@ -7,4 +7,5 @@ const v1=sourceDefinition({id:'case',title:'Case',description:'An editable, auth
   views:{model:{title:'Model',description:'The complete authored model in its native reading view.',controls:['source'],render(s,ctx){const m=parse(s.t),c=context(ctx);return {svg:renderReview(m,c),summary:sourceSummary('Case',m,(m.title||'Decision brief')+': alternatives, constraints and the stated basis for claims.')} ;}}}
 });
 // Version 2: Case draws with the Chapter palette, whose light-theme inks now reach 4.6:1 on their surfaces. Version 1 stays frozen as published.
-export const definition={...v1,version:2};
+// Version 3: the 2026-11-14 feel and export round (shared drawing, export and workspace code).
+export const definition={...v1,version:3};

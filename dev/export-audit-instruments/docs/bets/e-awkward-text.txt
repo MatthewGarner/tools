@@ -1,0 +1,14 @@
+// characters that break things: & < > quotes pipes emoji RTL combining marks NBSP long unbroken word
+title: R&D <alpha> "beta" | ‘quotes’ 🚀 עברית café Zoë
+unit: €k
+
+Group A & B | <tags>
+  Fish & chips <b>bold</b> | pipe: stake 10, odds 20-30%, payoff 40-80
+    kill: “Smart” quotes & ampersands <script> | pipes by 2026-12-01
+  שלום עולם RTL bet: stake 12, odds 30-40%, payoff 50-90
+    kill: מבחן בעברית with mixed text
+  Emoji 🚀🔥👩🏽‍💻 bet: stake 8, odds 10-20%, payoff 30-200
+  Zalgo z̷̢a̶l̸g̵o combining é é: stake 5, odds 50-60%, payoff 9-12
+  Non breaking spaces here: stake 7, odds 40-50%, payoff 15-20
+  Supercalifragilisticexpialidocious_unbroken_identifier_with_no_spaces_anywhere_at_all: stake 20, odds 35-45%, payoff 50-70
+    kill: https://example.com/a/very/long/url/that/does/not/break/anywhere/at/all/because/it/is/one/token

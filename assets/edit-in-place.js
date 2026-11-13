@@ -62,7 +62,7 @@ export function cardMenu({field, add, remove = 'Remove branch', extra}){
   return {menu: dynamic ? build : build()};
 }
 
-export function attachEditInPlace(preview, {kinds, onCommit}){
+export function attachEditInPlace(preview, {kinds, onCommit, hitSlop = 0}){
   let active = null;   // {input, el, away, errEl, onCancel}
   let missStatus = null;
   /* shared sr-only live region — openAt/focusAt's "couldn't find a fresh
@@ -97,14 +97,19 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       return list[snap.index] || list[snap.index - 1] || editsOf('additem')[0] || null;
     }
     const same = editsOf(snap.kind);
+    let found = null;
     if(snap.key){
       const byKey = same.filter(e => keyOf(e) === snap.key);
-      if(byKey.length === 1) return byKey[0];
+      if(byKey.length === 1) found = byKey[0];
     }
-    const atLine = same.filter(e => e.dataset.line === snap.line);
-    if(atLine.length === 1) return atLine[0];
+    if(!found){
+      const atLine = same.filter(e => e.dataset.line === snap.line);
+      if(atLine.length === 1) found = atLine[0];
+    }
+    /* a figure that is not a Tab stop cannot take focus: the row's own menu button identifies the same item */
+    if(found && found.hasAttribute('tabindex')) return found;
     const card = editsOf('cardmenu').filter(e => e.dataset.line === snap.line);
-    return card.length === 1 ? card[0] : null;
+    return card.length === 1 ? card[0] : found;
   }
   function restoreFocus(snap, removed){
     if(!snap) return;
@@ -428,8 +433,31 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   }
 
   const coarse = () => matchMedia('(pointer: coarse)').matches;
+  /* hitSlop (px, fine pointers only): drawn numbers and labels are 9-11px tall, hard to hit. A press within the slop of a text
+     target opens it, the nearest first, without changing how anything is drawn. A target the pointer is actually on wins. */
+  const slopTarget = (x, y) => {
+    if(!hitSlop || coarse()) return null;
+    let best = null, bestD = Infinity;
+    for(const t of preview.querySelectorAll('tspan[data-edit],text[data-edit]')){
+      for(const r of t.getClientRects()){
+        if(x < r.left - 4 || x > r.right + 4 || y < r.top - hitSlop || y > r.bottom + hitSlop) continue;
+        const d = Math.abs(y - (r.top + r.bottom) / 2) + Math.max(0, r.left - x, x - r.right);
+        if(d < bestD){ bestD = d; best = t; }
+      }
+    }
+    return best;
+  };
+  if(hitSlop){
+    let frame = 0;
+    preview.addEventListener('pointermove', e => {
+      if(e.pointerType === 'touch' || frame) return;
+      const x = e.clientX, y = e.clientY, over = e.target;
+      frame = requestAnimationFrame(() => { frame = 0; preview.classList.toggle('edit-near', !!slopTarget(x, y) && !(over.closest && over.closest('[data-edit]'))); });
+    }, {passive: true});
+  }
   preview.addEventListener('click', e => {
     let el = e.target.closest && e.target.closest('[data-edit]');
+    if(hitSlop && !(el && el.matches('tspan,text'))){ const near = slopTarget(e.clientX, e.clientY); if(near) el = near; }
     if(!el || !preview.contains(el)) return;
     /* coarse pointers are menu-first: a tap on an in-card field opens that
        card's menu (which routes to the same field at a 44px row) instead of

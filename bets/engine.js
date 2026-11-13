@@ -1,7 +1,7 @@
 /* Seeded independent baseline plus paired maximum-positive-co-movement stress. */
 import {quantile, Z90} from '../assets/series.js';
 import {betKey, comparisonHeadline} from './diff.js';
-import {NSIM, pv, evv, lossText, rangeText, oddsText, stakeOf, payoffOf, oddsOf, togetherNote} from './format.js';
+import {NSIM, mdEscape, pv, evv, lossText, rangeText, oddsText, stakeOf, payoffOf, oddsOf, togetherNote} from './format.js';
 
 const SEED = 0xBE75, BINS = 40;
 export {NSIM};
@@ -344,9 +344,7 @@ export function markdown(model, sim, href, {comparison = null, sourceLabel = ''}
   else if(sourceLabel) out.push('', '_' + mdInline(sourceLabel) + '_');
   return out.join('\n') + '\n';
 }
-const mdInline = value => String(value == null ? '—' : value).replace(/\\/g, '\\\\')
-  .replace(/\r?\n/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([`*_[\]!])/g, '\\$1');
-const mdCell = value => mdInline(value).replace(/\|/g, '\\|');
+const mdInline = mdEscape, mdCell = mdEscape;
 const mdHref = value => String(value).replace(/\\/g, '%5C').replace(/</g, '%3C').replace(/>/g, '%3E')
   .replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/[\r\n ]/g, '%20');
 
@@ -382,3 +380,11 @@ function comparisonMarkdown(model, comparison){
   return out;
 }
 
+
+/* A kept simulation, shown for a model whose inputs are the same but whose names may differ: the only name in a result is the
+   concentration finding's, so that is rebuilt from the current model (cheap) and everything simulated is reused. */
+export function withNames(sim, model){
+  const live = [];
+  for(const g of model.groups) for(const b of g.bets) if(b.stake && b.odds && b.payoff) live.push(b);
+  return {...sim, concentration: concentrationOf(live)};
+}

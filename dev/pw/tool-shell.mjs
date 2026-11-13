@@ -91,6 +91,7 @@ const inputModel = (selector, values) => ({
 });
 /* names the File > Examples list must offer, from each page's own example data */
 const EXAMPLE_NAMES = {
+  fermi: ['Piano tuners in Chicago', 'Weekly meeting, annual cost', 'New feature revenue', 'Availability chain', 'Cadence economics'],
   why: ['Reading retention', 'Two outcomes'], tree: ['Bid or no bid', 'Build vs buy'],
   map: ['Assumption map', 'Futures matrix', 'RAG honesty', 'Risk grid', 'Skills coverage', 'Stakeholder grid'],
   wardley: ['Lantern platform', 'Online tea shop'], bets: ['Lantern portfolio', 'Quick gut check'], paths: ['Lantern'],
@@ -263,7 +264,7 @@ for(const dir of SHELLS){
       for(const example of wanted){
         await model.edit(page, 1);
         await fileItem(page, 'Examples');
-        await page.getByRole('button', {name: example, exact: true}).click();
+        await page.locator('[data-shell-examples-list]').getByRole('button', {name: example, exact: true}).click();
         ok(await until(async () => await model.read(page) !== label(1), {timeout: 6000}) && !(await page.locator('[data-shell-file] .tool-menu').isVisible()), `${dir}: choosing "${example}" replaces the model and closes File`);
       }
     }
@@ -791,7 +792,7 @@ for(const dir of SHELLS){
         await model.edit(page, from);
         ok(await model.read(page) === label(from), `${dir}: before "${example}" the model is the one we set (${label(from)})`);
         await fileItem(page, 'Examples');
-        await page.getByRole('button', {name: example, exact: true}).click();
+        await page.locator('[data-shell-examples-list]').getByRole('button', {name: example, exact: true}).click();
         /* where an example is also an edit() state, its label is known; elsewhere it must at least replace the model */
         const known = model.exampleFor ? label(Object.keys(model.exampleFor).find(n => model.exampleFor[n] === example)) : null;
         const loaded = await until(async () => known ? await model.read(page) === known : await model.read(page) !== label(from), {timeout: 6000});

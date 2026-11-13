@@ -1,0 +1,31 @@
+// a realistic larger portfolio: 3 groups, 12 bets
+title: Twelve bets
+unit: £k
+
+Group 1
+  Initiative 1.1: stake 30, odds 10-25%, payoff 80-150
+    kill: Metric 1.1 flat by 2026-12-01
+  Initiative 1.2: stake 60, odds 20-35%, payoff 160-300
+    kill: Metric 1.2 flat by 2026-12-01
+  Initiative 1.3: stake 90, odds 30-45%, payoff 240-450
+    kill: Metric 1.3 flat by 2026-12-01
+  Initiative 1.4: stake 120, odds 40-55%, payoff 320-600
+    kill: Metric 1.4 flat by 2026-12-01
+Group 2
+  Initiative 2.1: stake 30, odds 10-25%, payoff 80-150
+    kill: Metric 2.1 flat by 2026-12-01
+  Initiative 2.2: stake 60, odds 20-35%, payoff 160-300
+    kill: Metric 2.2 flat by 2026-12-01
+  Initiative 2.3: stake 90, odds 30-45%, payoff 240-450
+    kill: Metric 2.3 flat by 2026-12-01
+  Initiative 2.4: stake 120, odds 40-55%, payoff 320-600
+    kill: Metric 2.4 flat by 2026-12-01
+Group 3
+  Initiative 3.1: stake 30, odds 10-25%, payoff 80-150
+    kill: Metric 3.1 flat by 2026-12-01
+  Initiative 3.2: stake 60, odds 20-35%, payoff 160-300
+    kill: Metric 3.2 flat by 2026-12-01
+  Initiative 3.3: stake 90, odds 30-45%, payoff 240-450
+    kill: Metric 3.3 flat by 2026-12-01
+  Initiative 3.4: stake 120, odds 40-55%, payoff 320-600
+    kill: Metric 3.4 flat by 2026-12-01
