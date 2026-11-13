@@ -13,6 +13,7 @@ import {chromium, webkit, startServer} from './lib.mjs';
 import {registry, KNOWN} from './checks.mjs';
 import * as S from './scenarios.mjs';
 import * as D from './disclosures.mjs';
+import {controls} from './controls.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : dflt; };
@@ -48,6 +49,7 @@ const PLAN = [
   ['touch', ['roadmap', 'timeline'], N, async (e, t) => S.touch(e, t)],
   ['scroll', ['roadmap', 'timeline'], T, async (e, t) => { await S.scroll(e, t, 'desktop', S.stress(t, 'dense')); if(e.mode === 'normal') await S.scroll(e, t, 'phone', S.stress(t, 'dense')); }],
   ['disclosures', ['roadmap', 'timeline'], N, async (e, t) => { for(const k of ['desktop', 'phone']) await D.disclosures(e, t, k); }],
+  ['controls', ['roadmap', 'timeline'], N, async (e, t) => { for(const k of ['desktop', 'phone']) await controls(e, t, k); }],
   ['zoom', ['roadmap', 'timeline'], N, async (e, t) => { for(const k of ['desktop', 'phone']) await S.zoom(e, t, k); }],
 ];
 /* WebKit has no CDP throttling, touch CDP or clipboard permission: the core interactions only */
