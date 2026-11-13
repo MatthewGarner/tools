@@ -40,6 +40,7 @@
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/handoff.css">
+<link rel="stylesheet" href="/assets/motion.css">
 <style>  .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
   h1{
     font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;
@@ -58,7 +59,13 @@
   .trace-actions .pagemode{margin:0}.model-source{padding:18px 22px 22px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--card) 93%,var(--bg))}
   .source-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.source-head .source-kicker{margin:0}
   .text-action{border:0;padding:6px 0;background:none;color:var(--accent-ink);font:600 12.5px/1.2 inherit;cursor:pointer}.text-action:hover{text-decoration:underline}
-  .analysis-stage{padding:24px 22px 22px;min-width:0}.analysis-stage .placeholder{margin:0}
+  .analysis-stage{padding:24px 22px 22px;min-width:0;position:relative}
+  /* the page lands in its final layout: until the first estimate paints, the stage holds the height the default example's result takes */
+  .analysis-stage[data-boot]{min-height:1044px}
+  @media (max-width:1020px){.analysis-stage[data-boot]{min-height:1830px}}
+  /* the "Updating estimate" line overlays the stage's top padding: it never moves the page */
+  #estimate-status{position:absolute;inset:0 0 auto 0;z-index:3;margin:0;padding:5px 22px;background:var(--card);border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.4}
+  @media (max-width:640px){#estimate-status{padding-inline:12px}}.analysis-stage .placeholder{margin:0}
   #results{grid-template-columns:minmax(0,1fr) minmax(220px,270px);gap:28px;align-items:start}
   .analysis-main{min-width:0}.result-review{border-left:1px solid var(--border);padding-left:20px;min-width:0}.result-review h2{margin:0 0 8px;font-size:16px}.result-review p{margin:0;color:var(--muted);font-size:13px;line-height:1.48}.result-review dl{margin:18px 0 0}.result-review dl div{padding:9px 0;border-top:1px solid var(--border)}.result-review dt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.result-review dd{margin:3px 0 0;overflow-wrap:anywhere;font-size:13px;line-height:1.4}
   label.field{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;
@@ -121,8 +128,8 @@
   .dash{color:var(--muted);text-align:center}
   #results{display:none}
   /* while the formula is unreadable, ghost the last result so it can't be mistaken for a current answer */
-  #results.is-stale{opacity:.32;filter:grayscale(.5);pointer-events:none}
-  @media (prefers-reduced-motion: no-preference){#results{transition:opacity .12s ease}}
+  #results.is-stale{opacity:.6;filter:grayscale(.35);pointer-events:none}
+  @media (prefers-reduced-motion: no-preference){#results{transition:opacity var(--dur-fast) var(--ease-out),filter var(--dur-fast) var(--ease-out)}}
   .tiles{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:12px;align-items:end}
   .tile{min-width:0;border:0;padding:4px 0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;border-bottom:2px solid transparent}
   .tile:hover,.tile[aria-pressed="true"]{border-color:var(--accent)}
@@ -179,14 +186,16 @@
     font-size:12.5px;padding:4px 9px;border-radius:0;white-space:nowrap;
     font-variant-numeric:tabular-nums;transform:translate(-50%,-130%);z-index:8;
   }
-  .replaybtn{margin-top:10px;user-select:none;-webkit-user-select:none}
-  .pourverdict{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);min-height:1.1em}
+  .replaybtn{margin-top:10px;display:flex;width:fit-content;min-width:11.5em;justify-content:center;user-select:none;-webkit-user-select:none}   /* its own row, and the same width as Skip: the label never moves it */
+  .pourverdict{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);min-height:3em}   /* two lines held, so the verdict arriving never grows the page */
+  @media (max-width:700px){.pourverdict{min-height:4.5em}}
   .pourverdict b{color:var(--ink);font-weight:600}
   /* the confession — "what must be true" */
   .confessverdict{margin:8px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted)}
   .confessverdict b{color:var(--ink);font-weight:600}
   .confessverdict b.over{color:var(--err)}
   .cghost{display:flex;align-items:center;gap:10px;padding:1px 0 7px;font-size:12.5px;color:var(--muted)}
+  #confesscards{margin:6px 0 0}#confesscards .cghost{padding:0}.ctxt .cn{color:var(--ink);font-weight:600}
   .cspark{width:56px;height:26px;flex:none;opacity:.9}
   .ctxt{flex:1;min-width:0;font-variant-numeric:tabular-nums}
   .cghost.over .ctxt{color:var(--err)}
@@ -209,7 +218,7 @@
     align-items:center;padding:4px 0}
   .srow .sn{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .srow .track{height:10px;background:var(--track);border-radius:0;overflow:hidden}
-  .srow .bar{height:100%;background:var(--accent);border-radius:0;min-width:2px}
+  .srow .bar{height:100%;background:var(--accent);border-radius:0;transform-origin:0 50%;transform:scaleX(var(--share,1))}
   .srow .sp{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;
     color:var(--muted)}
   .method{color:var(--muted);font-size:12.5px}
@@ -236,7 +245,7 @@
     .srow{grid-template-columns:minmax(0,100px) 1fr 80px}
   }
   @media (prefers-reduced-motion: no-preference){
-    .chip,.srow .bar,#copy{transition:border-color .15s,color .15s,width .3s}
+    .chip,#copy{transition:border-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
   }
 
   /* fingers get full-size controls */
@@ -245,7 +254,28 @@
     .tab,.savedchip button,.text-action{min-height:44px;display:inline-flex;align-items:center}
     .vrow select,.vrow input,#tin,#cftin{min-height:44px;font-size:16px}
     .adopt{min-height:44px;padding:8px 16px}
+    .cfrow{grid-template-columns:44px minmax(0,1fr) 12px minmax(0,1fr) 44px}
+    .cfrow input,.cfmeta input,#cfcase,#cftin,.cfrow .del{min-height:44px;font-size:16px}
+    .cfmeta input{min-width:64px}
+    .cfdebttoggle{min-height:44px}
+    details.method>summary{min-height:44px;display:flex;align-items:center}
   }
+  .tab:hover{border-color:var(--ink);color:var(--ink)}
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* a phone: while an input has focus and the result is off screen, one line of it is pinned to the top (the keyboard owns the bottom) */
+  #liveread{display:none}
+  @media (pointer:coarse) and (max-width:700px){
+    #liveread{display:block;position:fixed;inset:0 0 auto 0;z-index:40;opacity:0;visibility:hidden;transform:translateY(-8px);pointer-events:none}
+    #liveread.on{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+    #liveread button{display:block;width:100%;min-height:44px;padding:8px 12px;border:0;border-bottom:1px solid var(--border);background:var(--ink);color:var(--bg);
+      font:600 14px/1.3 ui-monospace,"SF Mono",Menlo,Consolas,monospace;text-align:left;font-variant-numeric:tabular-nums;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #liveread.stale button{opacity:.6}
+  }
+  @media (pointer:coarse) and (max-width:700px) and (prefers-reduced-motion:no-preference){
+    #liveread{transition:opacity var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out),visibility 0s linear var(--dur-fast)}
+    #liveread.on{transition-delay:0s}
+  }
+  #hist.grab{cursor:grab}#hist.grabbing{cursor:grabbing}
 
   /* Phone edge system — "16px prose / 10px surface" (the Camp A block in
      assets/workspace.css, applied to this page's card bands). The 16px reading
@@ -261,7 +291,7 @@
 
 <div class="wrap">
   <header data-tool-header data-shell>
-    <p class="kicker" id="kicker"></p>
+    <p class="kicker" id="kicker"><span class="num"><span class="kw">Instrument </span>11</span> — A number built from its parts</p>
     <!-- shell:start -->
     <div class="tool-titlerow" data-shell-row>
       <h1>Fermi</h1>
@@ -269,7 +299,9 @@
         <summary>File</summary>
         <div class="tool-menu">
           <p class="tool-stalled">This page did not finish loading. Reload to save or share.</p>
-          <button type="button" data-act="new-template" disabled>New from template…</button>
+          <button type="button" data-act="new" disabled>New</button>
+          <button type="button" data-act="examples" aria-expanded="false" disabled>Examples</button>
+          <div class="tool-examples" data-shell-examples-list hidden></div>
           <button type="button" data-act="work" disabled>Your work…</button>
           <button type="button" data-act="save" disabled>Save a copy…</button>
           <button type="button" data-act="template" disabled>Save as template…</button>
@@ -288,7 +320,7 @@
     <div class="handoff-actions"><a class="btn" id="returnsource" href="/gauge/">Return to Gauge</a></div>
   </div>
   <section class="model-trace" aria-label="Current model">
-    <div class="trace-copy"><span class="trace-label" id="modelkind">Estimate</span><code id="modeltrace">Formula not yet set</code><p id="modelmeta"></p></div>
+    <div class="trace-copy"><span class="trace-label" id="modelkind">Estimate</span><code id="modeltrace">households * share_with_piano * tunings_per_year / (tunings_per_day * working_days)</code><p id="modelmeta">5 ranged inputs · Stated here (5)</p></div>
     <div class="trace-actions"><div class="scentabs" id="scentabs" data-capability="history.scenario-compare"></div><div class="pagemode segmented" role="tablist" aria-label="Tool mode">
       <button id="modeest" class="on" role="tab" data-capability="views.estimate" aria-selected="true">Estimate</button>
       <button id="modecf" role="tab" data-capability="views.cashflow" aria-selected="false">Cashflow</button>
@@ -340,7 +372,7 @@
     </div>
   </section>
 
-  <section class="analysis-stage">
+  <section class="analysis-stage" data-boot>
     <div id="cfresults" hidden>
       <div id="cfwrap"></div>
       <div class="thresh">
@@ -390,6 +422,7 @@
         <span class="hint">(or drag the goal line — the inputs confess)</span>
       </div>
       <p class="confessverdict" id="confessverdict" aria-live="polite" hidden></p>
+      <div id="confesscards"></div>
       <p class="warn" id="warn"></p>
       <div id="sens">
         <h2>What's worth researching</h2>
@@ -428,6 +461,7 @@
 
 </div>
 
+<div id="liveread" role="status" aria-live="polite"><button type="button" title="Show the full result"></button></div>
 <script type="module" src="./app.js"></script>
 <!-- identity:footer:start -->
 <div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a href="/explore/#recent-work">Your work</a><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a><a href="https://www.matthewgarner.me/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>

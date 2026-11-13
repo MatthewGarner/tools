@@ -5,7 +5,7 @@ import {mountRecentSave} from '../assets/recent-work.js';
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale,
   readWeight, readWobbleWeights, readWobbleScores, readLinkItems, parsePaste, weightWobbleText, wobbleFactorText, mdCell, NSIM_TEXT} from './engine.js';
 import {readHashState, writeHashState, encodeHash, fmt} from '../assets/series.js';
-import {captureFlip, applyFlip} from '../assets/motion.js';
+import {captureFlip, applyFlip, motionStill} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
 import {STARTER} from './starter.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
@@ -32,6 +32,8 @@ let verdictText = '';
 // lines that now sit ABOVE the phone strip — is deferred to release so the control and rows
 // don't reflow under the thumb on a drag-and-hold. Typed/keyboard edits keep the safety commit.
 let sliderDown = false;
+/* the slider just released: the full re-simulation rewrites the lines above the phone strip, and the strip must not move under the finger */
+let anchorEl = null;
 const clampScore = value => Math.max(1, Math.min(10, value));
 // toPrecision scrubs binary float tails (0.6000000000000001) off slider arithmetic
 const clampWeight = value => Math.max(0, Number(value.toPrecision(12)));
@@ -64,13 +66,18 @@ function renderHead(){
     const sl = mkSlider(c.name + ' weight slider');
     // phone strip control (the header is display:none on phones)
     const srow = document.createElement('div'); srow.className = 'wsrow';
-    const slab = document.createElement('span'); slab.className = 'wslabel'; slab.textContent = c.name || 'Criterion';
+    const sname = document.createElement('input'); sname.className = 'wsname'; sname.value = c.name;
+    sname.setAttribute('aria-label', 'Rename criterion ' + (ci+1));
+    const swn = document.createElement('input'); swn.className = 'wsnum'; swn.type = 'number'; swn.min = '0'; swn.step = '0.5'; swn.value = c.w;
+    swn.setAttribute('aria-label', (c.name || 'Criterion') + ' weight, typed'); swn.inputMode = 'decimal';
     const ssl = mkSlider((c.name || 'Criterion') + ' weight');
-    const sval = document.createElement('span'); sval.className = 'wsval'; sval.textContent = fmt(c.w);
-    srow.append(slab, ssl, sval); wstrip.appendChild(srow);
-    // name edit updates BOTH labels; no resim (names don't affect the numeric result — batch 7)
-    nm.addEventListener('input', () => { c.name = nm.value; slab.textContent = nm.value || 'Criterion';
-      w.setAttribute('aria-label', nm.value + ' weight'); renderRows(); scheduleHashOnly(400); });
+    srow.append(sname, swn, ssl); wstrip.appendChild(srow);
+    // name edit updates BOTH fields; no resim (names don't affect the numeric result — batch 7)
+    const setName = (v, src) => { c.name = v; if(src !== nm) nm.value = v; if(src !== sname) sname.value = v;
+      w.setAttribute('aria-label', v + ' weight'); swn.setAttribute('aria-label', (v || 'Criterion') + ' weight, typed'); ssl.setAttribute('aria-label', (v || 'Criterion') + ' weight');
+      renderRows(); scheduleHashOnly(400); };
+    nm.addEventListener('input', () => setName(nm.value, nm));
+    sname.addEventListener('input', () => setName(sname.value, sname));
     // drag/type ANY control = live deterministic re-rank (FLIP); MC re-runs on commit (change).
     // NEVER write back to the control the user is typing in (C1: Chrome returns '' for '1.', so a
     // write-back stomps the keystroke). A debounced safety commit (I2) covers drag-back-to-start /
@@ -84,11 +91,12 @@ function renderHead(){
       if(src !== w) w.value = c.w;
       if(src !== sl) sl.value = c.w;
       if(src !== ssl) ssl.value = c.w;
-      sval.textContent = fmt(c.w);
+      if(src !== swn) swn.value = c.w;
       liveReweight();
       if(!sliderDown) schedule(600);   // pointer-drag defers the MC resim to release (no reflow under the thumb); typed/keyboard edits keep the safety
     };
     w.addEventListener('input', () => { if(w.value !== '') setW(parseFloat(w.value), w); });
+    swn.addEventListener('input', () => { if(swn.value !== '') setW(parseFloat(swn.value), swn); });
     sl.addEventListener('input', () => setW(parseFloat(sl.value), sl));
     ssl.addEventListener('input', () => setW(parseFloat(ssl.value), ssl));
     // a slider drag: hold off the resim while the pointer is down, then commit on release —
@@ -121,18 +129,20 @@ function renderHead(){
     };
     [sl, ssl].forEach(el => {
       el.addEventListener('pointerdown', () => { settleScale(); sliderDown = true; });
-      const release = () => { if(sliderDown){ sliderDown = false; schedule(0); } };
+      const release = () => { if(sliderDown){ sliderDown = false; anchorEl = el; schedule(0); } };
       el.addEventListener('pointerup', release);
       el.addEventListener('pointercancel', release);
     });
     const commit = () => {
       sliderDown = false;
-      c.w = w.value === '' ? 0 : clampWeight(parseFloat(w.value));
-      w.value = c.w; sval.textContent = fmt(c.w);
+      const typed = src => src.value === '' ? 0 : clampWeight(parseFloat(src.value));
+      c.w = commitSrc === swn ? typed(swn) : typed(w);
+      w.value = c.w; swn.value = c.w;
       retune();   // eased recalibration of BOTH sliders (max + step); re-asserts slider values
       schedule(0);
     };
-    [w, sl, ssl].forEach(el => el.addEventListener('change', commit));
+    let commitSrc = w;
+    [w, sl, ssl, swn].forEach(el => el.addEventListener('change', () => { commitSrc = el; commit(); }));
     wrow.append(wl, w, sl);
     th.append(nm, wrow);
     tr.appendChild(th);
@@ -152,7 +162,18 @@ function renderHead(){
 function renderRows(){
   const tb = $('rows');
   tb.textContent = '';
+  const slot = removedItems.at(-1);
+  const undoRow = () => {
+    const tr = document.createElement('tr'), td = document.createElement('td');
+    tr.className = 'undorow'; td.colSpan = state.criteria.length + 3;
+    tr.style.height = slot.height + 'px';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = 'Undo removal';
+    b.addEventListener('click', undoLast);
+    td.appendChild(b); tr.appendChild(td);
+    return tr;
+  };
   state.items.forEach((it, i) => {
+    if(slot && slot.index === i) tb.appendChild(undoRow());
     const tr = document.createElement('tr');
     const tdn = document.createElement('td');
     tdn.dataset.label = 'Initiative';
@@ -178,10 +199,11 @@ function renderRows(){
       s.className = 'score'; s.type = 'number'; s.min = '1'; s.max = '10'; s.step = '1';
       s.value = it.s[ci];
       s.setAttribute('aria-label', it.name + ' ' + c.name + ' score');
-      s.addEventListener('input', () => { if(s.value !== ''){ it.s[ci] = clampScore(parseFloat(s.value)); schedule(200); } });
+      s.addEventListener('input', () => { if(s.value !== ''){ it.s[ci] = clampScore(parseFloat(s.value)); schedule(120); } });
       s.addEventListener('change', () => {
         it.s[ci] = s.value === '' ? it.s[ci] : clampScore(parseFloat(s.value));
-        s.value = it.s[ci]; schedule(0);
+        s.value = it.s[ci];
+        if(timer) schedule(0);   // a pending edit commits now; leaving a field that did not change re-renders nothing
       });
       td.appendChild(s);
       tr.appendChild(td);
@@ -193,10 +215,11 @@ function renderRows(){
     e.className = 'score'; e.type = 'number'; e.min = '1'; e.max = '10'; e.step = '1';
     e.value = it.e;
     e.setAttribute('aria-label', it.name + ' effort score');
-    e.addEventListener('input', () => { if(e.value !== ''){ it.e = clampScore(parseFloat(e.value)); schedule(200); } });
+    e.addEventListener('input', () => { if(e.value !== ''){ it.e = clampScore(parseFloat(e.value)); schedule(120); } });
     e.addEventListener('change', () => {
       it.e = e.value === '' ? it.e : clampScore(parseFloat(e.value));
-      e.value = it.e; schedule(0);
+      e.value = it.e;
+      if(timer) schedule(0);
     });
     tde.appendChild(e);
     tr.appendChild(tde);
@@ -205,30 +228,27 @@ function renderRows(){
     del.className = 'del'; del.textContent = '×';
     del.setAttribute('aria-label', 'Remove ' + (it.name || 'initiative'));
     del.addEventListener('click', () => {
-      removedItems.push({item:it, index:i, capacity:state.k});
+      removedItems.push({item:it, index:i, capacity:state.k, height:Math.round(tr.getBoundingClientRect().height)});
       state.items.splice(i, 1); syncCapacity(); renderRows(); schedule(50);
-      undoRemoval.hidden = false; undoRemoval.focus();
+      $('rows').querySelector('.undorow button')?.focus({preventScroll:true});   // the Undo stands where the row was
     });
     tdd.appendChild(del);
     tr.appendChild(tdd);
     tb.appendChild(tr);
   });
+  if(slot && slot.index >= state.items.length) tb.appendChild(undoRow());
 }
 
-// Restore removed rows without overwriting intervening edits to other rows.
+// Restore removed rows without overwriting intervening edits to other rows. The Undo sits where the removed row was.
 const removedItems = [];
-const undoRemoval = document.createElement('button');
-undoRemoval.type='button';undoRemoval.className='btn';undoRemoval.textContent='Undo removal';undoRemoval.hidden=true;
-$('addrow').after(undoRemoval);
-undoRemoval.addEventListener('click', () => {
+function undoLast(){
   const removed=removedItems.pop();if(!removed)return;
   const restoreCapacity=state.k === Math.min(removed.capacity,Math.max(1,state.items.length));
   state.items.splice(Math.min(removed.index,state.items.length),0,removed.item);
   syncCapacity(restoreCapacity ? removed.capacity : state.k);renderRows();schedule(0);
-  undoRemoval.hidden=!removedItems.length;
-  $('rows').children[Math.min(removed.index,state.items.length-1)].querySelector('.iname').focus();
-});
-function clearRemovalHistory(){removedItems.length=0;undoRemoval.hidden=true;}
+  $('rows').querySelectorAll('tr:not(.undorow)')[Math.min(removed.index,state.items.length-1)]?.querySelector('.iname')?.focus({preventScroll:true});
+}
+function clearRemovalHistory(){removedItems.length=0;}
 
 /* ---------- simulation (pure, in ./engine.js) ---------- */
 function compute(){ lastResult = simulate(state); }
@@ -259,6 +279,33 @@ function liveReweight(){
   holder.querySelectorAll('.rrow').forEach(row => row.classList.toggle('knife', !!knife[+row.dataset.itemIdx]));
   $('results').classList.add('pending');           // MC bars/ptop/verdict stale mid-drag → certainty-fade
 }
+
+/* ---------- the phone readout ---------- */
+const liveEl = $('liveread'), liveBtn = liveEl.querySelector('button');
+const livePhone = matchMedia('(pointer: coarse) and (max-width: 700px)');
+let liveFocus = false, liveSeen = true;
+/* written once per settled ranking, and only when it differs, so a screen reader hears it once per settle */
+function paintLive(){
+  const R = lastResult;
+  if(!R) return;
+  const names = R.baseOrder.slice(0, R.k).map(idx => R.stats.find(x => x.i === idx).name.trim() || 'Unnamed');
+  const text = 'Top ' + R.k + ': ' + names.join(' · ');
+  if(liveBtn.textContent !== text) liveBtn.textContent = text;
+  syncLive();
+}
+function syncLive(){
+  liveEl.classList.toggle('on', livePhone.matches && liveFocus && !liveSeen && !!liveBtn.textContent);
+  liveEl.classList.toggle('stale', $('results').classList.contains('pending') || !!timer);
+}
+const liveField = el => el === liveBtn || (!!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !!el.closest('main'));
+document.addEventListener('focusin', e => { liveFocus = liveField(e.target); syncLive(); });
+document.addEventListener('focusout', () => setTimeout(() => { liveFocus = liveField(document.activeElement); syncLive(); }, 0));
+new IntersectionObserver(entries => { liveSeen = entries[entries.length - 1].isIntersecting; syncLive(); }).observe($('rrows'));
+livePhone.addEventListener?.('change', syncLive);
+liveBtn.addEventListener('click', () => {
+  document.activeElement?.blur?.();
+  $('results').scrollIntoView({behavior: motionStill() ? 'auto' : 'smooth', block: 'start'});
+});
 
 /* ---------- render results ---------- */
 function renderResults(){
@@ -294,14 +341,16 @@ function renderResults(){
   fl.textContent = fc.text;
 
   const holder = $('rrows');
-  holder.textContent = '';
+  const old = captureFlip(holder, 'data-item-idx');   // however the order changed (a typed score, a weight, an import), the rows glide
   const knife = perRowKnife(state);   // per-row ±10% fragility (I10 — labelled below)
   holder.innerHTML = rankResultRows(R, knife);
+  applyFlip(holder, 'data-item-idx', old);
+  paintLive();
 }
 
 /* ---------- copy for a doc ---------- */
 $('copydoc').addEventListener('click', async () => {
-  clearTimeout(timer);
+  clearTimeout(timer); timer = null;
   compute(); renderResults();
   if(!lastResult) return;
   const exportState = hashState();
@@ -401,7 +450,7 @@ for(const id of ['oda', 'odb']) $(id).addEventListener('input', () => {
     renderOrderDiff();
     clearTimeout(hashTimer);
     hashTimer = setTimeout(writeHash, 400);
-  }, 200);
+  }, 120);
 });
 
 /* ---------- wiring ---------- */
@@ -409,8 +458,12 @@ let timer = null, hashTimer = null;
 function schedule(ms){
   clearTimeout(timer);
   timer = setTimeout(() => {
+    timer = null;
+    const anchor = anchorEl; anchorEl = null;
+    const top = anchor ? anchor.getBoundingClientRect().top : 0;
     compute();
     renderResults();
+    if(anchor){ const d = anchor.getBoundingClientRect().top - top; if(Math.abs(d) > 0.5) scrollBy(0, d); }   // the lines above rewrote: the page moves, the slider does not
     clearTimeout(hashTimer);
     hashTimer = setTimeout(writeHash, 400);
   }, ms);
@@ -439,7 +492,9 @@ $('addrow').addEventListener('click', () => {
   state.items.push({name:'', s: state.criteria.map(() => 5), e: 5});
   syncCapacity();
   renderRows();
-  $('rows').lastElementChild.querySelector('.iname').focus();
+  const added = [...$('rows').querySelectorAll('tr:not(.undorow)')].at(-1);
+  added.classList.add('row-in');
+  added.querySelector('.iname').focus();
   schedule(50);
 });
 function syncCapacity(raw = state.k){
@@ -450,24 +505,33 @@ function syncCapacity(raw = state.k){
 }
 $('kin').addEventListener('input', () => {
   syncCapacity($('kin').value);
-  schedule(150);
+  schedule(120);
 });
 const paintWobble = () => { $('wwx').textContent = wobbleFactorText(state.ww); };
 $('ww').addEventListener('input', () => {
   state.ww = readWobbleWeights(parseFloat($('ww').value)) ?? 0;
   paintWobble();
-  schedule(200);
+  schedule(120);
 });
 $('sw').addEventListener('input', () => {
   state.sw = readWobbleScores(parseFloat($('sw').value)) ?? 0;
-  schedule(200);
+  schedule(120);
 });
 for(const id of ['ww', 'sw']) $(id).addEventListener('change', () => { $(id).value = state[id]; paintWobble(); });
 
 /* ---------- paste import ---------- */
-$('pastebtn').addEventListener('click', () => {
-  $('pastebox').classList.toggle('open');
-  if($('pastebox').classList.contains('open')) $('pastearea').focus();
+const pasteOpen = () => $('pastebox').classList.contains('open');
+function setPaste(open, {focus = true} = {}){
+  $('pastebox').classList.toggle('open', open);
+  $('pastebtn').setAttribute('aria-expanded', String(open));
+  if(open && focus) $('pastearea').focus();
+}
+$('pastebtn').setAttribute('aria-expanded', 'false');
+$('pastebtn').addEventListener('click', () => setPaste(!pasteOpen()));
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && pasteOpen() && ($('pastebox').contains(document.activeElement) || document.activeElement === $('pastebtn'))){
+    e.preventDefault(); setPaste(false); $('pastebtn').focus({preventScroll:true});
+  }
 });
 $('pastego').addEventListener('click', () => {
   const {items, bad} = parsePaste($('pastearea').value);
@@ -482,9 +546,10 @@ $('pastego').addEventListener('click', () => {
   syncCapacity();
   renderRows();
   if(!bad.length){
-    $('pastebox').classList.remove('open');
+    setPaste(false, {focus: false});
     $('pastearea').value = '';
   }
+  $('rows').querySelector('.iname')?.focus({preventScroll:true});   // the Import button closed: focus goes to the first imported row
   schedule(50);
 });
 const loadItems = (items, k) => {
@@ -514,5 +579,6 @@ renderHead();
 renderRows();
 compute();
 renderResults();
+for(const el of document.querySelectorAll('[data-boot]')) el.removeAttribute('data-boot');
 
 mountRecentSave({getState:hashState});

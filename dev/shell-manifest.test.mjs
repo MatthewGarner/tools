@@ -53,7 +53,7 @@ test('Energy pages add the 44px strip row to the Product budget and header heigh
 /* The capabilities every page is meant to have, written out by hand. The browser suites read the manifest, so a
    manifest edit alone could silence them; changing a flag is a deliberate two-place change (here and in the manifest). */
 const PINNED = {
-  fermi: {new: false, examples: false, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
+  fermi: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
   rank: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
   roadmap: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},
   why: {new: true, examples: true, templates: true, share: true, workspaces: null, ownLink: false, longName: false},

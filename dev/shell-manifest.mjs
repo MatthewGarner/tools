@@ -8,7 +8,7 @@
                 templates but no blank: File then shows "New from template…"
      examples   example chips sit in the header or a row above the anchor, so
                 File lists them. Presets inside the working surface stay put
-                and leave this false (fermi, alarm)
+                and leave this false (alarm); fermi lists its examples here as well as in its authoring panel
      templates  recent-work.js mounts Templates / New from template. False
                 exactly for alarm, flow, signal-vs-noise, case, paths, frequency
      share      a link built from the tool's own state reopens the whole model.
@@ -56,7 +56,7 @@ const page = (name, anchor, {new: fresh, examples, templates, share, items = [],
   Object.freeze({name, anchor, new: fresh, examples, templates, share, items: Object.freeze(items), workspaces, ownLink, longName, anchorBudget: false, shell: false});
 
 export const SHELL_MANIFEST = Object.freeze(Object.fromEntries(Object.entries({
-  fermi: {...page('Fermi', '#results', {new: false, examples: false, templates: true, share: true}), shell: true},
+  fermi: {...page('Fermi', '#results', {new: true, examples: true, templates: true, share: true}), shell: true},
   rank: {...page('Rank', '#tbl', {new: true, examples: true, templates: true, share: true}), shell: true},
   roadmap: {...page('Roadmap', '#preview', {new: true, examples: true, templates: true, share: true, items: [{id: 'import-markdown', label: 'Import markdown'}]}), shell: true},
   why: {...page('Why', '#preview', {new: true, examples: true, templates: true, share: true}), shell: true},

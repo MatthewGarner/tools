@@ -15,10 +15,14 @@ const renderCounter = page => page.evaluate(() => {
 });
 const renders = page => page.evaluate(() => window.__rr.slice());
 
+/* a long saved link: twelve initiatives */
+export const LONG = {c: [['Value', 3], ['Time criticality', 2], ['Risk reduction', 1]], e: ['Effort', 1], k: 4, w: 50, s: 1,
+  i: Array.from({length: 12}, (_, n) => ['Initiative ' + (n + 1), 1 + (n * 7) % 9, 1 + (n * 5) % 9, 1 + (n * 3) % 9, 2 + (n * 4) % 8])};
+
 /* ---------- first load ---------- */
-export async function load(env, kind){
+export async function load(env, kind, {hash, label = ''} = {}){
   const {check, note} = env.R;
-  const w = W(env, kind);
+  const w = W(env, kind) + (label ? '/' + label : '');
   const {ctx, page, errors} = await newPage(env.browser, kind, {throttle: env.throttle, engine: env.engine});
   await page.addInitScript(() => {
     window.__fl = {rows: [], kicker: null};
@@ -28,7 +32,7 @@ export async function load(env, kind){
       if(k && k.textContent && window.__fl.kicker == null) window.__fl.kicker = Math.round(performance.now());
     }).observe(document, {subtree: true, childList: true, characterData: true});
   });
-  await page.goto(env.base + '/rank/', {waitUntil: 'load'});
+  await page.goto(env.base + '/rank/' + (hash ? '#' + hash : ''), {waitUntil: 'load'});
   await readyFR(page, 'rank');
   await waitQuiet(page, {quiet: 500, max: 8000});
   const s = await page.evaluate(() => { const F = window.__feel; const s = F.summary(0, performance.now() - 450); s.fl = window.__fl; s.fcp = Math.round(performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0); return s; });
@@ -38,8 +42,8 @@ export async function load(env, kind){
   check('r.load.first', w, 'ranked rows on screen (ms from navigation)', s.fl.rows[0], s.fl.rows[0] <= (M(env) === 'normal' ? 1200 : 3000), M(env) === 'normal' ? '<= 1200ms' : '<= 3000ms');
   check('r.load.longtask', w, 'longest task during load', s.longTaskMax, s.longTaskMax <= (M(env) === 'normal' ? 200 : 600), M(env) === 'normal' ? '<= 200ms' : '<= 600ms');
   check('r.load.kicker', w, 'kicker text present at first contentful paint', {kicker: s.fl.kicker, fcp: s.fcp}, s.fl.kicker != null && s.fl.kicker <= s.fcp, 'in the first painted frame');
-  if(M(env) === 'normal') check('r.load.errors', w, 'console errors', errors, errors.length === 0, 'none');
-  if(M(env) === 'normal') await shot(page, `${env.out}/shots/rank-load-${kind}${env.engine === 'webkit' ? '-webkit' : ''}.png`);
+  if(M(env) === 'normal' && !label) check('r.load.errors', w, 'console errors', errors, errors.length === 0, 'none');
+  if(M(env) === 'normal' && !label) await shot(page, `${env.out}/shots/rank-load-${kind}${env.engine === 'webkit' ? '-webkit' : ''}.png`);
   await ctx.close();
 }
 
@@ -77,7 +81,15 @@ export async function score(env, kind){
   /* phone: the edited field relative to the on-screen keyboard and to the result it moves */
   if(phone){
     const pos = await page.evaluate(() => { const r = document.getElementById('rrows').getBoundingClientRect(); return {resultsTop: Math.round(r.top), vh: innerHeight}; });
-    check('r.score.phone.visible', w, 'the re-ranked list is visible while editing a score on a phone (results top vs viewport)', pos, pos.resultsTop < pos.vh * 0.55, 'some of the ranking above the keyboard');
+    await waitQuiet(page, {quiet: 300});
+    const rd = await page.evaluate(() => { const el = document.getElementById('liveread'), r = el.getBoundingClientRect(); return {on: el.classList.contains('on'), vis: getComputedStyle(el).visibility, text: el.querySelector('button').textContent, top: Math.round(r.top), h: Math.round(r.height), live: el.getAttribute('aria-live')}; });
+    check('r.score.phone.visible', w, 'the re-ranked list is visible while editing a score on a phone (the list itself, or the pinned cut line)', {...pos, readout: rd}, pos.resultsTop < pos.vh * 0.55 || rd.on, 'some of the ranking above the keyboard, or its pinned readout');
+    check('r.score.readout', w, 'phone: the pinned readout names the top-k in order, sits at the top, polite, >= 44px', rd, rd.on && rd.top === 0 && rd.h >= 44 && /^Top \d+: .+/.test(rd.text) && rd.live === 'polite', 'visible, top 0, "Top k: names in order"');
+    const orderNow = await page.evaluate(() => [...document.querySelectorAll('#rrows .nmtext')].slice(0, 3).map(e => e.textContent.trim()).join(' · '));
+    check('r.score.readout.order', w, 'the readout lists the same initiatives, in the same order, as the ranking', {readout: rd.text, rows: orderNow}, rd.text.endsWith(orderNow), 'matches the first k rows');
+  } else {
+    const rd = await page.evaluate(() => ({on: document.getElementById('liveread').classList.contains('on'), vis: getComputedStyle(document.getElementById('liveread')).display === 'none' ? 'hidden' : getComputedStyle(document.getElementById('liveread')).visibility}));
+    check('r.score.readout.desktop', w, 'desktop: the pinned readout never appears', rd, !rd.on && rd.vis === 'hidden', 'hidden');
   }
   /* rapid: three different scores within 150ms */
   const r2 = (await renders(page)).length;
@@ -111,8 +123,14 @@ export async function names(env, kind){
     check('r.name.criterion.focus', w, 'focus while renaming a criterion', c.active, /input\.cname/.test(c.active), 'stays in the criterion name');
     check('r.name.criterion.paint', w, 'criterion-name keystroke -> next paint', c.nextPaintApprox, c.nextPaintApprox <= BAR.paint[M(env)], '<= ' + BAR.paint[M(env)] + 'ms');
   } else {
-    const can = await page.evaluate(() => [...document.querySelectorAll('#headrow .cname, #headrow .weight')].filter(e => e.getClientRects().length && e.getBoundingClientRect().width).length);
+    const can = await page.evaluate(() => [...document.querySelectorAll('#wstrip .wsname, #wstrip .wsnum')].filter(e => e.getClientRects().length && e.getBoundingClientRect().width).length);
     check('r.name.criterion.phone', w, 'criterion name and weight-number fields reachable on a phone', can, can > 0, 'renaming criteria and typing a weight possible at 375px');
+    const wn = page.locator('#wstrip .wsnum').nth(1), wsn = page.locator('#wstrip .wsname').nth(1);
+    await wsn.scrollIntoViewIfNeeded(); await press(page, wsn, true); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.type('Urgency');
+    await press(page, wn, true); await page.keyboard.press('ControlOrMeta+a'); await page.keyboard.type('9');
+    await waitQuiet(page, {quiet: 500});
+    const done = await page.evaluate(() => ({name: document.querySelectorAll('#headrow .cname')[1].value, weight: document.querySelectorAll('#headrow .weight')[1].value, cell: document.querySelector('#rows td:nth-child(3)').dataset.label}));
+    check('r.name.criterion.phone.typed', w, 'on a phone a criterion is renamed and a weight typed, and the page follows', done, done.name === 'Urgency' && done.weight === '9' && done.cell === 'Urgency', 'renamed to Urgency, weight 9, the table label follows');
   }
   await ctx.close();
 }
@@ -226,6 +244,8 @@ export async function addRemove(env, kind){
   const del = page.locator('#rows .del').nth(1);
   const r = await act(env, page, {id: 'r.remove', w, label: 'remove an initiative', fn: () => press(page, del, phone), focus: /Undo removal|button\.btn/, cls: true, skip: ['longtask']});
   check('r.remove.longtask', w, 'longest task after remove', r.longTaskMax, r.longTaskMax <= LT(env), '<= ' + LT(env) + 'ms');
+  const place = await page.evaluate(() => { const u = document.querySelector('#rows .undorow button'); if(!u) return null; const r = u.getBoundingClientRect(), rows = [...document.querySelectorAll('#rows tr')]; return {atIndex: rows.indexOf(u.closest('tr')), rows: rows.length, top: Math.round(r.top), vh: innerHeight}; });
+  check('r.remove.undoinplace', w, 'the Undo removal control appears in the removed row\'s place (second row), on screen', place, !!place && place.atIndex === 1 && place.top >= 0 && place.top < place.vh, 'row 2 of the table, in view');
   const undo = page.locator('button', {hasText: 'Undo removal'});
   await act(env, page, {id: 'r.undo', w, label: 'Undo removal', fn: () => press(page, undo, phone), focus: /input\.iname/, cls: true, skip: ['longtask']});
   await ctx.close();
@@ -239,7 +259,12 @@ export async function paste(env, kind){
   const o = await act(env, page, {id: 'r.paste.open', w, label: 'Paste from spreadsheet', fn: () => press(page, page.locator('#pastebtn'), phone), focus: /textarea#pastearea/});
   check('r.paste.open.motion', w, 'paste box entrance', o.animations.length ? o.animations : 'none: display toggles', true, 'recorded');
   await page.keyboard.insertText('Alpha\t8\t7\t5\t6\nBeta\t3\t4\t9\t2\nGamma\t6\t6\t6\t6\nDelta\t9\t2\t3\t8');
-  await act(env, page, {id: 'r.paste.import', w, label: 'Import', fn: () => press(page, page.locator('#pastego'), phone), cls: true});
+  const topBefore = await page.evaluate(() => document.querySelector('.tblwrap').getBoundingClientRect().top);
+  const imp = await act(env, page, {id: 'r.paste.import', w, label: 'Import', fn: () => press(page, page.locator('#pastego'), phone), focus: /input\.iname/});
+  const topAfter = await page.evaluate(() => document.querySelector('.tblwrap').getBoundingClientRect().top);
+  check('r.paste.import.anchor', w, 'nothing above the imported rows moves: the table keeps its place on screen (px moved)', Math.round(topAfter - topBefore), Math.abs(topAfter - topBefore) <= 1, '<= 1px');
+  check('r.paste.import.scroll', w, 'the page does not scroll on Import', imp.scrollJumps, !imp.scrollJumps.length, 'no scroll');
+  check('r.paste.import.firstrow', w, 'focus moves to the first imported row', await page.evaluate(() => ({active: document.activeElement.className, value: document.activeElement.value})), await page.evaluate(() => document.activeElement.className === 'iname' && document.activeElement.value === 'Alpha'), 'the name field of Alpha');
   /* a second Paste press closes the box */
   await press(page, page.locator('#pastebtn'), phone); await sleep(100);
   await page.keyboard.press('Escape'); await sleep(100);

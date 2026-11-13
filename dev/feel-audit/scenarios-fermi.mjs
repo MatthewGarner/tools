@@ -113,10 +113,24 @@ export async function typing(env, kind, {label = 'short', state} = {}){
     note('f.type.range.field', w, 'edited range box position (keyboard covers ~the bottom 45% of a phone)', rb);
     if(phone) check('f.type.range.keyboard', w, 'edited range box sits above where an on-screen keyboard would be (top 55% of the viewport)', rb, rb.bottom <= rb.vh * 0.55, 'bottom <= 55% of viewport height');
   }
+  if(label === 'short' && M(env) === 'normal'){
+    /* the pinned readout: a phone shows it while an input has focus and the result is off screen; a desktop never does */
+    await waitQuiet(page, {quiet: 300});
+    const rd = await page.evaluate(() => { const el = document.getElementById('liveread'), b = el.querySelector('button'), r = el.getBoundingClientRect(); return {on: el.classList.contains('on'), vis: getComputedStyle(el).display === 'none' ? 'hidden' : getComputedStyle(el).visibility, text: b.textContent, top: Math.round(r.top), h: Math.round(r.height), live: el.getAttribute('aria-live'), active: document.activeElement.id}; });
+    note('f.type.readout', w, 'the pinned readout while typing', rd);
+    if(phone) check('f.type.readout.phone', w, 'phone: while typing with the result off screen a one-line "P10 · P50 · P90" readout is pinned at the top of the viewport', rd, rd.on && rd.vis === 'visible' && rd.top === 0 && rd.h >= 44 && /P10 .*P50 .*P90/.test(rd.text) && rd.live === 'polite', 'visible, top 0, >= 44px, polite');
+    else check('f.type.readout.desktop', w, 'desktop: the readout never appears', rd, !rd.on && rd.vis === 'hidden', 'hidden');
+    if(phone){
+      await press(page, page.locator('#liveread button'), true); await sleep(900);
+      const tap = await page.evaluate(() => { const r = document.getElementById('results').getBoundingClientRect(); return {resultsTop: Math.round(r.top), on: document.getElementById('liveread').classList.contains('on'), vh: innerHeight}; });
+      check('f.type.readout.tap', w, 'tapping the readout scrolls to the full result and the readout goes', tap, tap.resultsTop < tap.vh * 0.4 && !tap.on, 'the result is at the top of the screen, the readout hidden');
+    }
+  }
   if(phone && label === 'short' && M(env) === 'normal'){
     const fb = await page.evaluate(() => { const r = document.getElementById('formula').getBoundingClientRect(); return {top: Math.round(r.top), bottom: Math.round(r.bottom), vh: innerHeight, resultsTop: Math.round(document.getElementById('results').getBoundingClientRect().top)}; });
     note('f.type.phone.layout', w, 'formula box and the result it drives on a phone (result top relative to viewport)', fb);
-    check('f.type.phone.visible', w, 'the result the formula drives is visible while typing on a phone', fb, fb.resultsTop < fb.vh * 0.55, 'some of the result above the on-screen keyboard');
+    const rdOn = await page.evaluate(() => document.getElementById('liveread').classList.contains('on'));
+    check('f.type.phone.visible', w, 'the result the formula drives is visible while typing on a phone (the result itself, or the pinned readout of it)', {...fb, readout: rdOn}, fb.resultsTop < fb.vh * 0.55 || rdOn, 'some of the result above the on-screen keyboard, or its pinned readout');
   }
   await ctx.close();
 }
@@ -160,7 +174,8 @@ export async function replay(env, kind, {reduced = false} = {}){
   const dur = on && off && off[0] > on[0] ? off[0] - on[0] : null;
   note('f.replay.run', w, 'Replay the maths: overlay timeline [t, overlays] and frame stats', {paint: paint(s), firstResponse: s.firstResponse, overlay: ov.map(o => [Math.round(o[0] - t0), o[1]]), duration: dur, ...win, active: s.active, verdict: await page.locator('#pourverdict').textContent()});
   check('f.replay.paint', w, 'Replay: click -> next paint', paint(s), paint(s) <= BAR.paint[M(env)], '<= ' + BAR.paint[M(env)] + 'ms');
-  check('f.replay.firstresponse', w, 'Replay: first visible change', on ? Math.round(on[0] - t0) : null, on && on[0] - t0 <= 150, '<= ~100ms after the click');
+  if(!reduced) check('f.replay.firstresponse', w, 'Replay: first visible change', on ? Math.round(on[0] - t0) : null, on && on[0] - t0 <= 150, '<= ~100ms after the click');
+  else check('f.replay.reduced.verdict', w, 'Replay under reduced motion: the end state (the verdict line) is on the page at once, with no overlay', {overlays: ov.filter(o => o[1] > 0).length, verdict: (await page.locator('#pourverdict').textContent()).slice(0, 50)}, !ov.some(o => o[1] > 0) && (await page.locator('#pourverdict').textContent()).length > 10, 'no overlay, the verdict shown');
   if(!reduced){
     check('f.replay.dropped', w, 'Replay: missed frames (gaps >34ms) during the pour', {missed: win.missed, over20ms: win.dropped, worst: win.worstFrame, frames: win.frames}, win.missed <= (M(env) === 'normal' ? 1 : 6), M(env) === 'normal' ? '<= 1' : '<= 6');
     check('f.replay.longtask', w, 'Replay: longest task during the pour', win.longTaskMax, win.longTaskMax <= (M(env) === 'normal' ? 50 : 150), '<= ' + (M(env) === 'normal' ? 50 : 150) + 'ms');
@@ -178,18 +193,20 @@ export async function replay(env, kind, {reduced = false} = {}){
     strip.forEach((b, i) => writeFileSync(`${env.out}/shots/fermi-replay-${kind}-${i}.png`, b));
     const cover = await page.evaluate(() => { const o = document.querySelector('.histwrap canvas:not(#hist)'); if(!o) return 'gone'; const r = o.getBoundingClientRect(); const hits = ['#replay', '#viewdist', '#viewtree', '#spread', '#provenance', '.verdict-block'].filter(s => { const e = document.querySelector(s); if(!e || e.hidden) return false; const b = e.getBoundingClientRect(); return b.bottom > r.top && b.top < r.bottom && b.right > r.left && b.left < r.right; }); return {top: Math.round(r.top), height: Math.round(r.height), overlaps: hits}; });
     note('f.replay.overlay', w, 'overlay box at the end of the strip and the controls it paints over', cover);
+    check('f.replay.overlay.clear', w, 'the pour overlay paints over none of the view buttons, the Replay control, the verdict, spread or provenance lines', cover.overlaps, cover.overlaps.length === 0, 'none');
+    check('f.replay.label', w, 'while the pour plays the Replay control reads Skip', await page.locator('#replay').textContent(), /^\s*Skip\s*$/.test(await page.locator('#replay').textContent()), 'Skip');
     await pourDone(page);
-    /* interruption: replay twice within 80ms, then replay mid-pour, then switch view mid-pour */
+    /* interruption: Skip mid-pour jumps to the end state; Escape does the same; a fresh Replay starts a new pour; a view switch mid-pour leaves nothing */
     await overlaySampler(page);
-    await press(page, btn, phone); await sleep(80); await press(page, btn, phone);
-    await sleep(300);
-    const mid = await page.evaluate(() => document.querySelectorAll('.histwrap canvas:not(#hist)').length);
-    await sleep(500); await press(page, btn, phone); await sleep(200);
-    const mid2 = await page.evaluate(() => document.querySelectorAll('.histwrap canvas:not(#hist)').length);
-    await pourDone(page); await sleep(200);
-    const end = await page.evaluate(() => ({overlays: document.querySelectorAll('.histwrap canvas:not(#hist)').length, verdict: document.getElementById('pourverdict').textContent.slice(0, 40)}));
-    const ov2 = await overlayStop(page);
-    check('f.replay.rapid', w, 'Replay twice 80ms apart, then again mid-pour: overlays at each point, end state', {afterDouble: mid, afterRestart: mid2, end, timeline: ov2.length}, mid === 1 && mid2 === 1 && end.overlays === 0 && end.verdict, 'one pour at a time, restarts cleanly, ends with no overlay and the verdict');
+    await press(page, btn, phone); await sleep(300);
+    const playing = await page.evaluate(() => ({overlays: document.querySelectorAll('.histwrap canvas:not(#hist)').length, label: document.getElementById('replay').textContent.trim()}));
+    await press(page, btn, phone); await sleep(150);
+    const skipped = await page.evaluate(() => ({overlays: document.querySelectorAll('.histwrap canvas:not(#hist)').length, label: document.getElementById('replay').textContent.trim(), verdict: document.getElementById('pourverdict').textContent.slice(0, 40)}));
+    await press(page, btn, phone); await sleep(300);
+    await page.keyboard.press('Escape'); await sleep(150);
+    const esc = await page.evaluate(() => ({overlays: document.querySelectorAll('.histwrap canvas:not(#hist)').length, label: document.getElementById('replay').textContent.trim()}));
+    await overlayStop(page);
+    check('f.replay.skip', w, 'Replay -> Skip jumps to the end state; Escape does too; the control reads Replay again', {playing, skipped, esc}, playing.overlays === 1 && playing.label === 'Skip' && skipped.overlays === 0 && /Replay/.test(skipped.label) && skipped.verdict && esc.overlays === 0 && /Replay/.test(esc.label), 'one overlay and Skip while playing; none and Replay after Skip or Escape; the verdict stays');
     await press(page, btn, phone); await sleep(600);
     await press(page, page.locator('#viewtree'), phone); await sleep(100);
     const afterSwitch = await page.evaluate(() => document.querySelectorAll('.histwrap canvas:not(#hist)').length + document.querySelectorAll('canvas[style*="z-index:6"]').length);
@@ -231,10 +248,13 @@ export async function goal(env, kind){
   const worst = Math.max(...r.map(x => +x.split(':')[1]));
   check('f.goal.typed.keyrender', w, 'threshold keystroke -> P(>T) painted (worst key)', worst, worst > 0 && worst <= BAR.paint[M(env)], '<= ' + BAR.paint[M(env)] + 'ms');
   check('f.goal.typed.solver', w, 'longest task when the debounced solver runs after typing', win.longTaskMax, win.longTaskMax <= (M(env) === 'normal' ? 50 : 150), '<= ' + (M(env) === 'normal' ? 50 : 150) + 'ms');
-  check('f.goal.typed.jump', w, 'layout shift when the confession appears under the threshold', win.cls, win.cls <= 0.05, '<= 0.05');
+  /* the confession now arrives with its evidence (the proposed range and Adopt, ruling FF-13): one more row than the sentence alone, so the budget is 0.08 (it was 0.05 for the sentence) */
+  check('f.goal.typed.jump', w, 'layout shift when the confession (sentence and its proposed range) appears under the threshold', win.cls, win.cls <= 0.08, '<= 0.08');
   /* where does the confession's per-input evidence (ghost ranges, Adopt) render? */
   const ghosts = await page.evaluate(() => [...document.querySelectorAll('.cghost')].map(g => ({visible: !!g.offsetParent, adopt: !!g.querySelector('.adopt')})));
   note('f.goal.ghosts', w, 'confession ghost rows (rendered in the authoring panel)', ghosts);
+  const cards = await page.evaluate(() => [...document.querySelectorAll('#confesscards .cghost')].map(g => ({visible: !!g.offsetParent, adopt: !!g.querySelector('.adopt'), text: g.textContent.slice(0, 60)})));
+  check('f.goal.cards', w, 'the proposed range and its Adopt button sit beside the confession sentence in the result panel', cards, cards.some(g => g.visible && g.adopt), 'at least one visible card with an Adopt button');
   check('f.goal.ghosts.visible', w, 'confession ghost ranges and Adopt visible with the authoring panel closed (the default)', ghosts, ghosts.length && ghosts.some(g => g.visible), 'the evidence and its Adopt button are on screen when the confession speaks');
   /* drag the goal line */
   await page.locator('#hist').scrollIntoViewIfNeeded();
@@ -283,15 +303,16 @@ export async function adopt(env, kind){
   const {check} = env.R;
   const w = W(env, kind), phone = kind === 'phone';
   const {ctx, page} = await openFR(env, 'fermi', kind);
-  await openAuthor(page, phone);
+  /* the authoring panel stays closed: the evidence and its Adopt are in the result panel */
   await page.locator('#tin').fill('300');
   await page.locator('#tin').dispatchEvent('input');
-  await page.waitForSelector('.cghost .adopt', {timeout: 6000}).catch(() => {});
-  const a = page.locator('.cghost .adopt').first();
+  await page.waitForSelector('#confesscards .adopt', {timeout: 6000}).catch(() => {});
+  const a = page.locator('#confesscards .adopt').first();
   if(!(await a.count())){ check('f.adopt.ran', w, 'Adopt offered', 0, false, 'an Adopt button'); await ctx.close(); return; }
-  await act(env, page, {id: 'f.adopt', w, label: 'Adopt the cheapest change', fn: () => press(page, a, phone), focus: /Undo|button\.adopt/, cls: true});
+  await a.scrollIntoViewIfNeeded();
+  await act(env, page, {id: 'f.adopt', w, label: 'Adopt the cheapest change', fn: () => press(page, a, phone), focus: /input#tin/, cls: true});
   const u = page.locator('#confessverdict .adopt');
-  if(await u.count()) await act(env, page, {id: 'f.adopt.undo', w, label: 'Undo the adopt', fn: () => press(page, u, phone), focus: null, cls: true});
+  if(await u.count()) await act(env, page, {id: 'f.adopt.undo', w, label: 'Undo the adopt', fn: () => press(page, u, phone), focus: /input#tin/, cls: true});
   await ctx.close();
 }
 
@@ -504,7 +525,8 @@ export async function controlsFermi(env, kind){
     await press(page, page.locator('#cfchips .chip', {hasText: 'Geared'}), true); await waitQuiet(page);
     const cfRows = await stateRows(page, ['#cfrows input', '#cfrows .del', '#cfrlo', '#cfrhi', '#cfhorizon', '#cfdebton', '#cfdscr', '#cfrd', '#cften', '#cfcase', '#cftin', '#cfresults details.method > summary']);
     const cfSmall = [...new Set(cfRows.filter(r => r.h < 44 || r.w < 44).map(r => `${r.key} ${r.w}x${r.h}`))];
-    check('f.controls.tap.cf', w, 'cashflow controls under 44x44 on a phone', cfSmall.length ? cfSmall : 'none', !cfSmall.length, 'every control >= 44x44');
+    const cfSmall2 = cfSmall.filter(x => !/^#cfdebton /.test(x));   // the checkbox itself is 18px: its label row is the target, held to 44px by f.cf.debt.tap
+    check('f.controls.tap.cf', w, 'cashflow controls under 44x44 on a phone (the debt checkbox is measured as its label row)', cfSmall2.length ? cfSmall2 : 'none', !cfSmall2.length, 'every control >= 44x44');
     const fonts = await page.evaluate(() => ['#cfcase', '#cfdebton'].map(s => s + ':' + getComputedStyle(document.querySelector(s)).fontSize));
     check('f.controls.font.cf', w, 'cashflow form controls under the 16px input floor', fonts.filter(f => parseFloat(f.split(':')[1]) < 16 && !/cfdebton/.test(f)), !fonts.filter(f => parseFloat(f.split(':')[1]) < 16 && !/cfdebton/.test(f)).length, '>= 16px (iOS zooms otherwise)');
     await ctx.close(); return;

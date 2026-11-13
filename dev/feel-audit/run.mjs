@@ -56,7 +56,7 @@ const PLAN = [
 ];
 /* WebKit has no CDP throttling, touch CDP or clipboard permission: the core interactions only */
 const WEBKIT_PLAN = new Set(['load', 'views', 'rail', 'type', 'menu', 'eip', 'theme', ...FR_WEBKIT]);
-FR_KNOWN.forEach(k => KNOWN.add(k));
+FR_KNOWN.forEach(([k]) => KNOWN.add(k));
 
 const R = registry();
 const server = await startServer();

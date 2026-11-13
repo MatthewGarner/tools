@@ -26,7 +26,7 @@ export const FR_PLAN = [
   ['f-controls', ['fermi'], N, both(F.controlsFermi)],
   ['f-touch', ['fermi'], N, async e => F.touch(e)],
 
-  ['r-load', ['rank'], T, both(K.load)],
+  ['r-load', ['rank'], T, async e => { await both(K.load)(e); await K.load(e, 'desktop', {hash: hashOpen(K.LONG), label: 'long'}); await K.load(e, 'phone', {hash: hashOpen(K.LONG), label: 'long'}); }],
   ['r-score', ['rank'], T, both(K.score)],
   ['r-name', ['rank'], T, both(K.names)],
   ['r-slider', ['rank'], T, async e => { await K.slider(e, 'desktop'); await K.slider(e, 'phone'); }],
@@ -44,81 +44,30 @@ export const FR_PLAN = [
 ];
 export const FR_WEBKIT = ['f-load', 'f-type', 'f-view', 'f-replay', 'f-author', 'r-load', 'r-score', 'r-slider', 'r-add'];
 
-/* Confirmed defects (findings FF-/FR- in the local evidence folder feel-audit/fermi-rank/findings.json). 'id' tags every
-   location; 'id@text' tags the locations whose where-string contains the text (phone, cpu4x, webkit…). */
+/* Checks still tagged [known] after the 2026-11-13 fix pass, each with the reason it stays. The rest of the audit's
+   confirmed defects were fixed, passed, and lost their tag. 'id' tags every location; 'id@text' tags the locations whose
+   where-string contains the text (phone, cpu4x, webkit...). A tag is only ever for a decision to leave the defect or for a fix
+   that is on another branch: never for a condition that could hide a new regression. */
+const SHARED = 'shared, fixed on another branch';
 export const FR_KNOWN = [
-  'f.load.example.cls', // layout shift on load: the result panel is inserted after first paint (intermittent on desktop)
-  'f.load.long.cls', // same, with a 13-input link
-  'f.load.example.kicker', // kicker painted by script after first paint
-  'f.load.long.kicker',
-  'f.load.long.longtask', // one ~200ms (767ms at 4x) task computing a 13-input additive model on load
-  'f.type.short.keyrender', // 180ms typing debounce + compute: a keystroke lands ~200-215ms later
-  'f.type.short.longtask',
-  'f.type.short.jump', // the "Updating estimate" status line inserts above the result while typing
-  'f.type.long.keyrender',
-  'f.type.long.longtask',
-  'f.type.long.jump',
-  'f.type.phone.visible', // the result is ~1300px below the formula on a phone
-  'f.view.transition', // hard cut between distribution and driver tree
-  'f.view.tree.focus@webkit', // WebKit: a clicked button is not focused and nothing re-focuses it
-  'f.view.dist.focus@webkit',
-  'f.replay.focus@webkit',
-  'f.mode.cf.focus@webkit',
-  'f.mode.est.focus@webkit',
-  'f.replay.jump', // the pour verdict line grows the page by 6-26px
-  'f.replay.reduced', // reduced motion: the pour overlay still sits for ~4s
-  'f.goal.ghosts.visible', // the confession's ghost ranges and Adopt render inside the closed authoring panel
-  'f.adopt.cls', // Adopt rebuilds the rows: focus to body and a scroll jump
-  'f.adopt.focus',
-  'f.adopt.undo.cls',
-  'f.compare.on.focus', // renderTabs rebuilds the tab buttons: focus to body
-  'f.compare.switch.focus',
-  'f.compare.off.focus',
-  'f.mode.cf.longtask',
-  'f.cf.remove.longtask',
-  'f.cf.remove.focus', // the removed row's button goes with it: focus to body
-  'f.cf.grain.longtask',
-  'f.cf.example.paint', // Geared build: ~100ms synchronous simulation in the click
-  'f.cf.example.feedback',
-  'f.cf.example.longtask',
-  'f.cf.debt.longtask',
-  'f.cf.debt.tap',
-  'f.copy.png.ack', // PNG download gives no on-page acknowledgement
-  'f.menu.escape', // the Method disclosure ignores Escape and outside presses
-  'f.menu.outside',
-  'f.menu.tap',
-  'f.file.startown', // Fermi's File has no New / Examples
-  'f.example.cls@phone',
-  'f.example.long.cls@phone',
-  'f.controls.hover',
-  'f.controls.focus', // .vcopy has outline:none on focus-visible
-  'f.controls.timing', // controls ease at .15s / 0s, not --dur-fast
-  'f.controls.pressed',
-  'f.controls.tokens',
-  'f.controls.tap.cf',
-  'f.controls.font.cf',
-  'r.load.cls', // result rows inserted after first paint
-  'r.load.kicker',
-  'r.score.keyrender', // 200ms debounce + render
-  'r.score.reorder', // a score edit replaces the rows: no FLIP
-  'r.score.commit', // leaving the field re-simulates and re-renders unchanged results
-  'r.score.phone.visible',
-  'r.name.criterion.phone', // criteria cannot be renamed, nor weights typed, on a phone
-  'r.slider.frames@rank/desktop',
-  'r.slider.release@phone', // the verdict lines above the phone strip re-flow on release: strip moves ~21px
-  'r.slider.tokens', // the shared FLIP is 240ms, not a token
-  'r.add.motion',
-  'r.remove.cls@phone', // focus to Undo removal scrolls the phone page ~1140px
-  'r.undo.cls@phone',
-  'r.paste.import.cls',
-  'r.paste.import.focus',
-  'r.paste.escape',
-  'r.wobble.w.keyrender',
-  'r.wobble.s.keyrender',
-  'r.orders.keyrender',
-  'r.capacity.keyrender',
-  'r.controls.focus',
-  'r.controls.timing',
-  'r.controls.tokens',
-  'r.controls.tap',
+  ['f.load.long.longtask', 'FF-03 left: the 13-input additive model\'s Monte Carlo and pinned re-simulations run in the load task (about 200 ms, 760 ms at 4x); the time is the engine\'s'],
+  ['f.type.short.longtask', 'FF-04 left: the simulation after the 120 ms debounce is one 55-60 ms task; the time is the engine\'s'],
+  ['f.type.long.keyrender', 'FF-04 left: the long additive formula\'s simulation (about 185 ms) follows the debounce'],
+  ['f.type.long.longtask', 'FF-04 left: the same simulation, one 160-185 ms task'],
+  ['f.mode.cf.longtask', 'FF-28 left: the 40,000-run cashflow simulation runs in the mode switch'],
+  ['f.cf.grain.longtask', 'FF-18 left: simulation cost (40,000 runs)'],
+  ['f.cf.remove.longtask', 'FF-18 left: simulation cost (40,000 runs)'],
+  ['f.cf.example.paint', 'FF-18 left: the Geared build example simulates 40,000 runs in the click'],
+  ['f.cf.example.feedback', 'FF-18 left: as above'],
+  ['f.cf.example.longtask', 'FF-18 left: as above'],
+  ['f.cf.debt.longtask', 'FF-18 left: the debt sizing and its simulation'],
+  ['f.menu.escape', SHARED + ' (FF-21: the Method disclosure)'],
+  ['f.menu.outside', SHARED + ' (FF-21: the Method disclosure)'],
+  ['f.controls.focus', SHARED + ' (FF-26: the verdict Copy chip ring, assets/page.css)'],
+  ['f.controls.timing', SHARED + ' (control timing in assets/controls.css)'],
+  ['r.slider.frames@rank/desktop', 'FR-09 left: one 51-68 ms frame gap with no long task during the drag'],
+  ['r.slider.tokens', SHARED + ' (FR-10: the FLIP glide in assets/motion.css)'],
+  ['r.controls.tokens', SHARED + ' (FR-10: assets/motion.css literals)'],
+  ['r.controls.focus', SHARED + ' (FR-16)'],
+  ['r.controls.timing', SHARED + ' (FR-16: control timing in assets/controls.css)'],
 ];

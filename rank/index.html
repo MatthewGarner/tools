@@ -108,12 +108,24 @@
     /* the name field IS the card title, not a labelled row */
     #tbl td:first-child{border-top:none;padding-bottom:8px}
     #tbl td:first-child::before{content:none}
-    #tbl td .iname{min-width:0;width:100%;font-size:16px;font-weight:600;padding:8px 0}
-    #tbl td .score{min-width:0;width:88px;font-size:16px;padding:8px}
+    #tbl td .iname{min-width:0;width:100%;min-height:44px;font-size:16px;font-weight:600;padding:8px 0}
+    #tbl td .score{min-width:0;width:88px;min-height:44px;font-size:16px;padding:8px}
     #tbl td.effcol{border-left:none}
     #tbl td:last-child{justify-content:flex-end;border-top:none;padding-top:2px}
     #tbl td:last-child .del{min-width:44px;min-height:44px;font-size:20px}
   }
+  /* the page lands in its final layout: until the first ranking paints, the table and the result card hold the height the default example takes */
+  .tblwrap[data-boot]{min-height:293px}
+  #resultcard[data-boot]{min-height:732px}
+  @media (max-width:640px){.tblwrap[data-boot]{min-height:1768px}#resultcard[data-boot]{min-height:1443px}}
+  /* what sits below a table whose length is not yet known stays unseen until the first ranking paints (so a long saved link
+     does not push visible cards down); a script that never runs reveals them after 3s */
+  .tblwrap[data-boot] ~ .toolbar,.tblwrap[data-boot] ~ .pastebox,#resultcard[data-boot]{visibility:hidden;animation:boot-reveal 0s 3s forwards}
+  @keyframes boot-reveal{to{visibility:visible}}
+  tr.undorow td{display:flex;align-items:center;justify-content:center;border-top:1px solid var(--border);background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+  @media (max-width:640px){#tbl tr.undorow{display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 5%,var(--card));padding:4px 12px}#tbl tr.undorow td{border-top:none;background:none;min-height:44px}}
+  @media (prefers-reduced-motion:no-preference){tr.row-in{animation:row-in var(--dur-base) var(--ease-out)}}
+  @keyframes row-in{from{opacity:0}to{opacity:1}}
   .toolbar{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
   .toolbar .note{font-size:12.5px;color:var(--muted)}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
@@ -147,16 +159,18 @@
       border-radius:0;background:color-mix(in srgb, var(--accent) 5%, var(--card))}
     .wstrip::before{content:"Weights — drag to re-rank the list below";display:block;font-size:11px;
       font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-    .wsrow{display:grid;grid-template-columns:minmax(64px,32%) 1fr 42px;gap:10px;align-items:center;
+    .wsrow{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:4px 10px;align-items:center;
       padding:6px 0;border-top:1px solid var(--border)}
     .wsrow:first-of-type{border-top:none}
-    .wslabel{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .wsval{font-family:ui-monospace,Menlo,monospace;font-size:13px;text-align:right;color:var(--muted)}
+    .wsrow .wslider{grid-column:1/-1}
+    .wsname,.wsnum{min-height:44px;font-size:16px;padding:8px;min-width:0}
+    .wsname{font-weight:600;width:100%}
+    .wsnum{width:84px;text-align:center;font-variant-numeric:tabular-nums}
     .wstrip .wslider{min-height:44px;height:44px;margin:0}
   }
   /* while a weight is being dragged the deterministic re-rank is live; the MC-derived readouts are stale → fade */
   #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
-  #results.pending .verdict-block, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
+  #results.pending .verdict-block, #results.pending .subverdict{opacity:.4;transition:opacity var(--dur-base) var(--ease-out)}
   @media (prefers-reduced-motion: reduce){
     #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
     #results.pending .verdict-block, #results.pending .subverdict{transition:none}   /* dim instantly, no animated fade */
@@ -212,6 +226,20 @@
     .rrow .ptop{grid-area:t}
   }
 
+  /* a phone: while an input has focus and the ranking is off screen, the cut line is pinned to the top (the keyboard owns the bottom) */
+  #liveread{display:none}
+  @media (pointer:coarse) and (max-width:700px){
+    #liveread{display:block;position:fixed;inset:0 0 auto 0;z-index:40;opacity:0;visibility:hidden;transform:translateY(-8px);pointer-events:none}
+    #liveread.on{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+    #liveread button{display:block;width:100%;min-height:44px;padding:8px 12px;border:0;border-bottom:1px solid var(--border);background:var(--ink);color:var(--bg);
+      font-family:inherit;font-weight:600;font-size:14px;line-height:1.3;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #liveread.stale button{opacity:.6}
+  }
+  @media (pointer:coarse) and (max-width:700px) and (prefers-reduced-motion:no-preference){
+    #liveread{transition:opacity var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out),visibility 0s linear var(--dur-fast)}
+    #liveread.on{transition-delay:0s}
+  }
+
   /* fingers get full-size controls */
   @media (pointer: coarse){
     td .del{min-width:40px;min-height:40px}
@@ -234,7 +262,7 @@
 
 <div class="wrap">
   <header data-tool-header data-shell>
-    <p class="kicker" id="kicker"></p>
+    <p class="kicker" id="kicker"><span class="num"><span class="kw">Instrument </span>04</span> — Ranking that survives its own uncertainty</p>
     <!-- shell:start -->
     <div class="tool-titlerow" data-shell-row>
       <h1>Rank</h1>
@@ -259,7 +287,7 @@
 
   <main id="main" tabindex="-1">
   <section class="card">
-    <div class="tblwrap">
+    <div class="tblwrap" data-boot>
       <table id="tbl" data-capability="views.assumptions">
         <thead><tr id="headrow"></tr></thead>
         <tbody id="rows"></tbody>
@@ -280,7 +308,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" id="resultcard" data-boot>
     <p class="placeholder" id="ph">Add initiatives and scores above. The result isn't a ranking — it's how much of the ranking you can trust.</p>
     <div id="results" data-capability="views.stability">
       <div class="metrics" id="metrics" hidden></div>
@@ -329,6 +357,7 @@
 
 </div>
 
+<div id="liveread" role="status" aria-live="polite"><button type="button" title="Show the full ranking"></button></div>
 <script type="module" src="./app.js"></script>
 <!-- identity:footer:start -->
 <div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a href="/explore/#recent-work">Your work</a><a data-suite-link="backup" href="/backup/">Backup &amp; restore</a><a href="https://www.matthewgarner.me/about">About</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
