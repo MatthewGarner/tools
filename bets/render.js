@@ -296,7 +296,8 @@ function renderWide(model, sim, ctx){
   // portfolio total
   y += 2;
   body.push('<line x1="' + C.left + '" y1="' + y + '" x2="' + C.right + '" y2="' + y + '" stroke="' + c.ink + '" stroke-width="1.5" stroke-opacity="0.8"/>');
-  body.push(txt(C.left, y + 24, 'PORTFOLIO', 10.5, c.ink, {weight: 700, tracking: '0.05em'}));
+  // the three figures on this row are OUTCOME percentiles, under columns headed EV for the bets above
+  body.push(txt(C.left, y + 24, 'PORTFOLIO OUTCOME', 10.5, c.ink, {weight: 700, tracking: '0.05em'}));
   body.push(txt(C.stake, y + 24, amount(totalStake), 13, c.ink, {mono: true, anchor: 'end', weight: 700}));
   if(pf){
     body.push(txt(C.p10, y + 24, pv(pf, pf.p10), 13, pf.p10 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
