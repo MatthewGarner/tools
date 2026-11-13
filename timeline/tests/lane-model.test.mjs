@@ -142,5 +142,5 @@ test('lane identity folds case and runs of spaces; the first spelling is display
 test('a range whose two ends are the same day is a single date, with the single-date warning', () => {
   const m = parse('A: a 2026-10-05 .. 2026-10-05');
   assert.equal(m.items[0].single, true);
-  assert.ok(m.warnings.some(w => /no range/.test(w)), m.warnings.join('|'));
+  assert.ok(m.warnings.some(w => /same day at both ends/.test(w)), m.warnings.join('|'));
 });

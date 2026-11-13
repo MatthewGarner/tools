@@ -140,3 +140,51 @@ test('TL-24: the highlight lands on the probability, not on digits inside a labe
   assert.equal(v.line.indexOf(v.fig), v.line.lastIndexOf(v.fig));
   assert.match(v.fig, /5%$/);
 });
+
+/* ---- follow-ups ---- */
+import {starterFor, STARTER} from '../starter.js';
+import {laneFits, mergeBias} from '../mergebias.js';
+
+test('TL-20: lane identity folds in parse, so the model, chart, add menu, Compare and joint see one lane', () => {
+  const m = parse('App: a 2026-10-01 .. 2026-12-01\napp: b 2026-11-01 .. 2027-01-01\nAPP  X: c 2026-11-01 .. 2027-01-01\napp x: d 2026-11-01 .. 2027-01-01\nB: e 2026-11-01 .. 2027-01-01');
+  assert.deepEqual(m.lanes, ['App', 'APP  X', 'B']);
+  assert.deepEqual(m.items.map(i => i.lane), ['App', 'App', 'APP  X', 'APP  X', 'B']);
+  assert.equal(laneFits(m, T).lanes.length, 3);
+  assert.deepEqual([...render(m, ctx).matchAll(/data-lane-heading="([^"]*)"/g)].map(x => x[1]), ['App', 'APP  X', 'B'], 'one chart section per lane');
+  assert.equal(mergeBias(m, T).rangedLanes, 3);
+});
+test('"Next up" uses the month form where it already prints months, and mid- only where it would print a day', () => {
+  const v = timelineVerdict(parse('A: a 2026-11 .. 2027-01'), T).line;
+  assert.match(v, /P50 Nov 2026, could slip to Jan 2027\./);
+  assert.match(timelineVerdict(parse('A: a 2026-11 .. 2026-11-28'), T).line, /P50 mid-Nov 2026, could slip to 28 Nov 2026\.|P50 15 Nov 2026/);
+  assert.match(timelineVerdict(parse('A: a 2026-09-18 .. 2026-10-02'), T).line, /P50 Sep 2026, could slip to Oct 2026/);
+});
+test('Starter: built from the day it is made, never stale, warning-free, with a merge verdict', () => {
+  assert.equal(STARTER, starterFor(D('2026-08-15')));
+  assert.match(STARTER, /ship 2026-09 \.\. 2026-10\n.*2026-11 \.\. 2027-01\nThe date everything aims at 2027-01 \.\. 2027-03/);
+  for(let y = 2026; y <= 2028; y++) for(let mo = 1; mo <= 12; mo++) for(const dd of [1, 15, mo === 2 && y === 2028 ? 29 : 28]){
+    const day = D(`${y}-${String(mo).padStart(2, '0')}-${String(dd).padStart(2, '0')}`), m = parse(starterFor(day));
+    assert.equal(m.warnings.length, 0, `${y}-${mo}-${dd}: ${m.warnings.join('|')}`);
+    assert.equal(laneFits(m, day).stale, 0);
+    const mb = mergeBias(m, day);
+    assert.ok(mb && mb.rangedLanes === 2, `${y}-${mo}-${dd}`);
+    assert.match(timelineVerdict(m, day).line, /^Merge risk: all 2 ranged lanes by /);
+  }
+});
+test('Office move example pins its clock and has nothing overdue', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  const a = src.indexOf("name: 'Office move'"), b = src.indexOf('`', src.indexOf('`', a) + 1);
+  const m = parse(src.slice(src.indexOf('`', a) + 1, b));
+  assert.equal(m.today, D('2026-07-01'));
+  assert.equal(laneFits(m, m.today).stale, 0);
+  assert.doesNotMatch(timelineReadout(m, T), /past (its|their) P90|OVERDUE/);
+});
+test('a same-day range gets its own warning, with the rest of the single-date treatment', () => {
+  const m = parse('A: a 2026-10-05 .. 2026-10-05');
+  assert.equal(m.items[0].single, true);
+  assert.equal(m.warnings.length, 1);
+  assert.match(m.warnings[0], /has the same day at both ends — a single date claims certainty nobody has/);
+  assert.doesNotMatch(m.warnings[0], /has no range/);
+  assert.match(parse('A: a 2026-10-05').warnings[0], /has no range/);
+  assert.equal(parse('A: a 2026-10-05 .. 2026-10-05 [fixed]').warnings.length, 0);
+});

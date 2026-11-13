@@ -44,8 +44,8 @@ test('today line present and labelled; lanes render as bands', () => {
    with the remaining operational bits as the muted supporting line. */
 test('verdict: next milestone up leads, widest whisker supports, P50 date is the figure', () => {
   const v = timelineVerdict(parse(DOC), ctx.today);
-  assert.equal(v.line, 'Next up: Connection offer — P50 mid-Aug 2026, could slip to mid-Oct 2026.');
-  assert.equal(v.fig, 'mid-Aug 2026');
+  assert.equal(v.line, 'Next up: Connection offer — P50 Aug 2026, could slip to Oct 2026.');
+  assert.equal(v.fig, 'Aug 2026');
   assert.ok(v.line.includes(v.fig), 'the figure must appear verbatim in the line');
   assert.match(v.rest, /^Widest whisker: Energisation — 15 weeks between P50 and P90\.$/);
 });

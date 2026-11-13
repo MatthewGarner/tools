@@ -63,8 +63,8 @@ function restParts(model, today){
   if(upcoming){
     const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
     const g = {month: !sameMonth};
-    // a date that was only ever a bare month is "mid-Nov 2026", never an invented day
-    const q = end => upcoming.month?.[end] ? fmtQuoted(upcoming[end], true) : fmtDay(upcoming[end], g);
+    // where the sentence already prints the month form a bare month is just that month; "mid-" only stands in for a day
+    const q = end => upcoming.month?.[end] && !g.month ? fmtQuoted(upcoming[end], true) : fmtDay(upcoming[end], g);
     parts.push({text: 'Next up: ' + upcoming.label + ' — ' + (upcoming.status === 'fixed'
       ? 'fixed ' + q('p50')                             // no distribution: "P50" would be a lie
       : 'P50 ' + q('p50') +

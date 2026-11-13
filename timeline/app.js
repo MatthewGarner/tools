@@ -30,7 +30,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {STARTER} from './starter.js';
+import {starterFor} from './starter.js';
 import {localDay, localISO} from './clock.js';
 
 const $ = id => document.getElementById(id);
@@ -68,6 +68,7 @@ Assurance: External audit 2027-08 .. 2027-10
 Assurance: Contract renewal 2027-12-15 [fixed] [lead: 8w]`},
   {name: 'Office move', src:
 `title: Office move
+today: 2026-07-01
 Lease signed 2026-06-20 [done]
 Old lease expires 2027-02-28 [fixed] [lead: 6w]
 Fit-out: Design approved 2026-07 .. 2026-08
@@ -241,7 +242,7 @@ const eip = attachEditInPlace($('preview'), {
 
 /* ---------- examples and the blank start: File menu ---------- */
 const startFrom = ex => editor.setText(ex.src);
-provide({blank: () => startFrom({src: STARTER}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
+provide({blank: () => startFrom({src: starterFor(todayDay())}), examples: EXAMPLES.map(ex => ({name: ex.name, pick: () => startFrom(ex)}))});
 
 /* ---------- exports ---------- */
 function svgString(intent, dark){

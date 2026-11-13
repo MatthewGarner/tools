@@ -65,7 +65,7 @@ export function parse(text){
   const model = {title: '', palette: 'ocean', accent: null, font: 'Chapter', style: 'field', today: null, verdict: null,
     lanes: [], items: [], warnings: []};
   const lines = String(text).split(/\r?\n/);
-  const laneSet = new Set();
+  const laneNames = new Map();                             // folded identity -> the first spelling, which is the one shown
 
   for(let ln = 0; ln < lines.length; ln++){
     const line = lines[ln].trim();
@@ -176,7 +176,8 @@ export function parse(text){
       month = {p50: month.p90, p90: month.p50};            // each end keeps the precision it was written with
     }
     /* two ends on the same day is one date, not a range: same warning, same reading */
-    if(!single && p90 === p50) single = true;
+    const sameDay = !single && p90 === p50;
+    if(sameDay) single = true;
     if(status === 'done' || status === 'fixed'){
       /* "earlier", not "first": the reversed-range swap above already ran, so a
          "2026-12 .. 2026-10" input genuinely keeps the earlier of the two. */
@@ -186,8 +187,8 @@ export function parse(text){
       p90 = p50;
       single = true;
     } else if(single){
-      warn('"' + head.slice(0, 30) + '" has no range — a single date claims certainty ' +
-        'nobody has (add ".. P90", or mark it [fixed])');
+      warn('"' + head.slice(0, 30) + '" ' + (sameDay ? 'has the same day at both ends' : 'has no range') +
+        ' — a single date claims certainty nobody has (add ' + (sameDay ? 'a later ".. P90"' : '".. P90"') + ', or mark it [fixed])');
     }
     if(leadDays !== null && status !== 'fixed'){
       warn('[lead: …] only belongs on a [fixed] external event — ignored');
@@ -201,7 +202,10 @@ export function parse(text){
     if(started !== null && started > p50)
       warn('actual start is after ' + (status === 'done' ? 'completion' : 'P50 finish') + ' — check the dates');
 
-    if(!laneSet.has(lane)){ laneSet.add(lane); model.lanes.push(lane); }
+    /* a lane is one lane however it is cased or spaced (as Compare and the joint already read it) */
+    const laneKey = lane.toLowerCase().replace(/\s+/g, ' ').trim();
+    if(!laneNames.has(laneKey)){ laneNames.set(laneKey, lane); model.lanes.push(lane); }
+    lane = laneNames.get(laneKey);
     model.items.push({lane, label: head, p50, p90, month: single ? {p50: month.p50, p90: month.p50} : month, rawDates: dateText, status, note, single, leadDays, started, srcLine: ln});
   }
   // today: is order-free. Validate actual facts after the final config wins.
