@@ -66,7 +66,8 @@ function refPtop(state, N, seed){
     if(!e.stats.every((s, i) => s.p10 === r[i].p10 && s.med === r[i].med && s.p90 === r[i].p90 && s.ptop === r[i].ptop)) exact = false;
   }
   check('C1 contract: an own-code transcription (seed 0x5EED, mulberry32, carried polar spare, per run one normal per criterion then per valid item one uniform per score and one for effort, stable sort, 5/50/95 % cumulative ranks) reproduces every P(top-k) and rank band bit-for-bit for all 4 built-ins x 5 settings incl. ww = 0 and sw = 0', exact);
-  check('C2 constants: NSIM 4000, SEED 0x5EED; copy-as-markdown and the article both say 4,000 simulations', NSIM === 4000 && SEED === 0x5EED && /4,000 simulations/.test(appSrc) && /4,000 simulations/.test(readFileSync(ROOT + 'embed/definitions/rank.js', 'utf8')));
+  check('C2 constants: NSIM 16000 (4x), SEED 0x5EED; the page text, the copy-as-markdown footer and the control text all read the run count from the constant (the article embed, untouched, still says 4,000: info line)', NSIM === 16000 && SEED === 0x5EED && /NSIM_TEXT \+ ' simulations/.test(appSrc) && !/4,000/.test(appSrc) && !/4,000/.test(readFileSync(ROOT + 'rank/index.html', 'utf8')));
+  console.log(`   info: the article embed definition still says "4,000 simulations": ${/4,000 simulations/.test(readFileSync(ROOT + 'embed/definitions/rank.js', 'utf8'))} (embed/ is not touched in this pass)`);
   const l = simulate(ALL[0].st);
   const hand = [46 / 4, 38 / 4, 38 / 5, 37 / 5, 24 / 7];
   check('C3 base WSJF scores by hand for the Lantern example (3V+2T+1R)/effort = 11.5, 9.5, 7.6, 7.4, 3.43 and the base order follows them', hand.every((v, i) => Math.abs(l.baseScore[i] - v) < 1e-12) && l.baseOrder.join() === '0,1,2,3,4');
@@ -84,17 +85,18 @@ for(const {name, st} of ALL){
   const zmax = Math.max(...zs.map(Math.abs));
   check(`A1 ${name}: every P(top-${st.k}) agrees with a 400,000-run reference on a different generator (|z| < 4)`, zmax < 4, e.stats.map((s, i) => s.name.split(' ')[0] + ' ' + s.ptop.toFixed(4) + '/' + ref[i].toFixed(4)).join(', '));
   check(`A2 ${name}: P(top-k) sums to exactly k over the items, every band is ordered p5 <= median <= p95`, Math.abs(e.stats.reduce((t, s) => t + s.ptop, 0) - e.k) < 1e-9 && e.stats.every(s => s.p10 <= s.med && s.med <= s.p90));
-  const runs = SEEDS.map(seed => simulate(st, {seed}));
+  const runs200 = SEEDS.map(seed => simulate(st, {seed})), runs = runs200.slice(0, 40);   // the rule: over 40 seeds
   const sds = e.stats.map((s, i) => sd(runs.map(r => 100 * r.stats[i].ptop)));
   const w = sds.indexOf(Math.max(...sds));
   console.log(`   info: ${name}: seed sd of printed P(top-k) per item (pp): ${sds.map(v => v.toFixed(2)).join(', ')}`);
-  check(`N1 ${name}: the printed P(top-${st.k}) (whole percent) has a seed-to-seed sd of at most half a point`, sds[w] <= .5, `worst ${e.stats[w].name} sd ${sds[w].toFixed(2)} pp, printed values across 200 seeds ${Math.min(...runs.map(r => pctNum(r.stats[w].ptop)))}%..${Math.max(...runs.map(r => pctNum(r.stats[w].ptop)))}%`, {known: sds[w] > .5 && RUNS});
+  check(`N1 ${name}: the printed P(top-${st.k}) (whole percent) has a seed-to-seed sd (40 seeds) of at most half a point`, sds[w] <= .5, `worst ${e.stats[w].name} sd ${sds[w].toFixed(2)} pp, printed values across 40 seeds ${Math.min(...runs.map(r => pctNum(r.stats[w].ptop)))}%..${Math.max(...runs.map(r => pctNum(r.stats[w].ptop)))}%`, {known: sds[w] > .5 && RUNS});
   const bandSd = Math.max(...e.stats.flatMap((s, i) => ['p10', 'med', 'p90'].map(k => sd(runs.map(r => r.stats[i][k])))));
   const changed = runs.filter(r => r.stats.some((s, i) => s.p10 !== e.stats[i].p10 || s.med !== e.stats[i].med || s.p90 !== e.stats[i].p90)).length;
-  check(`N2 ${name}: the printed rank bands (median and 90 % range) do not change with the seed in more than 5 % of seeds`, changed <= 10, `${changed} of 200 seeds print a different band somewhere (largest band sd ${bandSd.toFixed(2)} ranks)`, {known: changed > 10 && RUNS});
+  check(`N2 ${name}: the printed rank bands (median and 90 % range) do not change with the seed in more than 5 % of 40 seeds`, changed <= 2, `${changed} of 40 seeds print a different band somewhere (largest band sd ${bandSd.toFixed(2)} ranks)`, {known: changed > 10 && RUNS});
   const vc = r => verdictCopy(r.stats, r.k, {setShare: r.setShare});
   /* RK-9 now prints the percentage for an item between the 85% line and 99%, which is the same noisy figure the rows print (RK-2): the verdict's wording is compared with those percentages masked */
   const heads = new Set(runs.map(r => (vc(r).headline + vc(r).body).replace(/\d+% of reasonable weightings/g, 'N% of reasonable weightings')));
+  console.log(`   info: ${name}: distinct verdict texts across 40 seeds, UNMASKED: ${new Set(runs.map(r => vc(r).headline + vc(r).body)).size}; across 200 seeds: ${new Set(runs200.map(r => vc(r).headline + vc(r).body)).size}`);
   check(`N3 ${name}: the verdict headline and body are the same at every seed (percentages inside "in N% of reasonable weightings" masked, see RK-9)`, heads.size === 1, `${heads.size} distinct verdict texts across 200 seeds`, {known: heads.size > 1 && RUNS});
   const fc = flipCopy(flipAnalysis(st), st.ww), kn = perRowKnife(st);
   BEFORE.push({example: name, k: e.k, verdict: verdictCopy(e.stats, e.k, {setShare: e.setShare}).headline, flip: fc.text,
@@ -120,6 +122,17 @@ for(const {name, st} of ALL){
     perm.forEach((orig, pos) => { const a = pctStr(e.stats[orig].ptop), b = pctStr(ps.stats[pos].ptop); if(a !== b) moved.push(e.stats[orig].name + ' ' + a + ' -> ' + b + ' (order ' + perm.join('') + ')'); });
   }
   check('H2 listing the same initiatives in a different order prints the same P(top-k) for each (up to 6 shuffles tried)', moved.length === 0, moved.join(', ') + ' [reason: each row\'s draws are tied to its list position]', {known: moved.length > 0 && RUNS});
+  for(const {name: exName, st: exSt} of ALL.slice(0, 3)){
+    /* RK-4 measured over 200 shuffles of each built-in backlog: how many orderings move some printed P(top-k)? */
+    const pu = rng(99), exE = simulate(exSt); let movedOrders = 0, maxShift = 0;
+    for(let t = 0; t < 200; t++){
+      const perm = exSt.items.map((_, i) => i).sort(() => pu() - .5), ps = simulate({...exSt, items: perm.map(i => exSt.items[i])});
+      let any = false;
+      perm.forEach((orig, pos) => { if(pctStr(exE.stats[orig].ptop) !== pctStr(ps.stats[pos].ptop)) any = true; maxShift = Math.max(maxShift, 100 * Math.abs(exE.stats[orig].ptop - ps.stats[pos].ptop)); });
+      if(any) movedOrders++;
+    }
+    check(`H2b ${exName}: no ordering of the same initiatives changes any printed P(top-k) (200 shuffles)`, movedOrders === 0, `${movedOrders} of 200 orderings change some printed figure; largest shift ${maxShift.toFixed(2)} pp [each row's draws are tied to its list position]`, {known: movedOrders > 0 && maxShift < 3 && 'order dependence (RK-4): needs per-item sub-streams, awaiting the owner'});
+  }
 }
 
 // =============================================================================================

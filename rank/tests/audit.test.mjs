@@ -33,7 +33,7 @@ test('RK-1 a tie straddling the cut gives each tied item the fraction of the tie
   assert.equal(r.stats[4].ptop, 0);
 });
 test('RK-1 adds no draw: every built-in prints exactly the bands and P(top-k) it printed before ties were shared', () => {
-  const figures = name => { const e = EXAMPLES.find(x => x.name === name); return simulate(mk(e.items, {k: e.k})).stats.map(s => [s.p10, s.med, s.p90, s.ptop]); };
+  const figures = name => { const e = EXAMPLES.find(x => x.name === name); return simulate(mk(e.items, {k: e.k}), {nsim: 4000}).stats.map(s => [s.p10, s.med, s.p90, s.ptop]); };
   assert.deepEqual(figures('Lantern feature backlog'), [[0,0,1,1],[0,1,2,0.96075],[1,2,3,0.5605],[1,3,3,0.47875],[4,4,4,0]]);
   assert.deepEqual(figures('Ops & infra backlog'), [[1,3,4,0.36975],[1,3,4,0.35425],[5,5,6,0],[0,1,4,0.801],[5,6,6,0],[0,0,2,0.973],[1,2,4,0.502]]);
   assert.deepEqual(figures('Classic product backlog'), [[1,3,3,0.398],[0,1,3,0.94425],[5,5,5,0],[0,2,3,0.68375],[4,4,4,0],[0,0,2,0.974]]);

@@ -1716,6 +1716,43 @@ if(scope.wants("rank")){
   await page.close();
 }
 
+/* rank, dragging a weight stays smooth at 4x CPU throttling (RK-2: the full resim now runs 16,000 times,
+   on release, so it must not stall the frame the drag ends on). A 30-step drag of the first weight slider
+   on the Lantern example; a requestAnimationFrame recorder counts the gaps between frames over the whole
+   drag and the release; the worst gap must stay under 50 ms. Positive control first: the drag really moved
+   the weight and the results re-ran (the P(top-k) readouts are repainted, not stuck pending). */
+if(scope.wants("rank")){
+  const {page, errors} = await freshPage('/rank/');
+  await page.waitForFunction(() => document.querySelectorAll('#rrows .rrow').length >= 3);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', {rate: 4});
+  const slider = page.locator('thead .wslider').first();
+  await slider.scrollIntoViewIfNeeded();
+  const box = await slider.boundingBox();
+  const before = await slider.inputValue();
+  await page.evaluate(() => {
+    window.__gaps = []; let last = performance.now();
+    const tick = t => { window.__gaps.push(t - last); last = t; window.__raf = requestAnimationFrame(tick); };
+    window.__raf = requestAnimationFrame(tick);
+  });
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2);
+  await page.mouse.down();
+  for(let i = 1; i <= 30; i++) await page.mouse.move(box.x + box.width * (0.3 + 0.4 * i / 30), box.y + box.height / 2);
+  await page.mouse.up();
+  await page.waitForFunction(() => !document.querySelector('#results').classList.contains('pending'), null, {timeout: 5000});
+  await page.waitForTimeout(300);
+  const gaps = await page.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__gaps.slice(1); });
+  await cdp.send('Emulation.setCPUThrottlingRate', {rate: 1});
+  const worst = Math.max(...gaps);
+  console.log('rank drag: ' + gaps.length + ' frames, worst gap ' + worst.toFixed(1) + ' ms at 4x CPU throttling');
+  check('rank drag: the 30-step drag moved the weight (positive control)', (await slider.inputValue()) !== before);
+  check('rank drag: the results repainted after release (no stuck pending fade)', !(await page.locator('#results').evaluate(el => el.classList.contains('pending'))));
+  check('rank drag: the recorder saw frames across the drag (' + gaps.length + ')', gaps.length >= 20);
+  check('rank drag: no frame gap over 50 ms at 4x CPU throttling (worst ' + worst.toFixed(1) + ' ms)', worst <= 50);
+  check('rank drag: no console errors', errors.length === 0);
+  await page.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 scope.report('smoke', {...tally(results), min: 461});   // ~90% of 512 measured 2026-08-18 (478 after the Batch C trim; +34 when the review restored the artefact-decode probe to both themes)

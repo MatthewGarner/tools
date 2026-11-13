@@ -3,12 +3,15 @@ import {offer as provide} from '../assets/recent-ui.js';
 import {mountRecentSave} from '../assets/recent-work.js';
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale,
-  readWeight, readWobbleWeights, readWobbleScores, readLinkItems, parsePaste, weightWobbleText, wobbleFactorText, mdCell} from './engine.js';
+  readWeight, readWobbleWeights, readWobbleScores, readLinkItems, parsePaste, weightWobbleText, wobbleFactorText, mdCell, NSIM_TEXT} from './engine.js';
 import {readHashState, writeHashState, encodeHash, fmt} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
 import {STARTER} from './starter.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+
+/* the run count on the page is the engine's constant */
+for(const el of document.querySelectorAll('[data-runs]')) el.textContent = NSIM_TEXT;
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -320,7 +323,7 @@ $('copydoc').addEventListener('click', async () => {
   lines.push('');
   const link = new URL(location.pathname, location.origin);
   link.hash = await encodeHash(exportState);
-  lines.push('_' + weightWobbleText(exportState.w).replace(/^./, ch => ch.toUpperCase()) + ', scores ±' + exportState.s + ', 4,000 simulations · [live table](' + link.href + ')_');
+  lines.push('_' + weightWobbleText(exportState.w).replace(/^./, ch => ch.toUpperCase()) + ', scores ±' + exportState.s + ', ' + NSIM_TEXT + ' simulations · [live table](' + link.href + ')_');
   const txt = lines.join('\n');
   try{
     await navigator.clipboard.writeText(txt);
@@ -412,7 +415,7 @@ function schedule(ms){
     hashTimer = setTimeout(writeHash, 400);
   }, ms);
 }
-/* name-only edits (criterion/effort/initiative) skip the 4000-run resim
+/* name-only edits (criterion/effort/initiative) skip the full resim
    entirely — they route here instead of schedule() (batch 7). */
 function scheduleHashOnly(ms){
   clearTimeout(hashTimer);

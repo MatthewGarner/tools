@@ -3,7 +3,9 @@
    so results match what the tool has always shown. */
 import {mulberry32, fmt} from '../assets/series.js';
 
-export const NSIM = 4000;
+/* simulated runs behind every sampled figure; every surface that names the count reads this */
+export const NSIM = 16000;
+export const NSIM_TEXT = NSIM.toLocaleString('en-US');
 export const SEED = 0x5EED;
 
 export function sigmaW(ww){ return Math.log(1 + ww / 100) / 1.6448536; }
@@ -72,52 +74,73 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
   const n = items.length;
   if(n < 2) return null;
   const nc = state.criteria.length;
-  const rand = mulberry32(seed);
-  let gaussSpare = null;
-  function gauss(){
-    if(gaussSpare !== null){ const s = gaussSpare; gaussSpare = null; return s; }
+  /* mulberry32 and the carried-spare polar normal from assets/series.js, inline: the same stream
+     draw for draw (per run: one normal per criterion, then per item one uniform per score and one
+     for effort), without closure calls in the hot loop */
+  let rs = seed | 0, spare = 0, hasSpare = false;
+  const rand = () => {
+    rs = rs + 0x6D2B79F5 | 0;
+    let t = Math.imul(rs ^ rs >>> 15, 1 | rs);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const gauss = () => {
+    if(hasSpare){ hasSpare = false; return spare; }
     let u, v, s2;
-    do { u = rand()*2 - 1; v = rand()*2 - 1; s2 = u*u + v*v; } while(s2 >= 1 || s2 === 0);
+    do { u = rand() * 2 - 1; v = rand() * 2 - 1; s2 = u * u + v * v; } while(s2 >= 1 || s2 === 0);
     const f = Math.sqrt(-2 * Math.log(s2) / s2);
-    gaussSpare = v * f;
+    spare = v * f; hasSpare = true;
     return u * f;
-  }
+  };
 
-  const rankCounts = items.map(() => new Array(n).fill(0));
-  const scoreBuf = new Array(n);
-  const order = Array.from({length: n}, (_, i) => i);
+  const rankCounts = new Float64Array(n * n);        // [item * n + place]
+  const scoreBuf = new Float64Array(n), order = new Int32Array(n);
+  for(let i = 0; i < n; i++) order[i] = i;
+  const sc = new Float64Array(n * nc), eff0 = new Float64Array(n), w0 = new Float64Array(nc), ws = new Float64Array(nc);
+  items.forEach((it, i) => { for(let c = 0; c < nc; c++) sc[i * nc + c] = it.s[c]; eff0[i] = it.e; });
+  state.criteria.forEach((c, ci) => { w0[ci] = clampWeight(c.w || 0); });
 
   const k = Math.max(1, Math.min(n, Math.round(state.k)));
-  const setCounts = new Map();
+  /* the exact SET of items in the top k, as a bitmask while it fits in a double, else a string */
+  const setCounts = new Map(), maskable = n <= 52;
   const sw = Math.max(0, state.sw || 0), sgw = sigmaW(Math.max(0, state.ww || 0));
   for(let sim = 0; sim < nsim; sim++){
-    const ws = state.criteria.map(c => clampWeight(c.w || 0) * Math.exp(sgw * gauss()));
+    for(let c = 0; c < nc; c++) ws[c] = w0[c] * Math.exp(sgw * gauss());
     for(let i = 0; i < n; i++){
-      const it = items[i];
       let benefit = 0;
       for(let c = 0; c < nc; c++){
-        benefit += ws[c] * clampScore(it.s[c] + (rand()*2 - 1) * sw);
+        const v = sc[i * nc + c] + (rand() * 2 - 1) * sw;
+        benefit += ws[c] * (v < 1 ? 1 : v > 10 ? 10 : v);
       }
-      const eff = clampScore(it.e + (rand()*2 - 1) * sw);
-      scoreBuf[i] = benefit / eff;
+      const e = eff0[i] + (rand() * 2 - 1) * sw;
+      scoreBuf[i] = benefit / (e < 1 ? 1 : e > 10 ? 10 : e);
     }
-    order.sort((a, b) => scoreBuf[b] - scoreBuf[a]);
+    /* stable insertion sort, best first, starting from the previous run's order: the same order a
+       stable comparator sort of that array gives (ties stay where they were), and nearly free when
+       little reshuffles */
+    for(let i = 1; i < n; i++){
+      const x = order[i], sx = scoreBuf[x];
+      let j = i - 1;
+      while(j >= 0 && scoreBuf[order[j]] < sx){ order[j + 1] = order[j]; j--; }
+      order[j + 1] = x;
+    }
     /* exact ties share the places they occupy: m tied items each take 1/m of every
        one of those m places. No tie, no change: the same whole-number counts as before. */
     for(let r = 0; r < n;){
       let t = r + 1;
       while(t < n && scoreBuf[order[t]] === scoreBuf[order[r]]) t++;
-      if(t === r + 1) rankCounts[order[r]][r]++;
+      if(t === r + 1) rankCounts[order[r] * n + r]++;
       else {
         const share = 1 / (t - r);
-        for(let a = r; a < t; a++) for(let b = r; b < t; b++) rankCounts[order[a]][b] += share;
+        for(let a = r; a < t; a++) for(let b = r; b < t; b++) rankCounts[order[a] * n + b] += share;
       }
       r = t;
     }
-    /* the exact SET of items in the top k; a tie that straddles the cut leaves the set
-       undecided in that run, so that run supports no set */
+    /* a tie that straddles the cut leaves the set undecided in that run, so that run supports no set */
     if(!(k < n && scoreBuf[order[k - 1]] === scoreBuf[order[k]])){
-      const key = order.slice(0, k).sort((a, b) => a - b).join(',');
+      let key;
+      if(maskable){ key = 0; for(let r = 0; r < k; r++) key += Math.pow(2, order[r]); }
+      else key = Array.from(order.subarray(0, k)).sort((a, b) => a - b).join(',');
       setCounts.set(key, (setCounts.get(key) || 0) + 1);
     }
   }
@@ -132,7 +155,7 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
     .sort((a, b) => baseScore[b] - baseScore[a]).map(j => origin[j]);
 
   const stats = items.map((it, i) => {
-    const counts = rankCounts[i];
+    const counts = rankCounts.subarray(i * n, (i + 1) * n);
     let cum = 0, p10 = 0, med = 0, p90 = n - 1, got10 = false, got50 = false;
     for(let r = 0; r < n; r++){
       cum += counts[r];
