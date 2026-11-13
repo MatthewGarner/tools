@@ -46,10 +46,13 @@
 @media (min-width:901px) and (pointer:fine){
   .workspace.landing-fold{grid-template-columns:0px minmax(0,1fr)}
   .workspace.landing-fold .rail{height:0;min-height:0;overflow:hidden;opacity:0;visibility:hidden;padding:0;border-color:transparent;pointer-events:none}
-  /* ...and the rest of the reading layout (below), or the first paint sits 44px higher than the page it becomes: a page whose
-     first paint came before its artefact moved the whole stage when the reading view arrived. The tab is unseen until then. */
-  .workspace.landing-fold .stage{padding-top:62px}
-  .workspace.landing-fold .railtab{top:8px;left:18px;opacity:0;pointer-events:none}
+  /* Until that decision (taken in the render's own task, or after 3s if no render comes) the artefact's pane and the tab hold
+     their places without being seen. Whether the page settles reading, collapsed or beside the rail depends on the document, so a
+     first paint that came before the artefact used to show one layout and then move the whole stage to the other (Bets, desktop: a
+     0.2 shift whenever the paint came between the two). What is not visible cannot shift. */
+  .workspace.landing-fold .stage > *{visibility:hidden}
+  /* the tab belongs where the page settles: */
+  .workspace.landing-fold .railtab{opacity:0;pointer-events:none}
 }
 .workspace.collapsed .rail,.workspace.focus-artefact .rail,
 .workspace.reading-pending:has(.preview svg) .rail{
