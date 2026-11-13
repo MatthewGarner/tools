@@ -4,10 +4,10 @@
 import {fmt, sig, ratioStr, effDist, parseNum, readNumber, shareAbove, probAbove} from './engine.js';
 export {shareAbove};
 
-/* a probability, wherever it appears. Default (exact figures, and the cash-flow ones): tenths in
-   both tails, whole percent between, and never a flat 0% or 100%. precision 'whole' is for a
-   probability counted from 20,000 samples, which cannot support tenths: whole percent from 1% to
-   99%, "<1%" and ">99%" outside. */
+/* a probability, wherever it appears. Default, for a closed-form figure: tenths in both tails,
+   whole percent between, and never a flat 0% or 100%. precision 'whole' is for a probability
+   counted from the runs (estimate or cash flow), which cannot support tenths: whole percent from
+   1% to 99%, "<1%" and ">99%" outside. */
 export function pctProb(p, precision = 'tenths'){
   if(precision === 'whole'){
     if(!(p >= 0.01)) return '<1%';

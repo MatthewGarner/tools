@@ -823,7 +823,7 @@ const CF_NOISE = [];     // {ex, k, sd, st, ratio}: printed again in the report
 {
   console.log('   info: SAMPLING ERROR TABLE (cash-flow examples, page run count, 30 seeds). Money trios print to one shared step: a tenth of the power of ten of the largest of the three');
   const pct0 = () => 0.01, pct1s = () => 0.001, intStep = () => 1;
-  const probStep = m => (m < 0.095 || m > 0.905) ? 0.001 : 0.01;      // pctProb: tenths in the tails, whole percent between
+  const probStep = () => 0.01;                                        // a counted probability prints whole percent (pctProb 'whole')
   const rows = CF_NOISE;
   const S30 = SEEDS.slice(0, 30);
   const tab = (exName, spec) => {
@@ -844,7 +844,7 @@ const CF_NOISE = [];     // {ex, k, sd, st, ratio}: printed again in the report
   tab('invest', CF_EX.invest); tab('runway', CF_EX.runway); tab('geared', CF_EX.geared);
   const bad = rows.filter(r => r.ratio >= 0.5 && r.st > 0 && r.sd > 0);
   // the old plan was 160,000 runs; the design is 40,000 runs, one shared money step per trio, and the same half-step rule
-  check('CN1 over 30 seeds on the three cash-flow examples, the seed-to-seed sd of every printed sampled figure is at most half its printed step (page: ' + (40000).toLocaleString('en-GB') + ' runs)', bad.length === 0, bad.map(r => `${r.ex} ${r.k} sd/step ${r.ratio.toFixed(2)}`).join('; '), {known: bad.length > 0});   // KEPT TAGGED where it fails: the brief keeps IRR at one decimal and probabilities on pctProb (tenths in the tails), so those figures are not made coarser; the numbers are printed above
+  check('CN1 over 30 seeds on the three cash-flow examples, the seed-to-seed sd of every printed sampled figure is at most half its printed step (page: ' + (40000).toLocaleString('en-GB') + ' runs)', bad.length === 0, bad.map(r => `${r.ex} ${r.k} sd/step ${r.ratio.toFixed(2)}`).join('; '), {known: bad.length === 1 && bad[0].ex === 'invest' && bad[0].k.startsWith('IRR P90') && bad[0].ratio < 0.7});   // ONE documented exception: the invest IRR P90 sits at 0.56 of its 0.1-point step, and IRR stays at one decimal. Anything else over half a step is an unexpected failure.
   check('CN2 the debt size D and gearing are deterministic (no seed noise) and the sampled figures are only the returns', rows.length > 0);
   // what removes it: for fixed-range cash flows the quantity is a sum of independent known distributions; the standard error scales 1/sqrt(n)
   const sInv = rows.filter(r => r.ex === 'invest' && r.k === 'NPV P90')[0];

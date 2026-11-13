@@ -253,7 +253,7 @@ function pBeatsStr(){
   const A = lastBy.A, B = lastBy.B;
   if(!A || !B) return null;
   const p = probExceeds(B, A);
-  return p === null ? null : pctProb(p);
+  return p === null ? null : pctProb(p, A.exact && B.exact ? 'tenths' : 'whole');   // tenths only from the closed form
 }
 function renderCompare(){
   const el = $('cmp');
@@ -1478,7 +1478,7 @@ function cfRenderThresh(){
   let lo = 0, hi = s.length;
   while(lo < hi){ const m = (lo + hi) >> 1; if(s[m] <= t) lo = m + 1; else hi = m; }
   const p = (s.length - lo) / s.length;
-  el.textContent = pctProb(p);
+  el.textContent = pctProb(p, 'whole');
 }
 $('cftin').addEventListener('input', () => { cfRenderThresh(); cfWriteHashSafe(); });
 

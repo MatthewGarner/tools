@@ -8,7 +8,7 @@ import {pctProb, pctOne, cashflowMethod, moneyTrio} from './words.js';
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const W = 860, PAD = 26;
 const f1 = n => (Math.round(n * 100) / 100).toString();
-const pctS = pctProb;
+const pctS = p => pctProb(p, 'whole');   // counted from the runs: whole percent
 /* deterministic money (axis labels, typed ranges): fmt's own figures. Sampled money prints to a shared
    step, as one trio: P10/P50/P90 of the same quantity (words.moneyTrio). */
 const money = v => (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v));
