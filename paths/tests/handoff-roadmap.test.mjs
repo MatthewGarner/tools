@@ -173,7 +173,7 @@ test('delivery assignment removes unrelated Possible Plans matrix arms', () => {
   const source = doc(`title: Scoped\n${decision('delivery')}\n${decision('unrelated')}`, {
     now:'  Core: Work [if delivery]', next:'', later:'',
   });
-  assert.deepEqual(deliveryAssignment(source, {delivery:'yes', unrelated:'no'}), {delivery:'yes'});
+  assert.deepEqual({...deliveryAssignment(source, {delivery:'yes', unrelated:'no'})}, {delivery:'yes'});
   assert.equal(inspectRoadmapProjection(source, '2026-08-12', deliveryAssignment(source,
     {delivery:'yes', unrelated:'no'})).ok, true);
 });
@@ -187,7 +187,7 @@ test('delivery-scoped worlds survive global Possible Plans refusal from unrelate
     'the full comparison matrix is deliberately over its six-question cap');
   const worlds = roadmapProjectionWorlds(source, '2026-08-12');
   assert.equal(worlds.ok, true);
-  assert.deepEqual(worlds.assignments.map(entry => entry.answers), [{delivery:'yes'}, {delivery:'no'}]);
+  assert.deepEqual(worlds.assignments.map(entry => ({...entry.answers})), [{delivery:'yes'}, {delivery:'no'}]);
   assert.equal(roadmapProjectionChoices(source, '2026-08-12').choices.length, 2);
 });
 
@@ -195,7 +195,7 @@ test('delivery worlds re-evaluate a mutable parsed model after an answer is auth
   const source = doc(`title: Mutable\n${decision('x')}`, {
     now:'  Core: Yes work [if x]', next:'  Core: No work [unless x]', later:'',
   });
-  assert.deepEqual(roadmapProjectionWorlds(source, '2026-08-12').assignments.map(row => row.answers),
+  assert.deepEqual(roadmapProjectionWorlds(source, '2026-08-12').assignments.map(row => ({...row.answers})),
     [{x:'yes'}, {x:'no'}]);
 
   const answer = {direction:'yes', date:'2026-08-11', target:null, actual:null,
@@ -204,7 +204,7 @@ test('delivery worlds re-evaluate a mutable parsed model after an answer is auth
   source.decisionByName.x.answers = [answer];
   const refreshed = roadmapProjectionWorlds(source, '2026-08-12');
   assert.equal(refreshed.ok, true);
-  assert.deepEqual(refreshed.assignments.map(row => row.answers), [{}]);
+  assert.deepEqual(refreshed.assignments.map(row => ({...row.answers})), [{}]);
   const inspected = inspectRoadmapProjection(source, '2026-08-12', {});
   assert.equal(inspected.ok, true);
   assert.deepEqual(inspected.receipt.known, [{key:'x', direction:'yes', date:'2026-08-11'}]);
@@ -340,7 +340,7 @@ test('invalid or unresolved delivery conditions refuse instead of dropping work'
   assert.equal(inspectRoadmapProjection(malformed, '2026-08-12', {x:'yes'}).code, 'unresolved-item');
 
   const unknown = doc('title: Unknown', {now:'  Core: Work [if missing]', next:'', later:''});
-  assert.equal(inspectRoadmapProjection(unknown, '2026-08-12', {}).code, 'invalid-source-model');
+  assert.equal(inspectRoadmapProjection(unknown, '2026-08-12', {}).code, 'invalid-item-condition');
 });
 
 test('an ignored malformed extra condition on selected-out work does not block the exact world', () => {

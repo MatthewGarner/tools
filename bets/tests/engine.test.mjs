@@ -1,6 +1,5 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
 import {parse} from '../parse.js';
 import {simulate, verdictCopy, verdictParts, markdown, scenarioReading, OUTCOME_SCENARIOS} from '../engine.js';
 
@@ -66,17 +65,15 @@ test('portfolio: pLoss in (0,1); histogram 40 bins summing to nsim', () => {
   assert.ok(s.portfolio.p10 < s.portfolio.p50 && s.portfolio.p50 < s.portfolio.p90);
 });
 
-test('valid legacy documents preserve the independent portfolio and EV bytes for a fixed seed', () => {
-  const legacy = parse(`G
+test('a fixed seed reproduces the portfolio and EV bytes (the saved-link contract; the draw order itself is transcribed in runs.test.mjs)', () => {
+  const doc = parse(`G
   A: stake 10-20, odds 30-50%, payoff 40-80
   B: stake 15, odds 60%, payoff 30`);
-  const s = simulate(legacy, {seed: 48879, nsim: 128});
-  const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-  assert.equal(hash(s.portfolio), '187e3e1964cfac641d085d0e8278a5303364d263adb871f8b7d42125355991be');
-  assert.equal(hash([...s.bets].map(([line, record]) => [line, record.ev])),
-    'c56978e5c45ae973086ea3f6169c1e6b1aa16f4cfd865e13f9050c405e970c82');
-  assert.strictEqual(s.scenarios.independent, s.portfolio, 'legacy portfolio is the independent scenario alias');
-  assert.equal(s.scenarios.declared, 'independent');
+  const a = simulate(doc, {seed: 48879, nsim: 128}), b = simulate(doc, {seed: 48879, nsim: 128});
+  const pick = x => JSON.stringify([x.portfolio, x.scenarios.shared, [...x.bets]]);
+  assert.equal(pick(a), pick(b));
+  assert.strictEqual(a.scenarios.independent, a.portfolio, 'legacy portfolio is the independent scenario alias');
+  assert.equal(a.scenarios.declared, 'independent');
 });
 
 test('paired scenarios: two equal 50% bets lose near 25% independently and 50% under shared outcomes', () => {
@@ -89,7 +86,7 @@ test('paired scenarios: two equal 50% bets lose near 25% independently and 50% u
   assert.ok(Math.abs(s.scenarios.shared.pLoss - 0.50) < 0.015,
     `shared loss rate ${s.scenarios.shared.pLoss}`);
   for(const record of s.bets.values())
-    assert.deepEqual(record.ev, {p10: 25, p50: 25, p90: 25}, 'scenario pairing never changes per-Bet EV');
+    assert.deepEqual({p10: record.ev.p10, p50: record.ev.p50, p90: record.ev.p90}, {p10: 25, p50: 25, p90: 25}, 'scenario pairing never changes per-Bet EV');
 });
 
 test('a one-Bet portfolio is exactly paired between equivalent scenarios', () => {
@@ -163,7 +160,9 @@ test('concentration identity ignores an invalid giant and survives duplicate vis
   Sound: stake 80, odds 50%, payoff 100
   Sound: stake 20, odds 50%, payoff 100`);
   const s = simulate(m);
-  assert.deepEqual(s.concentration, {name: 'Sound', srcLine: 3, share: 0.8});
+  const {all, ...largest} = s.concentration;
+  assert.deepEqual(largest, {name: 'Sound', srcLine: 3, share: 0.8});
+  assert.deepEqual(all, [largest]);
 });
 
 test('verdict copy quotes P(loses money) as a percentage', () => {

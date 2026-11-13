@@ -14,7 +14,7 @@
    document. addBetLine/addGroupLine return {afterLine, newLine, select} for
    insertAndSelect (timeline's addItemLine convention); the rest return the
    applyLineOps [{line, text}] shape (text: null deletes). */
-import {parse} from './parse.js';
+import {parse, readRange} from './parse.js';
 
 const KILL_BY = /^(.*?)\s+by\s+(\d{4}-\d{2}-\d{2})$/;   // mirrors parse.js's parseKill regex
 const KILL_LINE = /^(\s*)kill:\s*(.*)$/i;
@@ -26,18 +26,10 @@ function splitComment(line){
   return i === -1 ? [line, ''] : [line.slice(0, i).replace(/\s+$/, ''), '   ' + line.slice(i)];
 }
 
-/* "120" (point) or "100-200"/"100–200" (range), optional trailing % (ignored
-   by the caller for non-percent attrs, same tolerance as parse.js's RANGE).
-   Returns null on anything that doesn't parse. */
-function parseRange(v){
-  const m = String(v ?? '').trim().match(/^(-?[\d.]+)\s*(?:[-–]\s*(-?[\d.]+))?\s*%?$/);
-  if(!m) return null;
-  const lo = parseFloat(m[1]);
-  const isRange = m[2] !== undefined;
-  const hi = isRange ? parseFloat(m[2]) : lo;
-  if(Number.isNaN(lo) || Number.isNaN(hi)) return null;
-  return {lo, hi, isRange};
-}
+/* The same reader the parser uses (digits with at most one decimal point, commas
+   only as thousands separators, finite): an edit can never write what parse()
+   would refuse. A trailing % is tolerated, as in parse.js. */
+const parseRange = v => readRange(v);
 
 const fmtNum = n => String(n);
 function formatRange({lo, hi, isRange}, percent){
@@ -60,7 +52,8 @@ function rewriteAttr(key, percent){
     const colon = code.indexOf(':');
     if(colon < 0) return null;
     const head = code.slice(0, colon + 1), attrs = code.slice(colon + 1);
-    const re = new RegExp('(' + key + ')(\\s+)([^,]*?)\\s*(?=,|$)', 'i');
+    /* a value runs to the next separating comma; a comma between digits belongs to the number */
+    const re = new RegExp('(' + key + ')(\\s+)((?:[^,]|(?<=\\d),(?=\\d))*?)\\s*(?=,(?!\\d)|(?<!\\d),|$)', 'i');
     const m = re.exec(attrs);
     if(!m) return null;
     const {lo, hi, isRange} = parsed;

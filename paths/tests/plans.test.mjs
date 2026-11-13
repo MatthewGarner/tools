@@ -74,7 +74,7 @@ test('global preflight counts recursive decisions before enumeration and explici
   const result = enumeratePlans(parse(`${blocks.join('\n')}\nNOW\n  Core: End [if q6]`), '2026-02-02');
   assert.deepEqual(result.worlds, {
     refused:true,
-    reason:'Seven open questions would make 128 possible plans. Answer one, or use the Tree view.',
+    reason:'Seven open questions would make 128 combinations of answers. Answer one, or use the Tree view.',
     enumerableCount:7,
   });
   assert.equal(result.warnings.filter(w => w.code === 'possible-plan-refusal').length, 1);

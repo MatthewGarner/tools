@@ -229,7 +229,7 @@ test('the wide Tree ends with the remaining plan count and its non-enumeration b
   const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') +
     decisionBlock('pricing'), '2026-12-01');
   assert.match(svg, /data-kind="tree-terminal" data-state="count"/);
-  assert.match(svg, /4 possible plans remain/);
+  assert.match(svg, /1 possible plan remains/, 'two open questions, no work between them: four combinations of answers, one distinct plan');
   assert.match(svg, /Tree does not enumerate/);
   assert.match(svg, /every combined plan/);
 });
@@ -255,7 +255,7 @@ test('the wide Tree explicitly renders the enumeration-refused limit from a real
   const svg = renderDoc('today: 2026-12-01\n' + decisions.join(''), '2026-12-01');
   assert.match(svg, /data-kind="tree-terminal" data-state="limit"/);
   assert.match(svg, /Enumeration limit reached/);
-  assert.match(svg, /128 possible plans/);
+  assert.match(svg, /128 combinations of answers/);
   assert.match(svg, /Tree does not enumerate/);
   assert.match(svg, /every combined plan/);
 });
@@ -484,7 +484,7 @@ test('the narrow outline keeps the complete context as a genuine relayout', () =
 test('the narrow outline carries dependency text and the possible-plan limit boundary', () => {
   const decisions = Array.from({length:7}, (_, index) => decisionBlock(`q${index}`));
   const limit = outlineDoc('today: 2026-12-01\n' + decisions.join(''), '2026-12-01', 320);
-  for(const text of ['TREE BOUNDARY', 'Enumeration limit reached', '128 possible plans',
+  for(const text of ['TREE BOUNDARY', 'Enumeration limit reached', '128 combinations of answers',
     'Tree does not enumerate', 'every combined plan']) assert.match(limit, new RegExp(text));
 
   const compound = outlineDoc('today: 2026-12-01\n' + decisionBlock('groups') +

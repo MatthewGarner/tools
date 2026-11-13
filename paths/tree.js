@@ -52,7 +52,11 @@ function terminalFor(worlds){
   }
   if(Number(worlds?.enumerableCount) === 0) return null;
   const possibleCount = Number(worlds?.possibleCount);
-  return {kind:'count', possibleCount:Number.isFinite(possibleCount) ? possibleCount : 1};
+  /* planCount is the number of DISTINCT plans (what the Plans view calls plans); possibleCount stays
+     the raw number of yes/no combinations of answers (PA-6) */
+  const planCount = Array.isArray(worlds?.plans) ? worlds.plans.length : null;
+  return {kind:'count', possibleCount:Number.isFinite(possibleCount) ? possibleCount : 1,
+    planCount:planCount ?? (Number.isFinite(possibleCount) ? possibleCount : 1)};
 }
 
 export function treeProjection(projected){

@@ -121,7 +121,11 @@ active unanswered question needs both to be ready in the Learning Agenda. `when:
 decision open only under another condition.
 `answer: yes|no [date] [target: value] [actual: value] [-- receipt]` records reality.
 `assume: yes|no YYYY-MM-DD` records a working assumption, which takes effect only after the
-due date and never becomes a known answer.
+due date (`answer-by:`) and never becomes a known answer.
+
+**Counting plans:** a *possible plan* is a distinct set of work. The raw number of yes/no
+answer sets is called *combinations of answers*; several combinations can lead to the same
+plan, and the Plans and Tree views count the distinct plans.
 
 **Learning Close-out:** an answered or read decision may contain a nested `close-out:`
 receipt. It is selected detail inside the existing Paths views, not another plan view.
@@ -364,14 +368,20 @@ payoff and an optional kill criterion, and drives a Monte-Carlo "P(loses money)"
 - **Indent 0** — a **group heading** (any line that isn't a known config key; a trailing `:`
   is stripped).
 - **Indent 2** — a **bet**: `Name: stake N, odds N-N%, payoff N-N`. The three attributes are
-  comma-separated; each value is a point or a range (`odds` in `%`).
+  comma-separated; each value is a point or a range (`odds` in `%`). Numbers are plain digits
+  with at most one decimal point; commas are read only as thousands separators in groups of
+  three (`1,000` is 1000). **Payoff is gross**: it is what comes back on a win, before the
+  stake is taken off, so a win nets `payoff − stake` and a loss costs `stake`. Inputs print as
+  written (`0.5-2.5` stays `0.5–2.5`).
 - **Indent 4** — `kill: free text [by YYYY-MM-DD]` — the abandon criterion; a real ISO date
   after `by` is read as the deadline.
 
 **What it warns about:** an unknown config key; a config key after the first group; a bet
 before any group (filed under an implicit "Bets"); an indented line that isn't `kill:`; a
-bet missing its `: stake …, odds …, payoff …`; an unrecognised attribute or unreadable
-number; odds outside 0–100%.
+bet missing its `: stake …, odds …, payoff …`; an unrecognised attribute; an unreadable,
+malformed (`1.2.3`, `1,5`) or non-finite number (the bet is left out of the simulation);
+odds outside 0–100%; odds written at or below 1 with no `%` (read as percent, not
+fractions); a `%` sign on a stake or payoff; a `by` date that does not exist.
 
 ```dsl tool=bets
 title: Q3 portfolio
@@ -500,17 +510,20 @@ probabilities, run through a 10,000-sample EV / distribution.
 
 **Node syntax** (2-space indentation = one level deeper):
 - Every line is `Label [(p=…)] [: value]`.
-- `(p=…)` is a probability — a number, a range, or `rest` (which soaks up the remaining
-  probability among its siblings).
-- `: value` is money — `900k`, `-150k`, `1.2m`, a range `A to B`, with `£$€,` and `k/m/b`
-  understood.
+- `(p=…)` is a probability — a number (`0.4`), a percentage (`40%`), a range (`0.3-0.45`,
+  `30%-45%`), or `rest` (which soaks up the remaining probability among its siblings).
+- `: value` is money — `900k`, `-150k`, `1.2m`, a range `A to B` (or `A-B`, `A–B`), with
+  `£$€,` and `k/m/b` understood; the minus sign the tool prints (`−`) reads back too. The
+  colon needs a space after it, and a colon between two digits (`Meet at 10:30`) stays in
+  the label.
 - **Node kinds are inferred**: children carrying `p=` make their parent a *chance* node;
   children without `p=` make it a *decision*; a node with no children is a *leaf* and
   **must carry a value** (a valueless leaf warns and is treated as 0).
 
 **What it warns about:** bad currency / palette / accent; an unreadable probability or one
 outside 0–1; an indent that isn't a multiple of 2; a leaf with no value; a p-less child among
-probabilistic siblings.
+probabilistic siblings; a positive range wider than 1,000× (its average is driven by rare
+extremes and may print above its own top).
 
 ```dsl tool=tree
 title: Bid or no bid

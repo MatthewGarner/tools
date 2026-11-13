@@ -32,6 +32,31 @@ function pairedRate(results, option, recommendation){
   return pair.aNode === option ? pair.aShare : 1 - pair.aShare;
 }
 
+/* nothing uncertain in either option: every simulated value is the same, so a counted share of
+   none or all is exact (TR-10) */
+export function pairCertain(results, a, b){
+  const spread = node => { const s = results.stats.get(node); return !s || s.p10 === s.p90; };
+  return spread(a) && spread(b);
+}
+
+/* The recommended option and its nearest rival by expected value, when the share of simulations in
+   which the recommended one is higher is between 45% and 55% — too close to call (TR-7). Only the
+   words change; the recommendation and every figure are as computed. */
+export function closeCall(model, results){
+  if(!model?.root || model.root.kind !== 'decision') return null;
+  const rec = results.policy.get(model.root);
+  if(!rec || !results.stats.has(rec)) return null;
+  let rival = null;
+  for(const option of model.root.children){
+    if(option === rec || !results.stats.has(option)) continue;
+    if(!rival || results.stats.get(option).mean > results.stats.get(rival).mean) rival = option;
+  }
+  if(!rival) return null;
+  const share = pairedRate(results, rec, rival);   // the share of simulations where the recommended option is higher
+  if(share === null) return null;
+  return share >= 0.45 - 1e-12 && share <= 0.55 + 1e-12 ? {rec, rival, share} : null;
+}
+
 function closestFlip(model){
   const mark = loadBearing(model).find(entry => !entry.degenerate && entry.nearestFlip !== null);
   if(!mark) return null;
@@ -63,6 +88,7 @@ export function decisionComparisonProjection(model, results){
     recommended:node === recommendation,
     stats:results.stats.get(node) || null,
     winRateVsRecommendation:pairedRate(results, node, recommendation),
+    winRateCertain:!!recommendation && node !== recommendation && pairCertain(results, node, recommendation),
     chanceInputs:chanceInputs(node),
   }));
   return {options, recommendation, midpointRecommendation,

@@ -25,8 +25,8 @@ test('real matrix merges equivalent assignments and shows full mechanical assign
     decision('groups') + decision('pricing') +
     'NOW\n  Core: Foundation\n  Growth: Either route [if groups or pricing]');
   assert.match(svg, /Launch paths/);
-  assert.match(svg, /4 assignments, 2 distinct plans/);
-  assert.match(svg, /COVERS 3 ASSIGNMENTS/);
+  assert.match(svg, /4 combinations of answers, 2 distinct plans/);
+  assert.match(svg, /COVERS 3 COMBINATIONS OF ANSWERS/);
   assert.match(svg, /groups — Answer: yes/);
   assert.match(svg, /pricing — Answer: no/);
   assert.match(svg, /Foundation/);
@@ -118,7 +118,7 @@ test('enumeration refusal replaces matrix and figure with the actual guidance wi
   const doc = 'style: plans\ntitle: Too many paths\n' + decisions +
     'NOW\n  Core: Conditional [if q0]';
   for(const svg of [render(doc), render(doc, true)]){
-    assert.match(svg, /Seven open questions would make 128 possible plans\. Answer one, or use the Tree view\./);
+    assert.match(svg, /Seven open questions would make 128 combinations of answers\. Answer one, or use the Tree view\./);
     assert.match(svg, /Use style: tree/);
     assert.doesNotMatch(svg, /data-kind="plans-matrix"/);
     assert.doesNotMatch(svg, /data-kind="share-figure"/);

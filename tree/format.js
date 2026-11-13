@@ -100,3 +100,38 @@ export function seamCopy(detLabel, mcLabel){
   if(!detLabel || !mcLabel || detLabel === mcLabel) return '';
   return `On midpoints, ${detLabel} edges ahead; across your full ranges, ${mcLabel} still wins.`;
 }
+
+/* The printed words for one probability flip (TR-8): every stretch of [0,1] where the call differs
+   from the base recommendation, e.g. "flips if p(X) < 0.08 or > 0.48". A stretch touching 0 or 1
+   is open-ended; one in the middle reads "between a and b". `regions` comes from engine.js's
+   evaluate(); a lone boundary reads exactly as it always did. */
+export function flipCopy(f){
+  const t = v => v.toFixed(2);
+  const parts = (f.regions || []).map(r => r.from <= 0 ? '< ' + t(r.to) : r.to >= 1 ? '> ' + t(r.from) : 'between ' + t(r.from) + ' and ' + t(r.to));
+  const text = parts.length ? parts.join(' or ') : f.direction + ' ' + t(f.threshold);
+  return 'flips if p(' + f.label + ') ' + text;
+}
+
+/* A counted share of simulations as whole percent (TR-10): 1% to 99% as the nearest whole number,
+   "<1%" and ">99%" outside, so a share that is not none or all never prints a flat 0% or 100%.
+   `certain` is true only when nothing in the comparison is uncertain (both options point-valued),
+   where none or all really is none or all. */
+export function sharePct(share, certain){
+  if(certain && share === 1) return '100%';
+  if(certain && share === 0) return '0%';
+  const n = share * 100;
+  if(n < 1) return '<1%';
+  if(n > 99) return '>99%';
+  return Math.round(n) + '%';
+}
+
+/* A sampled P10/P90 pair printed on ONE shared step: one hundredth of the power of ten of the larger
+   magnitude (1.56M -> step 10k), so neither end claims more digits than the spread supports. A value
+   that rounds to zero is zero. Expected values are exact and keep the house three significant figures. */
+export function sharedStep(a, b){
+  const m = Math.max(Math.abs(a), Math.abs(b));
+  if(!(m > 0)) return [0, 0];
+  const step = Math.pow(10, Math.floor(Math.log10(m)) - 2);
+  const r = v => { const x = Math.round(v / step) * step; return x === 0 ? 0 : x; };
+  return [r(a), r(b)];
+}

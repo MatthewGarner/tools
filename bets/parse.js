@@ -11,7 +11,44 @@
    durable authored id. */
 
 const CONFIG = new Set(['title', 'unit', 'palette', 'accent']);
-const RANGE = /^(-?[\d.]+)\s*(?:[-–]\s*(-?[\d.]+))?%?$/;   // "30-50", "30–50", "120" (point)
+/* One number reader for stake, payoff and odds. The loose pattern only finds
+   the shape ("30-50", "30–50%", "120", "1,000-2,500"); readNumber then insists
+   each end is a real number: digits with at most one decimal point, and commas
+   only as thousands separators in groups of three. */
+const RANGE = /^(-?[\d.,]+)\s*(?:[-–]\s*(-?[\d.,]+))?\s*(%?)$/;
+const PLAIN_NUMBER = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?$|^\.\d+$/;
+
+export function readNumber(token){
+  const text = String(token ?? '').trim(), negative = text.startsWith('-'), body = negative ? text.slice(1) : text;
+  if(!PLAIN_NUMBER.test(body)) return null;
+  const value = Number(body.replace(/,/g, ''));
+  return Number.isFinite(value) ? (negative ? -value : value) : null;
+}
+
+/* {lo, hi, isRange, percent, text} or null. `text` is the authored wording of the
+   value (ends joined by an en dash, no % sign) so surfaces can show it as written. */
+export function readRange(raw){
+  const m = String(raw ?? '').trim().match(RANGE);
+  if(!m) return null;
+  const lo = readNumber(m[1]), hi = m[2] === undefined ? lo : readNumber(m[2]);
+  if(lo === null || hi === null) return null;
+  return {lo, hi, isRange: m[2] !== undefined, percent: m[3] === '%',
+    text: m[2] === undefined ? m[1] : m[1] + '–' + m[2]};
+}
+
+/* attribute separator: a comma, unless it sits between two digits (a thousands
+   separator, or a malformed number that is reported rather than split in two) */
+function splitAttrs(text){
+  const out = [];
+  let cur = '';
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(ch === ',' && !(/\d/.test(text[i - 1] || '') && /\d/.test(text[i + 1] || ''))){ out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
 
 export function parse(text){
   const model = {title: '', unit: '', palette: '', accent: '', groups: [], warnings: []};
@@ -30,7 +67,7 @@ export function parse(text){
       const m = body.match(/^kill:\s*(.*)$/i);
       if(!m){ warn(srcLine, 'Indented line is not a `kill:` — ignored.'); return; }
       if(!curBet){ warn(srcLine, '`kill:` has no bet above it — ignored.'); return; }
-      curBet.kill = parseKill(m[1], srcLine);
+      curBet.kill = parseKill(m[1], srcLine, warn);
       return;
     }
 
@@ -69,16 +106,16 @@ export function parse(text){
 }
 
 function parseBet(body, srcLine, warn){
-  const bet = {name: '', stake: null, odds: null, payoff: null, kill: null, srcLine};
+  const bet = {name: '', stake: null, odds: null, payoff: null, kill: null, srcLine, authored: {}};
   const colon = body.indexOf(':');
   if(colon < 0){ bet.name = body; warn(srcLine, 'Bet has no `: stake …, odds …, payoff …` — name only.'); return bet; }
   bet.name = body.slice(0, colon).trim();
-  const attrs = body.slice(colon + 1).split(',');
+  const attrs = splitAttrs(body.slice(colon + 1));
   const seen = new Set(), invalid = new Set();
   for(const a of attrs){
     const mm = a.trim().match(/^(stake|odds|payoff)\s+(.+)$/i);
     if(!mm){ if(a.trim()) warn(srcLine, 'Unrecognised attribute `' + a.trim() + '` — expected stake/odds/payoff.'); continue; }
-    const key = mm[1].toLowerCase(), raw = mm[2].trim(), val = parseRange(raw);
+    const key = mm[1].toLowerCase(), raw = mm[2].trim(), read = readRange(raw), val = read && [read.lo, read.hi];
     if(seen.has(key)){
       invalid.add(key);
       bet[key] = null;
@@ -88,7 +125,8 @@ function parseBet(body, srcLine, warn){
     seen.add(key);
     if(!val){
       invalid.add(key);
-      warn(srcLine, 'Could not read a valid ' + key + ' range from `' + raw + '` — this bet is excluded from simulation.');
+      warn(srcLine, 'Could not read a valid ' + key + ' range from `' + raw +
+        '` (a number needs digits and at most one decimal point; commas only as thousands separators) — this bet is excluded from simulation.');
       continue;
     }
     if(val[0] > val[1]){
@@ -106,26 +144,29 @@ function parseBet(body, srcLine, warn){
       warn(srcLine, 'Odds must stay within 0–100% — this bet is excluded from simulation.');
       continue;
     }
-    if(!invalid.has(key)) bet[key] = val;
+    if(key !== 'odds' && read.percent) warn(srcLine, 'A % sign on ' + key + ' is ignored — ' + key + ' is an amount, only odds take a %.');
+    if(key === 'odds' && !read.percent && val[1] <= 1 && val[1] > 0)
+      warn(srcLine, 'Odds `' + raw + '` were read as ' + val[0] + '%' + (read.isRange ? '–' + val[1] + '%' : '') +
+        '; write ' + scaled(val[0]) + (read.isRange ? '-' + scaled(val[1]) : '') + '% for ' + scaled(val[0]) +
+        (read.isRange ? ' to ' + scaled(val[1]) : '') + ' percent.');
+    if(!invalid.has(key)){ bet[key] = val; bet.authored[key] = read.text; }
   }
   for(const k of ['stake', 'odds', 'payoff']) if(!seen.has(k)) warn(srcLine, 'Bet `' + bet.name + '` is missing ' + k + '.');
   return bet;
 }
 
 const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
+const scaled = v => String(Math.round(v * 1e6) / 1e4);   // 0.3 -> "30"
 
-function parseRange(s){
-  const m = s.match(RANGE);
-  if(!m) return null;
-  const lo = parseFloat(m[1]);
-  const hi = m[2] === undefined ? lo : parseFloat(m[2]);
-  if(Number.isNaN(lo) || Number.isNaN(hi)) return null;
-  return [lo, hi];
+function realDate(iso){
+  const [y, mo, d] = iso.split('-').map(Number), t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
 }
 
-function parseKill(s, srcLine){
+function parseKill(s, srcLine, warn){
   const text = s.trim();
-  const m = text.match(/^(.*?)\s+by\s+(\d{4}-\d{2}-\d{2})$/);   // only a real ISO date is a `by`
+  const m = text.match(/^(.*?)\s+by\s+(\d{4}-\d{2}-\d{2})$/);   // an ISO-shaped date is a `by`
+  if(m && !realDate(m[2])) warn(srcLine, 'Kill date ' + m[2] + ' is not a real calendar date — check the day and month.');
   return m ? {text: m[1].trim(), by: m[2], srcLine} : {text, by: null, srcLine};
 }
 

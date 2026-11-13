@@ -6,6 +6,8 @@ import {
   RETIREMENT_FIELDS, RETIREMENT_FIELD_PROPERTIES,
 } from './learning-closeout.js';
 
+import {nameMap} from './names.js';
+
 export const CONFIG_KEYS = ['title', 'date', 'today', 'style', 'verdict', 'palette', 'accent'];
 export const DECISION_FIELDS = [
   'question', 'signal', 'reading', 'learn', 'enough', 'owner', 'answer-by', 'when', 'assume', 'answer',
@@ -325,7 +327,7 @@ function implicitPeriod(model){
 }
 
 function build(model, add){
-  const byName = {};
+  const byName = nameMap();
   for(const decision of model.decisions){
     if(byName[decision.key]){
       decision.ignored = true;
@@ -416,7 +418,7 @@ function build(model, add){
 
 export function parse(text){
   const model = {title:'', dateStr:null, today:null, style:'brief', verdict:null,
-    palette:'ocean', accent:null, decisions:[], decisionByName:{}, periods:[], items:[], warnings:[]};
+    palette:'ocean', accent:null, decisions:[], decisionByName:nameMap(), periods:[], items:[], warnings:[]};
   const add = warningSink(model);
   const lines = String(text ?? '').replace(/\r/g, '').split('\n');
   let block = null;
