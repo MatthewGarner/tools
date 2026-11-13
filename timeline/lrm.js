@@ -2,6 +2,7 @@
    a fixed external event: Timeline can derive a safe decision date without
    pretending it has modelled a dependency graph or a decision outcome. */
 import {fmtDay} from './parse.js';
+import {duration} from './duration.js';
 
 export const isDecisionLead = it => it?.status === 'fixed' &&
   Number.isInteger(it.leadDays) && it.leadDays > 0;
@@ -12,8 +13,11 @@ export function leadDuration(days){
     : days + ' day' + (days === 1 ? '' : 's');
 }
 
+/* A clock exists only while its EVENT is today or ahead: a decision clock for an event
+   that has already happened is not a deadline, so it never leads a verdict or a receipt. */
 export function decisionLead(it, today = null){
   if(!isDecisionLead(it)) return null;
+  if(today != null && it.p50 < today) return null;
   const day = it.p50 - it.leadDays;
   return {it, day, eventDay: it.p50, leadDays: it.leadDays,
     state: today == null ? null : day < today ? 'closed' : day === today ? 'today' : 'open',
@@ -31,9 +35,7 @@ export function leadReceipt(it, today = null){
   const core = 'Decide by ' + fmtDay(l.day) + ' for ' + it.label +
     ' (' + leadDuration(l.leadDays) + ' lead).';
   if(l.state === 'closed'){
-    const days = Math.abs(l.daysFromToday);
-    return {l, text: 'Decision window closed: ' + core + ' It closed ' +
-      (days < 7 ? days + ' day' + (days === 1 ? '' : 's') : leadDuration(Math.round(days / 7) * 7)) + ' ago.'};
+    return {l, text: 'Decision window closed: ' + core + ' It closed ' + duration(Math.abs(l.daysFromToday)) + ' ago.'};
   }
   if(l.state === 'today') return {l, text: 'Decision clock: ' + core + ' It is due today.'};
   return {l, text: 'Decision clock: ' + core};

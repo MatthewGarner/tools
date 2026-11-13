@@ -24,7 +24,7 @@ test('mergeBias: nominal lane at 0.5, pAll ≤ 0.5, d80 achieves ≥0.8 (whole d
   assert.ok(mb && mb.rangedLanes === 2);
   assert.equal(mb.byDate, 120);
   assert.ok(mb.pAll <= 0.5 + 1e-9);
-  assert.ok(mb.laneP.some(p => Math.abs(p - 0.5) < 1e-9), 'nominal lane pinned at 0.5');   // M3
+  assert.ok(mb.laneP.some(p => Math.abs(p - 0.5) < 1e-4), 'nominal lane pinned at 0.5 (to the conditional on "not done by today", 4e-6 here)');   // M3
   assert.ok(jointAt([fit(100, 130), fit(120, 160)], mb.d80) >= 0.80 - 1e-6);
   assert.ok(mb.d80 >= mb.byDate && mb.weeksLater >= 0);
   assert.equal(mb.d80, Math.ceil(mb.d80));
@@ -169,7 +169,7 @@ test('laneVsDeadline: exactly one ranged lane plus a deadline', () => {
   const one = laneVsDeadline({items: [R('Grid', 100, 130), FX('Ofgem', 200)]}, 0);
   assert.equal(one.name, 'Grid');
   assert.equal(one.deadline.day, 200);
-  near(one.p, normCdf((200 - 100) / ((130 - 100) / Z90p)), 1e-12);
+  near(one.p, normCdf((200 - 100) / ((130 - 100) / Z90p)), 1e-4);   // conditional on "not done by day 0": 1e-5 here
   assert.equal(laneVsDeadline({items: [R('Grid', 100, 130)]}, 0), null, 'no deadline');
   assert.equal(laneVsDeadline({items: [R('A', 100, 130), R('B', 120, 160), FX('D', 300)]}, 0), null, 'two lanes');
   assert.equal(laneVsDeadline({items: [R('Grid', 100, 130), FX('D', 300)]}, 200), null, 'stale lane');

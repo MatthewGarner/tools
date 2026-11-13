@@ -20,6 +20,7 @@ export function parseDate(s){
   const m = String(s).trim().match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
   if(!m) return null;
   const y = +m[1], mo = +m[2], d = m[3] ? +m[3] : 15;   // bare month → its 15th
+  if(y < 1000) return null;                              // Date.UTC reads 0000–0099 as 1900–1999: refuse the whole range
   if(mo < 1 || mo > 12 || d < 1 || d > 31) return null;
   const t = Date.UTC(y, mo - 1, d);
   const dt = new Date(t);
@@ -35,22 +36,36 @@ export function fmtDay(day, {month = false} = {}){
   const d = new Date(day * DAY);
   return (month ? '' : d.getUTCDate() + ' ') + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
 }
+/* The one printer for an item's own date: at the precision it was WRITTEN (a bare
+   month prints as a month), whatever separator was typed. `end` is 'p50' or 'p90'.
+   parse() records the precision per end and swaps it with a reversed range. */
+export const writtenAsMonth = (it, end = 'p50') => !!it?.month?.[end];
+export const fmtItemDay = (it, end = 'p50') => fmtDay(it[end], {month: writtenAsMonth(it, end)});
+/* In a sentence a bare month is not a day: "mid-Nov 2026", never an invented "15 Nov". */
+export const fmtQuoted = (day, bareMonth) => bareMonth ? 'mid-' + fmtDay(day, {month: true}) : fmtDay(day);
+
+export const MAX_LEAD_DAYS = 3650;                       // ten years
 
 const DATE_RE = /\d{4}-\d{2}(?:-\d{2})?/;
+/* a fragment that LOOKS like a date but is not one we read (2026-9-5, 2026-10-5): say so
+   by name rather than letting it sink into the label */
+const LOOSE_DATE_RE = /(?<![\d-])\d{4}-\d{1,2}(?:-\d{1,2})?(?![\d-])/g;
+const unreadFragment = text => [...String(text).matchAll(LOOSE_DATE_RE)].map(m => m[0]).find(f => !/^\d{4}-\d{2}(?:-\d{2})?$/.test(f)) || null;
 
 export function parseLead(s){
   const m = String(s).trim().match(/^(\d+)\s*(d|w)$/i);
   if(!m) return null;
   const n = +m[1];
   if(!Number.isSafeInteger(n) || n < 1) return null;
-  return n * (m[2].toLowerCase() === 'w' ? 7 : 1);
+  const days = n * (m[2].toLowerCase() === 'w' ? 7 : 1);
+  return days > MAX_LEAD_DAYS ? null : days;
 }
 
 export function parse(text){
   const model = {title: '', palette: 'ocean', accent: null, font: 'Chapter', style: 'field', today: null, verdict: null,
     lanes: [], items: [], warnings: []};
   const lines = String(text).split(/\r?\n/);
-  const laneSet = new Set();
+  const laneNames = new Map();                             // folded identity -> the first spelling, which is the one shown
 
   for(let ln = 0; ln < lines.length; ln++){
     const line = lines[ln].trim();
@@ -111,7 +126,12 @@ export function parse(text){
         else started = parsed;
       } else if(/^lead\s*:/i.test(tag)){
         const parsed = parseLead(tag.slice(tag.indexOf(':') + 1));
-        if(parsed === null) warn('decision lead wants a positive duration like [lead: 6w]');
+        if(parsed === null){
+          const rawLead = tag.slice(tag.indexOf(':') + 1).trim();
+          warn(/^[1-9]\d*\s*[dw]$/i.test(rawLead)
+            ? 'decision lead is over ten years — ignored (try something like [lead: 6w])'
+            : 'decision lead wants a positive duration like [lead: 6w]');
+        }
         else if(leadDays !== null) warn('more than one decision lead — using the first');
         else leadDays = parsed;
       } else warn('unknown tag [' + t.trim() + '] — use ' + STATUSES.join(' / ') + ' / lead: 6w / started: YYYY-MM-DD');
@@ -119,7 +139,10 @@ export function parse(text){
     }).trim();
 
     const firstDate = body.match(DATE_RE);
+    const loose = unreadFragment(firstDate ? body.slice(0, firstDate.index) : body);
+    if(loose) warn('couldn’t read the date "' + loose + '" — dates are YYYY-MM or YYYY-MM-DD, two digits each');
     if(!firstDate){
+      if(loose) continue;                                  // already named above
       const looksConfig = body.match(/^([a-z][a-z0-9_-]*)\s*:\s*\S/i);
       if(looksConfig && !body.slice(looksConfig[1].length + 1).trim().includes(' '))
         warn('unknown config "' + looksConfig[1] + '"');
@@ -137,6 +160,8 @@ export function parse(text){
     const dates = dateText.split(/\s*(?:\.\.|–|—)\s*/).map(s => s.trim()).filter(Boolean);
     let p50 = parseDate(dates[0]);
     let p90 = dates.length > 1 ? parseDate(dates[1]) : null;
+    const isMonth = t => /^\d{4}-\d{2}$/.test(t || '');
+    let month = {p50: isMonth(dates[0]), p90: dates.length > 1 && p90 !== null ? isMonth(dates[1]) : isMonth(dates[0])};
     if(p50 === null){ warn('couldn’t read the date "' + dates[0] + '"'); continue; }
     if(dates.length > 1 && p90 === null){
       warn('couldn’t read the second date "' + dates[1] + '" — treating as a single date');
@@ -148,7 +173,11 @@ export function parse(text){
     if(p90 < p50){
       warn('range reversed — swapped so P50 comes first');
       const t = p50; p50 = p90; p90 = t;
+      month = {p50: month.p90, p90: month.p50};            // each end keeps the precision it was written with
     }
+    /* two ends on the same day is one date, not a range: same warning, same reading */
+    const sameDay = !single && p90 === p50;
+    if(sameDay) single = true;
     if(status === 'done' || status === 'fixed'){
       /* "earlier", not "first": the reversed-range swap above already ran, so a
          "2026-12 .. 2026-10" input genuinely keeps the earlier of the two. */
@@ -158,8 +187,8 @@ export function parse(text){
       p90 = p50;
       single = true;
     } else if(single){
-      warn('"' + head.slice(0, 30) + '" has no range — a single date claims certainty ' +
-        'nobody has (add ".. P90", or mark it [fixed])');
+      warn('"' + head.slice(0, 30) + '" ' + (sameDay ? 'has the same day at both ends' : 'has no range') +
+        ' — a single date claims certainty nobody has (add ' + (sameDay ? 'a later ".. P90"' : '".. P90"') + ', or mark it [fixed])');
     }
     if(leadDays !== null && status !== 'fixed'){
       warn('[lead: …] only belongs on a [fixed] external event — ignored');
@@ -173,8 +202,11 @@ export function parse(text){
     if(started !== null && started > p50)
       warn('actual start is after ' + (status === 'done' ? 'completion' : 'P50 finish') + ' — check the dates');
 
-    if(!laneSet.has(lane)){ laneSet.add(lane); model.lanes.push(lane); }
-    model.items.push({lane, label: head, p50, p90, rawDates: dateText, status, note, single, leadDays, started, srcLine: ln});
+    /* a lane is one lane however it is cased or spaced (as Compare and the joint already read it) */
+    const laneKey = lane.toLowerCase().replace(/\s+/g, ' ').trim();
+    if(!laneNames.has(laneKey)){ laneNames.set(laneKey, lane); model.lanes.push(lane); }
+    lane = laneNames.get(laneKey);
+    model.items.push({lane, label: head, p50, p90, month: single ? {p50: month.p50, p90: month.p50} : month, rawDates: dateText, status, note, single, leadDays, started, srcLine: ln});
   }
   // today: is order-free. Validate actual facts after the final config wins.
   if(model.today !== null) for(const item of model.items){

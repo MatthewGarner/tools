@@ -8,11 +8,11 @@ export function effectiveHorizon(value, periodCount){
   return Math.max(minimum, Math.min(60, requested));
 }
 
-// Cashflow amounts use Fermi's suffix grammar; percentage and ratio fields use
-// the web form's decimal grammar. Keeping the two deliberately separate avoids
-// treating a pasted amount such as 8k as an 8,000% discount rate.
+// Every cashflow number box, amounts and the rate, DSCR and cost-of-debt fields alike,
+// reads numbers the one way the range boxes do: "8k" is 8,000 and "12abc" is refused,
+// never read as its leading 12.
 export function parseCashflowScalar(value){
-  return Number.parseFloat(String(value ?? '').trim());
+  return parseNum(String(value ?? ''));
 }
 
 export function normaliseCashflowRange(lower, upper, parser = parseNum){
@@ -25,7 +25,7 @@ export function normaliseCashflowRange(lower, upper, parser = parseNum){
 export function parseCashflowTenor(value){
   const raw = String(value ?? '').trim();
   if(!raw) return {value: undefined, valid: true};
-  const parsed = Number(raw);
+  const parsed = /^\d+$/.test(raw) ? Number(raw) : NaN;
   return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 60
     ? {value: parsed, valid: true}
     : {value: undefined, valid: false};
@@ -92,4 +92,11 @@ export function cashflowTailNote(horizon, periodCount){
   return horizon > lastEntered
     ? `t${periodCount}…t${horizon} repeat the t${lastEntered} range`
     : 'Entered periods cover the full horizon';
+}
+
+// A shared link's period list: an entry that is not a pair is skipped, never a crash.
+export function periodsFromLink(list){
+  if(!Array.isArray(list)) return [];
+  return list.slice(0, 61).filter(Array.isArray)
+    .map(pair => ({lo: String(pair[0] ?? ''), hi: String(pair[1] ?? '')}));
 }

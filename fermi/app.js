@@ -1,12 +1,16 @@
 /* Formula parsing + Monte Carlo + sensitivity live in ./engine.js (pure, tested);
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
-  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, sig, fmt} from './engine.js';
+  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, ratioStr, fmt} from './engine.js';
 import {quantile, readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
 import {mountPour, pourVerdict} from './pour.js';
-import {confess, asciiNum} from './solve.js';
+import {confess, asciiNum, CAP} from './solve.js';
+import {SEEDS, N, POUR_GRAINS, CF_SEED, CF_N} from './seeds.js';
+import {stretchLabel, shapeLabel, leverHint, leverLine, verdictSentence, shareAbove, evenOdds, invalidNote,
+  unmeasuredNote, underflowNote, arithmeticSentence, waitingMessage, suffixWarnings, distOverrideNotes,
+  estimateMethod, rangeAria, nothingPlausible, cashflowMethod, pctProb} from './words.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -14,7 +18,7 @@ import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
-import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs} from './interactions.js';
+import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs, periodsFromLink} from './interactions.js';
 import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
   normalizeReceipt, receiptLabel} from './state.js';
 import {mountModelLink} from '../assets/model-link.js';
@@ -41,7 +45,6 @@ const EXAMPLES = [
 ];
 
 /* ---------- state ---------- */
-const N = 20000;
 const varState = new Map();           // name -> {lo:'', hi:''}
 let last = null;                      // latest run: {varNames, valid, sorted, p10, p50, p90, sens, invalid}
 let threshStr = '';                   // threshold input, as typed
@@ -152,7 +155,6 @@ let active = 'A';
 let compareOn = false;
 const scenStore = {A:null, B:null};   // snapshots of both scenarios
 const lastBy = {A:null, B:null};      // computed results per scenario
-const SEEDS = {A:0x5EED, B:0x0B5EED};
 function snapshot(){
   return {
     f: $('formula').value,
@@ -234,7 +236,7 @@ function computeScenario(snap, scen){
       return st?.base?.kind === 'gauge' &&
         (st.base.status === 'needs-restatement' || st.base.status === 'not-used');
     })) return null;
-    const ranges = {}, dists = {};
+    const ranges = Object.create(null), dists = Object.create(null);
     for(const n of names){
       const st = snap.vars.get(n);
       if(!st) return null;
@@ -255,7 +257,7 @@ function pBeatsStr(){
   let c = 0;
   for(let i = 0; i < n; i++) if(B.raw[i] > A.raw[i]) c++;
   const p = c / n;
-  return p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  return pctProb(p);
 }
 function renderCompare(){
   const el = $('cmp');
@@ -294,10 +296,8 @@ function threshValue(){
 function threshPctText(){
   const t = threshValue();
   if(!last || t === null) return '—';
-  let c = 0;
-  for(let i = 0; i < last.valid.length; i++) if(last.valid[i] > t) c++;
-  const p = c / last.valid.length;
-  return p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  const p = shareAbove(last.valid, t);
+  return pctProb(p);
 }
 function renderThresh(){ $('tout').textContent = threshPctText(); }
 
@@ -364,13 +364,13 @@ function renderVarRows(varNames){
     const lo = document.createElement('input');
     lo.className = 'vlo';
     lo.value = st.lo; lo.placeholder = 'low';
-    lo.setAttribute('aria-label', name + ' low (90% interval)');
+    lo.setAttribute('aria-label', rangeAria(name, 'low', st.dist));
     const dash = document.createElement('div');
     dash.className = 'dash vdash'; dash.textContent = '–';
     const hi = document.createElement('input');
     hi.className = 'vhi';
     hi.value = st.hi; hi.placeholder = 'high';
-    hi.setAttribute('aria-label', name + ' high (90% interval)');
+    hi.setAttribute('aria-label', rangeAria(name, 'high', st.dist));
     const sel = document.createElement('select');
     sel.setAttribute('aria-label', name + ' distribution');
     for(const [v, l] of [['auto','auto'],['logn','log-normal'],['norm','normal'],['uni','uniform']]){
@@ -422,7 +422,12 @@ function renderVarRows(varNames){
     };
     lo.addEventListener('input', () => { st.lo = lo.value; restate(); schedule(100); });
     hi.addEventListener('input', () => { st.hi = hi.value; restate(); schedule(100); });
-    sel.addEventListener('change', () => { st.dist = sel.value; schedule(50); });
+    sel.addEventListener('change', () => {
+      st.dist = sel.value;
+      lo.setAttribute('aria-label', rangeAria(name, 'low', st.dist));
+      hi.setAttribute('aria-label', rangeAria(name, 'high', st.dist));
+      schedule(50);
+    });
     if(source) source.addEventListener('change', () => {
       setBase(name, source.value ? {kind:source.value, label:source.value === 'snapshot' ? 'Author-declared data snapshot' : 'Author-declared estimate'} : null);
       lint();
@@ -550,9 +555,10 @@ function lint(){
       : 'Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you’d be surprised, but not shocked, to see a value outside them.');
     return;
   }
-  let ast;
+  let ast, toks;
   try{
-    ast = parse(tokenize(src));
+    toks = tokenize(src);
+    ast = parse(toks);
   }catch(e){
     showError('Can’t read the formula: ' + (e.msg || 'syntax error') + '.');
     return;
@@ -570,8 +576,7 @@ function lint(){
   }
   renderVarRows([...new Set([...varNames, ...pendingGaugeNames()])]);
   if(!varNames.length){
-    const v = evalNode(ast, {});
-    showPlaceholder('That’s just arithmetic — it comes to ' + fmt(v) + '. Name a quantity (e.g. attendees) to make it an estimate.');
+    showPlaceholder(arithmeticSentence(evalNode(ast, {})));
     return;
   }
   const pending = pendingGaugeNames(varNames);
@@ -581,21 +586,21 @@ function lint(){
     writeHashSafe();
     return;
   }
-  const missing = [], ranges = {};
+  const missing = [], ranges = Object.create(null);     // no prototype: a variable may be called __proto__
   for(const name of varNames){
     const st = varState.get(name);
     const lo = parseNum(st.lo), hi = parseNum(st.hi);
-    if(!isFinite(lo) || !isFinite(hi)) missing.push(name);
+    if(!isFinite(lo) || !isFinite(hi)) missing.push({name, lo: st.lo, hi: st.hi});
     else ranges[name] = [lo, hi];
   }
   if(missing.length){
-    showPlaceholder('Waiting on ranges for: ' + missing.join(', ') + '.');
+    showPlaceholder(waitingMessage(missing));
     writeHashSafe();
     return;
   }
 
   /* Monte Carlo — reseed so identical models always give identical numbers */
-  const dists = {};
+  const dists = Object.create(null);
   for(const name of varNames) dists[name] = varState.get(name).dist;
   function simulate(pinName, pinValue, n){
     return simulateModel({ast, varNames, ranges, dists}, {seed: SEEDS[active], n, pinName, pinValue});
@@ -609,14 +614,17 @@ function lint(){
   const p10 = quantile(sorted, .10), p50 = quantile(sorted, .50), p90 = quantile(sorted, .90);
 
   /* sensitivity as value of information — pure, in ./engine.js (pinned runs at 8k) */
-  const {sens, fullRatio} = computeSensitivity({ast, varNames, ranges, dists},
+  const {sens, fullRatio, unmeasured} = computeSensitivity({ast, varNames, ranges, dists},
     {seed: SEEDS[active], p10, p90});
 
   const bases = Object.fromEntries(varNames.map(name => [name, normalizeReceipt(varState.get(name)?.base)]).filter(([, base]) => base));
-  last = {ast, ranges, dists, bases, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, invalid: N - sorted.length};
+  const rangeTexts = varNames.map(name => ({name, lo: varState.get(name).lo, hi: varState.get(name).hi}));
+  const extraNotes = [...suffixWarnings({toks, ranges: rangeTexts, varNames}), ...distOverrideNotes(varNames, ranges, dists)];
+  last = {ast, ranges, dists, bases, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, unmeasured,
+    invalid: N - sorted.length, extraNotes};
   // pour needs at least one ranged driver AND a finite all-medians point estimate to pour FROM
   // (e.g. a / b with b crossing 0 pins to a 0 divisor → no spout); disable with a reason, never a dead button.
-  const meds = {}; for(const n of varNames){ const [lo, hi] = ranges[n]; meds[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }
+  const meds = Object.create(null); for(const n of varNames){ const [lo, hi] = ranges[n]; meds[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }
   const baseFinite = isFinite(evalNode(ast, meds));
   $('replay').disabled = !sens.length || !baseFinite;
   $('replay').title = (sens.length && !baseFinite) ? 'This model has no finite point estimate to pour from.' : '';
@@ -658,16 +666,17 @@ function renderResults(){
   paintMetrics($('metrics'), '', []);
   updateModelTrace();
   reviewDetail();
-  const sayText = '“Probably around ' + p50Text + (unit ? ' ' + unit : '') + ' — I’d be surprised outside ' +
-    p10Text + ' to ' + p90Text + '.”';
+  const sayText = verdictSentence(p10Text, p50Text, p90Text, unit);
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
   const spreadText = isFinite(ratio)
-    ? 'Spread: ×' + sig(ratio, 2) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
+    ? 'Spread: ×' + ratioStr(ratio) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
     : 'Spread: ' + fmt(r.p90 - r.p10) + ' (P90 − P10)';
   const notes = [];
-  if(r.invalid > N * 0.01){
-    notes.push(sig(100 * r.invalid / N, 2) + '% of runs hit invalid maths and were dropped — a range probably crosses zero.');
-  }
+  if(r.invalid > 0) notes.push(invalidNote(r.invalid, N));
+  if(r.unmeasured.length) notes.push(unmeasuredNote(r.unmeasured));
+  const tiny = underflowNote(r.sorted, r.ranges, r.ast);
+  if(tiny) notes.push(tiny);
+  notes.push(...r.extraNotes);
   const inverted = r.varNames.filter(n => r.ranges[n][0] > r.ranges[n][1]);
   if(inverted.length){
     notes.push('Entered high-to-low: ' + inverted.map(n => n.replace(/_/g, ' ')).join(', ') + ' — read as a range either way.');
@@ -685,7 +694,7 @@ function renderResults(){
   // svg!==lastSvg / fermi's own varRowsSig gate, just for this DOM instead
   // of an SVG string.
   const sigNow = [p10Text, p50Text, p90Text, sayText, spreadText, warnText,
-    receiptSummary(r.varNames), cmpSig, sensSig, threshPct].join('¦');
+    receiptSummary(r.varNames), estimateMethod(r.varNames, r.ranges, r.dists, N), cmpSig, sensSig, threshPct].join('¦');
   if(sigNow === resultsSig){
     $('tout').textContent = threshPct;
     drawHist();
@@ -702,6 +711,7 @@ function renderResults(){
   $('provenance').textContent = 'Input receipts: ' + receiptSummary(r.varNames) +
     '. They describe how each range entered this model, not how certain it is.';
   $('spread').textContent = spreadText;
+  $('estmethod').textContent = estimateMethod(r.varNames, r.ranges, r.dists, N);
   const w = $('warn');
   w.textContent = warnText;
   w.style.display = notes.length ? 'block' : 'none';
@@ -711,12 +721,8 @@ function renderResults(){
   holder.textContent = '';
   $('sens').style.display = sens.length > 1 ? 'block' : 'none';
   if(sens.length > 1){
-    const top = sens[0];
-    const fullLabel = isFinite(r.fullRatio) ? '×' + sig(r.fullRatio, 2) : fmt(r.p10) + ' – ' + fmt(r.p90);
-    $('senshint').textContent = top.share > 0.35
-      ? 'Each bar: how much of the spread disappears if you learn that number exactly. Pin ' +
-        top.name.replace(/_/g,' ') + ' and the spread drops from ' + fullLabel + ' to ' + top.label + ' — research it first.'
-      : 'No single input dominates — pinning any one variable barely moves the spread. Tighten the top two together.';
+    const fullLabel = isFinite(r.fullRatio) ? '×' + ratioStr(r.fullRatio) : fmt(r.p10) + ' – ' + fmt(r.p90);
+    $('senshint').textContent = leverHint(sens, fullLabel);
     for(const s of sens){
       const row = document.createElement('div');
       row.className = 'srow';
@@ -943,7 +949,7 @@ function drawHist(hoverIdx, output = null){
     tip.style.display = 'block';
     tip.style.left = (b.x + b.w / 2) + 'px';
     tip.style.top = '26px';
-    tip.textContent = fmt(b.v0) + ' – ' + fmt(b.v1) + ' · ' + (b.share * 100).toFixed(1) + '% of runs';
+    tip.textContent = fmt(b.v0) + ' – ' + fmt(b.v1) + ' · ' + (b.shareAll * 100).toFixed(1) + '% of runs';
     if(idx !== lastHover){ lastHover = idx; drawHist(idx); }
   });
   canvas.addEventListener('pointerleave', () => {
@@ -1008,7 +1014,7 @@ function replay(){
   if(!last || !last.sens || !last.sens.length || view !== 'dist' || pageMode !== 'est') return;
   const model = {ast: last.ast, varNames: last.varNames, ranges: last.ranges, dists: last.dists};
   const order = last.sens.map(s => s.name);
-  const trace = traceDraws(model, {seed: SEEDS[active], g: 500, order});
+  const trace = traceDraws(model, {seed: SEEDS[active], g: POUR_GRAINS, order});
   if(!trace.ok) return;
   const cw = $('hist').clientWidth;
   let layout = histLayout(last.sorted, {width: cw, threshold: threshValue()});
@@ -1016,7 +1022,7 @@ function replay(){
   // >5% grains ≤0-under-log or off-axis → re-layout linear for the pour (spec I1)
   const bad = (layout.useLog ? trace.draws.filter(d => d.steps.some(x => x <= 0)).length : 0) +
     trace.draws.filter(d => d.y < layout.lo || d.y > layout.hi).length + trace.dropped;
-  if(bad / 500 > 0.05) layout = histLayout(last.sorted, {width: cw, forceLinear: true});
+  if(bad / POUR_GRAINS > 0.05) layout = histLayout(last.sorted, {width: cw, forceLinear: true});
   const C = themeColors();
   const colors = {card: C.card, line: C.border, ink: C.ink, muted: C.muted, faint: C.muted,
     accent: (active === 'A') ? C.accent : C.accent2};
@@ -1033,9 +1039,6 @@ $('replay').addEventListener('click', () => { ensureFreshEstimate(); replay(); }
 let lastConfess = null;   // {c, T} cache so a theme flip repaints without re-solving
 const threshFmt = v => fmt(v).replace(/−/g, '-');   // I-1: ASCII minus so a negative threshold parses back
 const nmOf = n => n.replace(/_/g, ' ');
-const stretchLabel = r => r.kind === 'mult'
-  ? '×' + r.factor.toFixed(1) + ' stretch'
-  : 'shifted ' + (r.delta >= 0 ? '+' : '−') + fmt(Math.abs(r.delta));
 function clearConfession(){
   document.querySelectorAll('.cghost').forEach(el => el.remove());
   const v = $('confessverdict'); v.textContent = ''; v.className = 'confessverdict'; v.hidden = true;
@@ -1102,14 +1105,14 @@ function paintConfession(){
     v.textContent = 'No single assumption ' + goal + '. The cheapest pair, moved together: '
       + nmOf(c.pair.a.varName) + ' ' + stretchLabel(c.pair.a) + ' and ' + nmOf(c.pair.b.varName) + ' ' + stretchLabel(c.pair.b) + '.';
   } else {
-    v.textContent = 'Nothing plausible ' + (c.dir < 0 ? 'keeps you under ' : 'gets you to ') + fmt(T) + '.';
+    v.textContent = nothingPlausible(c.dir, fmt(T), CAP);
   }
 }
 function runConfession(){
   clearConfession();
   if(!last || threshValue() === null || view !== 'dist' || pageMode !== 'est') return;
   const T = threshValue();
-  if(last.p50 && Math.abs(T - last.p50) / Math.abs(last.p50) < 0.02){ lastConfess = {c: 'even', T}; paintConfession(); return; }   // M4
+  if(evenOdds(last.sorted, T)){ lastConfess = {c: 'even', T}; paintConfession(); return; }   // within 2 points of 50%, whatever the spread
   const model = {ast: last.ast, varNames: last.varNames, ranges: last.ranges, dists: last.dists};
   lastConfess = {c: confess(model, {seed: SEEDS[active], target: T}), T};
   paintConfession();
@@ -1162,7 +1165,7 @@ $('copy').addEventListener('click', async () => {
   if(!last) return;
   await flushEstimateHash();
   const txt = ($('estimatequestion').value.trim() ? $('estimatequestion').value.trim() + ' — ' : '') + ($('estimateunit').value.trim() ? 'Results in ' + $('estimateunit').value.trim() + ' — ' : '') + 'P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
-    (last.p10 > 0 ? ' (spread ×' + sig(last.p90 / last.p10, 2) + ')' : '') +
+    (last.p10 > 0 ? ' (spread ×' + ratioStr(last.p90 / last.p10) + ')' : '') +
     ' — ' + $('formula').value + ' — Input receipts: ' + receiptSummary(last.varNames) + ' — ' + location.href;
   try{
     await navigator.clipboard.writeText(txt);
@@ -1181,23 +1184,22 @@ $('copydoc').addEventListener('click', async () => {
   if($('estimateunit').value.trim()) lines.push('Results in ' + $('estimateunit').value.trim(), '');
   lines.push('**Estimate — `' + $('formula').value.trim() + '`**');
   lines.push('');
-  let head = 'P50 ≈ **' + fmt(last.p50) + '** · 90% range ' + fmt(last.p10) + ' – ' + fmt(last.p90);
-  if(last.p10 > 0) head += ' (spread ×' + sig(last.p90 / last.p10, 2) + ')';
+  let head = 'P50 ≈ **' + fmt(last.p50) + '** · 80% range ' + fmt(last.p10) + ' – ' + fmt(last.p90);
+  if(last.p10 > 0) head += ' (spread ×' + ratioStr(last.p90 / last.p10) + ')';
   lines.push(head);
   const t = threshValue();
   if(t !== null) lines.push('P(> ' + fmt(t) + ') = ' + $('tout').textContent);
   lines.push('');
-  lines.push('Assumptions (90% intervals):');
+  const anyUni = currentVarNames.some(n => varState.get(n)?.dist === 'uni');
+  lines.push('Assumptions (90% intervals' + (anyUni ? '; a uniform input is its full range' : '') + '):');
   for(const name of currentVarNames){
     const st = varState.get(name);
-    if(st) lines.push('- ' + name.replace(/_/g,' ') + ': ' + st.lo + ' – ' + st.hi + ' — ' + receiptLabel(st.base));
+    if(st) lines.push('- ' + name.replace(/_/g,' ') + ': ' + st.lo + ' – ' + st.hi + (st.dist === 'uni' ? ' (uniform, full range)' : '') + ' — ' + receiptLabel(st.base));
   }
   if(last.sens.length > 1){
-    const top = last.sens[0];
-    const fullLabel = isFinite(last.fullRatio) ? '×' + sig(last.fullRatio, 2) : fmt(last.p10) + ' – ' + fmt(last.p90);
+    const fullLabel = isFinite(last.fullRatio) ? '×' + ratioStr(last.fullRatio) : fmt(last.p10) + ' – ' + fmt(last.p90);
     lines.push('');
-    lines.push('Biggest lever: ' + top.name.replace(/_/g,' ') +
-      ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.');
+    lines.push(leverLine(last.sens, fullLabel));
   }
   if(pourVerdictText){ lines.push(''); lines.push(pourVerdictText); }
   if(lastConfess){ const cv = $('confessverdict').textContent.replace(/\s*(Adopt|Undo)$/, '').trim(); if(cv){ lines.push(''); lines.push(cv); } }
@@ -1208,7 +1210,7 @@ $('copydoc').addEventListener('click', async () => {
       ' — independently sampled B outputs exceed A in ' + pcmp + '. This is sensitivity analysis, not a chance state.');
   }
   lines.push('');
-  lines.push('_Log-normal fit per 90% range · 20,000 Monte Carlo samples · [live model](' + location.href + ')_');
+  lines.push('_' + estimateMethod(last.varNames, last.ranges, last.dists, N) + ' · [live model](' + location.href + ')_');
   const txt = lines.join('\n');
   try{
     await navigator.clipboard.writeText(txt);
@@ -1233,12 +1235,12 @@ $('png').addEventListener('click', async () => {
     {text:'Conditional estimate' + (snap.unit.trim() ? ' · '+snap.unit.trim() : ''), size:12},
     {text:'P10 '+fmt(result.p10)+' · P50 '+fmt(result.p50)+' · P90 '+fmt(result.p90), size:16, weight:600},
     {text:'Formula: '+snap.f, size:13},
-    {text:'ASSUMPTIONS · 90% INPUT RANGES', size:11, weight:600},
+    {text:'ASSUMPTIONS · 90% INPUT RANGES' + (result.varNames.some(n => snap.vars.get(n)?.dist === 'uni') ? ' (UNIFORM: FULL RANGE)' : ''), size:11, weight:600},
     ...result.varNames.map(name => {
       const st = snap.vars.get(name);
-      return {text:name+': '+st.lo+' – '+st.hi+' · '+({logn:'log-normal',norm:'normal',uniform:'uniform'}[effDist(st.dist,Math.min(parseNum(st.lo),parseNum(st.hi)))] || st.dist)+' · '+receiptLabel(st.base),size:12};
+      return {text:name+': '+st.lo+' – '+st.hi+' · '+shapeLabel(st.dist, Math.min(parseNum(st.lo), parseNum(st.hi)))+' · '+receiptLabel(st.base),size:12};
     }),
-    {text:'20,000 seeded samples, independent inputs. These ranges are assumptions, not a guarantee of outcomes.', size:11},
+    {text:N.toLocaleString('en-GB') + ' seeded samples, independent inputs. These ranges are assumptions, not a guarantee of outcomes.', size:11},
   ];
   if(compareOn) rows.push({text:'Model variant '+active+' filled; '+(active === 'A' ? 'B' : 'A')+' outlined. Variant comparison is sensitivity analysis, not a chance state.',size:11});
   const hash = await encodeHash(targetHashState(model, inboundHandoff));
@@ -1460,11 +1462,12 @@ function cfPaint(){
   }
   const sig = JSON.stringify(spec);
   if(sig !== cfSig){
-    cfResult = simulateCashflow(spec, {seed: 0xCA5F, n: 10000});
+    cfResult = simulateCashflow(spec, {seed: CF_SEED, n: CF_N});
     cfSpec = spec;
     cfSig = sig;
     cfSvg = '';
   }
+  $('cfmethod').textContent = cashflowMethod(cfSpec, cfResult.horizon, CF_N);
   const svg = renderCashflow(cfResult, cfSpec, {colors: themeColors()});
   if(svg !== cfSvg){ $('cfwrap').innerHTML = svg; cfSvg = svg; }
   $('cfwarn').textContent = parsed.debtErrors.length ? 'Debt sizing paused — ' + parsed.debtErrors.join(' ') : '';
@@ -1483,7 +1486,7 @@ function cfRenderThresh(){
   let lo = 0, hi = s.length;
   while(lo < hi){ const m = (lo + hi) >> 1; if(s[m] <= t) lo = m + 1; else hi = m; }
   const p = (s.length - lo) / s.length;
-  el.textContent = p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  el.textContent = pctProb(p);
 }
 $('cftin').addEventListener('input', () => { cfRenderThresh(); cfWriteHashSafe(); });
 
@@ -1515,7 +1518,7 @@ $('cfcopydoc').addEventListener('click', async () => {
   if(!cfResult) return;
   clearTimeout(cfHashTimer);
   await cfWriteHash();
-  const md = cashflowMarkdown(cfResult, cfSpec, location.href);
+  const md = cashflowMarkdown(cfResult, cfSpec, location.href, {periods: cf.periods, rate: {lo: cf.rlo, hi: cf.rhi}});
   try{
     await navigator.clipboard.writeText(md);
     $('cfcopydoc').textContent = 'Copied';
@@ -1534,9 +1537,8 @@ if(boot && boot.m === 'cf'){
   if(isFinite(+boot.h)) cf.horizon = Math.max(1, Math.min(60, +boot.h));
   if(typeof boot.rl === 'string') cf.rlo = boot.rl;
   if(typeof boot.rh === 'string') cf.rhi = boot.rh;
-  if(Array.isArray(boot.p) && boot.p.length){
-    cf.periods = boot.p.slice(0, 61).map(pair => ({lo: String(pair[0] ?? ''), hi: String(pair[1] ?? '')}));
-  }
+  const linked = periodsFromLink(boot.p);          // an entry that is not a pair is skipped, never a crash
+  if(linked.length) cf.periods = linked;
   cf.horizon = effectiveHorizon(cf.horizon, cf.periods.length);
   if(typeof boot.ct === 'string') $('cftin').value = boot.ct;
   if(boot.d1){

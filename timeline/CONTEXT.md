@@ -43,6 +43,15 @@ The probability-modelled chance that all independent lane forecasts clear a
 date. It remains separate from a decision clock; `[fixed]` alone does not make
 an event a binding programme dependency.
 
+**Lane**:
+One workstream: it is finished when every open ranged item in it is, so its
+chance of being done by a date is the smallest of its items' chances, and its
+shown P50/P90 are the latest item's. An open lane has not finished by today, so
+its chance is conditional on that: a lane past its median reads lower than the
+plain normal. Unlaned milestones are one lane; a lane whose latest item is a
+single date is left out, and the readout says so. Lane names compare without
+case or repeated spaces.
+
 ## Field contract
 
 Timeline is a calibrated **Field**, not a delivery board. Every live form,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs} from '../interactions.js';
+import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs, periodsFromLink} from '../interactions.js';
 
 test('cashflow horizon never claims fewer periods than the entered schedule uses', () => {
   assert.equal(effectiveHorizon(1, 4), 3);
@@ -31,18 +31,30 @@ test('cashflow tail copy never presents an inverted period range', () => {
   assert.equal(cashflowTailNote(5, 4), 't4…t5 repeat the t3 range');
 });
 
-test('cashflow source grammar keeps amount suffixes out of percentage and debt scalars', () => {
+test('cashflow scalar fields read numbers as the range boxes do: suffixes count, junk is refused (FM-28)', () => {
   const parsed = parseCashflowInputs({
     periods: [{lo: '-80k', hi: '-120k'}, {lo: '90k', hi: '40k'}],
     horizon: 4, grain: 'year', rateLower: '12', rateUpper: '8k',
-    debtEnabled: true, dscr: '1.4k', costOfDebt: '6.5k', tenor: '3', sizingCase: 'central',
+    debtEnabled: true, dscr: '1.4k', costOfDebt: '6.5', tenor: '3', sizingCase: 'central',
   });
-
   assert.deepEqual(parsed.errors, []);
-  assert.deepEqual(parsed.rate, {lo: 8, hi: 12});
+  assert.deepEqual(parsed.rate, {lo: 12, hi: 8000});
   assert.deepEqual(parsed.periods, [{lo: -120_000, hi: -80_000}, {lo: 40_000, hi: 90_000}]);
-  assert.equal(parsed.debt.dscr, 1.4);
+  assert.equal(parsed.debt.dscr, 1400);
   assert.equal(parsed.debt.costOfDebt, 0.065);
+  const junk = parseCashflowInputs({
+    periods: [{lo: '-8', hi: '-6'}, {lo: '4', hi: '9'}], horizon: 2, grain: 'year',
+    rateLower: '12abc', rateUpper: '9', debtEnabled: true, dscr: '1.3x', costOfDebt: '6.5 to 8', tenor: '', sizingCase: 'central',
+  });
+  assert.equal(junk.rate, null);
+  assert.equal(junk.debtErrors.length, 2);
+});
+
+test('a link period list skips entries that are not pairs instead of crashing (FM-28)', () => {
+  assert.deepEqual(periodsFromLink([null, ['-5', '-3'], 'x', 7, ['1'], ['2', '4']]),
+    [{lo: '-5', hi: '-3'}, {lo: '1', hi: ''}, {lo: '2', hi: '4'}]);
+  assert.deepEqual(periodsFromLink([null]), []);
+  assert.deepEqual(periodsFromLink({}), []);
 });
 
 test('cashflow source grammar refuses a fractional or out-of-range tenor', () => {

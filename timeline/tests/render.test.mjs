@@ -102,7 +102,7 @@ test('lane add actions stay outside editable milestone rows', () => {
 test('markdown: table, no-range flag, slip list when comparing', async () => {
   const {toMarkdown} = await import('../render.js');
   const md = toMarkdown(parse(DOC), null, 'https://x.test/t');
-  assert.match(md, /\| Vendor selection \| Build \| — \| 15 Nov 2026 \| no range \|/);
+  assert.match(md, /\| Vendor selection \| Build \| — \| Nov 2026 \| no range \|/);
   assert.match(md, /x\.test/);
 });
 

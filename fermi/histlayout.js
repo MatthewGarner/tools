@@ -28,7 +28,8 @@ export function histLayout(sorted, {width, threshold = null, NB = 44, forceLinea
   const bins = [];
   for(let b = 0; b < NB; b++){
     bins.push({x: b * bw, w: bw, v0: inv(tlo + (thi - tlo) * b / NB),
-      v1: inv(tlo + (thi - tlo) * (b + 1) / NB), count: counts[b], share: total ? counts[b] / total : 0});
+      v1: inv(tlo + (thi - tlo) * (b + 1) / NB), count: counts[b], share: total ? counts[b] / total : 0,
+      shareAll: sorted.length ? counts[b] / sorted.length : 0});   // of ALL runs, not just those on the axis
   }
   return {ok: true, lo, hi, useLog, tx, inv, tlo, thi, NB, px, bins, cmax, total};
 }

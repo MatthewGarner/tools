@@ -5,6 +5,7 @@
 
 const KINDS = new Set(['gauge', 'snapshot', 'person']);
 const GAUGE_STATUSES = new Set(['needs-restatement', 'adopted', 'not-used']);
+const DISTS = new Set(['auto', 'logn', 'norm', 'uni']);
 const POOLING = new Set(['envelope', 'median-endpoints']);
 const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const MAX_LABEL = 180;
@@ -110,7 +111,7 @@ export function unpackScen(raw){
       if(Array.isArray(pair)) vars.set(name, {
         lo: String(pair[0] ?? ''),
         hi: String(pair[1] ?? ''),
-        dist: typeof pair[2] === 'string' && pair[2] ? pair[2] : 'auto',
+        dist: DISTS.has(pair[2]) ? pair[2] : 'auto',   // an unknown shape in a link means automatic
         base: null,
       });
     }

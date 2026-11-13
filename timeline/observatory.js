@@ -4,7 +4,7 @@ import {esc, wrapText, btnAttrs} from '../assets/svg.js';
 import {mix} from '../assets/series.js';
 import {chapterColors} from '../assets/chapter-colors.js';
 import {resolveTypography,fontStack} from '../assets/chapter-fonts.js';
-import {fmtDay, dayToISO} from './parse.js';
+import {fmtDay, fmtItemDay, dayToISO} from './parse.js';
 import {timingFacts} from './timing.js';
 import {decisionLead, leadReceipt, leadDuration} from './lrm.js';
 
@@ -20,9 +20,9 @@ const font=(family,size,weight=400)=>`${weight} ${size}px "${family}"`;
 const fallback=(s,f)=>String(s).length*(Number(f.match(/([\d.]+)px/)?.[1])||16)*.55;
 export const observatoryColors=(model,ctx={})=>{const c=chapterColors(model,ctx);return {...c,err:c.status.blocked,card:c.bg};};
 const text=(x,y,value,size,fill,extra={})=>`<text${attrs({x:n(x),y:n(y),'font-size':size,fill,...extra})}>${e(value)}</text>`;
-const date=(it,end='p50')=>fmtDay(it[end],{month:(it.rawDates||'').split(/\s*(?:\.\.|–|—)\s*/)[end==='p90'?1:0]?.trim().length===7});
+const date=(it,end='p50')=>fmtItemDay(it,end);
 const finish=it=>it.status==='fixed'?`${date(it)} · Fixed`:it.status==='done'?`${date(it)} · Done`:it.single?`${date(it)} · Range needed`:date(it)===date(it,'p90')?`Finish ${date(it)}`:`Finish ${date(it)} – ${date(it,'p90')}`;
-const signed=days=>`${days>0?'+':'−'}${Math.abs(days)} ${Math.abs(days)===1?'day':'days'}`;
+const signed=days=>`${days>0?'+':'−'}${Math.abs(days)} ${Math.abs(days)===1?'day':'days'}`;   // the exact movement receipt: stays in days, never rounded
 
 // The register's two date columns; their wrapped height is part of the row.
 const p90Label=it=>it.single?it.status==='fixed'?'Fixed':it.status==='done'?'Done':'Range needed':date(it,'p90');
@@ -39,7 +39,7 @@ function monthStart(d){const a=new Date(d*DAY);return Date.UTC(a.getUTCFullYear(
 function addMonths(d,count){const a=new Date(d*DAY);return Date.UTC(a.getUTCFullYear(),a.getUTCMonth()+count,1)/DAY;}
 export function observatoryDomain(model,today,diff){
   const old=diff?[...diff.byKey.values()].flatMap(it=>[it.oldP50,it.oldP90,it.oldStarted]):[];
-  const days=[today,...model.items.flatMap(it=>[it.p50,it.p90,it.started,decisionLead(it)?.day]),
+  const days=[today,...model.items.flatMap(it=>[it.p50,it.p90,it.started,decisionLead(it,today)?.day]),
     ...(diff?.droppedItems||[]).flatMap(it=>[it.p50,it.p90,it.started]),...old].filter(Number.isFinite);
   const min=Math.min(...days),max=Math.max(...days);
   return {lo:monthStart(min),hi:Math.max(addMonths(monthStart(max),1),addMonths(monthStart(min),2))};
@@ -251,7 +251,7 @@ function paint(model,L,ctx,diff,page){
     s.push(line(row.x,row.y+row.h,row.x+row.w,row.y+row.h,C.border),'</g>');
   }
   if(L.verdict)s.push(paintBlock(L.verdict,L.M,L.verdict.y,C.ink,L.edit?{'data-edit':'verdict','data-raw':model.verdict,role:'button',tabindex:0,'aria-label':'Edit verdict'}:{}));
-  const legend=[['started','Started',model.items.some(it=>it.started!=null)],['p50','P50 finish',true],['p90','P90 finish',true],['fixed','Fixed',model.items.some(it=>it.status==='fixed')],['decide','Decide by',model.items.some(it=>decisionLead(it))],['previous','Previous forecast',!!diff&&[...diff.byKey.values()].some(h=>h.history?.length)]].filter(([, ,show])=>show);   // exactly the marks this set draws
+  const legend=[['started','Started',model.items.some(it=>it.started!=null)],['p50','P50 finish',true],['p90','P90 finish',true],['fixed','Fixed',model.items.some(it=>it.status==='fixed')],['decide','Decide by',model.items.some(it=>decisionLead(it,L.today))],['previous','Previous forecast',!!diff&&[...diff.byKey.values()].some(h=>h.history?.length)]].filter(([, ,show])=>show);   // exactly the marks this set draws
   let lx=L.M,ly=L.legendY;
   for(const [kind,label] of legend){const w=L.measure(label,font(L.type.body,L.metaBase))+38;if(lx+w>L.W-L.M){lx=L.M;ly+=26;}
     if(kind==='started')s.push(rect(lx,ly-9,8,8,C.bg,{stroke:C.muted}));

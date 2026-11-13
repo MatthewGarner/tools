@@ -111,3 +111,24 @@ test('confess: 1 infeasible candidate ⇒ no pair attempt, terminal (I2)', () =>
   assert.equal(c.pair, null);
   assert.equal(c.feasible, false);
 });
+
+/* ---- FM-10: a range typed high-to-low is the same range ---- */
+test('confess reads a range typed high-to-low as the same range (FM-10)', () => {
+  const fwd = mk('a * b', {a: [-3, 5], b: [2, 8]}, {a: 'auto', b: 'auto'});
+  const rev = mk('a * b', {a: [5, -3], b: [2, 8]}, {a: 'auto', b: 'auto'});
+  const T = p50(fwd) + 30;
+  const f = confess(fwd, {seed: SEED, target: T}), r = confess(rev, {seed: SEED, target: T});
+  assert.equal(f.feasible, true);
+  assert.equal(r.feasible, true, 'reversed range solves too');
+  assert.equal(r.best.varName, f.best.varName);
+  assert.ok(Math.abs(r.best.s - f.best.s) < 1e-9);
+  assert.deepEqual(r.best.range, f.best.range);
+  const one = solveStretch(rev, {seed: SEED, target: T, varName: 'a'});
+  assert.equal(one.feasible, true);
+  assert.deepEqual(one.orig, [-3, 5]);
+});
+
+test('confess names how far it looked via CAP (FM-Q9)', async () => {
+  const {CAP} = await import('../solve.js');
+  assert.equal(CAP, 3);
+});

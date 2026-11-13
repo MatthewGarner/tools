@@ -20,7 +20,7 @@ test('slips: p50 moves in weeks, widened ranges counted separately', () => {
   assert.equal(v.slips.length, 1);
   assert.equal(v.slips[0].label, 'Energisation');
   assert.ok(v.slips[0].days > 25 && v.slips[0].days < 35);   // 15 Feb → 15 Mar
-  assert.match(v.sinceLine, /^Since June pack: 1 slipped \(worst Energisation \+4 wks\) · 1 range widened · 1 new · 1 dropped\.$/);
+  assert.match(v.sinceLine, /^Since June pack: 1 slipped \(worst Energisation \+4 weeks\) · 1 range widened · 1 new · 1 dropped\.$/);
   assert.ok(v.newKeys.size === 1 && v.dropped.length === 1);
 });
 
