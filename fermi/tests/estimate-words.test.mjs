@@ -24,15 +24,17 @@ test('FM-6: shares within 2 points of the top are a tie, named together', () => 
   assert.deepEqual(topDrivers(sens(['a', .40], ['b', .30])), ['a']);
   assert.deepEqual(topDrivers(sens(['a', .25], ['b', .24], ['c', .231])), ['a', 'b', 'c']);
   assert.deepEqual(topDrivers([]), []);
+  // one dominance rule (words.dominantDriver): a share above one half and not tied. A tie at the
+  // top is never "dominates", whatever the share, so the hint, the headline and the pour agree.
   const tied = leverHint(sens(['share_with_piano', .45], ['tunings_per_year', .44], ['x', .1]), '×4');
-  assert.match(tied, /share with piano and tunings per year/);
+  assert.match(tied, /^No single input dominates/);
   assert.doesNotMatch(tied, /Pin /);
-  const single = leverHint(sens(['households', .5], ['x', .1]), '×4');
+  const single = leverHint(sens(['households', .6], ['x', .1]), '×4');
   assert.match(single, /Pin households and the spread drops from ×4 to ×1\.5 — research it first\./);
   assert.match(leverHint(sens(['a', .2], ['b', .19]), '×4'), /^No single input dominates/);
-  assert.match(treeHeadline(sens(['a', .45], ['b', .44]), '×4'), /Research a and b first/);
-  assert.match(treeHeadline(sens(['a', .45], ['b', .1]), '×4'), /Research a first — pinning it cuts the spread from ×4 to ×1\.5\./);
-  assert.match(leverLine(sens(['a', .45], ['b', .44]), '×4'), /^Biggest levers: a and b/);
+  assert.match(treeHeadline(sens(['a', .45], ['b', .44]), '×4'), /^No single input dominates/);
+  assert.match(treeHeadline(sens(['a', .55], ['b', .1]), '×4'), /Research a first — pinning it cuts the spread from ×4 to ×1\.5\./);
+  assert.match(leverLine(sens(['a', .45], ['b', .44]), '×4'), /^No single input dominates — a and b are level at the top/);
   assert.match(leverLine(sens(['a', .45], ['b', .1]), '×4'), /^Biggest lever: a — knowing it exactly shrinks the spread from ×4 to ×1\.5\./);
 });
 

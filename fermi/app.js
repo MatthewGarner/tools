@@ -607,7 +607,7 @@ function lint(){
 
   /* sensitivity as value of information — pure, in ./engine.js (pinned runs at 8k) */
   const {sens, fullRatio, unmeasured} = computeSensitivity({ast, varNames, ranges, dists},
-    {seed: SEEDS[active], p10, p90});
+    {seed: SEEDS[active], p10, p90, exact});
 
   const bases = Object.fromEntries(varNames.map(name => [name, normalizeReceipt(varState.get(name)?.base)]).filter(([, base]) => base));
   const rangeTexts = varNames.map(name => ({name, lo: varState.get(name).lo, hi: varState.get(name).hi}));
@@ -1020,7 +1020,7 @@ function replay(){
     accent: (active === 'A') ? C.accent : C.accent2};
   const shareByName = Object.fromEntries(last.sens.map(s => [s.name, s.share]));
   const rows = trace.order.map(n => ({name: n, share: shareByName[n] || 0}));
-  const v = pourVerdict(trace, layout, {names: Object.fromEntries(last.varNames.map(n => [n, n]))});
+  const v = pourVerdict(trace, layout, {names: Object.fromEntries(last.varNames.map(n => [n, n])), sens: last.sens});
   pourVerdictText = v.text;
   $('pourverdict').textContent = v.text;
   pour.play(trace, layout, rows, colors, {reduced: reducedMotion(), dom: v.topName});

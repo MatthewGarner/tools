@@ -112,6 +112,7 @@ test('P(> T) is closed form when exact; T <= 0 is 1', () => {
   assert.equal(probAbove(s, -5), 1);
   assert.equal(probText(s, 400), '50%');
   assert.equal(probText(s, 1e6), '<0.1%');
+  assert.equal(probText(s, 0), '100%');          // certain: a positive answer is above any threshold of zero or less
   assert.equal(evenOdds(s, 400), true);
   assert.equal(evenOdds(s, 450), false);
 });
@@ -121,6 +122,7 @@ test('sampled models count the runs, and print whole percent', () => {
   assert.equal(s.exact, null);
   assert.equal(probAbove(s, s.sorted[1000]), (2000 - 1001) / 2000);
   assert.match(probText(s, s.p90), /^\d+%$/);
+  assert.equal(probText(s, -1e9), '>99%');       // all 2000 runs above: still not "100%"
   assert.equal(pctProb(0.004, 'whole'), '<1%');
   assert.equal(pctProb(0.0099, 'whole'), '<1%');
   assert.equal(pctProb(0.012, 'whole'), '1%');

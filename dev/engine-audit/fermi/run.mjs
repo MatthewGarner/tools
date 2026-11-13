@@ -46,10 +46,10 @@ function build(f, vars){
 }
 // what lint() computes, for a model at the page's own settings
 function pageRun(m, seed = 0x5EED, N = 20000){
-  const {sorted, raw} = simulateModel(m, {seed, n: N});
-  const p10 = quantile(sorted, .1), p50 = quantile(sorted, .5), p90 = quantile(sorted, .9);
-  const s = computeSensitivity(m, {seed, p10, p90});
-  return {sorted, raw, p10, p50, p90, ...s};
+  const sum = E.summariseEstimate(m, {seed, n: N});            // the page's one summary (exact where the answer is log-normal)
+  const {sorted, raw, p10, p50, p90, exact} = sum;
+  const s = computeSensitivity(m, {seed, p10, p90, exact});
+  return {sorted, raw, p10, p50, p90, exact, sum, ...s};
 }
 const evalStr = (f, env = {}) => evalNode(parse(tokenize(f)), env);
 
@@ -233,24 +233,23 @@ const CF_EX = {
 // 5. SENSITIVITY (value of information) vs closed form
 // =============================================================================================
 // For a product of independent lognormals: log-width of P10..P90 is 2*Z(.9)*S, S = hypot(sigmas). Pinning variable k at its
-// median removes sigma_k. The page's "share" = 1 - log(q90/q10)/log(p90/p10) = 1 - S_without_k / S.
+// median removes sigma_k. The page's "share" is the share of variance, sigma_k^2 / S^2 (= 1 - (S_without_k / S)^2).
 const sigmasOf = m => m.varNames.map(n => LN(m.ranges[n][0], m.ranges[n][1]).s);
 function exactShares(m){
   const sg = sigmasOf(m), S = Math.hypot(...sg);
-  return m.varNames.map((n, i) => ({name: n, share: 1 - Math.sqrt(Math.max(0, S * S - sg[i] * sg[i])) / S,
+  return m.varNames.map((n, i) => ({name: n, share: sg[i] * sg[i] / (S * S),
     pinnedRatio: Math.exp(2 * Z90q * Math.sqrt(S * S - sg[i] * sg[i]))}));
 }
 const exactRatio = m => Math.exp(2 * Z90q * Math.hypot(...sigmasOf(m)));
 {
-  // hand case: two equal lognormals. pinning one leaves sigma/sqrt2 -> share 1 - 1/sqrt2 = 0.2929
+  // hand case: two equal lognormals. pinning one leaves sigma/sqrt2 -> variance share 1/2 (FM-5: shares of variance)
   const m = build('a * b', {a: [10, 40], b: [10, 40]});
   const sh = []; for(let seed = 1; seed <= 20; seed++){ const r = pageRun(m, seed); sh.push(r.sens[0].share); }
-  check('SN1 two equal lognormals: share = 1-1/sqrt(2) = 0.2929 (mean of 20 seeds within 0.01)', Math.abs(mean(sh) - (1 - Math.SQRT1_2)) < 0.01, `mean ${mean(sh).toFixed(4)} sd ${sd(sh).toFixed(4)}`);
-  // four equal drivers: each share 0.134; the shares sum to 54 %, not 100 %
+  check('SN1 two equal lognormals: variance share = 1/2 (mean of 20 seeds within 0.01)', Math.abs(mean(sh) - 0.5) < 0.01, `mean ${mean(sh).toFixed(4)} sd ${sd(sh).toFixed(4)}`);
+  // four equal drivers: each share is 25 % and the shares sum to 100 % (exact model)
   const m4 = build('a*b*c*d', {a: [10, 40], b: [10, 40], c: [10, 40], d: [10, 40]});
   const r4 = pageRun(m4, 5); const tot = r4.sens.reduce((s, x) => s + x.share, 0);
-  // awaiting decision (tier 2b, FM-5: the sensitivity measure)
-  check('SN2 four equal drivers: the bars sum to 100 % of the spread (a reader taking "share" as a share of uncertainty expects 25 % each)', Math.abs(tot - 1) < 0.1, `each bar ~${(100 * r4.sens[0].share).toFixed(0)} %, sum ${(100 * tot).toFixed(0)} %; the variance share of each is 25 %`, {known: true});
+  check('SN2 four equal drivers: the bars sum to 100 % of the spread (a reader taking "share" as a share of uncertainty expects 25 % each)', Math.abs(tot - 1) < 1e-9, `each bar ~${(100 * r4.sens[0].share).toFixed(0)} %, sum ${(100 * tot).toFixed(0)} %; the variance share of each is 25 %`);
   // truthfulness of "pin X and the spread drops from A to B": check against closed-form pinned ratio over the examples
   for(const ex of EXAMPLES){
     const mm = exModel(ex), r = pageRun(mm), ex_ = exactShares(mm), full = exactRatio(mm);
@@ -279,8 +278,8 @@ const exactRatio = m => Math.exp(2 * Z90q * Math.hypot(...sigmasOf(m)));
   const r1 = mulberry32(9), g1 = gaussian(r1); const sa = samplerFor(10, 40, 'auto', r1, g1), sb = samplerFor(2, 8, 'auto', r1, g1);
   const a0 = sa(), b0 = sb();      // main run: a then b share one polar pair (a=u*f, b=spare)
   const r2 = mulberry32(9), g2 = gaussian(r2); samplerFor(10, 40, 'auto', r2, g2); const sb2 = samplerFor(2, 8, 'auto', r2, g2); const b0pin = sb2();
-  // awaiting decision (tier 2b, FM-5: common random numbers would change draws)
-  check('SN5 pinning a variable leaves the other variables drawing the SAME values as the main run (common random numbers)', b0 === b0pin, `first b draw: main run ${b0.toFixed(4)}, pinned-a run ${b0pin.toFixed(4)}; the pinned run is a different sample (8000 draws vs 20000), adding noise to every share`, {known: true});
+  // KEPT TAGGED: a sampled model keeps its pinned runs, seeds and counts by decision (the estimate stream is kept); an exact model runs no pinned simulation at all
+  check('SN5 pinning a variable leaves the other variables drawing the SAME values as the main run (common random numbers) [sampled models only; exact models run no pinned simulation. Reason: estimate stream kept]', b0 === b0pin, `first b draw: main run ${b0.toFixed(4)}, pinned-a run ${b0pin.toFixed(4)}; the pinned run is a different sample (8000 draws vs 20000), adding noise to every share`, {known: true});
 }
 
 // =============================================================================================
@@ -295,7 +294,8 @@ function fmtStep(v){
 }
 const stepSig2 = v => Math.pow(10, Math.floor(Math.log10(Math.abs(v))) - 1);   // sig(v,2)
 const SEEDS = Array.from({length: 40}, (_, i) => 1000 + 37 * i);
-const NOISE = {};   // filled; printed later
+const NOISE = {};   // filled; printed later (the page's own figures: closed form where exact, so 0 for a product)
+const NOISE_MC = {};   // plain sampled Monte Carlo at the same N, kept as the yardstick for the alternative sampling designs (NS5, NS5b)
 {
   console.log('   info: SAMPLING ERROR TABLE (estimate examples, N=20000, sensitivity np=8000, 40 seeds). sd = seed-to-seed sd; step = printed resolution; ratio = sd/step');
   for(const ex of EXAMPLES){
@@ -311,9 +311,15 @@ const NOISE = {};   // filled; printed later
     for(const seed of SEEDS){
       const r = pageRun(m, seed);
       rows.p10.push(r.p10); rows.p50.push(r.p50); rows.p90.push(r.p90); rows.spread.push(r.fullRatio);
+      for(const [k, q] of [['P10', .1], ['P50', .5], ['P90', .9]]) (rows['s' + k] ||= []).push(quantile(r.sorted, q));
+      (rows.sspread ||= []).push(quantile(r.sorted, .9) / quantile(r.sorted, .1));
       for(const s of r.sens){ shareBy[s.name].push(s.share); (labelBy[s.name] ||= []).push(parseFloat(s.label.slice(1))); }
     }
     NOISE[ex.name] = {};
+    NOISE_MC[ex.name] = {};
+    for(const [k, arr] of [['P10', rows.sP10], ['P50', rows.sP50], ['P90', rows.sP90], ['spread', rows.sspread]]){
+      const sdv = sd(arr), step = (k === 'spread' ? stepSig2 : fmtStep)(mean(arr)); NOISE_MC[ex.name][k] = {sd: sdv, step, ratio: sdv / step};
+    }
     const line = (name, arr, truth, stepFn, unit = '') => {
       const s = sd(arr), step = stepFn(mean(arr)), bias = mean(arr) - truth;
       NOISE[ex.name][name] = {sd: s, step, ratio: s / step};
@@ -328,12 +334,9 @@ const NOISE = {};   // filled; printed later
     const topName = exact.slice().sort((a, b) => b.share - a.share)[0].name, ep = exact.find(e => e.name === topName);
     line('pinned x', labelBy[topName], ep.pinnedRatio, stepSig2);
     const worstP = ['P10', 'P50', 'P90'].map(k => NOISE[ex.name][k].ratio), sensR = Object.entries(NOISE[ex.name]).filter(([k]) => k.startsWith('share:')).map(([, v]) => v.ratio);
-  // awaiting decision (tier 2a, FM-4: closed form or more precision)
-    check(`NS1 ${ex.name}: P10/P50/P90 seed noise is smaller than the printed step (sd/step: ${worstP.map(x => x.toFixed(2)).join(' / ')})`, Math.max(...worstP) < 0.5, 'printed to 3 s.f.', {known: Math.max(...worstP) >= 0.5});
-  // awaiting decision (tier 2a, FM-4)
-    check(`NS2 ${ex.name}: spread "×x.y" noise smaller than printed step (sd/step ${NOISE[ex.name].spread.ratio.toFixed(2)})`, NOISE[ex.name].spread.ratio < 0.5, '', {known: NOISE[ex.name].spread.ratio >= 0.5});
-  // awaiting decision (tier 2b, FM-5)
-    check(`NS3 ${ex.name}: sensitivity shares (printed as whole % on the tree) noise smaller than 1 point (max sd ${(100 * Math.max(...sensR.map(r => r * 0.01))).toFixed(2)} points)`, Math.max(...sensR) < 0.5, '', {known: Math.max(...sensR) >= 0.5});
+    check(`NS1 ${ex.name}: P10/P50/P90 seed noise is smaller than the printed step (sd/step: ${worstP.map(x => x.toFixed(2)).join(' / ')})`, Math.max(...worstP) < 0.5, 'printed to 3 s.f.');
+    check(`NS2 ${ex.name}: spread "×x.y" noise smaller than printed step (sd/step ${NOISE[ex.name].spread.ratio.toFixed(2)})`, NOISE[ex.name].spread.ratio < 0.5);
+    check(`NS3 ${ex.name}: sensitivity shares (printed as whole % on the tree) noise smaller than 1 point (max sd ${(100 * Math.max(...sensR.map(r => r * 0.01))).toFixed(2)} points)`, Math.max(...sensR) < 0.5);
     check(`NS4 ${ex.name}: mean of 40 seeds matches the closed form within 1 % for P50 (the sampler is unbiased)`, rel(mean(rows.p50), clos(.5)) < 0.01);
   }
 }
@@ -387,7 +390,7 @@ function haltonRun(m, seed, n, pin = null){   // randomly shifted Halton sequenc
       const pn = lhsRun(m, seed + 7, 8000, {name: topName, value: medPin});
       a.share.push(1 - Math.log(quantile(pn, .9) / quantile(pn, .1)) / Math.log(p90 / p10));
     }
-    const mc = NOISE[ex.name];
+    const mc = NOISE_MC[ex.name];
     const fmtRatio = (k, arr) => `${(sd(arr) / (mc[k].sd) * 100).toFixed(0)}%`;
     const exShare = exactShares(m).find(e => e.name === topName).share;
     console.log(`   info: ${ex.name.padEnd(20)} LHS sd as % of MC sd: P10 ${fmtRatio('P10', a.p10)}, P50 ${fmtRatio('P50', a.p50)}, P90 ${fmtRatio('P90', a.p90)}, spread ${fmtRatio('spread', a.spread)}; top share sd ${sd(a.share).toFixed(4)} (MC ${sd(a.share.map(x => x)).toFixed(4)} LHS-only; exact ${exShare.toFixed(4)}, mean LHS ${mean(a.share).toFixed(4)})`);
@@ -396,7 +399,7 @@ function haltonRun(m, seed, n, pin = null){   // randomly shifted Halton sequenc
   // randomly shifted Halton (quasi-Monte Carlo), same N
   const qm = [];
   for(const ex of EXAMPLES){
-    const m = exModel(ex), a = {p10: [], p50: [], p90: [], spread: []}, mc = NOISE[ex.name];
+    const m = exModel(ex), a = {p10: [], p50: [], p90: [], spread: []}, mc = NOISE_MC[ex.name];
     for(const seed of L){ const s = haltonRun(m, seed, 20000); const p10 = quantile(s, .1), p90 = quantile(s, .9); a.p10.push(p10); a.p50.push(quantile(s, .5)); a.p90.push(p90); a.spread.push(p90 / p10); }
     const row = {ex: ex.name, p10: sd(a.p10) / mc.P10.sd, p50: sd(a.p50) / mc.P50.sd, p90: sd(a.p90) / mc.P90.sd};
     qm.push(row);
@@ -424,13 +427,28 @@ function haltonRun(m, seed, n, pin = null){   // randomly shifted Halton sequenc
     console.log(`   info: piano P(>T) true ${label}: sd ${(100 * s).toFixed(3)} pts, printed step ${(100 * step).toFixed(1)} pts, mean ${(100 * mean(ps)).toFixed(2)} %`);
     if(s > step / 2) bad.push(`${label} sd ${(100 * s).toFixed(2)} vs step ${(100 * step).toFixed(1)}`);
   }
-  // awaiting decision (tier 2a, FM-20: P(>T) precision)
-  check('TH1 P(>T) shown to 0.1 point below 9.5 % and 1 point above: seed noise must be under half the printed step', bad.length === 0, bad.join('; '), {known: true});
-  // format boundary of the percentage string
-  const pctStr = p => p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
-  check('TH2 percentage formatter: 0.0949 -> 9.5%, 0.0951 -> 10%, 0.0005 -> <0.1%, 0.9995 -> >99.9%, 0.5 -> 50%', pctStr(0.0949) === '9.5%' && pctStr(0.0951) === '10%' && pctStr(0.0005) === '<0.1%' && pctStr(0.9995) === '>99.9%' && pctStr(.5) === '50%');
-  // awaiting decision (tier 2a, FM-20)
-  check('TH2b a probability of exactly 1 prints ">99.9%" (true value is 100 %)', pctStr(1) !== '>99.9%', pctStr(1), {known: true});
+  // FM-20: an exact model prints a closed-form P(>T) (no seed noise at all); a sampled one prints whole percent
+  // from 1% to 99% (a step of 1 point; the noise of a count of 20,000 runs is at most 0.35 points)
+  const exactTexts = new Set(SEEDS.map(seed => W.probText(pageRun(m, seed).sum, med * Math.exp(S * PhiInv(0.5)))));
+  check('TH1 P(>T) on an exact model (piano) prints the same closed-form figure for every seed', exactTexts.size === 1, [...exactTexts].join(' / '));
+  const ms = build('a + b', {a: [-10, 30], b: [5, 25, 'norm']}), badS = [];
+  { const sa = 40 / (2 * Z95), sb = 20 / (2 * Z95), mu = 25, S2 = Math.hypot(sa, sb);
+    for(const [pt, label] of cases){
+      const T = mu + S2 * PhiInv(1 - pt), ps = [];
+      for(const seed of SEEDS){ const {sorted} = simulateModel(ms, {seed, n: 20000}); let c = 0; for(const v of sorted) if(v > T) c++; ps.push(c / sorted.length); }
+      const stepS = 0.01, sdS = sd(ps);
+      console.log(`   info: sampled sum P(>T) true ${label}: sd ${(100 * sdS).toFixed(3)} pts, printed step ${(100 * stepS).toFixed(1)} pts`);
+      if(sdS > stepS / 2) badS.push(`${label} sd ${(100 * sdS).toFixed(2)} vs step ${(100 * stepS).toFixed(1)}`);
+    } }
+  check('TH1b P(>T) on a sampled model prints whole percent: seed noise under half the 1-point printed step', badS.length === 0, badS.join('; '));
+  // format boundary of the percentage string (the page's own printers)
+  const P = W.pctProb;
+  check('TH2 percentage formatter: 0.0949 -> 9.5%, 0.0951 -> 10%, 0.0005 -> <0.1%, 0.9995 -> >99.9%, 0.5 -> 50%', P(0.0949) === '9.5%' && P(0.0951) === '10%' && P(0.0005) === '<0.1%' && P(0.9995) === '>99.9%' && P(.5) === '50%');
+  check('TH2a the sampled printer: no tenths, "<1%" below 1 point and ">99%" above 99', P(0.0949, 'whole') === '9%' && P(0.004, 'whole') === '<1%' && P(0.995, 'whole') === '>99%' && P(0.5, 'whole') === '50%');
+  // RE-POINTED (was: pctStr(1) !== ">99.9%" on a local copy of the formatter). A certainty prints as 100% only where it is a certainty:
+  // an exact positive answer is above any threshold of zero or less. A count that reaches all 20,000 runs is still ">99%".
+  const sumExact = pageRun(m).sum, sumCount = pageRun(ms).sum;
+  check('TH2b a probability of exactly 1 prints "100%" (an exact answer above a threshold of zero); a counted 20,000 of 20,000 prints ">99%"', W.probText(sumExact, 0) === '100%' && W.probText(sumCount, -1e9) === '>99%', W.probText(sumExact, 0) + ' / ' + W.probText(sumCount, -1e9));
   // strictly-greater: a threshold equal to a constant output
   const mc = build('x', {x: [5, 5]}); const {sorted} = simulateModel(mc, {seed: 1, n: 100}); let c = 0; for(const v of sorted) if(v > 5) c++;
   check('TH3 P(>T) with T equal to the (constant) output is 0 % (strict >): consistent but no note that ties count against', c === 0);
@@ -450,7 +468,12 @@ function haltonRun(m, seed, n, pin = null){   // randomly shifted Halton sequenc
   check('H3 P10/P50/P90 markers fall inside the bin whose value edges contain them (linear and log axis)', ok);
   // marker positions vs the sample: fraction of runs below each marker
   const frac = q => r.sorted.filter(v => v <= q).length / r.sorted.length;
-  check('H4 the sample has 10 / 50 / 90 % of runs at or below the three markers (within 0.01 %)', Math.abs(frac(r.p10) - .1) < 1e-4 && Math.abs(frac(r.p50) - .5) < 1e-4 && Math.abs(frac(r.p90) - .9) < 1e-4);
+  // the piano example is exact, so its markers sit at the closed-form percentiles (the sample is within sampling error of them);
+  // a sampled formula's markers are the sample's own quantiles, to 0.01 %
+  const se = p => 4 * Math.sqrt(p * (1 - p) / r.sorted.length);
+  check('H4 exact markers: 10 / 50 / 90 % of runs at or below the three markers within four standard errors of the sample (the markers are the closed-form values, not sample quantiles)', !!r.exact && Math.abs(frac(r.p10) - .1) < se(.1) && Math.abs(frac(r.p50) - .5) < se(.5) && Math.abs(frac(r.p90) - .9) < se(.9), [frac(r.p10), frac(r.p50), frac(r.p90)].map(x => (100 * x).toFixed(2)).join(' / '));
+  { const rs = pageRun(build('a + b', {a: [-10, 30], b: [5, 25]})), fs = q => rs.sorted.filter(v => v <= q).length / rs.sorted.length;
+    check('H4b sampled markers: the sample has 10 / 50 / 90 % of runs at or below the three markers (within 0.01 %)', !rs.exact && Math.abs(fs(rs.p10) - .1) < 1e-4 && Math.abs(fs(rs.p50) - .5) < 1e-4 && Math.abs(fs(rs.p90) - .9) < 1e-4); }
   // the bar tint for "above threshold" uses the arithmetic midpoint of a bin even on a log axis
   const b = L.bins[20]; const arith = (b.v0 + b.v1) / 2, geo = Math.sqrt(b.v0 * b.v1);
   console.log(`   info: log axis bin 20: arithmetic midpoint ${arith.toFixed(2)} vs geometric ${geo.toFixed(2)}; click-to-set threshold uses the arithmetic one`);
@@ -491,11 +514,11 @@ const pageText = r => {          // renderResults(): the spread line, the hint a
 // ---------- 11. "What would have to be true" solver ----------------------------------------------
 {
   const m = build('a * b', {a: [10, 40], b: [2, 8]});
-  const seed = 0x5EED, base = quantile(simulateModel(m, {seed, n: 8000}).sorted, .5);
+  const seed = 0x5EED, base = Math.exp(E.exactLogNormal(m).mu);        // the exact median: the solver uses it too
   const T = base * 2;
   const c = confess(m, {seed, target: T});
   const best = c.best;
-  const re = r => quantile(simulateModel({...m, ranges: {...m.ranges, [best.varName]: r}}, {seed, n: 8000}).sorted, .5);
+  const re = r => Math.exp(E.exactLogNormal({...m, ranges: {...m.ranges, [best.varName]: r}}).mu);
   check('SO1 solution plugs back in: a*b, T = 2 x P50. P50 with the returned range equals T within 0.01 %', rel(re(best.range), T) < 1e-4, `achieved ${re(best.range).toFixed(3)} target ${T.toFixed(3)}`);
   // closed form: multiplicative stretch of a by k gives P50 x k; ties between a and b (equal log-widths): which is chosen?
   check('SO1b a and b have the same log-width (4x), so a x2 stretch costs the same on either; both appear (best + alternate)', c.feasible && Math.abs(c.best.normCost - c.alternates[0].normCost) < 1e-3, `${c.best.varName} cost ${c.best.normCost.toFixed(4)}; alt ${c.alternates[0].varName} ${c.alternates[0].normCost.toFixed(4)}`);
@@ -503,17 +526,17 @@ const pageText = r => {          // renderResults(): the spread line, the hint a
   // Adopt writes the range through asciiNum (3 s.f.): re-simulate the ADOPTED values
   let worst = 0, worstCase = '';
   for(const [f, vars, mult] of [['a*b', {a: [10, 40], b: [2, 8]}, 1.37], ['a*b*c', {a: [3, 9], b: [1.5, 6], c: [20, 70]}, 1.9], ['a/b', {a: [100, 400], b: [3, 7]}, 1.23], ['a*b', {a: [10, 40], b: [2, 8]}, 0.61]]){
-    const mm = build(f, vars), bs = quantile(simulateModel(mm, {seed, n: 8000}).sorted, .5), TT = bs * mult;
+    const mm = build(f, vars), bs = Math.exp(E.exactLogNormal(mm).mu), TT = bs * mult;
     const cc = confess(mm, {seed, target: TT}); if(!cc.best) continue;
     const ad = [parseNum(asciiNum(cc.best.range[0])), parseNum(asciiNum(cc.best.range[1]))];
-    const p = quantile(simulateModel({...mm, ranges: {...mm.ranges, [cc.best.varName]: ad}}, {seed, n: 8000}).sorted, .5);
+    const p = Math.exp(E.exactLogNormal({...mm, ranges: {...mm.ranges, [cc.best.varName]: ad}}).mu);
     if(rel(p, TT) > worst){ worst = rel(p, TT); worstCase = `${f} T=${fmt(TT)} adopts ${asciiNum(cc.best.range[0])}..${asciiNum(cc.best.range[1])} -> P50 ${fmt(p)}`; }
   }
-  check('SO2 after Adopt (ranges rounded to 3 s.f. by asciiNum) the new P50 still equals the wished-for T within 0.3 %', worst < 0.003, `worst ${(100 * worst).toFixed(2)} % :: ${worstCase}`, {known: worst >= 0.003});
+  check('SO2 after Adopt (ranges rounded to 3 s.f. by asciiNum) the new P50 still equals the wished-for T within 0.3 %', worst < 0.003, `worst ${(100 * worst).toFixed(2)} % :: ${worstCase}`);
   // the "already at even odds" shortcut: |T - P50| / |P50| < 2 %
   const av = exModel(EXAMPLES[3]), r = pageRun(av, seed);
   const Tn = r.p50 * 1.019; let c2 = 0; for(const v of r.sorted) if(v > Tn) c2++;
-  check('SO3 "You’re already at even odds for T" is said from P(>T) within 2 points of 50 %, never from T near P50: availability example, T = P50 x 1.019 has P(>T) of ' + (100 * c2 / r.sorted.length).toFixed(0) + ' % and is not even odds (FM-7)', W.evenOdds(r.sorted, Tn) === false && W.evenOdds(r.sorted, r.p50) === true, `P(>T) = ${(100 * c2 / r.sorted.length).toFixed(1)} %`);
+  check('SO3 "You’re already at even odds for T" is said from P(>T) within 2 points of 50 %, never from T near P50: availability example, T = P50 x 1.019 has P(>T) of ' + (100 * c2 / r.sorted.length).toFixed(0) + ' % and is not even odds (FM-7)', W.evenOdds(r.sum, Tn) === false && W.evenOdds(r.sum, r.p50) === true, `P(>T) = ${(100 * c2 / r.sorted.length).toFixed(1)} %`);
   // monotonicity assumption: interior maximum
   const mi = build('x * (10 - x)', {x: [4, 9]});
   const bi = quantile(simulateModel(mi, {seed, n: 8000}).sorted, .5);
@@ -545,13 +568,12 @@ const pageText = r => {          // renderResults(): the spread line, the hint a
     const m = exModel(ex), r = pageRun(m);
     const trace = traceDraws(m, {seed: 0x5EED, g: 500, order: r.sens.map(s => s.name)});
     const layout = histLayout(r.sorted, {width: 600});
-    const v = pourVerdict(trace, layout, {names: Object.fromEntries(m.varNames.map(n => [n, n]))});
-    const hintSaysDominant = r.sens[0].share > 0.35, pourSaysDominant = !!v.topName;
+    const v = pourVerdict(trace, layout, {names: Object.fromEntries(m.varNames.map(n => [n, n])), sens: r.sens});
+    const hintSaysDominant = !/^No single input dominates/.test(W.leverHint(r.sens, 'x')), pourSaysDominant = !!v.topName;
     console.log(`   info: ${ex.name}: hint ${hintSaysDominant ? 'names ' + r.sens[0].name : 'no single input dominates'} (top share ${(100 * r.sens[0].share).toFixed(0)} %); pour verdict: "${v.text}"`);
     if(hintSaysDominant !== pourSaysDominant || (pourSaysDominant && v.topName !== r.sens[0].name)) mism.push(ex.name);
   }
-  // awaiting decision (tier 2b, FM-8: one measure for "dominates")
-  check('WD1 the sensitivity hint (share > 0.35) and the pour verdict (variance gain gap > 0.15) agree on whether one input dominates, and on which', mism.length === 0, mism.join(', '), {known: mism.length > 0});
+  check('WD1 the sensitivity hint and the pour verdict (one rule: share above one half, not tied) agree on whether one input dominates, and on which', mism.length === 0, mism.join(', '));
   // driver tree: variable used twice shows its share twice
   const mt = build('x * x * y', {x: [10, 40], y: [2, 8]}), rt = pageRun(mt);
   const colors = {card: '#fff', border: '#ccc', ink: '#000', muted: '#666', accent: '#06f', err: '#f00'};
@@ -896,8 +918,7 @@ const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, n: 10000, 
     }
   }
   console.log('   info: figures where the page\'s printed value differs from the exact value: ' + lines.join(' | '));
-  // awaiting decision (tier 2a, FM-4)
-  check('EX5 on the five built-in examples, every printed P10/P50/P90 (page seed 0x5EED, 20,000 runs) equals the exact (closed-form) value printed the same way', wrong === 0, `${wrong} of ${total} printed figures differ in the printed digits`, {known: wrong > 0});
+  check('EX5 on the five built-in examples, every printed P10/P50/P90 (page seed 0x5EED, 20,000 runs) equals the exact (closed-form) value printed the same way', wrong === 0, `${wrong} of ${total} printed figures differ in the printed digits`);
   // claims on the examples
   const av = pageRun(exModel(EXAMPLES[3]));
   // kept by ruling (FM-Q1: a stated distribution choice)
@@ -913,8 +934,11 @@ const cfRun = (spec, o = {}) => simulateCashflow(spec, {seed: 0xCA5F, n: 10000, 
 {
   // a point range consumes no random numbers, so a hairline-wide range changes every other draw (RNG stream shifts)
   const a = pageRun(build('a * b', {a: [10, 40], b: ['4', '4']})), b = pageRun(build('a * b', {a: [10, 40], b: ['4', '4.0000001']}));
-  // awaiting decision (tier 2c, FM-27: a point range consuming its draw)
-  check('CT1 continuity: widening one input from the point 4 to 4..4.0000001 (a change of one part in forty million) leaves P10/P50/P90 unchanged to 0.1 % (they move by sampling noise because the new range consumes draws)', Math.max(rel(a.p10, b.p10), rel(a.p50, b.p50), rel(a.p90, b.p90)) < 0.001, `P50 ${fmt(a.p50)} -> ${fmt(b.p50)} (${(100 * rel(a.p50, b.p50)).toFixed(2)} %), P90 ${fmt(a.p90)} -> ${fmt(b.p90)} (${(100 * rel(a.p90, b.p90)).toFixed(2)} %)`, {known: true});
+  // exact formula: the closed form has no stream to shift
+  check('CT1 continuity: widening one input from the point 4 to 4..4.0000001 leaves P10/P50/P90 unchanged to 0.1 % (exact formula: closed form, no draw stream)', Math.max(rel(a.p10, b.p10), rel(a.p50, b.p50), rel(a.p90, b.p90)) < 0.001, `P50 ${fmt(a.p50)} -> ${fmt(b.p50)} (${(100 * rel(a.p50, b.p50)).toFixed(4)} %), P90 ${fmt(a.p90)} -> ${fmt(b.p90)}`);
+  // sampled formula: KEPT TAGGED, the estimate stream is kept (a point range consumes no draw)
+  const sa = pageRun(build('a + b', {a: [10, 40], b: ['4', '4']})), sb2 = pageRun(build('a + b', {a: [10, 40], b: ['4', '4.0000001']}));
+  check('CT1s continuity (sampled formula a + b): widening b from the point 4 to 4..4.0000001 leaves P10/P50/P90 unchanged to 0.1 % [reason: estimate stream kept: a point range consumes no draw, so the new range shifts every other draw]', Math.max(rel(sa.p10, sb2.p10), rel(sa.p50, sb2.p50), rel(sa.p90, sb2.p90)) < 0.001, `P50 ${fmt(sa.p50)} -> ${fmt(sb2.p50)} (${(100 * rel(sa.p50, sb2.p50)).toFixed(2)} %), P90 ${fmt(sa.p90)} -> ${fmt(sb2.p90)}`, {known: true});
   const sp = CF_EX.invest, x = cfRun({...sp, rate: R(10, 10)}), y = cfRun({...sp, rate: R(10, 10.0001)});
   // awaiting decision (tier 2c, FM-27)
   check('CT2 continuity (cash flow): discount rate 10..10 versus 10..10.0001 leaves NPV P50 unchanged to 0.1 % (the rate draws one gaussian per run only when its width is non-zero, shifting every cash-flow draw)', rel(x.npv.p50, y.npv.p50) < 0.001, `${fmt(x.npv.p50)} -> ${fmt(y.npv.p50)} (${(100 * rel(x.npv.p50, y.npv.p50)).toFixed(2)} %)`, {known: true});

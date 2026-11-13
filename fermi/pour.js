@@ -2,35 +2,22 @@
    verdict. The pour pours the traceDraws grains from the all-medians spout through the
    ranked-driver rows into the existing histogram ("the pile IS the histogram"), then
    leaves a quotable verdict. Canvas + a DOM verdict — no SVG (not a render*.js file). */
+import {dominantDriver} from './words.js';
 
-/* Which ranked row widens the pile most — measured as the VARIANCE the pour gains as it
-   crosses each row, in the histogram's axis space (tx). Variance telescopes ADDITIVELY
-   (Σ of the per-row deltas === the total variance), so equal contributors read as equal
-   deltas. IQR-widening does NOT: its √-concave growth always over-credits the first
-   sens-sorted row, so a symmetric a*b model would falsely name a "dominant" driver (and
-   the default piano example contradicted its own sens hint on screen). Measured over
-   exactly the grains the pour draws — same off-axis / ≤0-under-log drop as mountPour — so
-   the words match what's on screen. "Flat" is top-vs-RUNNER-UP (deltas telescope, so
-   top-vs-total can't fire for ≤3 rows). One driver ⇒ it owns all the spread (never "shared"). */
-export function pourVerdict(trace, layout, {names}){
+/* The verdict under the pour. It says what the driver bars say, by the same rule (words.js
+   dominantDriver: a share above one half, not tied): "Most of the spread is born at X" for that
+   input, otherwise that no single input dominates. One driver owns all the spread (never
+   "shared"). Says nothing when there are no grains to pour. */
+export function pourVerdict(trace, layout, {names, sens}){
   const {order} = trace;
-  const tx = (layout && layout.tx) || (x => x);
-  const keep = trace.draws.filter(d =>
-    (!layout || (d.y >= layout.lo && d.y <= layout.hi)) &&
-    !(layout && layout.useLog && d.steps.some(x => x <= 0)));
-  if(!keep.length || !order.length) return {text: '', topName: null};
-  const vari = xs => { const m = xs.reduce((a, b) => a + b, 0) / xs.length;
-    return xs.reduce((a, b) => a + (b - m) * (b - m), 0) / xs.length; };
-  const cum = order.map((n, i) => vari(keep.map(d => tx(d.steps[i]))));   // variance after each row
-  const widen = order.map((n, i) => ({n, w: cum[i] - (i === 0 ? 0 : cum[i - 1])}));  // spout col ≡ base ⇒ var 0
-  const total = cum[cum.length - 1] || 1;
+  if(!trace.draws.length || !order.length) return {text: '', topName: null};
   const nm = n => (names[n] || n).replace(/_/g, ' ');
-  const [t1, t2] = widen.slice().sort((a, b) => b.w - a.w);
-  if(order.length === 1)                               // one driver ⇒ all of it (never "shared")
-    return {text: 'All of the spread is born at ' + nm(t1.n) + '.', topName: t1.n};
-  if(!t2 || (t1.w - t2.w) / total < 0.15)
+  if(order.length === 1)
+    return {text: 'All of the spread is born at ' + nm(order[0]) + '.', topName: order[0]};
+  const dom = dominantDriver(sens);
+  if(dom === null)
     return {text: 'No single input dominates — the spread is shared across the drivers.', topName: null};
-  return {text: 'Most of the spread is born at ' + nm(t1.n) + ' — the pile widens most as it crosses that row.', topName: t1.n};
+  return {text: 'Most of the spread is born at ' + nm(dom) + ' — the pile widens most as it crosses that row.', topName: dom};
 }
 
 /* Per-row incremental kick, read off the grains the pour actually draws (xs = [spout, afterRow0,

@@ -18,8 +18,12 @@ export function pctProb(p, precision = 'tenths'){
   if(p > 0.999) return '>99.9%';
   return (p * 100).toFixed(p < 0.095 || p > 0.905 ? 1 : 0) + '%';
 }
-/* P(answer > T) as printed for an estimate summary (exact: tenths; counted: whole percent) */
-export const probText = (summary, t) => pctProb(probAbove(summary, t), summary.exact ? 'tenths' : 'whole');
+/* P(answer > T) as printed for an estimate summary. Exact: tenths in the tails, and "100%" where
+   it is a certainty (a positive answer is above any threshold of zero or less). Counted: whole
+   percent, so a count of 20,000 of 20,000 is ">99%", never "100%". */
+export const probText = (summary, t) => summary.exact
+  ? (t > 0 ? pctProb(probAbove(summary, t)) : '100%')
+  : pctProb(probAbove(summary, t), 'whole');
 /* IRR, wherever it appears: one decimal place */
 export const pctOne = v => v == null ? '—' : (v < 0 ? '−' : '') + (Math.abs(v) * 100).toFixed(1) + '%';
 
@@ -66,28 +70,31 @@ export function joinNames(names){
   const l = names.map(nm);
   return l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1];
 }
-const NO_ONE = 'No single input dominates — pinning any one variable barely moves the spread. Tighten the top two together.';
+/* ONE dominance rule, for the hint, the tree headline, the Markdown and the pour verdict: an
+   input dominates when its share is above one half and it is not tied at the top. */
+export const DOMINANT = 0.5;
+export function dominantDriver(sens){
+  if(!sens.length) return null;
+  return sens[0].share > DOMINANT && topDrivers(sens).length === 1 ? sens[0].name : null;
+}
+const NO_ONE = 'No single input dominates — the spread comes from several at once. Tighten the top two together.';
 export function leverHint(sens, fullLabel){
-  const top = sens[0], names = topDrivers(sens);
-  if(top.share <= 0.35) return NO_ONE;
-  const lead = 'Each bar: how much of the spread disappears if you learn that number exactly. ';
-  return names.length > 1
-    ? lead + joinNames(names) + ' are level at the top — research them first.'
-    : lead + 'Pin ' + nm(top.name) + ' and the spread drops from ' + fullLabel + ' to ' + top.label + ' — research it first.';
+  const dom = dominantDriver(sens);
+  if(dom === null) return NO_ONE;
+  const lead = 'Each bar: that input’s share of the spread; the figure after the arrow is what is left if you learn it exactly. ';
+  return lead + 'Pin ' + nm(dom) + ' and the spread drops from ' + fullLabel + ' to ' + sens[0].label + ' — research it first.';
 }
 export function treeHeadline(sens, fullLabel){
   if(!sens.length) return 'Give the inputs ranges to see what drives the spread.';
-  const top = sens[0], names = topDrivers(sens);
-  if(top.share <= 0.35) return 'No single input dominates — the spread is shared across the drivers.';
-  return names.length > 1
-    ? 'Research ' + joinNames(names) + ' first — they are level as the biggest drivers.'
-    : 'Research ' + nm(top.name) + ' first — pinning it cuts the spread from ' + fullLabel + ' to ' + top.label + '.';
+  const dom = dominantDriver(sens);
+  if(dom === null) return 'No single input dominates — the spread is shared across the drivers.';
+  return 'Research ' + nm(dom) + ' first — pinning it cuts the spread from ' + fullLabel + ' to ' + sens[0].label + '.';
 }
 export function leverLine(sens, fullLabel){
   const top = sens[0], names = topDrivers(sens);
-  return names.length > 1
-    ? 'Biggest levers: ' + joinNames(names) + ' are level — knowing any one of them exactly shrinks the spread the most.'
-    : 'Biggest lever: ' + nm(top.name) + ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.';
+  if(dominantDriver(sens) === null && names.length > 1)
+    return 'No single input dominates — ' + joinNames(names) + ' are level at the top; knowing any one of them exactly shrinks the spread the most.';
+  return 'Biggest lever: ' + nm(top.name) + ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.';
 }
 
 /* ---------- statements about the answer ---------- */

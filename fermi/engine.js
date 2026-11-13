@@ -420,10 +420,26 @@ export function probExceeds(B, A){
   return c / n;
 }
 
-/* Sensitivity as value of information (moved verbatim from the inline lint()):
-   pin each variable at its median, remeasure the spread — "what would knowing
-   this exactly buy you?" Same call order and seeds as the app has always used. */
-export function computeSensitivity(model, {seed, np = SENS_N, p10, p90}){
+/* Driver shares, as shares of variance (audit FM-5, FM-8).
+   Exact models: share_k = (e_k·sigma_k)² / sigma², which add to 100%; the label is the spread
+   left if that input were known, exp(2·Z80·sqrt(sigma² − (e_k·sigma_k)²)). No pinned run is made.
+   Sampled models: pin each variable at its median and remeasure the width — "what would knowing
+   this exactly buy you?" — same seeds and counts as the app has always used. Variance goes as
+   the width squared, so share = 1 − (W_pinned / W_full)², W the log-width where the answer is
+   positive and the linear width where it is not; clamped to [0, 1]. `exact` is the summary's
+   closed form; left out, it is worked out here from the model (pass null to force sampling). */
+export function computeSensitivity(model, {seed, np = SENS_N, p10, p90, exact}){
+  if(exact === undefined) exact = exactLogNormal(model);
+  if(exact){
+    const total = exact.sigma ** 2;
+    const sens = exact.terms.map(t => {
+      const own = (t.e * t.sigma) ** 2;
+      return {name: t.name, share: Math.max(0, Math.min(1, own / total)),
+        label: '×' + ratioStr(Math.exp(2 * Z80 * Math.sqrt(Math.max(0, total - own))))};
+    });
+    sens.sort((a, b) => b.share - a.share);
+    return {sens, fullRatio: Math.exp(2 * Z80 * exact.sigma), unmeasured: []};
+  }
   const {varNames, ranges, dists} = model;
   const posSpread = p10 > 0;
   const fullRatio = posSpread ? p90 / p10 : NaN;
@@ -438,10 +454,10 @@ export function computeSensitivity(model, {seed, np = SENS_N, p10, p90}){
     const q10 = quantile(pinned, .10), q90 = quantile(pinned, .90);
     let share, label;
     if(posSpread && q10 > 0 && fullRatio > 1.0001){
-      share = 1 - Math.log(Math.max(q90 / q10, 1.0001)) / Math.log(fullRatio);
+      share = 1 - (Math.log(Math.max(q90 / q10, 1.0001)) / Math.log(fullRatio)) ** 2;
       label = '×' + ratioStr(q90 / q10);
     } else {
-      share = fullRange > 0 ? 1 - (q90 - q10) / fullRange : 0;
+      share = fullRange > 0 ? 1 - ((q90 - q10) / fullRange) ** 2 : 0;
       label = fmt(q10) + ' – ' + fmt(q90);
     }
     sens.push({name, share: Math.max(0, Math.min(1, share)), label});
