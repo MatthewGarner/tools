@@ -457,6 +457,20 @@ export async function keyboard(env, tool){
     note('keyboard.editortab', w, 'Tab pressed in the source editor', {...trap, sourceChanged: changed});
     if(changed) await page.keyboard.press('ControlOrMeta+z');
   }
+  /* FB-18: the editor is not a keyboard trap. Opening the rail first when the page landed reading. */
+  {
+    if(collapsed){ await page.locator('#railtab').click(); await sleep(400); }
+    await page.locator('.cm-content').click(); await sleep(100);
+    const desc = await page.locator('.cm-content').getAttribute('aria-description');
+    await page.keyboard.press('Tab'); await sleep(60);
+    const afterTab = await page.evaluate(() => !!document.activeElement.closest('.cm-editor'));
+    await page.keyboard.press('Escape'); await page.keyboard.press('Tab'); await sleep(150);
+    const out = await page.evaluate(() => ({inEditor: !!document.activeElement.closest('.cm-editor'), where: window.__feel.describe(document.activeElement)}));
+    check('keyboard.editorescape', w, 'Tab indents inside the editor; Escape then Tab leaves it', {afterTab, ...out}, afterTab && !out.inEditor, 'trapped by Tab alone, free after Escape');
+    check('keyboard.editordesc', w, 'the editor says how to leave it (accessible description)', desc, !!desc && /Escape/.test(desc) && /Tab/.test(desc), 'names Escape then Tab');
+    if((await sourceText(page)) !== before) await page.keyboard.press('ControlOrMeta+z');
+    if(collapsed){ await page.locator('#railtab').click(); await sleep(400); }   // the walk below starts from the page as it landed
+  }
   /* then walk the stage from the control that follows the editor toggle */
   await page.locator('#railtab').focus();
   const stops = [];
@@ -465,7 +479,9 @@ export async function keyboard(env, tool){
     stops.push(await page.evaluate(() => {
       const el = document.activeElement; if(!el || el === document.body) return {body: true};
       const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
-      const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow && cs.boxShadow !== 'none');
+      /* an SVG group draws its focus ring as a 3px accent stroke on its own shape (style.css [data-select-decision]:focus-visible > rect); a resting card border is 1-2px */
+      const strokeRing = el instanceof SVGGElement && [...el.children].some(c => { const k = getComputedStyle(c); return k.stroke !== 'none' && parseFloat(k.strokeWidth) >= 3; });
+      const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow && cs.boxShadow !== 'none') || strokeRing;
       const inView = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
       return {d: window.__feel.describe(el), ring, w: Math.round(r.width), h: Math.round(r.height), inView, inPreview: !!el.closest('#preview'), past: !!el.closest('.mg-footer, .about')};
     }));

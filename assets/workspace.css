@@ -91,6 +91,8 @@
   letter-spacing:.02em;opacity:1;
 }
 .workspace[data-workspace-view='reading'] .railtab::before{left:0}
+/* the arrival and collapsed states restyle the tab at higher specificity than .railtab:hover, which left it silent under the pointer */
+.workspace[data-workspace-view='reading'] .railtab:hover,.workspace.collapsed .railtab:hover,.workspace.focus-artefact .railtab:hover{background:var(--track);opacity:1}
 .workspace[data-workspace-view='reading'] .railtab::after{content:''}
 .workspace[data-workspace-view='reading'] .stage{padding-top:62px}
 .stage{

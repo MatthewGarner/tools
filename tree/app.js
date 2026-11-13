@@ -16,7 +16,7 @@ import {rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
-import {mountMotion} from "../assets/motion.js";
+import {mountMotion, scrollPageTo} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
@@ -299,6 +299,16 @@ function engageSlider(ref){
   updatePriced(ext, cur, {settle: true});
   reapplyActiveMark();
   exploreRange.focus({preventScroll: true});
+  keepNumberClear();
+}
+/* the bar is pinned over the bottom of the viewport: a number that would sit under it scrolls up by just enough to stay
+   in sight (over the base duration, a jump under reduced motion). Nothing else moves the page: opening and closing do not. */
+function keepNumberClear(){
+  const t = focusedTarget();
+  if(!t) return;
+  const r = t.getBoundingClientRect(), bar = exploreBar.getBoundingClientRect();
+  const need = r.bottom + 16 - bar.top;
+  if(need > 0) scrollPageTo(scrollY + Math.min(need, Math.max(0, r.top - 8)));
 }
 function dismissFocus(){
   if(!focus) return;

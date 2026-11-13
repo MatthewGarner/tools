@@ -40,11 +40,14 @@ export async function select(env, kind, {source, label = 'example'} = {}){
     const s = await measure(page, () => press(page, p, phone), {quiet: 400});
     const swap = await ttr;
     const st = await state(page);
-    res.push({view, paint: paintOf(s), swap, settled: s.settled, swaps: s.svgSwaps, longTaskMax: s.longTaskMax, heightJumps: s.heightJumps, scroll: s.scrollJumps, cls: s.clsNoInput, anims: s.animations, scrolledBy: st.scrollY - y0, ...st});
+    await sleep(350);   // the reveal scroll runs over the base duration with no DOM mutation to wait on
+    const st2 = await state(page);
+    res.push({view, paint: paintOf(s), swap, settled: s.settled, swaps: s.svgSwaps, longTaskMax: s.longTaskMax, heightJumps: s.heightJumps, scroll: s.scrollJumps, cls: s.clsNoInput, anims: s.animations, y0, scrolledBy: st2.scrollY - y0, ...st2});
     if(env.mode === 'normal') await shot(page, `${env.out}/shots/paths-${kind}-select-${view}.png`);
     /* close: Escape */
     if(env.mode === 'normal' && (st.receipt?.sheet || view === 'tree' || st.receipt?.layout === 'overlay')){
       const e = await measure(page, () => page.keyboard.press('Escape'), {quiet: 400});
+      await sleep(350);
       const after = await state(page);
       res.at(-1).escape = {paint: paintOf(e), swaps: e.svgSwaps, scroll: e.scrollJumps, active: after.active, receipt: !!after.receipt?.sheet, inspector: !!after.inspector, scrollY: after.scrollY};
     }
@@ -54,9 +57,13 @@ export async function select(env, kind, {source, label = 'example'} = {}){
   check(`select.${label}.paint`, w, 'select a question -> next paint (worst view)', ok.map(r => r.view + ':' + r.paint).join(' '), ok.every(r => r.paint <= BAR.paint[env.mode]), '<= ' + BAR.paint[env.mode] + 'ms');
   check(`select.${label}.renders`, w, 'artefact renders per selection', ok.map(r => r.view + ':' + r.swaps).join(' '), ok.every(r => r.swaps <= 1), '<= 1');
   check(`select.${label}.longtask`, w, 'longest task in a selection', ok.map(r => r.view + ':' + r.longTaskMax).join(' '), ok.every(r => r.longTaskMax <= (env.mode === 'normal' ? 50 : 150)), env.mode === 'normal' ? '<= 50ms' : '<= 150ms');
-  check(`select.${label}.scroll`, w, 'page scroll moved by selecting', ok.map(r => r.view + ':' + r.scrolledBy).join(' '), ok.every(r => Math.abs(r.scrolledBy) <= 1 || (phone && r.receipt?.sheet)), 'no scroll jump (a phone sheet may hold the page)');
+  /* a scroll is allowed only as the reveal of a detail that was off screen: it ends with that detail's head on screen */
+  const headOn = r => { const d = r.receipt || r.inspector; return !!d && d.top >= 0 && d.top <= (phone ? 812 : 800) * 0.5; };
+  check(`select.${label}.scroll`, w, 'page scroll moved by selecting', ok.map(r => r.view + ':' + r.scrolledBy).join(' '), ok.every(r => Math.abs(r.scrolledBy) <= 1 || (phone && r.receipt?.sheet) || headOn(r)), 'no scroll jump (a phone sheet may hold the page; a detail that was off screen is scrolled to)');
   check(`select.${label}.cls`, w, 'layout shift caused by selecting (no-input shifts)', ok.map(r => r.view + ':' + r.cls).join(' '), ok.every(r => r.cls <= 0.05), '<= 0.05');
   check(`select.${label}.detail`, w, 'the selected question\'s detail is visible after selecting', ok.map(r => r.view + ':' + (r.receipt ? 'receipt ' + r.receipt.layout + (r.receipt.inView ? '' : ' OFF-SCREEN') : r.inspector ? 'inspector' + (r.inspector.inView ? '' : ' OFF-SCREEN') : 'in-artefact')).join(' '), ok.every(r => (r.receipt ? r.receipt.inView : true) && (r.inspector ? r.inspector.inView : true)), 'receipt / inspector on screen');
+  const escTree = ok.filter(r => r.escape && r.view === 'tree');
+  if(env.mode === 'normal') check(`select.${label}.escape.scroll`, w, 'Escape returns the page to where it was before the selection scrolled to its detail', escTree.map(r => r.view + ':' + JSON.stringify({before: r.y0, after: r.escape.scrollY})).join(' '), escTree.every(r => Math.abs(r.escape.scrollY - r.y0) <= 2), 'back at the starting scroll position');
   if(env.mode === 'normal'){
     check(`select.${label}.focus`, w, 'focus after selecting (pointer)', ok.map(r => r.view + ':' + r.active).join(' '), ok.every(r => !/^body\b/.test(r.active)), 'not lost to body');
     if(phone) check(`select.${label}.sheet`, w, 'phone selection opens the decision sheet, focused, page held', ok.filter(r => r.view !== 'tree').map(r => r.view + ':' + JSON.stringify({sheet: r.receipt?.sheet, full: r.receipt?.fullyInView, active: r.active, lock: r.bodyLocked})).join(' '), ok.filter(r => r.view !== 'tree').every(r => r.receipt?.sheet && r.receipt.inView && /overview-receipt|receipt/.test(r.active)), 'sheet open, on screen, focus inside');
@@ -74,7 +81,8 @@ export async function sheet(env){
   const p = await pointOn(page, '#preview [data-select-decision]', {nth: 0, resolve: '[data-select-decision],[data-toggle-decision-group]'});
   await sleep(300);
   const y0 = await page.evaluate(() => scrollY);
-  await press(page, p, true); await sleep(300); await waitQuiet(page, {quiet: 400});
+  const o = await measure(page, () => press(page, p, true), {quiet: 400});
+  await sleep(300);
   const st = await state(page);
   const close = page.locator('#overview-receipt [data-receipt-close]');
   const closeBox = await close.boundingBox().catch(() => null);
@@ -97,7 +105,8 @@ export async function sheet(env){
   note('sheet.close', w, 'close the sheet', {paint: paintOf(c), swaps: c.svgSwaps, anims: c.animations, scroll: c.scrollJumps, ...after});
   check('sheet.close.focus', w, 'focus after the sheet Close button', after.active, /select-decision|selectDecision|\bg\b|^g/.test(after.active) && !/^body/.test(after.active), 'the question that opened it');
   check('sheet.close.position', w, 'page scroll position after closing (vs before opening)', {before: y0, after: after.scrollY}, Math.abs(after.scrollY - y0) <= 2, 'unchanged');
-  check('sheet.motion', w, 'sheet open/close motion', c.animations.length ? c.animations : 'none: appears and disappears instantly', c.animations.length > 0, 'a brief slide/fade so the sheet reads as a sheet (recorded)');
+  const enter = o.animations.filter(a => /sheet-in/.test(a));
+  check('sheet.motion', w, 'sheet opens with the shared entrance (opacity + rise, fast) and closes at once', {open: o.animations.length ? o.animations : 'none', close: c.animations.length ? c.animations : 'none'}, enter.length === 1 && /0\.12s/.test(enter[0]) && !c.animations.some(a => /sheet-in/.test(a)), 'an opacity/transform entrance of the fast duration on open; none on close');
   await ctx.close();
 }
 
@@ -148,10 +157,10 @@ export async function groups(env, kind){
   if(!p){ note('group.missing', w, 'no group toggle', null); await ctx.close(); return; }
   await sleep(250);
   const s = await measure(page, () => press(page, p, phone), {quiet: 400});
-  const st = await page.evaluate(() => ({expanded: document.querySelector('#preview [data-toggle-decision-group]')?.getAttribute('aria-expanded'), active: window.__feel.describe(document.activeElement)}));
+  const st = await page.evaluate(() => { const ae = document.activeElement, first = document.querySelector('#preview [data-toggle-decision-group]'); return {expanded: first?.getAttribute('aria-expanded'), active: window.__feel.describe(ae), onToggle: !!ae?.matches?.('[data-toggle-decision-group]'), sameGroup: !!ae && ae.dataset?.stateGroup === first?.dataset?.stateGroup}; });
   note('group.toggle', w, 'expand a decision-state group', {paint: paintOf(s), swaps: s.svgSwaps, settled: s.settled, heightJumps: s.heightJumps, scroll: s.scrollJumps, anims: s.animations, ...st});
   check('group.toggle.paint', w, 'group toggle -> next paint', paintOf(s), paintOf(s) <= BAR.paint[env.mode], '<= ' + BAR.paint[env.mode] + 'ms');
-  if(env.mode === 'normal') check('group.toggle.focus', w, 'focus after toggling a group', st.active, /toggleDecisionGroup|toggle-decision-group/.test(st.active), 'stays on the toggle');
+  if(env.mode === 'normal') check('group.toggle.focus', w, 'focus after toggling a group', {active: st.active, onToggle: st.onToggle, sameGroup: st.sameGroup}, st.onToggle && st.sameGroup, 'stays on the toggle');
   await ctx.close();
 }
 
@@ -172,9 +181,11 @@ export async function handoff(env, kind){
   }else note('handoff.jump', w, 'no jump button at this width; the panel follows the Plans matrix', await page.evaluate(() => Math.round(document.getElementById('roadmap-projection').getBoundingClientRect().top + scrollY)));
   const radio = page.locator('#roadmap-projection input[type=radio]:not([disabled])').first();
   if(!(await radio.count())){ note('handoff.none', w, 'no ready outcome', null); await ctx.close(); return; }
+  await radio.scrollIntoViewIfNeeded(); await sleep(150);   // the harness's own scroll to reach the control stays outside the measured window
   const r = await measure(page, () => press(page, radio, phone), {quiet: 400});
   const st = await page.evaluate(() => ({active: window.__feel.describe(document.activeElement), checked: !!document.querySelector('#roadmap-projection input[type=radio]:checked'), create: !!document.getElementById('createroadmap'), createDisabled: document.getElementById('createroadmap')?.disabled, boxes: [...document.querySelectorAll('#roadmap-projection input')].map(i => { const b = i.getBoundingClientRect(); return Math.round(b.width) + 'x' + Math.round(b.height); }).slice(0, 4), labelH: Math.round(document.querySelector('.projection-choice')?.getBoundingClientRect().height || 0)}));
   note('handoff.choose', w, 'choose an outcome', {paint: paintOf(r), settled: r.settled, heightJumps: r.heightJumps, scroll: r.scrollJumps, cls: r.clsNoInput, ...st});
+  check('handoff.choose.scroll', w, 'the page does not scroll when the panel rebuilds after choosing an outcome', r.scrollJumps.length ? r.scrollJumps : 'none', r.scrollJumps.length === 0, 'no scroll');
   check('handoff.choose.paint', w, 'choose an outcome -> next paint', paintOf(r), paintOf(r) <= BAR.paint[env.mode], '<= ' + BAR.paint[env.mode] + 'ms');
   if(env.mode === 'normal'){
     check('handoff.choose.focus', w, 'focus after choosing an outcome (the panel is rebuilt)', st.active, /input/.test(st.active), 'stays on the chosen radio');
@@ -211,6 +222,7 @@ export async function editSource(env){
   const st = await page.evaluate(() => ({active: window.__feel.describe(document.activeElement), ws: document.getElementById('workspace').className}));
   note('editsource', w, 'Edit in source from the receipt', {paint: paintOf(s), settled: s.settled, swaps: s.svgSwaps, anims: s.animations, layout: s.layoutAnimated, scroll: s.scrollJumps, ...st});
   check('editsource.focus', w, 'focus after Edit in source', st.active, /cm-content/.test(st.active), 'caret in the editor on the decision');
+  check('editsource.scroll', w, 'the page does not scroll when the editor opens on the decision (the editor scrolls its own line)', s.scrollJumps.length ? s.scrollJumps : 'none', s.scrollJumps.length === 0, 'no page scroll');
   check('editsource.renders', w, 'artefact renders when the rail opens', s.svgSwaps, s.svgSwaps <= 1, '<= 1');
   await shot(page, `${env.out}/shots/paths-desktop-editsource.png`);
   await ctx.close();

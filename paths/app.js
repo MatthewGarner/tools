@@ -38,7 +38,7 @@ import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHando
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
-import {mountMotion} from '../assets/motion.js';
+import {mountMotion, scrollPageTo} from '../assets/motion.js';
 import {paintKicker} from '../assets/verdict.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 import {STARTER} from './starter.js';
@@ -226,10 +226,17 @@ function projectionLedger(title, entries, empty, renderEntry){
 function renderProjectionPanel(){
   const host = $('roadmap-projection');
   if(model?.style !== 'plans'){ host.hidden = true; host.replaceChildren(); return; }
+  /* the panel is rebuilt wholesale: remember which control the reader was on (by identity) and put focus back on its
+     replacement without moving the page */
+  const held = host.contains(document.activeElement) ? document.activeElement : null;
+  const heldKey = !held ? null : held.matches?.('input[type="radio"]') ? 'radio:' + held.value
+    : held.matches?.('.projection-assumption input') ? 'assume:' + held.value
+    : held.id === 'createroadmap' ? 'create' : null;
+  const y0 = scrollY;
   host.hidden = false; host.replaceChildren();
   const head = node('header', 'projection-head');
   head.appendChild(node('p', 'projection-kicker', 'Delivery projection'));
-  const title = node('h2', '', 'Choose one exact outcome'); title.id = 'roadmap-projection-title'; head.appendChild(title);
+  const title = node('h2', '', 'Choose one exact outcome'); title.id = 'roadmap-projection-title'; title.tabIndex = -1; head.appendChild(title);
   head.appendChild(node('p', 'projection-intro', 'Possible Plans groups matching work shapes. A Roadmap needs one exact set of answers.'));
   host.appendChild(head);
   const body = node('div', 'projection-body');
@@ -272,6 +279,12 @@ function renderProjectionPanel(){
     create.disabled = !receipt.assumed.every(entry => acceptedProjectionAssumptions.has(entry.key)); foot.appendChild(create); confirmation.appendChild(foot); body.appendChild(confirmation);
   }
   host.appendChild(body);
+  if(heldKey){
+    const again = heldKey === 'create' ? $('createroadmap')
+      : [...host.querySelectorAll(heldKey.startsWith('radio:') ? 'input[type="radio"]' : '.projection-assumption input')].find(i => i.value === heldKey.slice(heldKey.indexOf(':') + 1));
+    if(again && !again.disabled) again.focus({preventScroll:true});
+  }
+  if(Math.abs(scrollY - y0) > 1) scrollTo(scrollX, y0);
 }
 
 function isRoadmapStyle(style = model?.style){
@@ -1037,7 +1050,7 @@ function renderInspector(){
   host.appendChild(answer);
   if(focusInspectorAfterRender){
     focusInspectorAfterRender = false;
-    title.focus({preventScroll:false});
+    title.focus({preventScroll:true});
   }
 }
 
@@ -1186,6 +1199,7 @@ function doRefresh(){
       ? 'The phone view becomes an outline; every export remains the wide tree.'
       : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
+  if(pendingReveal){ pendingReveal = false; revealDetail(); }
   if(pendingFocus){
     const want = pendingFocus; pendingFocus = null;
     const ae = document.activeElement;
@@ -1201,6 +1215,24 @@ const typed = debounced(refresh, 120);
 /* a discrete edit (a commit, a menu pick, a view) paints at once; the debounce is for typing in the source only */
 function refreshNow(){ typed.cancel(); refresh(); }
 let motionOverride;                 // 'fade' for a view switch
+let pendingReveal = false;          // a selection was just made: bring its detail into view once the render lands
+let detailReturn = null;            // {y, style}: where the page was before a selection scrolled to its detail; Escape returns there
+/* The detail of the selected question (the Tree view's inspector, or the inline receipt) is below or above the fold:
+   scroll to it over the base duration (a jump under reduced motion). A rail or a phone sheet is already on screen. */
+function revealDetail(){
+  const ins = $('decision-inspector'), rec = $('overview-receipt');
+  const el = !ins.hidden ? ins : (!rec.hidden && rec.dataset.layout === 'inline' && rec.dataset.sheet !== 'true') ? rec : null;
+  if(!el) return;
+  const b = el.getBoundingClientRect(), vh = innerHeight;
+  if(b.top >= 0 && b.top <= vh * 0.5) return;           // its head is already on screen
+  /* the position to return to belongs to one view's selection: a different view starts its own */
+  if(!detailReturn || detailReturn.style !== model?.style) detailReturn = {y:scrollY, style:model?.style};
+  scrollPageTo(scrollY + b.top - 72);
+}
+function returnFromDetail(){
+  const back = detailReturn; detailReturn = null;
+  if(back && back.style === model?.style) scrollPageTo(back.y);
+}
 let pendingFocus = null;            // what to focus once the next render lands (by identity): a selected question, a group toggle, a view button
 const paint = mountMotion(preview);
 
@@ -1213,7 +1245,8 @@ const editor = createEditor({
 $('paths-projection-jump').addEventListener('click', () => {
   const panel = $('roadmap-projection');
   panel.scrollIntoView({block:'start', behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
-  panel.querySelector('.projection-choice[data-available="true"] input, #roadmap-projection-title')?.focus({preventScroll:true});
+  /* an input first (querySelector with a list returns the heading, which comes first in the document and cannot take focus) */
+  (panel.querySelector('.projection-choice[data-available="true"] input') || $('roadmap-projection-title'))?.focus({preventScroll:true});
 });
 
 $('roadmap-projection').addEventListener('change', event => {
@@ -1226,7 +1259,6 @@ $('roadmap-projection').addEventListener('change', event => {
     selectedProjectionFingerprint = choice.inspected.fingerprint;
     acceptedProjectionAssumptions = new Set(); projectionPanelMessage = '';
     renderProjectionPanel();
-    queueMicrotask(() => $('roadmap-projection').querySelector(`input[name="roadmap-projection-world"][value="${CSS.escape(choice.key)}"]`)?.focus());
     return;
   }
   const check = event.target.closest?.('.projection-assumption input[type="checkbox"]');
@@ -1323,6 +1355,7 @@ function chooseDecision(target, focusInspector = false){
     overviewReceiptReturnKey = sheet || overviewSurfaceMetrics().receiptLayout === 'overlay'
       ? resolved.key : null;
     focusOverviewReceiptAfterRender = focusInspector || sheet;
+    pendingReveal = true;
     pendingFocus = () => selectedOpener(resolved.key);
     lastSvg = '';
     refresh();
@@ -1333,6 +1366,7 @@ function chooseDecision(target, focusInspector = false){
   selectedDecision = {key:resolved.key, srcLine:resolved.srcLine};
   treeInspectorReturnKey = resolved.key;
   focusInspectorAfterRender = focusInspector;
+  pendingReveal = true;
   pendingFocus = () => selectedOpener(resolved.key);
   lastSvg = '';
   refresh();
@@ -1422,6 +1456,7 @@ function closeOverviewReceiptSheet(){
     selectedOverviewOpener()?.focus({preventScroll:true});
     overviewReceiptReturnKey = null;
   });
+  returnFromDetail();
   return true;
 }
 
@@ -1486,6 +1521,7 @@ document.addEventListener('keydown', event => {
     lastSvg = '';
     refresh();
     requestAnimationFrame(() => selectedTreeOpener(returnKey)?.focus({preventScroll:true}));
+    returnFromDetail();
   }
 });
 
@@ -1501,6 +1537,7 @@ $('decision-inspector').addEventListener('click', event => {
     lastSvg = '';
     refresh();
     requestAnimationFrame(() => selectedTreeOpener(returnKey)?.focus({preventScroll:true}));
+    returnFromDetail();
     return;
   }
   const direction = event.target.closest?.('[data-answer-direction]')?.dataset.answerDirection;
@@ -1531,6 +1568,8 @@ function selectedTreeOpener(key = treeInspectorReturnKey){
 
 function editDecisionSource(decision, {closeReceipt = false, closeInspector = false} = {}){
   if(!decision || !ws) return;
+  /* the editor scrolls its own line into view; the page behind it stays where the reader had it */
+  const y = scrollY, hold = () => { if(Math.abs(scrollY - y) > 1) scrollTo(scrollX, y); };
   if(closeReceipt){
     overviewReceiptSheetOpen = false;
     overviewReceiptOverlayOpen = false;
@@ -1551,11 +1590,13 @@ function editDecisionSource(decision, {closeReceipt = false, closeInspector = fa
     const lineNumber = Math.min(editor.view.state.doc.lines, Math.max(1, Number(decision.srcLine) + 1));
     const line = editor.view.state.doc.line(lineNumber);
     editor.view.dispatch({selection:{anchor:line.from}, scrollIntoView:true});
+    hold();
     /* Opening the rail changes its width over a short CSS transition. Defer the
        focus until the reveal is usable: otherwise WebKit can keep focus on the
        vanished review control even though the source line was selected. */
-    setTimeout(() => editor.view.contentDOM.focus({preventScroll:true}), 180);
+    setTimeout(() => { editor.view.contentDOM.focus({preventScroll:true}); hold(); }, 180);
   });
+  hold();
 }
 mountTouchUndo(document.querySelector('.stage .actions'), editor, {onUndo: refreshNow});
 const ws = initWorkspace({

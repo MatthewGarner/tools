@@ -448,6 +448,11 @@ body.overview-sheet-open::before{
   border:0; border-top:3px solid var(--accent); box-shadow:none;
 }
 .overview-receipt[data-sheet="true"] .receipt-identity{max-width:calc(100% - 60px)}
+/* the phone decision sheet enters with the shared entrance (opacity + a short rise, fast); closing is immediate */
+@keyframes sheet-in{from{opacity:0; transform:translateY(16px)}}
+@media (prefers-reduced-motion: no-preference){
+  .overview-receipt[data-sheet="true"]{animation:sheet-in var(--dur-fast) var(--ease-out)}
+}
 
 .overview-live[data-view="overview"][data-mode="overview"][data-receipt-layout="rail"]{
   display:grid; grid-template-columns:minmax(520px,1fr) 350px;

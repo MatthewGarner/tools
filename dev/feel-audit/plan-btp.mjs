@@ -39,6 +39,8 @@ export const PLAN = [
   ['tree-slider', ['tree'], TM, async e => { for(const k of ['desktop', 'phone']) await T.slider(e, k); await T.slider(e, 'desktop', {source: T.large(), label: 'large'}); }],
   ['tree-sliderkeys', ['tree'], TM, async e => { await T.sliderKeys(e); await T.sliderKeys(e, {source: T.large(), label: 'large'}); }],
   ['tree-reading', ['tree'], N, async e => T.reading(e)],
+  ['tree-nearbottom', ['tree'], N, async e => { await T.sliderNearBottom(e); await T.sliderNearBottom(e, {source: T.large(), label: 'large'}); }],
+  ['tree-hit', ['tree'], N, async e => T.hitTargets(e)],
   ['paths-select', ['paths'], TM, async e => { for(const k of ['desktop', 'phone']) await P.select(e, k); await P.select(e, 'desktop', {source: P.large(), label: 'large'}); }],
   ['paths-sheet', ['paths'], N, async e => P.sheet(e)],
   ['paths-inspector', ['paths'], TM, async e => { for(const k of ['desktop', 'phone']) await P.inspectorEdit(e, k); }],
@@ -52,9 +54,8 @@ export const WEBKIT = ['btp-load', 'btp-views', 'btp-rail', 'btp-type', 'btp-sta
    its known FAIL into a PASS and removes the tag. 'id@tool' tags that check on that tool only. */
 export const KNOWN_BTP = [
   "compare.edit@bets",
-  "group.toggle.focus@paths",
-  "handoff.assume.focus@paths", "handoff.jump.focus@paths", "hover.silent@paths", "keyboard.ring@paths", "load.large.cls@tree",
-  "load.large.longtask@bets", "load.large.longtask@tree", "scroll.frames.vs.control@paths", "select.example.detail@paths", "select.large.detail@paths", "sheet.motion@paths",
+  "load.large.cls@tree",
+  "load.large.longtask@bets", "load.large.longtask@tree", "scroll.frames.vs.control@paths", 
   "slider.large.drag.events@tree",
   "slider.large.escape.focus@tree", "slider.large.release.longtask@tree",
   "slider.large.release@tree", "slider.large.undo.button@tree", "sliderkeys.large.longtask@tree", "stall.example.live@bets", "stall.example.live@paths", "stall.example.live@tree",
