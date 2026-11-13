@@ -475,7 +475,7 @@ export function renderQuestionLens(overview, ctx = {}){
   const decision = selectedDecision(overview, ctx);
   const impact = selectedImpact(decision, ctx);
   const head = header(overview, width, C, measure, false);
-  let y = head.height;
+  let y = head.height, trail = 0;
   let body = '';
   if(!decision){
     body = emptyState(PAD, y, width - PAD * 2, C);
@@ -502,11 +502,13 @@ export function renderQuestionLens(overview, ctx = {}){
     const history = historyBlock(impact, PAD, y, width - PAD * 2, C, measure);
     body += history.svg;
     y += history.height ? history.height + 18 : 0;
+    if(history.height) trail += 18;
     const health = healthBlock(overview, impact, PAD, y, width - PAD * 2, C, measure);
     body += health.svg;
     y += health.height;
+    if(health.height) trail += 8;
   }
-  const height = Math.ceil(y + PAD - 6);   // the trailing gap is not ink: the bottom margin is the house margin
+  const height = Math.ceil(y + PAD - 6 - trail);   // the trailing gap is not ink: the bottom margin is the house margin
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" data-kind="question-lens" data-layout="paired" data-min-readable-scale="' + MIN_READABLE_SCALE + '" font-family="' + SANS +

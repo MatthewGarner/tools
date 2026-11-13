@@ -299,6 +299,9 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   parts.push(txt(C.right, headY, 'AUDIT NOTE', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'end'}));
   parts.push('<line x1="96" y1="' + (headY + 14) + '" x2="1824" y2="' + (headY + 14) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
 
+  /* a short plan spreads over the plate instead of leaving a band of empty paper under its table */
+  const natural = bodyEnd(displayed, C, headY + 30, measure);
+  const rowPad = Math.max(0, Math.min(40, Math.floor((TABLE_LIMIT_Y - (selection.remainder ? MORE_LINE : 0) - natural) / Math.max(1, displayed.length))));
   let y = headY + 30, group = null;
   for(const record of displayed){
     if(record.group.name !== group){
@@ -310,7 +313,8 @@ export function renderBetsPresentation(model, sim, ctx = {}){
       y += 24;
     }
     const b = record.b, e = record.rec.ev;
-    const {names, kills, audits, height: rowH} = rowPlan(record, C, measure);
+    const {names, kills, audits, height: planned} = rowPlan(record, C, measure);
+    const rowH = planned + rowPad;
     parts.push('<g data-row="bet" data-id="' + record.id + '">');
     parts.push(txt(C.id, y + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
     names.forEach((line, i) => parts.push(txt(C.name, y + 20 + i * 19, line, 17, c.ink, {weight: 600})));

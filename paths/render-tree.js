@@ -132,7 +132,7 @@ function wideRegions(layout, C){
   const out = [];
   if(layout.spine?.length){
     const x = Math.max(0, layout.spine[0].x - 10);
-    const end = layout.spine.at(-1).x + layout.spine.at(-1).w + 10;
+    const end = Math.min(layout.spine.at(-1).x + layout.spine.at(-1).w + 10, layout.contentWidth - FRAME_PAD);
     out.push('<g data-kind="tree-region" data-region="shared-work">' +
       rect(x, 0, end - x, layout.totalHeight, wash(C.accent, '08')) +
       txt(x + 8, 17, 'SHARED WORK · IN EVERY PLAN', 8, C.muted, {weight:700, tracking:1}) + '</g>');

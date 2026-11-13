@@ -308,9 +308,6 @@ provide({blank: () => editor.setText(STARTER), examples: EXAMPLES.map(ex => ({na
    to export (the live picture does not wait: it uses the page's own font). */
 function nativeSvgString(){
   if(!(hasBets(model) && sim && chapterFontsReady())) return null;
-  /* the first measure of a character the face lacks (an emoji, Hebrew) can answer from a fallback face that is not yet resolved:
-     draw once to settle it, so the same plan always gives the same bytes */
-  activeRender('native');
   return embedChapterFonts(activeRender('native'));
 }
 function slideSvgString(){
