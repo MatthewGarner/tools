@@ -2,7 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {simulate} from '../engine.js';
-import {BOARD_LEDGER_THRESHOLD, boardPlan, measuredLines, presentationSelection, sourceBets} from '../layout.js';
+import {BOARD_LEDGER_THRESHOLD, boardPlan, measuredLines, sourceBets} from '../layout.js'
+import {presentationSelection} from '../presentation-selection.js';
 
 const measure = (s, font) => { const m = /(\d+(?:\.\d+)?)px/.exec(font || ''); return String(s).length * (m ? +m[1] : 12) * 0.55; };
 

@@ -3,7 +3,8 @@
 import {esc} from '../assets/svg.js';
 import {SANS, MONO_FONT, txt, useFace} from './face.js';
 import {railLabels} from './labels.js';
-import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
+import {conditionReadings, measuredLines} from './layout.js'
+import {omittedMaterialExceptions, presentationSelection} from './presentation-selection.js';
 import {NSIM_TEXT, pv, evv, amount, lossText, lossIsHigh, p50Text, p50Alt, stakeOf, payoffOf, oddsOf} from './format.js';
 
 const W = 1920, H = 1080;
