@@ -36,8 +36,10 @@ const where = async page => ({
   count: (await page.locator('.door-counter').textContent()).trim(),
 });
 const phone = (viewport, o = {}) => context({viewport, hasTouch: true, isMobile: true, reducedMotion: 'reduce', ...o});
-/* Swipe on the current card itself (measured, not a fixed point: CI fonts move the layout), across most of its width. */
-const swipe = async (page, dir) => { const b = await page.locator('.door-class:not([hidden]) .door-card.is-current .door-body').boundingBox(); const cdp = await page.context().newCDPSession(page); await cdp.send('Input.synthesizeScrollGesture', {x: Math.round(b.x + b.width / 2), y: Math.round(b.y + Math.min(b.height / 2, 60)), xDistance: Math.round(dir * b.width * 0.8), yDistance: 0, gestureSourceType: 'touch', speed: 600}); };
+/* A swipe, as the carousel sees it: the list scrolls sideways by most of a card and is left to snap. Synthesised
+   touch gestures do not scroll it on CI's headless Linux, so the native scroll is the reliable input here;
+   real touch is checked in WebKit and on a phone. */
+const swipe = async (page, dir) => { await page.locator('.door-class:not([hidden]) .door-list').evaluate((l, d) => l.scrollBy({left: -d * l.clientWidth * 0.8, behavior: 'smooth'}), dir); };
 
 try {
   /* ---- phone: the selection screen is the page (375x812 and 375x667) ---- */
@@ -168,7 +170,7 @@ try {
     }
     const scrollLeft = () => page.locator('.door-class:not([hidden]) .door-list').evaluate(l => l.scrollLeft);
     await swipe(page, -1);
-    ok('carousel: a swipe snaps to Gauge and the counter follows (2 / 15)', await until(async () => JSON.stringify(await where(page)) === JSON.stringify({cls: 'Instruments', name: 'Gauge', count: '2 / 15'})), JSON.stringify(await where(page)));
+    ok('carousel: a sideways scroll of most of a card snaps to Gauge and the counter follows (2 / 15)', await until(async () => JSON.stringify(await where(page)) === JSON.stringify({cls: 'Instruments', name: 'Gauge', count: '2 / 15'})), JSON.stringify(await where(page)));
     ok('carousel: the selected card sits snapped at the centre', await until(() => visible(page).evaluate(el => Math.abs(el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2 - innerWidth / 2) < 2)));
     ok('carousel: a swipe never opened a tool', new URL(page.url()).pathname === '/');
     /* the scrubber: drag from the first tick to the last, the cards follow live */
