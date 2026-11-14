@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/catalogue.css">
 <link rel="stylesheet" href="/assets/front-door.css">
+<noscript><style>.door-rooms{visibility:visible;max-height:none;overflow:visible;animation:none}</style></noscript>
 <!-- identity:head:start -->
 <script src="/assets/identity/theme-init.js"></script>
 <link rel="stylesheet" href="/assets/identity/identity.css">
@@ -50,85 +51,491 @@
     <p class="door-resume-all"><a href="/explore/#recent-work">Your work</a></p>
   </section>
 <!-- front-door:start -->
-<section class="door-room" id="instruments" aria-labelledby="instruments-h">
-  <header class="door-head"><h2 id="instruments-h">Instruments</h2><p>Bring a decision. Leave with something you can show.</p></header>
-  <ol class="door-jobs">
-    <li class="door-job" data-job="size">
-      <h3 class="door-job-title">Size it</h3>
-      <a class="door-flagship" href="/fermi/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="8" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="22" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="36" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="8" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="36" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="40" y1="22" x2="70" y2="22" stroke="var(--muted)" stroke-width="2"/><rect x="72" y="14" width="38" height="16" fill="var(--data)" fill-opacity=".85"/></svg><span class="door-copy"><span class="door-name">Fermi</span><span class="door-line">Build a driver-tree estimate with ranges and see which assumptions matter.</span></span></a>
-      <ul class="door-also" aria-label="Also for: Size it">
-        <li><a href="/gauge/"><span class="door-name">Gauge</span><span class="door-line">Collect independent estimates, compare ranges and run another round.</span></a></li>
-      </ul>
+<div class="door-rooms" data-door-rooms>
+<section class="door-class" id="instruments" data-class="instruments" data-label="Instruments" data-short="Instruments" data-line="Bring a decision" aria-labelledby="instruments-h">
+  <header class="door-head"><h2 id="instruments-h">Instruments</h2><p>Bring a decision</p></header>
+  <ul class="door-list">
+    <li class="door-card" data-id="product:fermi" data-job="Size it">
+      <a class="door-art" href="/fermi/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="8" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="22" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="36" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="8" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="36" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="40" y1="22" x2="70" y2="22" stroke="var(--muted)" stroke-width="2"/><rect x="72" y="14" width="38" height="16" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Size it</p>
+        <h3 class="door-name">Fermi</h3>
+        <p class="door-line">Build a driver-tree estimate with ranges and see which assumptions matter.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A range and its drivers</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/fermi/">Open Fermi</a>
+      </div>
     </li>
-    <li class="door-job" data-job="choose">
-      <h3 class="door-job-title">Choose</h3>
-      <a class="door-flagship" href="/rank/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><polyline points="10,10 60,10 110,32" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,22 60,32 110,22" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,34 60,20 110,10" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg><span class="door-copy"><span class="door-name">Rank</span><span class="door-line">Rank options against weighted criteria and see whether the order survives uncertainty.</span></span></a>
-      <ul class="door-also" aria-label="Also for: Choose">
-        <li><a href="/duel/"><span class="door-name">Duel</span><span class="door-line">Compare options in pairs when a list is too long to rank in one pass.</span></a></li>
-        <li><a href="/tree/"><span class="door-name">Tree</span><span class="door-line">Draw a decision tree with probabilities and expected values carried up its branches.</span></a></li>
-        <li><a href="/bets/"><span class="door-name">Bets</span><span class="door-line">Compare stakes, odds and payoffs across a portfolio of bets.</span></a></li>
-        <li><a href="/map/"><span class="door-name">Map</span><span class="door-line">Place a portfolio on two axes and explore what different positions mean.</span></a></li>
-      </ul>
+    <li class="door-card" data-id="product:gauge" data-job="Size it">
+      <a class="door-art" href="/gauge/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="10" x2="74" y2="10" stroke="var(--border)" stroke-width="4"/><line x1="38" y1="22" x2="106" y2="22" stroke="var(--border)" stroke-width="4"/><line x1="26" y1="34" x2="88" y2="34" stroke="var(--border)" stroke-width="4"/><rect x="38" y="5" width="36" height="34" fill="var(--data)" fill-opacity=".25"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Size it</p>
+        <h3 class="door-name">Gauge</h3>
+        <p class="door-line">Collect independent estimates, compare ranges and run another round.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>Independent estimates, side by side</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>Best with a group</span></dd></div></dl>
+        <a class="door-open" href="/gauge/">Open Gauge</a>
+      </div>
     </li>
-    <li class="door-job" data-job="plan">
-      <h3 class="door-job-title">Plan it</h3>
-      <a class="door-flagship" href="/roadmap/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="8" width="28" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="8" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="8" y="34" width="28" height="8" fill="none" stroke="var(--border)"/><rect x="46" y="8" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="46" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="84" y="8" width="28" height="9" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg><span class="door-copy"><span class="door-name">Roadmap</span><span class="door-line">Arrange work across now, next and later, set WIP limits, and export the plan.</span></span></a>
-      <ul class="door-also" aria-label="Also for: Plan it">
-        <li><a href="/timeline/"><span class="door-name">Timeline</span><span class="door-line">Map milestones, uncertainty ranges and dependencies; compare how the plan has moved.</span></a></li>
-        <li><a href="/paths/"><span class="door-name">Paths</span><span class="door-line">Map the questions inside a plan, what their answers buy and what happens either way.</span></a></li>
-      </ul>
+    <li class="door-card" data-id="product:rank" data-job="Choose">
+      <a class="door-art" href="/rank/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><polyline points="10,10 60,10 110,32" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,22 60,32 110,22" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,34 60,20 110,10" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Choose</p>
+        <h3 class="door-name">Rank</h3>
+        <p class="door-line">Rank options against weighted criteria and see whether the order survives uncertainty.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A ranked shortlist</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/rank/">Open Rank</a>
+      </div>
     </li>
-    <li class="door-job" data-job="test">
-      <h3 class="door-job-title">Test the argument</h3>
-      <a class="door-flagship" href="/premortem/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="10" x2="60" y2="10" stroke="var(--border)" stroke-width="2"/><rect x="70" y="6" width="42" height="8" fill="var(--data)" fill-opacity=".85"/><line x1="8" y1="24" x2="60" y2="24" stroke="var(--border)" stroke-width="2"/><rect x="70" y="20" width="26" height="8" fill="none" stroke="var(--border)"/><line x1="8" y1="38" x2="60" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="70" y="34" width="14" height="8" fill="none" stroke="var(--border)"/></svg><span class="door-copy"><span class="door-name">Premortem</span><span class="door-line">Write the failure story, estimate its risks and decide which ones need action.</span></span></a>
-      <ul class="door-also" aria-label="Also for: Test the argument">
-        <li><a href="/why/"><span class="door-name">Why</span><span class="door-line">Connect outcomes, assumptions and solutions to expose the argument behind a plan.</span></a></li>
-        <li><a href="/proxy/"><span class="door-name">Proxy Hunt</span><span class="door-line">Stress-test whether pressure on a metric can harm the outcomes it is meant to serve.</span></a></li>
-        <li><a href="/wardley/"><span class="door-name">Wardley</span><span class="door-line">Map a value chain and its evolution to explore what to build, buy or commoditise.</span></a></li>
-      </ul>
+    <li class="door-card" data-id="product:duel" data-job="Choose">
+      <a class="door-art" href="/duel/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="12" y="8" width="42" height="28" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="8" width="42" height="28" fill="none" stroke="var(--data)" stroke-width="2.5"/><line x1="58" y1="16" x2="62" y2="28" stroke="var(--muted)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Choose</p>
+        <h3 class="door-name">Duel</h3>
+        <p class="door-line">Compare options in pairs when a list is too long to rank in one pass.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>An order from pairwise picks</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/duel/">Open Duel</a>
+      </div>
     </li>
-    <li class="door-job" data-job="case">
-      <h3 class="door-job-title">Make the case</h3>
-      <a class="door-flagship" href="/case/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="30" y="4" width="60" height="36" fill="none" stroke="var(--border)"/><rect x="24" y="8" width="60" height="36" fill="none" stroke="var(--border)"/><rect x="18" y="2" width="60" height="38" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="26" y1="12" x2="56" y2="12" stroke="var(--muted)" stroke-width="2"/><line x1="26" y1="20" x2="48" y2="20" stroke="var(--border)" stroke-width="2"/><line x1="26" y1="28" x2="52" y2="28" stroke="var(--border)" stroke-width="2"/><rect x="62" y="24" width="12" height="10" fill="var(--data)" fill-opacity=".85"/></svg><span class="door-copy"><span class="door-name">Case file</span><span class="door-line">Bring tool links, a decision question and a verdict together in one case.</span></span></a>
+    <li class="door-card" data-id="product:tree" data-job="Choose">
+      <a class="door-art" href="/tree/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="16" cy="22" r="4" fill="var(--muted)"/><path d="M20 22 C44 22 44 10 66 10" fill="none" stroke="var(--data)" stroke-width="2.5"/><path d="M20 22 C44 22 44 34 66 34" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="72" cy="10" r="4" fill="var(--data)"/><circle cx="72" cy="34" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="80" y1="10" x2="106" y2="10" stroke="var(--border)" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Choose</p>
+        <h3 class="door-name">Tree</h3>
+        <p class="door-line">Draw a decision tree with probabilities and expected values carried up its branches.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>An expected-value decision tree</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/tree/">Open Tree</a>
+      </div>
     </li>
-  </ol>
-</section>
-<section class="door-room" id="models" aria-labelledby="models-h">
-  <header class="door-head"><h2 id="models-h">Models</h2><p>Play a mechanism for ten minutes.</p></header>
-  <ul class="door-cards">
-      <li><a class="door-card" href="/flow/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="14" cy="22" r="4" fill="var(--muted)"/><circle cx="28" cy="22" r="4" fill="var(--muted)"/><circle cx="42" cy="22" r="4" fill="var(--muted)"/><line x1="58" y1="6" x2="58" y2="16" stroke="var(--border)" stroke-width="2"/><line x1="58" y1="28" x2="58" y2="38" stroke="var(--border)" stroke-width="2"/><circle cx="70" cy="22" r="4" fill="var(--data)"/><circle cx="96" cy="22" r="4" fill="none" stroke="var(--border)" stroke-width="2"/></svg><span class="door-copy"><span class="door-name">Flow</span><span class="door-line">Explore the relationship between work in progress, throughput and waiting time.</span></span></a></li>
-      <li><a class="door-card" href="/alarm/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="38" x2="112" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="28" y="8" width="22" height="30" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="26" width="22" height="12" fill="var(--data)" fill-opacity=".85"/></svg><span class="door-copy"><span class="door-name">Alarm</span><span class="door-line">Explore how base rates change the meaning of a supposedly accurate alarm.</span></span></a></li>
-      <li><a class="door-card" href="/lab/commitment/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="26" y="9" width="68" height="26" rx="3" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="18" y="3" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><rect x="86" y="3" width="16" height="10" fill="var(--data)" fill-opacity=".85"/><rect x="86" y="31" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><rect x="18" y="31" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><path d="M52 9l-4-3v6zM98 22l-3-4h6zM68 35l4 3v-6zM22 22l3 4h-6z" fill="var(--muted)"/></svg><span class="door-copy"><span class="door-name">The commitment spiral</span><span class="door-line">Can a team promise its way into losing the ability to deliver?</span></span></a></li>
-      <li><a class="door-card" href="/lab/delay/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="10" y="6" width="22" height="32" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="10" y="20" width="22" height="18" fill="var(--data)" fill-opacity=".25"/><line x1="44" y1="10" x2="44" y2="36" stroke="var(--muted)" stroke-width="2"/><rect x="40" y="18" width="8" height="6" fill="var(--muted)"/><polyline points="58,34 78,34 78,12 112,12" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="58,34 90,34 90,24 100,18 112,16" fill="none" stroke="var(--data)" stroke-width="2.5" stroke-dasharray="0"/></svg><span class="door-copy"><span class="door-name">Steering through delay</span><span class="door-line">Keep a system steady while your instrument reports an earlier state.</span></span></a></li>
-      <li><a class="door-card" href="/lab/teams/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="6" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="44" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="82" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="11" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="11" y="24" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="49" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="49" y="24" width="22" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="87" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="87" y="24" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/></svg><span class="door-copy"><span class="door-name">How teams fit the work</span><span class="door-line">Move capabilities across team boundaries. Watch the work find a different route.</span></span></a></li>
-      <li><a class="door-card" href="/lab/context/"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="6" y1="10" x2="114" y2="10" stroke="var(--border)"/><line x1="6" y1="22" x2="114" y2="22" stroke="var(--border)"/><line x1="6" y1="34" x2="114" y2="34" stroke="var(--border)"/><circle cx="14" cy="10" r="3" fill="var(--muted)"/><circle cx="26" cy="10" r="3" fill="var(--muted)"/><circle cx="38" cy="10" r="3" fill="var(--muted)"/><circle cx="50" cy="10" r="3" fill="var(--muted)"/><circle cx="50" cy="22" r="3" fill="var(--muted)"/><circle cx="62" cy="22" r="3" fill="var(--muted)"/><circle cx="74" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="86" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="100" cy="34" r="4" fill="var(--data)"/><line x1="52" y1="12" x2="52" y2="20" stroke="var(--border)"/><line x1="64" y1="25" x2="98" y2="32" stroke="var(--data)" stroke-width="2"/></svg><span class="door-copy"><span class="door-name">What survived the status update?</span><span class="door-line">Carry facts through reporting layers. Discover which omission changes a decision.</span></span></a></li>
+    <li class="door-card" data-id="product:bets" data-job="Choose">
+      <a class="door-art" href="/bets/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="34" x2="112" y2="34" stroke="var(--border)" stroke-width="2"/><circle cx="24" cy="34" r="4" fill="var(--muted)"/><circle cx="46" cy="34" r="7" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="72" cy="34" r="10" fill="var(--data)" fill-opacity=".85"/><circle cx="98" cy="34" r="5" fill="none" stroke="var(--border)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Choose</p>
+        <h3 class="door-name">Bets</h3>
+        <p class="door-line">Compare stakes, odds and payoffs across a portfolio of bets.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A portfolio of bets, compared</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/bets/">Open Bets</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:map" data-job="Choose">
+      <a class="door-art" href="/map/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="60" y1="4" x2="60" y2="40" stroke="var(--border)"/><line x1="10" y1="22" x2="110" y2="22" stroke="var(--border)"/><circle cx="36" cy="13" r="4" fill="var(--muted)"/><circle cx="84" cy="30" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="88" cy="11" r="5" fill="var(--data)"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Choose</p>
+        <h3 class="door-name">Map</h3>
+        <p class="door-line">Place a portfolio on two axes and explore what different positions mean.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A portfolio on two axes</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/map/">Open Map</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:roadmap" data-job="Plan it">
+      <a class="door-art" href="/roadmap/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="8" width="28" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="8" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="8" y="34" width="28" height="8" fill="none" stroke="var(--border)"/><rect x="46" y="8" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="46" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="84" y="8" width="28" height="9" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Plan it</p>
+        <h3 class="door-name">Roadmap</h3>
+        <p class="door-line">Arrange work across now, next and later, set WIP limits, and export the plan.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A slide-ready roadmap</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/roadmap/">Open Roadmap</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:timeline" data-job="Plan it">
+      <a class="door-art" href="/timeline/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="10" y1="14" x2="66" y2="14" stroke="var(--border)" stroke-width="2"/><path d="M40 10l4 4-4 4-4-4z" fill="var(--muted)"/><path d="M66 10l4 4-4 4-4-4z" fill="none" stroke="var(--border)"/><line x1="26" y1="30" x2="96" y2="30" stroke="var(--border)" stroke-width="2"/><path d="M58 26l4 4-4 4-4-4z" fill="var(--muted)"/><path d="M96 26l4 4-4 4-4-4z" fill="none" stroke="var(--border)"/><line x1="52" y1="4" x2="52" y2="40" stroke="var(--data)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Plan it</p>
+        <h3 class="door-name">Timeline</h3>
+        <p class="door-line">Map milestones, uncertainty ranges and dependencies; compare how the plan has moved.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A milestone plan with risk</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>An hour or more</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/timeline/">Open Timeline</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:paths" data-job="Plan it">
+      <a class="door-art" href="/paths/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="22" x2="52" y2="22" stroke="var(--border)" stroke-width="2"/><polygon points="62,22 70,14 78,22 70,30" fill="none" stroke="var(--data)" stroke-width="2.5"/><line x1="78" y1="22" x2="90" y2="12" stroke="var(--muted)" stroke-width="2"/><line x1="78" y1="22" x2="90" y2="32" stroke="var(--border)" stroke-width="2" stroke-dasharray="3 3"/><circle cx="98" cy="12" r="3" fill="var(--muted)"/><circle cx="98" cy="32" r="3" fill="none" stroke="var(--border)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Plan it</p>
+        <h3 class="door-name">Paths</h3>
+        <p class="door-line">Map the questions inside a plan, what their answers buy and what happens either way.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A plan that branches</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>An hour or more</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/paths/">Open Paths</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:premortem" data-job="Test the argument">
+      <a class="door-art" href="/premortem/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="10" x2="60" y2="10" stroke="var(--border)" stroke-width="2"/><rect x="70" y="6" width="42" height="8" fill="var(--data)" fill-opacity=".85"/><line x1="8" y1="24" x2="60" y2="24" stroke="var(--border)" stroke-width="2"/><rect x="70" y="20" width="26" height="8" fill="none" stroke="var(--border)"/><line x1="8" y1="38" x2="60" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="70" y="34" width="14" height="8" fill="none" stroke="var(--border)"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Test the argument</p>
+        <h3 class="door-name">Premortem</h3>
+        <p class="door-line">Write the failure story, estimate its risks and decide which ones need action.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A scored risk register</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>An hour or more</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>Best with a group</span></dd></div></dl>
+        <a class="door-open" href="/premortem/">Open Premortem</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:why" data-job="Test the argument">
+      <a class="door-art" href="/why/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="6" width="40" height="10" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="28" y1="16" x2="28" y2="24" stroke="var(--border)"/><line x1="28" y1="20" x2="66" y2="20" stroke="var(--border)"/><rect x="46" y="17" width="40" height="10" fill="var(--data)" fill-opacity=".85"/><line x1="66" y1="27" x2="66" y2="34" stroke="var(--border)"/><rect x="72" y="30" width="40" height="10" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Test the argument</p>
+        <h3 class="door-name">Why</h3>
+        <p class="door-line">Connect outcomes, assumptions and solutions to expose the argument behind a plan.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A map of the argument</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>An hour or more</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/why/">Open Why</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:proxy" data-job="Test the argument">
+      <a class="door-art" href="/proxy/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="10" y1="22" x2="50" y2="22" stroke="var(--border)" stroke-width="2"/><circle cx="60" cy="22" r="8" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="68" y1="22" x2="104" y2="10" stroke="var(--muted)" stroke-width="2"/><line x1="68" y1="22" x2="104" y2="34" stroke="var(--data)" stroke-width="2.5"/><circle cx="108" cy="10" r="3" fill="none" stroke="var(--muted)" stroke-width="2"/><circle cx="108" cy="34" r="3" fill="var(--data)"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Test the argument</p>
+        <h3 class="door-name">Proxy Hunt</h3>
+        <p class="door-line">Stress-test whether pressure on a metric can harm the outcomes it is meant to serve.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A metric stress test</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/proxy/">Open Proxy Hunt</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:wardley" data-job="Test the argument">
+      <a class="door-art" href="/wardley/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M10 36 C40 34 70 20 110 10" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="34" cy="33" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="78" cy="18" r="4" fill="var(--data)"/><line x1="37" y1="31" x2="75" y2="20" stroke="var(--muted)" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Test the argument</p>
+        <h3 class="door-name">Wardley</h3>
+        <p class="door-line">Map a value chain and its evolution to explore what to build, buy or commoditise.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A value-chain map</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:3" aria-hidden="true"></span><span>An hour or more</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/wardley/">Open Wardley</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:case" data-job="Make the case">
+      <a class="door-art" href="/case/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="30" y="4" width="60" height="36" fill="none" stroke="var(--border)"/><rect x="24" y="8" width="60" height="36" fill="none" stroke="var(--border)"/><rect x="18" y="2" width="60" height="38" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="26" y1="12" x2="56" y2="12" stroke="var(--muted)" stroke-width="2"/><line x1="26" y1="20" x2="48" y2="20" stroke="var(--border)" stroke-width="2"/><line x1="26" y1="28" x2="52" y2="28" stroke="var(--border)" stroke-width="2"/><rect x="62" y="24" width="12" height="10" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Instruments · Make the case</p>
+        <h3 class="door-name">Case file</h3>
+        <p class="door-line">Bring tool links, a decision question and a verdict together in one case.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A decision slide and deck</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/case/">Open Case file</a>
+      </div>
+    </li>
   </ul>
-  <p class="door-more"><a href="/explore/?type=model">All 23 models</a></p>
 </section>
-<section class="door-room" id="workbenches" aria-labelledby="workbenches-h">
-  <header class="door-head"><h2 id="workbenches-h">Workbenches</h2><p>Find a different way into a problem.</p></header>
-  <ul class="door-bench">
-      <li><a href="/lab/reframe/"><span class="door-name">Reframing workbench</span><span class="door-line">Describe the same problem differently. Notice what you would do next.</span></a></li>
-      <li><a href="/lab/mixer/"><span class="door-name">Possibility mixer</span><span class="door-line">Combine ingredients, map your concepts, and investigate spaces you have not explored.</span></a></li>
-      <li><a href="/lab/constraints/"><span class="door-name">Constraint playground</span><span class="door-line">Change a limit in your imagination. Bring the useful part back to reality.</span></a></li>
-      <li><a href="/lab/analogy/"><span class="door-name">Analogy workshop</span><span class="door-line">Borrow a mechanism from somewhere else. Find where the comparison breaks.</span></a></li>
-      <li><a href="/lab/interventions/"><span class="door-name">Intervention workbench</span><span class="door-line">Which causal relationship would you change, and what would you expect to observe?</span></a></li>
-      <li><a href="/lab/objections/"><span class="door-name">Alternatives workbench</span><span class="door-line">Start with an idea, an objection or a disagreement. Compare different ways to make it work.</span></a></li>
-      <li><a href="/lab/scenes/"><span class="door-name">Scene-first invention</span><span class="door-line">Invent for a person at a particular moment, with partial information.</span></a></li>
+<section class="door-class" id="models" data-class="models" data-label="Models" data-short="Models" data-line="Play a mechanism" aria-labelledby="models-h">
+  <header class="door-head"><h2 id="models-h">Models</h2><p>Play a mechanism</p></header>
+  <ul class="door-list">
+    <li class="door-card" data-id="product:flow">
+      <a class="door-art" href="/flow/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="14" cy="22" r="4" fill="var(--muted)"/><circle cx="28" cy="22" r="4" fill="var(--muted)"/><circle cx="42" cy="22" r="4" fill="var(--muted)"/><line x1="58" y1="6" x2="58" y2="16" stroke="var(--border)" stroke-width="2"/><line x1="58" y1="28" x2="58" y2="38" stroke="var(--border)" stroke-width="2"/><circle cx="70" cy="22" r="4" fill="var(--data)"/><circle cx="96" cy="22" r="4" fill="none" stroke="var(--border)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Flow</h3>
+        <p class="door-line">Explore the relationship between work in progress, throughput and waiting time.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How queues stretch waiting time</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/flow/">Open Flow</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:alarm">
+      <a class="door-art" href="/alarm/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="38" x2="112" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="28" y="8" width="22" height="30" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="26" width="22" height="12" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Alarm</h3>
+        <p class="door-line">Explore how base rates change the meaning of a supposedly accurate alarm.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Why accurate alarms mislead</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/alarm/">Open Alarm</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:commitment">
+      <a class="door-art" href="/lab/commitment/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="26" y="9" width="68" height="26" rx="3" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="18" y="3" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><rect x="86" y="3" width="16" height="10" fill="var(--data)" fill-opacity=".85"/><rect x="86" y="31" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><rect x="18" y="31" width="16" height="10" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/><path d="M52 9l-4-3v6zM98 22l-3-4h6zM68 35l4 3v-6zM22 22l3 4h-6z" fill="var(--muted)"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">The commitment spiral</h3>
+        <p class="door-line">Can a team promise its way into losing the ability to deliver?</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How promising causes rework</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/commitment/">Open The commitment spiral</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:delay">
+      <a class="door-art" href="/lab/delay/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="10" y="6" width="22" height="32" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="10" y="20" width="22" height="18" fill="var(--data)" fill-opacity=".25"/><line x1="44" y1="10" x2="44" y2="36" stroke="var(--muted)" stroke-width="2"/><rect x="40" y="18" width="8" height="6" fill="var(--muted)"/><polyline points="58,34 78,34 78,12 112,12" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="58,34 90,34 90,24 100,18 112,16" fill="none" stroke="var(--data)" stroke-width="2.5" stroke-dasharray="0"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Steering through delay</h3>
+        <p class="door-line">Keep a system steady while your instrument reports an earlier state.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Why delayed feedback overshoots</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/delay/">Open Steering through delay</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:teams">
+      <a class="door-art" href="/lab/teams/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="6" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="44" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="82" y="6" width="32" height="32" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><rect x="11" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="11" y="24" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="49" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="49" y="24" width="22" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="87" y="11" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="87" y="24" width="22" height="9" fill="none" stroke="var(--border)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">How teams fit the work</h3>
+        <p class="door-line">Move capabilities across team boundaries. Watch the work find a different route.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How capability placement routes work</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/teams/">Open How teams fit the work</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:context">
+      <a class="door-art" href="/lab/context/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="6" y1="10" x2="114" y2="10" stroke="var(--border)"/><line x1="6" y1="22" x2="114" y2="22" stroke="var(--border)"/><line x1="6" y1="34" x2="114" y2="34" stroke="var(--border)"/><circle cx="14" cy="10" r="3" fill="var(--muted)"/><circle cx="26" cy="10" r="3" fill="var(--muted)"/><circle cx="38" cy="10" r="3" fill="var(--muted)"/><circle cx="50" cy="10" r="3" fill="var(--muted)"/><circle cx="50" cy="22" r="3" fill="var(--muted)"/><circle cx="62" cy="22" r="3" fill="var(--muted)"/><circle cx="74" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="86" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="100" cy="34" r="4" fill="var(--data)"/><line x1="52" y1="12" x2="52" y2="20" stroke="var(--border)"/><line x1="64" y1="25" x2="98" y2="32" stroke="var(--data)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">What survived the status update?</h3>
+        <p class="door-line">Carry facts through reporting layers. Discover which omission changes a decision.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Which omission changes a decision</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/context/">Open What survived the status update?</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="product:signal-vs-noise">
+      <a class="door-art" href="/signal-vs-noise/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="12" x2="112" y2="12" stroke="var(--border)" stroke-dasharray="4 3"/><line x1="8" y1="32" x2="112" y2="32" stroke="var(--border)" stroke-dasharray="4 3"/><polyline points="8,24 24,18 40,27 56,16 72,26 88,20 104,24" fill="none" stroke="var(--muted)" stroke-width="2"/><circle cx="88" cy="8" r="4" fill="var(--data)"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Signal vs noise</h3>
+        <p class="door-line">Respond to noisy results and see how interventions can amplify the variation.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>When reacting makes things worse</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/signal-vs-noise/">Open Signal vs noise</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:authority">
+      <a class="door-art" href="/lab/authority/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="42" y="4" width="36" height="14" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="6" y="28" width="30" height="12" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="84" y="28" width="30" height="12" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M21 28V11h21M99 28V11H78" fill="none" stroke="var(--muted)" stroke-dasharray="3 3"/><path d="M14 33h4v3h-4zM92 33h4v3h-4z" fill="var(--muted)"/><path d="M47 8h7v6h-7zM57 8h7v6h-7zM67 8h7v6h-7z" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Who can actually decide?</h3>
+        <p class="door-line">Move information and authority. Follow the decisions that wait or conflict.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Where decisions wait or conflict</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/authority/">Open Who can actually decide?</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:consistency">
+      <a class="door-art" href="/lab/consistency/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M6 6h22v12H6zM6 26h22v12H6zM92 6h22v12H92zM92 26h22v12H92z" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M28 12h22M28 32h22M70 12h22M70 32h22" stroke="var(--muted)" stroke-width="2"/><rect x="50" y="4" width="20" height="36" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">How much consistency is enough?</h3>
+        <p class="door-line">Choose what teams standardise. Compare handoffs with local workarounds.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>What is worth standardising</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/consistency/">Open How much consistency is enough?</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:alignment">
+      <a class="door-art" href="/lab/alignment/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="9" cy="8" r="3" fill="var(--muted)"/><circle cx="9" cy="36" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M12 9.5L44 20M12 34.5L44 24" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="44" y="15" width="24" height="14" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="84" y1="4" x2="84" y2="40" stroke="var(--muted)" stroke-dasharray="2 2"/><path d="M68 22h16l28-16M84 22l28 16" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">We’re aligned—until something changes</h3>
+        <p class="door-line">Disturb an agreed plan. Reveal the different reasoning underneath it.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Why agreement breaks under change</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/alignment/">Open We’re aligned—until something changes</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:possibilities">
+      <a class="door-art" href="/lab/possibilities/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="6" y="28" width="14" height="10" fill="var(--data)" fill-opacity=".85"/><rect x="34" y="18" width="24" height="20" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="72" y="4" width="42" height="34" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><path d="M20 33h14M58 28h14" stroke="var(--muted)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Making worthwhile work possible</h3>
+        <p class="door-line">Do available work or remove what blocks better options. Watch the landscape change.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>What to unblock before delivering</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/possibilities/">Open Making worthwhile work possible</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:clocks">
+      <a class="door-art" href="/lab/clocks/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M9 7h6v6H9zM27 7h6v6h-6zM45 7h6v6h-6zM63 7h6v6h-6zM81 7h6v6h-6zM99 7h6v6h-6z" fill="var(--muted)"/><polyline points="30,13 30,22 62,22 62,34 84,34" fill="none" stroke="var(--data)" stroke-width="2.5"/><path d="M16 18h12v8H16zM56 18h12v8H56zM96 18h12v8H96zM84 29h24v10H84z" fill="var(--bg)" stroke="var(--border)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">The organisation’s clocks</h3>
+        <p class="door-line">Move discovery, review, funding and delivery windows. Find when evidence can change work.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>When evidence can change work</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/clocks/">Open The organisation’s clocks</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:flexibility">
+      <a class="door-art" href="/lab/flexibility/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M8 22L34 6h78v32H34z" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="8" cy="22" r="3" fill="var(--muted)"/><rect x="60" y="6" width="18" height="12" fill="var(--data)" fill-opacity=".85"/><path d="M78 18h34" stroke="var(--muted)" stroke-width="2" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Where flexibility gets trapped</h3>
+        <p class="door-line">Make battery commitments before you know what comes next.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Why committed batteries lose options</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/flexibility/">Open Where flexibility gets trapped</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:exceptions">
+      <a class="door-art" href="/lab/exceptions/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="6" width="102" height="32" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M25 6v32M42 6v32M59 6v32M76 6v32M93 6v32" stroke="var(--border)"/><path d="M8 38v-4h17v-4h17v-5h17v-5h17v-5h17v-5h17v28z" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">How exceptions accumulate</h3>
+        <p class="door-line">Accept a useful exception. Follow what it asks of the system later.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How exceptions crowd core work</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/exceptions/">Open How exceptions accumulate</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:knowledge">
+      <a class="door-art" href="/lab/knowledge/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="12" x2="74" y2="12" stroke="var(--border)" stroke-width="2"/><line x1="74" y1="5" x2="74" y2="19" stroke="var(--border)" stroke-width="2"/><line x1="78" y1="12" x2="112" y2="12" stroke="var(--muted)" stroke-dasharray="3 3"/><line x1="8" y1="32" x2="40" y2="32" stroke="var(--muted)" stroke-dasharray="3 3"/><line x1="56" y1="32" x2="112" y2="32" stroke="var(--border)" stroke-width="2"/><rect x="40" y="12" width="16" height="20" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Specialists and shared knowledge</h3>
+        <p class="door-line">Move a coaching period before or after a specialist becomes unavailable.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>When coaching protects capacity</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/knowledge/">Open Specialists and shared knowledge</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:predictions">
+      <a class="door-art" href="/lab/predictions/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><circle cx="106" cy="8" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="8" y1="36" x2="100" y2="10" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 4"/><path d="M8 36L50 24Q60 22 70 30L112 40" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">When predictions change behaviour</h3>
+        <p class="door-line">A shared forecast changes the behaviour that produces its target.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How forecasts move behaviour</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/predictions/">Open When predictions change behaviour</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:accuracy">
+      <a class="door-art" href="/lab/accuracy/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="6" y1="22" x2="114" y2="22" stroke="var(--muted)" stroke-dasharray="4 3"/><path d="M24 6v12M96 26v12" stroke="var(--border)" stroke-width="2"/><path d="M60 14v16" stroke="var(--data)" stroke-width="2.5"/><g fill="var(--muted)"><circle cx="24" cy="6" r="4"/><circle cx="96" cy="26" r="4"/></g><circle cx="60" cy="14" r="4.5" fill="var(--data)"/><g fill="var(--bg)" stroke="var(--border)" stroke-width="2"><circle cx="24" cy="18" r="4"/><circle cx="60" cy="30" r="4"/><circle cx="96" cy="38" r="4"/></g></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Accurate enough for which decision?</h3>
+        <p class="door-line">Keep the headline forecast accuracy. Change the decisions it produces.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>When forecast error stops mattering</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/accuracy/">Open Accurate enough for which decision?</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:reliability">
+      <a class="door-art" href="/lab/reliability/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M14 22L28 9M14 22L28 35" stroke="var(--muted)" stroke-width="2"/><path d="M28 4h24v10H28zM28 30h24v10H28z" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M52 9h12v26H52M64 22h16" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="80" y="15" width="32" height="14" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="4" y="17" width="10" height="10" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Almost reliable parts</h3>
+        <p class="door-line">Build a dependency map. Find what a backup really protects you from.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>What a backup really protects</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/reliability/">Open Almost reliable parts</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:adoption">
+      <a class="door-art" href="/lab/adoption/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M12 10L12 34M12 10L32 22M12 34L32 22M32 22L50 10M32 22L50 34M50 10L50 34M50 10L78 22M78 22L96 8M78 22L96 36M96 8L110 22M96 36L110 22M96 8L96 36" stroke="var(--border)"/><circle cx="12" cy="10" r="4" fill="var(--muted)"/><circle cx="12" cy="34" r="4" fill="var(--muted)"/><circle cx="32" cy="22" r="4.5" fill="var(--data)"/><g fill="var(--bg)" stroke="var(--border)" stroke-width="2"><circle cx="50" cy="10" r="4"/><circle cx="50" cy="34" r="4"/><circle cx="78" cy="22" r="4"/><circle cx="96" cy="8" r="4"/><circle cx="96" cy="36" r="4"/><circle cx="110" cy="22" r="4"/></g></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Models</p>
+        <h3 class="door-name">Crossing the adoption gap</h3>
+        <p class="door-line">A change may be useful only once enough other people use it.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Who must switch first</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/adoption/">Open Crossing the adoption gap</a>
+      </div>
+    </li>
   </ul>
 </section>
-<section class="door-room door-energy" id="energy" aria-labelledby="energy-h">
-  <header class="door-head"><h2 id="energy-h"><a href="/energy/">Energy</a></h2><p>Batteries and power markets, on their own site.</p></header>
-  <ul class="door-energy-list" aria-label="Energy tools">
-    <li><a href="/energy/cycles/">Cycle budget</a></li>
-    <li><a href="/energy/risk/">Risk transfer</a></li>
-    <li><a href="/energy/frequency/">Frequency &amp; inertia</a></li>
-    <li><a href="/energy/merit-order/">Merit order</a></li>
-    <li><a href="/energy/intraday/">A day through the stack</a></li>
+<section class="door-class" id="workbenches" data-class="workbenches" data-label="Workbenches" data-short="Benches" data-line="Another way in" aria-labelledby="workbenches-h">
+  <header class="door-head"><h2 id="workbenches-h">Workbenches</h2><p>Another way in</p></header>
+  <ul class="door-list">
+    <li class="door-card" data-id="lab:reframe">
+      <a class="door-art" href="/lab/reframe/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="5" y="12" width="22" height="20" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="31" y="12" width="22" height="20" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="11" cy="22" r="3.5" fill="var(--muted)"/><circle cx="21" cy="22" r="3.5" fill="var(--muted)"/><circle cx="37" cy="22" r="3.5" fill="var(--muted)"/><circle cx="47" cy="22" r="3.5" fill="var(--muted)"/><line x1="58" y1="22" x2="64" y2="22" stroke="var(--muted)" stroke-width="2"/><path d="M63 18l5 4-5 4z" fill="var(--muted)"/><circle cx="74" cy="22" r="3.5" fill="var(--muted)"/><circle cx="86" cy="22" r="3.5" fill="var(--muted)"/><circle cx="98" cy="22" r="3.5" fill="var(--muted)"/><circle cx="110" cy="22" r="3.5" fill="var(--muted)"/><rect x="80" y="10" width="24" height="24" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Reframing workbench</h3>
+        <p class="door-line">Describe the same problem differently. Notice what you would do next.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>Several frames for one problem</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/reframe/">Open Reframing workbench</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:mixer">
+      <a class="door-art" href="/lab/mixer/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M18 8v28M46 8v28M74 8v28M102 8v28" stroke="var(--border)"/><polyline points="18,8 46,36 74,22 102,8" fill="none" stroke="var(--data)" stroke-width="2.5"/><g fill="var(--muted)"><circle cx="18" cy="22" r="2.5"/><circle cx="18" cy="36" r="2.5"/><circle cx="46" cy="8" r="2.5"/><circle cx="46" cy="22" r="2.5"/><circle cx="74" cy="8" r="2.5"/><circle cx="74" cy="36" r="2.5"/><circle cx="102" cy="22" r="2.5"/><circle cx="102" cy="36" r="2.5"/></g><g fill="var(--bg)" stroke="var(--border)" stroke-width="2"><circle cx="18" cy="8" r="3.5"/><circle cx="46" cy="36" r="3.5"/><circle cx="74" cy="22" r="3.5"/><circle cx="102" cy="8" r="3.5"/></g></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Possibility mixer</h3>
+        <p class="door-line">Combine ingredients, map your concepts, and investigate spaces you have not explored.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>Combinations you had not explored</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/mixer/">Open Possibility mixer</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:constraints">
+      <a class="door-art" href="/lab/constraints/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="6" width="48" height="32" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M56 6h56v32H56" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/><circle cx="88" cy="18" r="5" fill="var(--data)" fill-opacity=".85"/><path d="M80 26L46 30" stroke="var(--muted)" stroke-width="2"/><rect x="38" y="27" width="7" height="7" fill="none" stroke="var(--muted)" stroke-width="2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Constraint playground</h3>
+        <p class="door-line">Change a limit in your imagination. Bring the useful part back to reality.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>An idea, minus a limit</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/constraints/">Open Constraint playground</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:analogy">
+      <a class="door-art" href="/lab/analogy/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M14 9h92M14 35h56" stroke="var(--border)" stroke-width="2"/><path d="M14 13v18M60 13v18" stroke="var(--muted)" stroke-dasharray="2 2"/><g fill="var(--bg)" stroke="var(--border)" stroke-width="2"><circle cx="14" cy="9" r="4"/><circle cx="60" cy="9" r="4"/><circle cx="106" cy="9" r="4"/><circle cx="14" cy="35" r="4"/><circle cx="60" cy="35" r="4"/></g><rect x="100" y="29" width="12" height="12" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Analogy workshop</h3>
+        <p class="door-line">Borrow a mechanism from somewhere else. Find where the comparison breaks.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>Where a borrowed mechanism breaks</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/analogy/">Open Analogy workshop</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:interventions">
+      <a class="door-art" href="/lab/interventions/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M17 18h22M81 18h22" stroke="var(--border)" stroke-width="2"/><path d="M49 18h22" stroke="var(--data)" stroke-width="2.5"/><path d="M60 40V27M55 31l5-5 5 5" fill="none" stroke="var(--muted)" stroke-width="2"/><g fill="none" stroke="var(--border)" stroke-width="2"><circle cx="12" cy="18" r="5"/><circle cx="44" cy="18" r="5"/><circle cx="76" cy="18" r="5"/></g><circle cx="108" cy="18" r="5" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="2 2"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Intervention workbench</h3>
+        <p class="door-line">Which causal relationship would you change, and what would you expect to observe?</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A causal bet to test</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/interventions/">Open Intervention workbench</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:objections">
+      <a class="door-art" href="/lab/objections/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="6" y="16" width="22" height="12" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M28 22h10M38 8v28M38 8h14M38 36h14M38 22h14" fill="none" stroke="var(--border)"/><path d="M52 3h28v10H52zM52 31h28v10H52z" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="52" y="17" width="28" height="10" fill="var(--data)" fill-opacity=".85"/><path d="M80 8c18 0 18 28 0 28" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Alternatives workbench</h3>
+        <p class="door-line">Start with an idea, an objection or a disagreement. Compare different ways to make it work.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>Alternatives that survive objections</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/lab/objections/">Open Alternatives workbench</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="lab:scenes">
+      <a class="door-art" href="/lab/scenes/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><rect x="6" y="4" width="108" height="36" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M11 7h4v3h-4zM23 7h4v3h-4zM35 7h4v3h-4zM47 7h4v3h-4zM59 7h4v3h-4zM71 7h4v3h-4zM83 7h4v3h-4zM95 7h4v3h-4zM107 7h4v3h-4zM11 34h4v3h-4zM23 34h4v3h-4zM35 34h4v3h-4zM47 34h4v3h-4zM59 34h4v3h-4zM71 34h4v3h-4zM83 34h4v3h-4zM95 34h4v3h-4zM107 34h4v3h-4z" fill="var(--muted)"/><rect x="12" y="14" width="28" height="16" fill="none" stroke="var(--border)"/><rect x="46" y="14" width="28" height="16" fill="var(--data)" fill-opacity=".85"/><rect x="80" y="14" width="28" height="16" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Workbenches</p>
+        <h3 class="door-name">Scene-first invention</h3>
+        <p class="door-line">Invent for a person at a particular moment, with partial information.</p>
+        <dl class="door-stats"><div><dt>You leave with</dt><dd><span>A scene worth designing for</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/lab/scenes/">Open Scene-first invention</a>
+      </div>
+    </li>
   </ul>
 </section>
+<section class="door-class" id="energy" data-class="energy" data-label="Energy" data-short="Energy" data-line="Batteries and power markets" aria-labelledby="energy-h">
+  <header class="door-head"><h2 id="energy-h">Energy</h2><p>Batteries and power markets</p></header>
+  <ul class="door-list">
+    <li class="door-card" data-id="energy:cycles">
+      <a class="door-art" href="/energy/cycles/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><polyline points="6,38 18,36 28,30 38,18 46,10 54,8 62,10 70,16 78,24 86,30 96,35 106,37 114,38" fill="none" stroke="var(--border)" stroke-width="2"/><polygon points="78,38 78,24 86,30 96,35 106,37 114,38" fill="var(--data)" fill-opacity=".85"/><line x1="78" y1="4" x2="78" y2="40" stroke="var(--muted)" stroke-width="2"/><line x1="6" y1="40" x2="114" y2="40" stroke="var(--border)"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Energy</p>
+        <h3 class="door-name">Cycle budget</h3>
+        <p class="door-line">Explore a battery’s warranty budget and the value of cycles across three horizons.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>What a cycle is worth</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/energy/cycles/">Open Cycle budget</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="energy:risk">
+      <a class="door-art" href="/energy/risk/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M6 40L114 4" stroke="var(--border)" stroke-width="2"/><path d="M6 20h108" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 3"/><polyline points="6,28 51,28 114,7" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Energy</p>
+        <h3 class="door-name">Risk transfer</h3>
+        <p class="door-line">Compare merchant, floor, toll and insured payoffs across the same uncertain year.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How contracts reshape one year</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Half an hour</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:2" aria-hidden="true"></span><span>Solo or pair</span></dd></div></dl>
+        <a class="door-open" href="/energy/risk/">Open Risk transfer</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="energy:frequency">
+      <a class="door-art" href="/energy/frequency/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><line x1="6" y1="8" x2="114" y2="8" stroke="var(--border)" stroke-width="2"/><line x1="6" y1="40" x2="114" y2="40" stroke="var(--muted)" stroke-dasharray="3 3"/><path d="M6 8h16c6 16 10 26 20 26c14 0 28-10 72-12" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Energy</p>
+        <h3 class="door-name">Frequency &amp; inertia</h3>
+        <p class="door-line">Trip a generator and explore inertia, rate of change of frequency and battery response.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How inertia limits a trip</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/energy/frequency/">Open Frequency &amp; inertia</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="energy:merit-order">
+      <a class="door-art" href="/energy/merit-order/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M6 40h108" stroke="var(--border)" stroke-width="2"/><path d="M6 37h14v3H6zM20 34h12v6H20zM32 30h14v10H32zM46 25h14v15H46zM74 13h22v27H74zM96 6h18v34H96z" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M6 19h54M67 4v14" stroke="var(--muted)" stroke-width="2" stroke-dasharray="3 3"/><rect x="61" y="19" width="12" height="21" fill="var(--data)" fill-opacity=".85"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Energy</p>
+        <h3 class="door-name">Merit order</h3>
+        <p class="door-line">Stack generators by cost, move demand and see which plant sets the clearing price.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>Which plant sets the price</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/energy/merit-order/">Open Merit order</a>
+      </div>
+    </li>
+    <li class="door-card" data-id="energy:intraday">
+      <a class="door-art" href="/energy/intraday/" tabindex="-1" aria-hidden="true"><svg class="sketch" focusable="false" viewBox="0 0 120 44" aria-hidden="true"><path d="M6 40h108" stroke="var(--border)"/><polyline points="6,10 16,10 16,34 84,34 84,4 114,4" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="6,14 16,14 16,27 84,27 84,12 114,12" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg></a>
+      <div class="door-body">
+        <p class="door-kicker">Energy</p>
+        <h3 class="door-name">A day through the stack</h3>
+        <p class="door-line">Play a day through the merit order and see how storage changes its price shape.</p>
+        <dl class="door-stats"><div><dt>You find out</dt><dd><span>How storage reshapes a day</span></dd></div><div><dt>Time</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>10 minutes</span></dd></div><div><dt>Players</dt><dd><span class="door-bar" style="--n:1" aria-hidden="true"></span><span>Solo</span></dd></div></dl>
+        <a class="door-open" href="/energy/intraday/">Open A day through the stack</a>
+      </div>
+    </li>
+  </ul>
+</section>
+</div>
 <p class="door-foot"><a href="/explore/">Search all 46 tools</a></p>
 <script type="application/json" id="door-catalog">{"product:roadmap":["Roadmap","/roadmap/"],"product:timeline":["Timeline","/timeline/"],"product:bets":["Bets","/bets/"],"product:rank":["Rank","/rank/"],"product:duel":["Duel","/duel/"],"product:map":["Map","/map/"],"product:tree":["Tree","/tree/"],"product:why":["Why","/why/"],"product:wardley":["Wardley","/wardley/"],"product:premortem":["Premortem","/premortem/"],"product:fermi":["Fermi","/fermi/"],"product:gauge":["Gauge","/gauge/"],"product:alarm":["Alarm","/alarm/"],"product:flow":["Flow","/flow/"],"product:signal-vs-noise":["Signal vs noise","/signal-vs-noise/"],"product:paths":["Paths","/paths/"],"product:proxy":["Proxy Hunt","/proxy/"],"product:case":["Case file","/case/"],"energy:cycles":["Cycle budget","/energy/cycles/"],"energy:risk":["Risk transfer","/energy/risk/"],"energy:frequency":["Frequency & inertia","/energy/frequency/"],"energy:merit-order":["Merit order","/energy/merit-order/"],"energy:intraday":["A day through the stack","/energy/intraday/"],"lab:authority":["Who can actually decide?","/lab/authority/"],"lab:context":["What survived the status update?","/lab/context/"],"lab:consistency":["How much consistency is enough?","/lab/consistency/"],"lab:alignment":["We’re aligned—until something changes","/lab/alignment/"],"lab:possibilities":["Making worthwhile work possible","/lab/possibilities/"],"lab:clocks":["The organisation’s clocks","/lab/clocks/"],"lab:commitment":["The commitment spiral","/lab/commitment/"],"lab:teams":["How teams fit the work","/lab/teams/"],"lab:flexibility":["Where flexibility gets trapped","/lab/flexibility/"],"lab:delay":["Steering through delay","/lab/delay/"],"lab:exceptions":["How exceptions accumulate","/lab/exceptions/"],"lab:knowledge":["Specialists and shared knowledge","/lab/knowledge/"],"lab:predictions":["When predictions change behaviour","/lab/predictions/"],"lab:accuracy":["Accurate enough for which decision?","/lab/accuracy/"],"lab:reliability":["Almost reliable parts","/lab/reliability/"],"lab:adoption":["Crossing the adoption gap","/lab/adoption/"],"lab:reframe":["Reframing workbench","/lab/reframe/"],"lab:mixer":["Possibility mixer","/lab/mixer/"],"lab:constraints":["Constraint playground","/lab/constraints/"],"lab:analogy":["Analogy workshop","/lab/analogy/"],"lab:interventions":["Intervention workbench","/lab/interventions/"],"lab:objections":["Alternatives workbench","/lab/objections/"],"lab:scenes":["Scene-first invention","/lab/scenes/"]}</script>
+<script src="/assets/front-door-device.js"></script>
 <!-- front-door:end -->
 </main>
 <!-- identity:footer:start -->

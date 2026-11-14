@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { experiments } from '../lab/dist/shared/catalog.js';
 import { sketch } from './front-door-art.mjs';
+import { STATS } from './front-door-stats.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const check = process.argv.includes('--check');
@@ -52,57 +53,52 @@ ${SUITE_CATALOG.filter(t => t.maturity === 'archived').map(row).join('\n')}
   </details>
 <!-- suite-catalog:end -->`;
 
-// The front door (home/index.html, served at `/`): rooms in the spec's order, all from the catalogue.
+// The front door (home/index.html, served at `/`): four classes in the character-select device, all from the catalogue.
+// Every tool is written as a full card (art, kicker, name, description, stats, Open link), grouped by class, so the page
+// reads as four plain lists without JavaScript; assets/front-door-device.js turns the lists into the device.
 const current = SUITE_CATALOG.filter(t => t.maturity !== 'archived');
 const byId = new Map(SUITE_CATALOG.map(t => [t.id, t]));
 const inRoom = room => current.filter(t => t.room === room);
-const featuredIn = room => inRoom(room).filter(t => t.featured !== undefined).sort((a, b) => a.featured - b.featured);
-const modelsFilter = { type: 'model' };
-const modelCount = filterCatalog(modelsFilter).length;   // the size of the list the link opens
-const modelsHref = '/explore/' + filtersToSearch(modelsFilter);
-const link = (tool, cls, inner) => `<a${cls ? ` class="${cls}"` : ''} href="${escape(toolHref(tool))}">${inner}</a>`;
-const jobRow = ([job, { title, order }]) => {
-  const tools = order.map(id => byId.get(id));
-  const flagship = tools.find(t => t.featured !== undefined), rest = tools.filter(t => t !== flagship);
-  return `    <li class="door-job" data-job="${job}">
-      <h3 class="door-job-title">${escape(title)}</h3>
-      ${link(flagship, 'door-flagship', `${sketch(flagship.route)}<span class="door-copy"><span class="door-name">${escape(flagship.title)}</span><span class="door-line">${escape(flagship.description)}</span></span>`)}${rest.length ? `
-      <ul class="door-also" aria-label="Also for: ${escape(title)}">
-${rest.map(t => `        <li>${link(t, '', `<span class="door-name">${escape(t.title)}</span><span class="door-line">${escape(t.description)}</span>`)}</li>`).join('\n')}
-      </ul>` : ''}
+const featuredFirst = tools => [...tools.filter(t => t.featured !== undefined).sort((a, b) => a.featured - b.featured), ...tools.filter(t => t.featured === undefined)];
+const instrumentJob = tool => JOBS[tool.job].title;
+const instrumentCards = Object.values(JOBS).flatMap(({ order }) => featuredFirst(order.map(id => byId.get(id))));
+const TIME = ['', '10 minutes', 'Half an hour', 'An hour or more'], PLAYERS = ['', 'Solo', 'Solo or pair', 'Best with a group'];
+// id, label, short label (phone control), line, the tools in order, the kicker for one of them, and the label of the first stat.
+const CLASSES = [
+  { id: 'instruments', label: ROOMS.instrument, short: 'Instruments', line: 'Bring a decision', tools: instrumentCards, kicker: t => `${ROOMS.instrument} · ${instrumentJob(t)}`, leave: 'You leave with' },
+  { id: 'models', label: ROOMS.model, short: 'Models', line: 'Play a mechanism', tools: featuredFirst(inRoom('model').filter(t => t.source !== 'energy')), kicker: () => ROOMS.model, leave: 'You find out' },
+  { id: 'workbenches', label: ROOMS.workbench, short: 'Benches', line: 'Another way in', tools: inRoom('workbench'), kicker: () => ROOMS.workbench, leave: 'You leave with' },
+  { id: 'energy', label: 'Energy', short: 'Energy', line: 'Batteries and power markets', tools: current.filter(t => t.source === 'energy'), kicker: () => 'Energy', leave: 'You find out' },
+];
+const bars = n => `<span class="door-bar" style="--n:${n}" aria-hidden="true"></span>`;
+const stat = (label, value, n) => `<div><dt>${label}</dt><dd>${n ? bars(n) : ''}<span>${escape(value)}</span></dd></div>`;
+const doorCard = (cls, tool) => {
+  const stats = STATS[tool.id], href = escape(toolHref(tool));
+  return `    <li class="door-card" data-id="${escape(tool.id)}"${tool.job ? ` data-job="${escape(instrumentJob(tool))}"` : ''}>
+      <a class="door-art" href="${href}" tabindex="-1" aria-hidden="true">${sketch(tool.route)}</a>
+      <div class="door-body">
+        <p class="door-kicker">${escape(cls.kicker(tool))}</p>
+        <h3 class="door-name">${escape(tool.title)}</h3>
+        <p class="door-line">${escape(tool.description)}</p>
+        <dl class="door-stats">${stat(cls.leave, stats.leaveWith)}${stat('Time', TIME[stats.time], stats.time)}${stat('Players', PLAYERS[stats.players], stats.players)}</dl>
+        <a class="door-open" href="${href}">Open ${escape(tool.title)}</a>
+      </div>
     </li>`;
 };
-const card = tool => `      <li>${link(tool, 'door-card', `${sketch(tool.route)}<span class="door-copy"><span class="door-name">${escape(tool.title)}</span><span class="door-line">${escape(tool.description)}</span></span>`)}</li>`;
-const bench = tool => `      <li>${link(tool, '', `<span class="door-name">${escape(tool.title)}</span><span class="door-line">${escape(tool.description)}</span>`)}</li>`;
+const doorClass = cls => `<section class="door-class" id="${cls.id}" data-class="${cls.id}" data-label="${escape(cls.label)}" data-short="${escape(cls.short)}" data-line="${escape(cls.line)}" aria-labelledby="${cls.id}-h">
+  <header class="door-head"><h2 id="${cls.id}-h">${escape(cls.label)}</h2><p>${escape(cls.line)}</p></header>
+  <ul class="door-list">
+${cls.tools.map(t => doorCard(cls, t)).join('\n')}
+  </ul>
+</section>`;
 const lite = Object.fromEntries(current.map(t => [t.id, [t.title, toolHref(t)]]));
 const doorMarkup = `<!-- front-door:start -->
-<section class="door-room" id="instruments" aria-labelledby="instruments-h">
-  <header class="door-head"><h2 id="instruments-h">${ROOMS.instrument}</h2><p>Bring a decision. Leave with something you can show.</p></header>
-  <ol class="door-jobs">
-${Object.entries(JOBS).map(jobRow).join('\n')}
-  </ol>
-</section>
-<section class="door-room" id="models" aria-labelledby="models-h">
-  <header class="door-head"><h2 id="models-h">${ROOMS.model}</h2><p>Play a mechanism for ten minutes.</p></header>
-  <ul class="door-cards">
-${featuredIn('model').map(card).join('\n')}
-  </ul>
-  <p class="door-more"><a href="${modelsHref}">All ${modelCount} models</a></p>
-</section>
-<section class="door-room" id="workbenches" aria-labelledby="workbenches-h">
-  <header class="door-head"><h2 id="workbenches-h">${ROOMS.workbench}</h2><p>Find a different way into a problem.</p></header>
-  <ul class="door-bench">
-${inRoom('workbench').map(bench).join('\n')}
-  </ul>
-</section>
-<section class="door-room door-energy" id="energy" aria-labelledby="energy-h">
-  <header class="door-head"><h2 id="energy-h"><a href="/energy/">Energy</a></h2><p>Batteries and power markets, on their own site.</p></header>
-  <ul class="door-energy-list" aria-label="Energy tools">
-${current.filter(t => t.source === 'energy').map(t => `    <li>${link(t, '', escape(t.title))}</li>`).join('\n')}
-  </ul>
-</section>
+<div class="door-rooms" data-door-rooms>
+${CLASSES.map(doorClass).join('\n')}
+</div>
 <p class="door-foot"><a href="/explore/">Search all ${current.length} tools</a></p>
 <script type="application/json" id="door-catalog">${JSON.stringify(lite).replace(/</g, '\\u003c')}</script>
+<script src="/assets/front-door-device.js"></script>
 <!-- front-door:end -->`;
 const doorFile = path.join(root, 'home/index.html');
 const doorOriginal = fs.readFileSync(doorFile, 'utf8');

@@ -9,6 +9,8 @@ import {readFileSync} from 'node:fs';
 import {spawn} from 'node:child_process';
 import {SUITE_CATALOG, ROOMS, JOBS, filterCatalog, parseFilters, toolHref} from '../assets/suite-catalog.js';
 import {SHELL_MANIFEST} from './shell-manifest.mjs';
+import {SKETCHES} from './front-door-art.mjs';
+import {STATS} from './front-door-stats.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8'));
@@ -35,7 +37,7 @@ test('rooms hold the right entries: 15 instruments, the 7 current scaffolds as w
   assert.ok(by('instrument').every(t => t.source === 'product'));
   assert.deepEqual(by('workbench').map(t => t.id).sort(), SUITE_CATALOG.filter(t => t.type === 'scaffold' && t.maturity !== 'archived').map(t => t.id).sort());
   assert.equal(by('workbench').length, 7);
-  assert.equal(by('model').length, 24);
+  assert.equal(by('model').length, 24, '19 models plus the 5 Energy tools');
   assert.ok(['product:alarm', 'product:flow', 'product:signal-vs-noise'].every(id => by('model').some(t => t.id === id)));
   assert.equal(by('model').filter(t => t.source === 'energy').length, 5);
 });
@@ -67,21 +69,37 @@ test('a catalogue title is that page\'s own name in the shell manifest', () => {
 
 /* The links the generated page carries, read back out of the markup. */
 const hrefs = [...page.matchAll(/<a\b[^>]*\shref="([^"]+)"/g)].map(m => m[1]);
-const modelsLink = [...page.matchAll(/<a\b[^>]*\shref="([^"]+)"[^>]*>\s*All (\d+) models/g)][0];
 
-test('every current entry is on the page or one click away, behind the filter an "All models" link opens', () => {
-  assert.ok(modelsLink, 'the page has an "All N models" link');
-  const [, href, n] = modelsLink;
-  const url = new URL(href, 'https://tools.example/');
-  assert.equal(url.pathname, '/explore/');
-  const opened = filterCatalog(parseFilters(url.search));
-  assert.equal(Number(n), opened.length, 'N is the size of the list the link opens, not a typed number');
-  assert.ok(opened.every(t => t.room === 'model'), 'the models filter opens only models');
-  const reachable = new Set(opened.map(t => t.id));
-  for (const tool of current) if (hrefs.includes(toolHref(tool))) reachable.add(tool.id);
-  assert.deepEqual(current.filter(t => !reachable.has(t.id)).map(t => t.id), [], 'unreachable from /');
-  // Everything that is not a model is on the page itself, never behind a filter.
-  for (const tool of current.filter(t => t.room !== 'model')) assert.ok(hrefs.includes(toolHref(tool)), `${tool.id} is linked from /`);
+test('every current entry is staged: one card, one Open link, so one click from /', () => {
+  for (const tool of current) {
+    const open = hrefs.filter(h => h === toolHref(tool)).length;
+    assert.equal(open, 2, `${tool.id}: its art link and its Open link, and nothing else, point at ${toolHref(tool)}`);
+    assert.ok(page.includes(`<a class="door-open" href="${toolHref(tool)}">Open ${tool.title.replace(/&/g, '&amp;')}</a>`), `${tool.id} has an "Open <name>" link`);
+  }
+  assert.equal([...page.matchAll(/<li class="door-card"/g)].length, current.length);
+});
+
+test('the four classes hold 15 / 19 / 7 / 5 cards, in the catalogue\'s order, instruments grouped by job with the flagship first', () => {
+  const sections = Object.fromEntries([...page.matchAll(/<section class="door-class" id="(\w+)"[\s\S]*?<\/section>/g)].map(m => [m[1], [...m[0].matchAll(/<li class="door-card" data-id="([^"]+)"/g)].map(x => x[1])]));
+  assert.deepEqual(Object.keys(sections), ['instruments', 'models', 'workbenches', 'energy']);
+  assert.deepEqual(Object.values(sections).map(l => l.length), [15, 19, 7, 5]);
+  assert.deepEqual(sections.instruments, Object.values(JOBS).flatMap(j => j.order));
+  assert.deepEqual(sections.models.slice(0, 6), ['product:flow', 'product:alarm', 'lab:context', 'lab:commitment', 'lab:teams', 'lab:delay'].sort((a, b) => current.find(t => t.id === a).featured - current.find(t => t.id === b).featured));
+  assert.deepEqual(new Set(sections.energy), new Set(current.filter(t => t.source === 'energy').map(t => t.id)));
+  assert.equal(new Set(Object.values(sections).flat()).size, current.length, 'every active entry exactly once');
+});
+
+test('every active catalogue entry has a sketch and all three stats; the stats stay out of the catalogue', () => {
+  for (const tool of current) {
+    assert.ok(SKETCHES[tool.route], `${tool.id} has a sketch`);
+    const s = STATS[tool.id];
+    assert.ok(s, `${tool.id} has stats`);
+    assert.ok(typeof s.leaveWith === 'string' && s.leaveWith.trim().split(/\s+/).length <= 5, `${tool.id} leaveWith is at most five words`);
+    assert.ok([1, 2, 3].includes(s.time) && [1, 2, 3].includes(s.players), `${tool.id} time and players are 1-3`);
+    assert.ok(!('leaveWith' in tool), `${tool.id}: stats are generation-time only`);
+  }
+  assert.equal(new Set(current.map(t => STATS[t.id].leaveWith)).size, current.length, 'every line is different');
+  assert.deepEqual(Object.keys(STATS).filter(id => !current.some(t => t.id === id)), [], 'no stats for a tool that is not active');
 });
 
 test('the foot counts every current tool and links to the full catalogue', () => {

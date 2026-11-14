@@ -22,7 +22,7 @@ export const SUITE_SECONDS = {
   'backup.mjs': 10,
   'suite.mjs': 30, // Initial consolidation journey hint; revise from measured gate.
   'recent-work.mjs': 60,
-  'front-door.mjs': 25,
+  'front-door.mjs': 30,
   'lab-phone.mjs': 15,
   'templates.mjs': 20,
   // Initial ordering hints for the design-bar regressions; refine from the complete gate.

@@ -137,7 +137,7 @@ async function installAndWait(page){
   await installAndWait(page);
   await ctx.setOffline(true);
   await page.reload({waitUntil: 'domcontentloaded'});
-  check('Pixel 7: the front door opens offline after install', await until(() => page.locator('#instruments .door-job').count().then(n => n === 5), {timeout: 8000}));
+  check('Pixel 7: the front door opens offline after install, as the device', await until(() => page.locator('.door-rooms.door-ready .door-card').count().then(n => n === 46), {timeout: 8000}));
   const p2 = await ctx.newPage();
   await p2.goto(BASE + '/gauge/', {waitUntil: 'domcontentloaded'});
   await shown(p2, '#preview svg'); // gauge autoloads the first example onto the sample reveal

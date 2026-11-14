@@ -93,7 +93,12 @@ const PAGES = {
      rather than nineteen times (the Swiss 6b precedent). --- */
   'explore/index.html': 90_000,
   'backup/index.html': 75_000,
-  'home/index.html': 42_000,
+  /* home 42k -> 115k (2026-11-13, character-select front door): the page now carries all 46 tools as full cards
+     (art, kicker, name, description, three stats, Open link) so it reads as four plain lists without JS. Measured
+     +72.9k over the old 251.1k load: 35 more sketches 24.4k of the 70.8k markup (index 21.2k -> 70.8k), front-door.css
+     8.6k -> 18.1k, and the new front-door-device.js 13.7k. Trimmed first: the stat bars are CSS masks off a --n
+     variable (not three <i> each, -2.4k), roster thumbnails are cloned by the script rather than written (no markup). */
+  'home/index.html': 115_000,
   /* fermi 120k -> 132k (2026-07-15, debt sizing / levered returns): debt.js
      (sculpt + co-fund + leverTrials), engine.js probit/distQuantile/irrOf, the
      financing card in render-cashflow.js, and the debt inputs in app.js. Eager
