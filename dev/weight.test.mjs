@@ -98,7 +98,10 @@ const PAGES = {
      +72.9k over the old 251.1k load: 35 more sketches 24.4k of the 70.8k markup (index 21.2k -> 70.8k), front-door.css
      8.6k -> 18.1k, and the new front-door-device.js 13.7k. Trimmed first: the stat bars are CSS masks off a --n
      variable (not three <i> each, -2.4k), roster thumbnails are cloned by the script rather than written (no markup). */
-  'home/index.html': 115_000,
+  /* home 115k -> 145k (2026-11-14, critters): the 46 drawings are filled 160x100 characters instead of thin-line
+     120x44 diagrams: home/index.html 70.8k -> 101.1k (+30.3k, 10.4k -> 15.7k gzipped); the page load was 324.0k and is
+     now 354.5k against the 326k limit. Hoisting repeated stroke attributes into CSS would save about 4k; not done. */
+  'home/index.html': 145_000,
   /* fermi 120k -> 132k (2026-07-15, debt sizing / levered returns): debt.js
      (sculpt + co-fund + leverTrials), engine.js probit/distQuantile/irrOf, the
      financing card in render-cashflow.js, and the debt inputs in app.js. Eager

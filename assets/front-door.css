@@ -13,11 +13,12 @@
 @media (hover: hover) and (pointer: fine) {
   .door a:hover .door-name { color: var(--mg-accent, var(--accent-ink)); text-decoration: underline; text-underline-offset: .15em; text-decoration-thickness: 1px; }
 }
-.door .sketch {
-  --ink: var(--mg-ink);
-  --muted: var(--mg-muted);
-  --border: var(--sketch-line);
+.door svg.sketch {
+  /* the critters paint with these seven tokens only; --data is the global data blue (tokens.css), left to inherit */
+  --ink: var(--mg-ink); --paper: var(--mg-paper); --surface: var(--mg-surface); --muted: var(--mg-muted);
+  --line: var(--mg-line); --accent: var(--mg-accent);
   display: block; width: 100%; height: auto; overflow: visible;
+  font-family: var(--mg-display, 'Oswald Variable', sans-serif);
 }
 
 /* ---- returning strip: only when this browser has saved or recent work ---- */
@@ -32,11 +33,6 @@
 .door-resume-favourites a, .door-resume-all a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-inline: .5rem; color: var(--mg-ink, var(--ink)); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
 .door-resume-favourites a:first-child { padding-left: 0; }
 .door-resume-all a { margin-left: -.5rem; }
-
-/* Page-local token (not in tokens.css, which every page pays for): the stage's sketch stroke, about 2.2:1 on the card surface. */
-:root { --sketch-line: #A3A39F; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) { --sketch-line: #6C6874; } }
-:root[data-theme='dark'] { --sketch-line: #6C6874; }
 
 /* ---- the lists (no JS) and the device ---- */
 .door-rooms { max-height: 40rem; overflow: hidden; visibility: hidden; animation: door-reveal 0s 2s forwards; }
@@ -86,7 +82,7 @@
 .door-rooms.is-device .door-card { display: none; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 1.75rem; min-height: 19.5rem; padding: 1.5rem; border-width: 2px; touch-action: pan-y; }
 .door-rooms.is-device .door-card.is-current { display: grid; animation: door-in var(--dur-base, 200ms) var(--ease-out, ease-out); }
 .door-rooms.is-device .door-art { pointer-events: none; padding: 1.25rem; }
-.door-rooms.is-device .door-art .sketch { max-width: 22rem; margin-inline: auto; }
+.door-rooms.is-device .door-art .sketch { max-width: 24rem; margin-inline: auto; }
 .door-rooms.is-device .door-card .door-line { font-size: 1.1875rem; line-height: 1.35; }
 @keyframes door-in { from { opacity: 0; transform: scale(.97); } }
 .door-fade { animation: door-in 200ms var(--ease-out, ease-out); }
@@ -96,19 +92,17 @@
 .door-roster-group { display: grid; gap: .3rem; flex: none; }
 .door-roster-job { font: 600 .75rem/1.2 var(--mg-display, sans-serif); letter-spacing: .08em; text-transform: uppercase; color: var(--mg-muted, var(--muted)); white-space: nowrap; }
 .door-roster-row { display: flex; gap: .5rem; }
-.door-thumb { position: relative; flex: none; width: 4.5rem; height: 3rem; display: grid; place-items: center; padding: .3rem; cursor: pointer; background: var(--mg-surface, var(--card)); border: 2px solid var(--mg-line, var(--border)); }
-.door-thumb .sketch { width: 100%; }
+.door-thumb { position: relative; flex: none; width: 5rem; height: 3.5rem; display: grid; place-items: center; padding: .3rem; cursor: pointer; background: var(--mg-surface, var(--card)); border: 2px solid var(--mg-line, var(--border)); }
+.door-thumb .sketch { width: 100%; height: 100%; }
 .door-thumb[aria-pressed='true'] { border-color: var(--mg-accent, var(--accent-ink)); }
 .door-tick { display: none; }
 .door-counter { font: 600 .875rem/1 var(--mg-display, sans-serif); letter-spacing: .1em; color: var(--mg-muted, var(--muted)); }
 .door-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
-/* arrival: the sketch draws itself, the stat bars fill */
-.door-arrive .sketch [pathLength] { animation: door-draw 320ms cubic-bezier(.4, .1, .2, 1) backwards; }
-.door-arrive .sketch > :not([pathLength]) { animation: door-fade 320ms ease-out backwards; }
+/* arrival: the character hops (rises ~4% and settles), the stat bars fill */
+.door-arrive .door-art .sketch { animation: door-hop 260ms var(--ease-out, ease-out); }
 .door-arrive .door-bar::before { animation: door-fill 420ms var(--ease-out, ease-out) 80ms backwards; }
-@keyframes door-draw { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
-@keyframes door-fade { from { opacity: 0; } }
+@keyframes door-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-4%); } 72% { transform: translateY(1%); } 100% { transform: translateY(0); } }
 @keyframes door-fill { from { transform: scaleX(0); } }
 
 @media (max-width: 1000px) {
@@ -150,7 +144,7 @@
   .door-list::-webkit-scrollbar { display: none; }
   .door-rooms.is-device .door-card, .door-rooms.is-device .door-card.is-current { display: flex; flex-direction: column; flex: 0 0 100%; min-height: 0; gap: .4rem; padding: .625rem .75rem; scroll-snap-align: center; scroll-snap-stop: always; animation: none; touch-action: auto; }
   .door-rooms.is-device .door-art { pointer-events: auto; padding: .5rem; flex: 1 1 0; min-height: 3.25rem; display: grid; place-items: center; }
-  .door-rooms.is-device .door-art .sketch { width: 100%; height: 100%; max-height: 11rem; }
+  .door-rooms.is-device .door-art .sketch { width: 100%; height: 100%; max-height: 12rem; }
   .door-body { flex: 0 0 auto; gap: .25rem; width: 100%; }
   .door-name { font-size: 2rem; }
   .door-rooms.is-device .door-card .door-line { font-size: .9375rem; line-height: 1.3; }
@@ -170,11 +164,11 @@
   .door-roster-job { display: none; }
   .door-roster-row { flex: 1; gap: 2px; }
   .door-thumb { flex: 1 1 0; min-width: 0; width: auto; height: 44px; padding: 0; background: none; border: 0; place-items: end center; }
-  .door-thumb .sketch { display: none; }
+  .door-thumb svg.sketch { display: none; }
   .door-tick { display: block; width: 2px; height: 16px; margin-bottom: 14px; background: var(--mg-muted, var(--muted)); }
   .door-thumb[aria-pressed='true'] .door-tick { width: 4px; height: 28px; margin-bottom: 8px; background: var(--mg-accent, var(--accent-ink)); }
   .door-roster.door-thumbs .door-thumb { border: 2px solid transparent; padding: .2rem; place-items: center; }
-  .door-roster.door-thumbs .door-thumb .sketch { display: block; }
+  .door-roster.door-thumbs .door-thumb svg.sketch { display: block; }
   .door-roster.door-thumbs .door-tick { display: none; }
   .door-roster.door-thumbs .door-thumb[aria-pressed='true'] { border-color: var(--mg-accent, var(--accent-ink)); }
   .door-counter { align-self: center; min-width: 3.5rem; text-align: right; }
@@ -191,7 +185,7 @@
 @media (max-height: 500px) and (max-width: 1000px) and (pointer: coarse) {
   .door-rooms.is-device .door-card, .door-rooms.is-device .door-card.is-current { flex-direction: row; flex-basis: calc(100% - 72px); }
   .door-rooms.is-device .door-art { flex: 0 0 38%; align-self: center; }
-  .door-rooms.is-device .door-art .sketch { height: auto; max-height: 5rem; }
+  .door-rooms.is-device .door-art .sketch { height: auto; max-height: 5.5rem; }
   .door-body { flex: 1 1 auto; min-width: 0; }
   :root { --door-bar-h: 48px; }
   .door .catalogue-intro h1 { display: none; }

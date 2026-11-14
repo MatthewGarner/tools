@@ -41,16 +41,8 @@
       panels.append(sec);
       c.roster = roster(c); rosters.append(c.roster.el);
       c.io = new IntersectionObserver(function (entries) { onIntersect(c, entries); }, {root: c.list, threshold: [0.5]});
-      cards.forEach(function (card) { drawable(card); c.io.observe(card); });
+      cards.forEach(function (card) { c.io.observe(card); });
     });
-
-    function drawable(card) {   // dash-drawable strokes: everything stroked and not already dashed
-      var svg = card.querySelector('svg');
-      if (!svg) return;
-      Array.prototype.forEach.call(svg.children, function (shape) {
-        if (shape.getAttribute('stroke') && !shape.getAttribute('stroke-dasharray')) shape.setAttribute('pathLength', '1');
-      });
-    }
 
     function roster(c) {
       var el0 = el('div', 'door-roster'); el0.setAttribute('role', 'group'); el0.setAttribute('aria-label', 'Tools in ' + c.label);
@@ -64,7 +56,7 @@
         }
         var b = el('button', 'door-thumb'); b.type = 'button'; b.setAttribute('aria-pressed', 'false');
         b.setAttribute('aria-label', card.querySelector('.door-name').textContent);
-        var art = card.querySelector('svg'); if (art) { var copy = art.cloneNode(true); copy.removeAttribute('class'); copy.setAttribute('class', 'sketch'); Array.prototype.forEach.call(copy.querySelectorAll('[pathLength]'), function (n) { n.removeAttribute('pathLength'); }); b.append(copy); }
+        var art = card.querySelector('svg'); if (art) { var copy = art.cloneNode(true); copy.removeAttribute('class'); copy.setAttribute('class', 'sketch'); b.append(copy); }
         b.append(el('i', 'door-tick'));
         b.addEventListener('click', function () { if (scrub.moved) return; choose(c.id, i, {}); });
         group.row.append(b); group.style.flexGrow = group.row.children.length; buttons.push(b);
