@@ -103,10 +103,25 @@ try {
     ok('laptop: the critter labels use the local Oswald face', /Oswald/.test(await visible(page).locator('svg.sketch').first().evaluate(el => getComputedStyle(el).fontFamily)));
     ok('laptop: the critter is 160x100, drawn without stroke-dash machinery', await visible(page).locator('svg.sketch').first().getAttribute('viewBox') === '0 0 160 100' && await page.locator('svg.sketch [pathLength]').count() === 0);
     const mc = await browser.newContext({viewport: LAPTOP, reducedMotion: 'no-preference', serviceWorkers: 'block'}), mp = await mc.newPage();
-    await mp.goto(T + '/'); await ready(mp); await mp.keyboard.press('ArrowRight');
-    const hop = await mp.evaluate(() => { const a = document.querySelector('.door-card.is-current .door-art .sketch'); return a && getComputedStyle(a).animationName; });
-    ok(`laptop: the arriving card's drawing hops (${hop})`, hop === 'door-hop', hop);
+    await mp.goto(T + '/'); await ready(mp);
+    const arrival = () => mp.evaluate(() => { const c = document.querySelector('.door-class:not([hidden]) .door-card.is-current'), a = c.querySelector('.door-art .sketch'); return [getComputedStyle(a).animationName, c.style.getPropertyValue('--door-dir')]; });
+    await mp.keyboard.press('ArrowRight'); const fwd = await arrival();
+    await mp.keyboard.press('ArrowLeft'); const back = await arrival();
+    ok(`laptop: the arriving drawing slides in from the side travelled towards (${JSON.stringify([fwd, back])})`, fwd[0] === 'door-slide' && fwd[1] === '1' && back[0] === 'door-slide' && back[1] === '-1', JSON.stringify([fwd, back]));
     await mc.close();
+    /* phones: the drawing's motion is tied to the carousel scroll, so nothing moves after a swipe lands (the old hop
+       played after landing and read as a jump). The art clips with overflow:clip, never hidden, which would make it
+       the drawing's scroller and freeze the timeline. */
+    const pc = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true, reducedMotion: 'no-preference', serviceWorkers: 'block'}), pp = await pc.newPage();
+    await pp.goto(T + '/'); await ready(pp); await pp.waitForTimeout(200);
+    const art = () => pp.evaluate(() => [...document.querySelectorAll('.door-class:not([hidden]) .door-card')].slice(0, 2).map(c => { const s = c.querySelector('.door-art .sketch'), m = new DOMMatrix(getComputedStyle(s).transform); return {anim: getComputedStyle(s).animationName, scale: +m.a.toFixed(2), arrive: c.classList.contains('door-arrive'), clip: getComputedStyle(c.querySelector('.door-art')).overflow}; }));
+    const rest = await art();
+    ok(`phone: at rest the current drawing is still and the peeking one waits smaller, both on the scroll timeline (${JSON.stringify(rest)})`, rest[0].anim === 'door-parallax' && rest[0].scale === 1 && rest[1].scale < 0.9 && rest.every(r => r.clip === 'clip'), JSON.stringify(rest));
+    await pp.locator('.door-class:not([hidden]) .door-list').evaluate(l => l.scrollBy({left: l.clientWidth * 0.8, behavior: 'smooth'}));
+    await until(async () => (await where(pp)).count === '2 / 15');
+    await pp.waitForTimeout(600); const landed = await art(); await pp.waitForTimeout(400); const later = await art();
+    ok(`phone: after the swipe lands the new drawing is at full size and does not move again (${JSON.stringify([landed[1], later[1]])})`, landed[1].scale === 1 && later[1].scale === 1 && !landed[1].arrive && !later[1].arrive, JSON.stringify([landed, later]));
+    await pc.close();
     await c.close();
   }
 

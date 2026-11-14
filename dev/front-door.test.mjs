@@ -162,10 +162,12 @@ test('Scene-first invention: the spotlight reads as light, not as a paper-colour
   assert.ok(cone && !cone.includes('var(--paper)'), cone);
 });
 
-test('the front-door styles scope the critter tokens to the drawings and the arrival is a hop, not a draw-on', () => {
+test('the front-door styles scope the critter tokens to the drawings; arrival slides on wide screens and follows the scroll on phones', () => {
   const css = readFileSync(ROOT + 'assets/front-door.css', 'utf8'), js = readFileSync(ROOT + 'assets/front-door-device.js', 'utf8');
   assert.ok(/\.door svg\.sketch\s*\{[^}]*--accent:\s*var\(--mg-accent\)/.test(css), 'critter tokens map to the identity palette');
   assert.ok(!css.includes('--sketch-line') && !css.includes('door-draw') && !css.includes('@keyframes door-fade'), 'old sketch machinery is gone');
-  assert.ok(css.includes('@keyframes door-hop'), 'the hop exists');
+  assert.ok(!css.includes('door-hop'), 'the post-landing hop is gone (it read as a jump on phones)');
+  assert.ok(css.includes('@keyframes door-slide') && /animation-timeline:\s*view\(inline\)/.test(css) && css.includes('@keyframes door-parallax'), 'wide screens slide, phones use a scroll-driven parallax');
+  assert.ok(/\.door-art\s*\{\s*overflow:\s*clip;/.test(css), 'the art clips without becoming a scroller');
   assert.ok(!js.includes('pathLength'), 'no stroke-dash injection');
 });
