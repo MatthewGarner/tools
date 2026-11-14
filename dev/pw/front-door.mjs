@@ -24,6 +24,13 @@ async function context(opts = {}){
   live.add(c);
   return c;
 }
+async function critterPaint(scope) {   // the first accent-filled and ink-stroked shapes of a card's critter vs the identity tokens, as the browser resolves them
+  return scope.locator('svg.sketch').first().evaluate(svg => {
+    const probe = v => { const d = document.createElement('i'); d.style.color = `var(${v})`; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; };
+    const a = svg.querySelector('[fill="var(--accent)"]'), i = svg.querySelector('[stroke="var(--ink)"]');
+    return {accent: a && getComputedStyle(a).fill, ink: i && getComputedStyle(i).stroke, wantAccent: probe('--mg-accent'), wantInk: probe('--mg-ink')};
+  });
+}
 const settle = page => page.evaluate(() => document.fonts.ready);
 /* the first read of storage has finished, so a hidden strip means nothing is stored (not "not run yet") */
 const stripReady = page => page.locator('[data-door-resume][data-ready]').waitFor({state: 'attached'});
@@ -91,8 +98,15 @@ try {
     ok('laptop: no filter bar on the front door', await page.locator('input[type=search], [data-explore-form], select').count() === 0);
     ok('laptop: the masthead item is Tools Lab and current', await page.locator('.mg-nav [data-suite-link="explore"][aria-current="page"]').textContent() === 'Tools Lab' && await page.locator('.mg-nav [aria-current]').count() === 1);
     ok('laptop: Instruments for judgement is retired from the page', !(await page.locator('body').innerText()).toLowerCase().includes('instruments for judgement'));
-    const painted = await visible(page).locator('svg.sketch [stroke]').first().evaluate(el => getComputedStyle(el).stroke);
-    ok(`laptop: the stage sketch strokes in the stronger --sketch-line (${painted})`, painted === 'rgb(163, 163, 159)', painted);
+    const paint = await critterPaint(visible(page));
+    ok(`laptop: the stage critter's protagonist fills in the identity accent and its ground line in the identity ink (${JSON.stringify(paint)})`, paint.accent === paint.wantAccent && paint.ink === paint.wantInk, JSON.stringify(paint));
+    ok('laptop: the critter labels use the local Oswald face', /Oswald/.test(await visible(page).locator('svg.sketch').first().evaluate(el => getComputedStyle(el).fontFamily)));
+    ok('laptop: the critter is 160x100, drawn without stroke-dash machinery', await visible(page).locator('svg.sketch').first().getAttribute('viewBox') === '0 0 160 100' && await page.locator('svg.sketch [pathLength]').count() === 0);
+    const mc = await browser.newContext({viewport: LAPTOP, reducedMotion: 'no-preference', serviceWorkers: 'block'}), mp = await mc.newPage();
+    await mp.goto(T + '/'); await ready(mp); await mp.keyboard.press('ArrowRight');
+    const hop = await mp.evaluate(() => { const a = document.querySelector('.door-card.is-current .door-art .sketch'); return a && getComputedStyle(a).animationName; });
+    ok(`laptop: the arriving card's drawing hops (${hop})`, hop === 'door-hop', hop);
+    await mc.close();
     await c.close();
   }
 
@@ -360,9 +374,10 @@ try {
       const c = await context({viewport: LAPTOP, colorScheme: scheme}), page = await c.newPage(), errors = trackErrors(page);
       await page.goto(T + '/', {waitUntil: 'networkidle'}); await settle(page); await stripReady(page);
       colours[scheme] = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-      const painted = await page.locator('.is-current svg.sketch').first().evaluate(svg => { const s = getComputedStyle(svg.querySelector('[stroke]')); return s.stroke; });
+      const paint = await critterPaint(page.locator('.is-current'));
       ok(`${scheme}: the page rendered and logged no errors`, await page.locator('.door-card').count() === 46 && errors.length === 0, errors.join(' | '));
-      ok(`${scheme}: sketch strokes resolve to the scoped --sketch-line (${painted})`, painted === (scheme === 'light' ? 'rgb(163, 163, 159)' : 'rgb(108, 104, 116)'), painted);
+      ok(`${scheme}: the critter's accent fill and ink line resolve to the identity tokens (${JSON.stringify(paint)})`, !!paint.accent && paint.accent === paint.wantAccent && paint.ink === paint.wantInk && paint.accent !== paint.ink, JSON.stringify(paint));
+      if (scheme === 'dark') ok('dark: the Scene-first spotlight is not painted with the paper colour', await page.evaluate(() => { const c = document.querySelector('.door-card:has(a[href*="/scenes"]) svg.sketch path[d^="M136 12"]'); return !!c && getComputedStyle(c).fill !== getComputedStyle(document.body).backgroundColor; }));
       await c.close();
     }
     ok(`light and dark paint different backgrounds (${colours.light} vs ${colours.dark})`, colours.light !== colours.dark);

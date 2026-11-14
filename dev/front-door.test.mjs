@@ -144,3 +144,28 @@ test('the local server mirrors it: `/` is the front door, `/product/` and `/prod
     assert.match(await (await fetch(base + '/explore/')).text(), /data-explore-form/);
   });
 });
+
+test('the drawings are 160x100 critters painted with the seven page tokens only, in the page and in the art module', () => {
+  const allowed = new Set(['ink', 'paper', 'surface', 'muted', 'line', 'accent', 'data']);
+  for (const tool of current) {
+    const art = SKETCHES[tool.route];
+    for (const [, name] of art.matchAll(/var\(--([\w-]+)\)/g)) assert.ok(allowed.has(name), `${tool.route} paints with --${name}`);
+    assert.ok(art.includes('var(--accent)'), `${tool.route} has an accent-coloured protagonist`);
+    assert.ok(!/#[0-9a-f]{3,8}\b|rgb\(|font-family/i.test(art), `${tool.route} carries no literal colour or font`);
+  }
+  assert.equal([...page.matchAll(/<svg class="sketch"[^>]*viewBox="0 0 160 100"/g)].length, current.length, 'every card carries a 160x100 drawing');
+  assert.ok(!/viewBox="0 0 120 44"/.test(page), 'no thin-line diagram is left');
+});
+
+test('Scene-first invention: the spotlight reads as light, not as a paper-coloured shadow', () => {
+  const cone = SKETCHES.scenes.match(/<path d="M136 12L80 89h42z"[^>]*>/)?.[0] ?? '';
+  assert.ok(cone && !cone.includes('var(--paper)'), cone);
+});
+
+test('the front-door styles scope the critter tokens to the drawings and the arrival is a hop, not a draw-on', () => {
+  const css = readFileSync(ROOT + 'assets/front-door.css', 'utf8'), js = readFileSync(ROOT + 'assets/front-door-device.js', 'utf8');
+  assert.ok(/\.door svg\.sketch\s*\{[^}]*--accent:\s*var\(--mg-accent\)/.test(css), 'critter tokens map to the identity palette');
+  assert.ok(!css.includes('--sketch-line') && !css.includes('door-draw') && !css.includes('@keyframes door-fade'), 'old sketch machinery is gone');
+  assert.ok(css.includes('@keyframes door-hop'), 'the hop exists');
+  assert.ok(!js.includes('pathLength'), 'no stroke-dash injection');
+});
