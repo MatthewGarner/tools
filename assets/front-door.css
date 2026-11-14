@@ -99,10 +99,13 @@
 .door-counter { font: 600 .875rem/1 var(--mg-display, sans-serif); letter-spacing: .1em; color: var(--mg-muted, var(--muted)); }
 .door-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
-/* arrival: the character hops (rises ~4% and settles), the stat bars fill */
-.door-arrive .door-art .sketch { animation: door-hop 260ms var(--ease-out, ease-out); }
+/* arrival on wide screens: the character slides in from the side you travelled towards (--door-dir is
+   +1 forwards, -1 back) while the card fades in; the stat bars fill. Phones use the scroll-linked
+   parallax below instead, so nothing moves after a swipe lands. */
+.door-art { overflow: clip; }   /* clip, not hidden: hidden would make the panel a scroller and capture the drawing's view timeline */
+.door-arrive .door-art .sketch { animation: door-slide 340ms var(--ease-out, cubic-bezier(.2, .7, .2, 1)); }
 .door-arrive .door-bar::before { animation: door-fill 420ms var(--ease-out, ease-out) 80ms backwards; }
-@keyframes door-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-4%); } 72% { transform: translateY(1%); } 100% { transform: translateY(0); } }
+@keyframes door-slide { from { transform: translateX(calc(var(--door-dir, 1) * 9%)) scale(.94); opacity: 0; } 60% { opacity: 1; } }
 @keyframes door-fill { from { transform: scaleX(0); } }
 
 @media (max-width: 1000px) {
@@ -194,6 +197,15 @@
   .door-classes { left: 50%; }
   .door-nav { border-top: 1px solid var(--mg-line, var(--border)); }
 }
+/* phones: each drawing moves a little slower than its card and grows to full size at the centre,
+   driven by the carousel's own scroll (no timer, so it follows the finger and rests exactly when the
+   card snaps). Browsers without scroll-driven animations show the drawing still. */
+@supports (animation-timeline: view()) {
+  @media (max-width: 719.98px) and (prefers-reduced-motion: no-preference) {
+    .door-rooms.is-device .door-card .door-art .sketch { animation: door-parallax linear both; animation-timeline: view(inline); }
+  }
+}
+@keyframes door-parallax { from { transform: translateX(-24%) scale(.82); } 46%, 54% { transform: none; } to { transform: translateX(24%) scale(.82); } }
 @media (prefers-reduced-motion: reduce) {
   .door-rooms.is-device .door-card.is-current, .door-fade, .door-arrive * { animation: none !important; }
 }

@@ -78,6 +78,7 @@
         if (!first) { c.sec.classList.remove('door-fade'); void c.sec.offsetWidth; c.sec.classList.add('door-fade'); }
         cur = c;
       }
+      var dir = opts.dir || ((!changed && i < idx) ? -1 : 1);
       idx = i;
       c.cards.forEach(function (x, n) { x.classList.toggle('is-current', n === i); });
       c.roster.buttons.forEach(function (b, n) { b.setAttribute('aria-pressed', String(n === i)); });
@@ -86,8 +87,7 @@
       if (!opts.init) live.textContent = card.querySelector('.door-name').textContent + '. ' + card.querySelector('.door-line').textContent + ' ' + (i + 1) + ' of ' + c.cards.length + '.';
       keepInView(c, i);
       if (compact() && opts.from !== 'scroll') toCard(c, i, opts.smooth && !reduced.matches);
-      if (!first && !opts.from) arrive(card);
-      else if (!first && opts.from === 'scroll') arrive(card);
+      if (!first) arrive(card, dir);
       if (!opts.init) save(c.id, card.dataset.id);
       first = false;
     }
@@ -103,17 +103,18 @@
       if (br.left < rr.left + 8) r.scrollLeft += br.left - rr.left - 8;
       else if (br.right > rr.right - 8) r.scrollLeft += br.right - rr.right + 8;
     }
-    function arrive(card) {
+    function arrive(card, dir) {   // wide screens slide the drawing in from the travel side; phones fill the bars only (the drawing follows the scroll)
       if (reduced.matches) return;
       clearTimeout(drawTimer);
-      Array.prototype.forEach.call(rooms.querySelectorAll('.door-arrive'), function (n) { n.classList.remove('door-arrive'); });
-      void card.offsetWidth; card.classList.add('door-arrive');
-      drawTimer = setTimeout(function () { card.classList.remove('door-arrive'); }, 760);
+      Array.prototype.forEach.call(rooms.querySelectorAll('.door-arrive, .door-arrive-bars'), function (n) { n.classList.remove('door-arrive', 'door-arrive-bars'); });
+      card.style.setProperty('--door-dir', String(dir));
+      void card.offsetWidth; card.classList.add(compact() ? 'door-arrive-bars' : 'door-arrive');
+      drawTimer = setTimeout(function () { card.classList.remove('door-arrive', 'door-arrive-bars'); }, 760);
     }
     function step(d) {
       var n = cur.cards.length, i = idx + d;
-      if (compact()) { if (i < 0 || i >= n) return; choose(cur.id, i, {smooth: true, from: 'step'}); return; }
-      choose(cur.id, (i + n) % n, {});
+      if (compact()) { if (i < 0 || i >= n) return; choose(cur.id, i, {smooth: true, from: 'step', dir: d}); return; }
+      choose(cur.id, (i + n) % n, {dir: d});
     }
     function onIntersect(c, entries) {
       if (c !== cur || !compact() || Date.now() < lockUntil || scrub.active) return;
